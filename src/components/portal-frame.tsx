@@ -28,7 +28,7 @@ export function PortalFrame({
   return (
     <>
       <div className="demo-bar">
-        Pilot. Mariclare&apos;s deals are seed data from her inbox as of Oct 17, 2026. TBD means the emails don&apos;t say yet.
+        Pilot. MariClare&apos;s deals are seed data from her inbox as of Oct 17, 2026. TBD means the emails don&apos;t say yet.
       </div>
       <header className="top">
         <Link href={viewer.role === "admin" ? `/${query(viewedId === "all" ? "mariclare" : viewedId)}` : "/"} className="brand">

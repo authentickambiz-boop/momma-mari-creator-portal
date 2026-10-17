@@ -28,7 +28,7 @@ const mariclare: Viewer = {
   email: "mmaclamroc@gmail.com",
   role: "creator",
   creatorId: "mariclare",
-  name: "Mariclare",
+  name: "MariClare",
 };
 const abby: Viewer = {
   email: "abby.theriot@example.com",
@@ -60,6 +60,7 @@ test("allowlist accepts the admin and seeded creators, and rejects everyone else
   assert.equal(creator.ok, true);
   if (creator.ok) {
     assert.equal(creator.viewer.creatorId, "mariclare");
+    assert.equal(creator.viewer.name, "MariClare");
     assert.equal(creator.viewer.role, "creator");
   }
 
@@ -70,6 +71,7 @@ test("allowlist accepts the admin and seeded creators, and rejects everyone else
 test("a creator only receives her own visible deals", async () => {
   const hers = await listDealsForViewer(db, mariclare, "mariclare");
   assert.deepEqual(hers.map((deal) => deal.id), ["kosbling", "vev", "waterh", "persona", "sanvive", "halara"]);
+  assert.equal(hers[0]?.creatorName, "MariClare");
   assert.equal(hers.some((deal) => deal.brand === "Grail"), false);
   assert.equal(hers.filter((deal) => deal.needsCreator).length, 3);
 

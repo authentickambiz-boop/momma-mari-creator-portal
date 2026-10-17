@@ -22,7 +22,7 @@ Checked against Webflow Cloud docs on October 17, 2026 ([bring your own app](htt
 - Google sign-in (authorization code) with an allowlist. Admin emails come from `ADMIN_EMAILS`. Creator emails come from the `creators` table. A stranger is rejected. The same person is never both; admin is checked first.
 - Sessions are an HMAC-signed httpOnly cookie, stored in the database and, on Webflow Cloud, also in KV.
 - Deal list and deal detail, earnings, analytics, and connect-accounts, laid out to match the approved October 17, 2026 mockup.
-- Seed data for Mariclare (`mmaclamroc@gmail.com`): KOSBLING, VEV Gummies, WaterH, Persona, Sanvive, Halara, plus a Grail deal that stays hidden from her. Abby Theriot and AuthenticKam are empty placeholder creators.
+- Seed data for MariClare (`mmaclamroc@gmail.com`): KOSBLING, VEV Gummies, WaterH, Persona, Sanvive, Halara, plus a Grail deal that stays hidden from her. Abby Theriot and AuthenticKam are empty placeholder creators.
 - Draft upload in 8 MB chunks. With Drive credentials, the portal opens a Google resumable session and forwards each chunk. The session URL stays on the server. The draft row stores the deal id, Drive file id, and the deal's Gmail thread id.
 - Bearer JSON API for the agency bot.
 
@@ -280,7 +280,7 @@ If both a refresh token and a service account are set, the refresh token is used
 
 ### Folders
 
-Mariclare's folder id from the plan is `1Gmcgw_vSgxR07PTdHF--SN2k-2ZodEfE`, already stored on her creator row. Other creators use `drive_folder_id` on their row, or `GOOGLE_DRIVE_ROOT_FOLDER_ID` when that column is empty. The portal creates a subfolder named for the brand the first time a draft is uploaded, and reuses it after that.
+MariClare's folder id from the plan is `1Gmcgw_vSgxR07PTdHF--SN2k-2ZodEfE`, already stored on her creator row. Other creators use `drive_folder_id` on their row, or `GOOGLE_DRIVE_ROOT_FOLDER_ID` when that column is empty. The portal creates a subfolder named for the brand the first time a draft is uploaded, and reuses it after that.
 
 Creators do not get access to the Drive folder.
 
@@ -312,9 +312,9 @@ Do this in Webflow. Nothing in this repo publishes the site.
    Do not set `AUTH_DEV_LOGIN` on Webflow Cloud. Practice buttons must not exist on the public site.
 
 7. Storage: `wrangler.json` declares D1 binding `DB` (`database_name` `portal`, `migrations_dir` `drizzle`) and KV binding `SESSIONS`. Webflow provisions them and replaces the placeholder ids. If a binding is missing a required field, Webflow skips it silently and the app builds with no database, so leave those fields in place.
-8. Deploy. Webflow runs `opennextjs-cloudflare build` and applies every `drizzle/*.sql` file that is not yet in `d1_migrations`. That includes the Mariclare seed. The seed is labeled `is_seed` / `is_example` in the database and on the page.
+8. Deploy. Webflow runs `opennextjs-cloudflare build` and applies every `drizzle/*.sql` file that is not yet in `d1_migrations`. That includes the MariClare seed. The seed is labeled `is_seed` / `is_example` in the database and on the page.
 9. Publish the Webflow site. The first publish is what makes `mommamari.com/portal` stop 404ing. A Cloud deploy alone does not update the site's routing.
-10. Sign in as Kamron, confirm Mariclare's six deals, and confirm Grail is visible only to the admin. Then sign in as Mariclare and confirm Grail is absent.
+10. Sign in as Kamron, confirm MariClare's six deals, and confirm Grail is visible only to the admin. Then sign in as MariClare and confirm Grail is absent.
 
 Local `next dev` serves the app at `/`, not at `/portal`. That is expected. The mount path exists only on Webflow Cloud.
 
@@ -332,11 +332,11 @@ Local `next dev` serves the app at `/`, not at `/portal`. That is expected. The 
 
 | Item | Current value |
 | --- | --- |
-| Mariclare sign-in | `mmaclamroc@gmail.com` |
+| MariClare sign-in | `mmaclamroc@gmail.com` |
 | Abby sign-in | `abby.theriot@example.com` |
 | AuthenticKam sign-in | `authentickam@example.com` |
 | Creator split | null, shown as Pending contract |
 | Gmail threads | `seed-thread-kosbling`, `seed-thread-vev`, and the same pattern for the other seed deals |
-| Grail | Hidden from Mariclare. Note says payment on Grail-sourced deals routes to Grail first. |
+| Grail | Hidden from MariClare. Note says payment on Grail-sourced deals routes to Grail first. |
 | Analytics | EXAMPLE. Followers, the 14-day bars, and the three posts are invented sample numbers. |
-| Drive folder | Mariclare's existing folder id is on her row. No file is uploaded by the seed. |
+| Drive folder | MariClare's existing folder id is on her row. No file is uploaded by the seed. |
