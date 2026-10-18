@@ -11,15 +11,19 @@ import {
   deals,
   drafts,
   inboxItems,
+  livePosts,
   payments,
   revisions,
+  shipments,
 } from "@/db/schema";
 import { adminDisplayName, adminEmails, canSeeDeal } from "./authz";
 import { findManagerByEmail } from "./managers";
 import { CONTRACT_CHECKS, signingFormatLabel } from "./contract-shared";
 import { firstEmail, interestContextForDeal } from "./creator-interest";
 import { reviewsForDeal } from "./video-review";
+import { shipmentStatusLabel, trackingUrl } from "./fulfillment";
 import { normalizeEmail, nowIso, parseJson } from "./format";
+import { getDealStage } from "./stages";
 import type {
   Chip,
   CreatorProfile,
@@ -105,8 +109,14 @@ function toPayment(row: typeof payments.$inferSelect): PaymentView {
     creatorPayoutCents: row.creatorPayoutCents,
     payoutApprovedOn: row.payoutApprovedOn,
     paidOutDate: row.paidOutDate,
+    paymentStatus: row.paymentStatus,
     isSeed: row.isSeed,
   };
+}
+
+function paymentForViewer(row: typeof payments.$inferSelect, viewer: Viewer): PaymentView | null {
+  if (viewer.role === "manager") return null;
+  return toPayment(row);
 }
 
 function toDraft(row: typeof drafts.$inferSelect): DraftView {
@@ -297,7 +307,7 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
   if (!row || !canSeeDeal(viewer, row)) return null;
   const creator = await findCreatorById(db, row.creatorId);
   const staff = viewer.role === "admin" || viewer.role === "manager";
-  const [revisionRows, draftRows, paymentRows, stageRows, reviewByDraft] = await Promise.all([
+  const [revisionRows, draftRows, paymentRows, stageRows, reviewByDraft, shipmentRows, postRows] = await Promise.all([
     db.select().from(revisions).where(eq(revisions.dealId, dealId)).orderBy(asc(revisions.sortOrder)),
     db.select().from(drafts).where(eq(drafts.dealId, dealId)).orderBy(asc(drafts.version)),
     db.select().from(payments).where(eq(payments.dealId, dealId)),
@@ -305,6 +315,8 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
       ? db.select().from(dealStageEvents).where(eq(dealStageEvents.dealId, dealId)).orderBy(asc(dealStageEvents.createdAt))
       : Promise.resolve([]),
     reviewsForDeal(db, dealId),
+    db.select().from(shipments).where(eq(shipments.dealId, dealId)),
+    db.select().from(livePosts).where(eq(livePosts.dealId, dealId)).orderBy(asc(livePosts.createdAt)),
   ]);
   const summary = hideMoney(toSummary(row, creator?.name ?? "Creator"), viewer);
   const interestState = await interestContextForDeal(db, dealId);
@@ -350,7 +362,7 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
           : null,
       };
     }),
-    payment: managerView ? null : (paymentRows[0] ? toPayment(paymentRows[0]) : null),
+    payment: paymentRows[0] ? paymentForViewer(paymentRows[0], viewer) : null,
     interest: interestState.interest,
     offerReleased: interestState.offerReleased,
     brandEmail,
@@ -366,6 +378,28 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
       Boolean(brandEmail) &&
       !interestState.interest,
     canReleaseOffer: staff && offerOpen && !(interestState.offerReleased && brandEmail),
+    shipment: shipmentRows[0]
+      ? {
+          id: shipmentRows[0].id,
+          carrier: shipmentRows[0].carrier,
+          trackingNumber: shipmentRows[0].trackingNumber,
+          trackingUrl: trackingUrl(shipmentRows[0].carrier, shipmentRows[0].trackingNumber),
+          status: shipmentRows[0].status,
+          statusLabel: shipmentStatusLabel(shipmentRows[0].status),
+          receivedAt: shipmentRows[0].receivedAt,
+        }
+      : null,
+    livePosts: postRows.map((post) => ({
+      id: post.id,
+      platform: post.platform,
+      url: post.url,
+      meetsBrief: post.meetsBrief,
+      confirmedAt: post.confirmedAt,
+      confirmedBy: viewer.role === "creator" ? null : post.confirmedBy,
+    })),
+    canConfirmProduct: (viewer.role === "creator" ? viewer.creatorId === row.creatorId : staff) && row.workflowStage === "waiting_for_product",
+    canSubmitPosts: (viewer.role === "creator" ? viewer.creatorId === row.creatorId : staff) && (getDealStage(row.workflowStage)?.order ?? 0) >= 20,
+    canMarkPayment: viewer.role === "admin" && (getDealStage(row.workflowStage)?.order ?? 0) >= 21,
   };
 }
 

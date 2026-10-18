@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { adminNotifications, approvalEmails, contracts, contractSignatures, creators, deals, drafts, managers } from "@/db/schema";
+import { adminNotifications, approvalEmails, contracts, contractSignatures, creators, deals, drafts, livePosts, managers } from "@/db/schema";
 import { adminEmails } from "./authz";
 import { normalizeEmail, nowIso } from "./format";
 import type { ManagerPermissions, Viewer } from "./types";
@@ -283,13 +283,14 @@ export async function needsYou(db: PortalDb, viewer: Viewer): Promise<NeedsYouIt
   const ids = new Set(viewer.assignedCreatorIds ?? []);
   if (viewer.role !== "manager" || ids.size === 0) return [];
   const permissions = viewer.permissions;
-  const [dealRows, creatorRows, draftRows, emailRows, contractRows, signatureRows] = await Promise.all([
+  const [dealRows, creatorRows, draftRows, emailRows, contractRows, signatureRows, postRows] = await Promise.all([
     db.select().from(deals),
     db.select({ id: creators.id, name: creators.name }).from(creators),
     db.select().from(drafts),
     db.select().from(approvalEmails),
     db.select().from(contracts),
     db.select().from(contractSignatures),
+    db.select().from(livePosts),
   ]);
   const names = new Map(creatorRows.map((creator) => [creator.id, creator.name]));
   const dealById = new Map(dealRows.map((deal) => [deal.id, deal]));
@@ -342,6 +343,19 @@ export async function needsYou(db: PortalDb, viewer: Viewer): Promise<NeedsYouIt
         href: hrefFor(deal.id, deal.creatorId),
       });
     }
+  }
+  const seenPosts = new Set<string>();
+  for (const post of postRows) {
+    if (post.meetsBrief !== null || seenPosts.has(post.dealId)) continue;
+    const deal = dealById.get(post.dealId);
+    if (!deal || !ids.has(deal.creatorId)) continue;
+    seenPosts.add(post.dealId);
+    items.push({
+      id: `post-${deal.id}`,
+      title: deal.brand,
+      detail: `${names.get(deal.creatorId) ?? "Creator"} · Confirm the live post matches the brief`,
+      href: hrefFor(deal.id, deal.creatorId),
+    });
   }
   if (permissions?.countersign) {
     for (const signature of signatureRows) {

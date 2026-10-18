@@ -13,6 +13,7 @@ import { countersignContract, setSignerIsMinor, signContract, uploadBrandSignedC
 import { CONTRACT_CHECKS } from "@/lib/contract-shared";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
+import { confirmLivePost, confirmProductReceived, markPayment, saveShipment, submitLivePosts } from "@/lib/fulfillment";
 import { isEmailSetup } from "@/lib/email-setup";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
 import { resolveLogin } from "@/lib/queries";
@@ -472,6 +473,103 @@ export async function assignManagersAction(formData: FormData) {
   });
   if (!result.ok) redirect("/team?teamError=1");
   redirect("/team");
+}
+
+function dealBack(formData: FormData) {
+  const dealId = String(formData.get("dealId") ?? "");
+  const creator = String(formData.get("creator") ?? "");
+  const query = creator ? `?creator=${encodeURIComponent(creator)}` : "";
+  return { back: `/deals/${dealId}${query}`, query };
+}
+
+export async function saveShipmentAction(formData: FormData) {
+  const { back, query } = dealBack(formData);
+  const viewer = await currentViewer();
+  if (!viewer || !canChangeDealStage(viewer)) redirect("/login");
+  const db = await getDb();
+  const result = await saveShipment(db, {
+    dealId: String(formData.get("dealId") ?? ""),
+    carrier: String(formData.get("carrier") ?? ""),
+    trackingNumber: String(formData.get("trackingNumber") ?? ""),
+    actorEmail: viewer.email,
+    actorRole: viewer.role,
+  });
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}productError=1`);
+  redirect(back);
+}
+
+export async function confirmProductAction(formData: FormData) {
+  const { back, query } = dealBack(formData);
+  const viewer = await currentViewer();
+  if (!viewer) redirect("/login");
+  const db = await getDb();
+  const result = await confirmProductReceived(db, {
+    dealId: String(formData.get("dealId") ?? ""),
+    actorEmail: viewer.email,
+    actorRole: viewer.role,
+    creatorId: viewer.creatorId,
+  });
+  if (!result.ok) {
+    const code = result.status === 409 ? "past" : "1";
+    redirect(`${back}${query ? "&" : "?"}productError=${code}`);
+  }
+  redirect(back);
+}
+
+export async function submitLivePostsAction(formData: FormData) {
+  const { back, query } = dealBack(formData);
+  const viewer = await currentViewer();
+  if (!viewer) redirect("/login");
+  const db = await getDb();
+  const result = await submitLivePosts(db, {
+    dealId: String(formData.get("dealId") ?? ""),
+    links: [{ platform: String(formData.get("platform") ?? ""), url: String(formData.get("url") ?? "") }],
+    actorEmail: viewer.email,
+    actorRole: viewer.role,
+    creatorId: viewer.creatorId,
+  });
+  if (!result.ok) {
+    const code = result.status === 409 ? "early" : "1";
+    redirect(`${back}${query ? "&" : "?"}postError=${code}`);
+  }
+  redirect(back);
+}
+
+export async function confirmLivePostAction(formData: FormData) {
+  const { back, query } = dealBack(formData);
+  const viewer = await currentViewer();
+  if (!viewer || !canChangeDealStage(viewer)) redirect("/login");
+  const db = await getDb();
+  const result = await confirmLivePost(db, {
+    postId: String(formData.get("postId") ?? ""),
+    meetsBrief: String(formData.get("meetsBrief") ?? "") === "yes",
+    queueEmail: formData.get("queueEmail") === "1",
+    actorEmail: viewer.email,
+    actorRole: viewer.role,
+  });
+  if (!result.ok) {
+    const code = result.error.includes("brand email") ? "email" : "1";
+    redirect(`${back}${query ? "&" : "?"}postError=${code}`);
+  }
+  redirect(back);
+}
+
+export async function markPaymentAction(formData: FormData) {
+  const { back, query } = dealBack(formData);
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "admin") redirect("/login");
+  const db = await getDb();
+  const result = await markPayment(db, {
+    dealId: String(formData.get("dealId") ?? ""),
+    paymentStatus: String(formData.get("paymentStatus") ?? ""),
+    actorEmail: viewer.email,
+    actorRole: viewer.role,
+  });
+  if (!result.ok) {
+    const code = result.status === 409 ? "early" : result.status === 400 ? "order" : "1";
+    redirect(`${back}${query ? "&" : "?"}paymentError=${code}`);
+  }
+  redirect(back);
 }
 
 export async function devLoginAction(formData: FormData) {

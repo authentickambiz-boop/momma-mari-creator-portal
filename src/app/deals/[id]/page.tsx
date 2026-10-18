@@ -12,7 +12,7 @@ export default async function DealPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string }>;
+  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string; productError?: string; postError?: string; paymentError?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const portal = await loadPortal(query.creator ?? null);
@@ -78,6 +78,9 @@ export default async function DealPage({
         releaseError={query.releaseError ?? null}
         reviewError={query.reviewError ?? null}
         contractError={query.contractError ?? null}
+        productError={query.productError ?? null}
+        postError={query.postError ?? null}
+        paymentError={query.paymentError ?? null}
       />
     </PortalFrame>
   );

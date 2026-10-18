@@ -123,7 +123,27 @@ export type PaymentView = {
   creatorPayoutCents: number | null;
   payoutApprovedOn: string | null;
   paidOutDate: string | null;
+  paymentStatus: string | null;
   isSeed: boolean;
+};
+
+export type ShipmentView = {
+  id: string;
+  carrier: string;
+  trackingNumber: string;
+  trackingUrl: string | null;
+  status: string;
+  statusLabel: string;
+  receivedAt: string | null;
+};
+
+export type LivePostView = {
+  id: string;
+  platform: string;
+  url: string;
+  meetsBrief: boolean | null;
+  confirmedAt: string | null;
+  confirmedBy: string | null;
 };
 
 export type InterestView = {
@@ -206,6 +226,11 @@ export type DealDetail = DealSummary & {
   contracts: ContractView[];
   signatures: SignatureView[];
   signerIsMinor: boolean;
+  shipment: ShipmentView | null;
+  livePosts: LivePostView[];
+  canConfirmProduct: boolean;
+  canSubmitPosts: boolean;
+  canMarkPayment: boolean;
 };
 
 export type InboxItem = {

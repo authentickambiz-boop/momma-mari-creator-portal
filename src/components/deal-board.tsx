@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { changeDealStageAction, contractReviewAction, creatorInterestAction, releaseOfferAction, reviewDraftAction, setSignerMinorAction, uploadBrandSignedCopyAction, uploadContractAction } from "@/app/actions";
+import { changeDealStageAction, confirmLivePostAction, confirmProductAction, contractReviewAction, creatorInterestAction, markPaymentAction, releaseOfferAction, reviewDraftAction, saveShipmentAction, setSignerMinorAction, submitLivePostsAction, uploadBrandSignedCopyAction, uploadContractAction } from "@/app/actions";
 import { CONTRACT_CHECKS, contractStageOpen, contractStatusLabel } from "@/lib/contract-shared";
+import { commissionLabel, creatorPayoutAmount, paymentStatusLabel, paymentStatusTone } from "@/lib/format";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
 import { UploadBox } from "./upload-box";
@@ -40,6 +41,9 @@ export function DealBoard({
   releaseError = null,
   reviewError = null,
   contractError = null,
+  productError = null,
+  postError = null,
+  paymentError = null,
 }: {
   deals: DealSummary[];
   selected: DealDetail | null;
@@ -57,6 +61,9 @@ export function DealBoard({
   releaseError?: string | null;
   reviewError?: string | null;
   contractError?: string | null;
+  productError?: string | null;
+  postError?: string | null;
+  paymentError?: string | null;
 }) {
   return (
     <div className={showDetail ? "grid showdetail" : "grid"} id="dealGrid">
@@ -104,6 +111,9 @@ export function DealBoard({
             releaseError={releaseError}
             reviewError={reviewError}
             contractError={contractError}
+            productError={productError}
+            postError={postError}
+            paymentError={paymentError}
           />
         ) : (
           <p className="note">Pick a deal to see the brief, the feedback, and where to upload.</p>
@@ -129,6 +139,9 @@ function DealDetailView({
   releaseError,
   reviewError,
   contractError,
+  productError,
+  postError,
+  paymentError,
 }: {
   deal: DealDetail;
   backHref: string;
@@ -145,6 +158,9 @@ function DealDetailView({
   releaseError: string | null;
   reviewError: string | null;
   contractError: string | null;
+  productError: string | null;
+  postError: string | null;
+  paymentError: string | null;
 }) {
   const creatorId = creatorQuery.startsWith("?creator=") ? creatorQuery.slice("?creator=".length) : "";
   const current = deal.workflowStage;
@@ -291,6 +307,15 @@ function DealDetailView({
           </ul>
         </div>
       ) : null}
+      <ProductAndPosts
+        deal={deal}
+        canChangeStage={canChangeStage}
+        isOwner={isOwner}
+        creatorId={creatorId}
+        productError={productError}
+        postError={postError}
+        paymentError={paymentError}
+      />
       {deal.botMessage ? (
         <div className="bot">
           <div className="ic">✦</div>
@@ -404,6 +429,160 @@ function DealDetailView({
       ) : null}
       <UploadBox dealId={deal.id} brand={deal.brand} enabled={deal.uploadEnabled} label={deal.uploadLabel || "Upload your draft"} />
     </>
+  );
+}
+
+function ProductAndPosts({
+  deal,
+  canChangeStage,
+  isOwner,
+  creatorId,
+  productError,
+  postError,
+  paymentError,
+}: {
+  deal: DealDetail;
+  canChangeStage: boolean;
+  isOwner: boolean;
+  creatorId: string;
+  productError: string | null;
+  postError: string | null;
+  paymentError: string | null;
+}) {
+  const nextStatus = !deal.payment?.paymentStatus
+    ? "brand_invoiced"
+    : deal.payment.paymentStatus === "brand_invoiced"
+      ? "brand_paid"
+      : deal.payment.paymentStatus === "brand_paid"
+        ? "creator_payout_pending"
+        : deal.payment.paymentStatus === "creator_payout_pending"
+          ? "creator_paid"
+          : null;
+  const nextLabel: Record<string, string> = {
+    brand_invoiced: "Brand invoiced",
+    brand_paid: "Brand paid",
+    creator_payout_pending: "Payout pending",
+    creator_paid: "Creator paid",
+  };
+  const basis = deal.payment?.landedAmountCents ?? deal.payment?.amountOwedCents ?? null;
+  return (
+    <div className="box" id="product">
+      <div className="sec-title">Product</div>
+      {deal.shipment ? (
+        <p>
+          {deal.shipment.statusLabel}
+          {" · "}
+          {deal.shipment.carrier}
+          {" · "}
+          {deal.shipment.trackingUrl ? (
+            <a href={deal.shipment.trackingUrl} target="_blank" rel="noreferrer">{deal.shipment.trackingNumber}</a>
+          ) : (
+            deal.shipment.trackingNumber
+          )}
+        </p>
+      ) : (
+        <p className="note">No tracking yet.</p>
+      )}
+      {canChangeStage ? (
+        <form action={saveShipmentAction} className="stage-form">
+          <input type="hidden" name="dealId" value={deal.id} />
+          {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+          <label>
+            Carrier
+            <input type="text" name="carrier" required placeholder="UPS" aria-label="Carrier" defaultValue={deal.shipment?.carrier ?? ""} />
+          </label>
+          <label>
+            Tracking number
+            <input type="text" name="trackingNumber" required placeholder="1Z..." aria-label="Tracking number" defaultValue={deal.shipment?.trackingNumber ?? ""} />
+          </label>
+          <button className="btn" type="submit">Save tracking</button>
+        </form>
+      ) : null}
+      {deal.canConfirmProduct ? (
+        <form action={confirmProductAction} className="stage-form">
+          <input type="hidden" name="dealId" value={deal.id} />
+          {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+          <button className="btn" type="submit">I got it</button>
+        </form>
+      ) : null}
+      {productError === "past" ? <p className="note">This deal is already past the product. Nothing was changed.</p> : null}
+      {productError === "1" ? <p className="note">That tracking was not saved.</p> : null}
+
+      <div className="sec-title" style={{ marginTop: 14 }}>Live posts</div>
+      {deal.livePosts.length === 0 ? <p className="note">No live links yet.</p> : null}
+      <ul>
+        {deal.livePosts.map((post) => (
+          <li key={post.id}>
+            {post.platform} · <a href={post.url}>{post.url}</a>
+            {post.meetsBrief === true ? " · Matches the brief" : post.meetsBrief === false ? " · Does not match the brief" : " · Not confirmed"}
+            {canChangeStage && post.meetsBrief === null ? (
+              <form action={confirmLivePostAction} className="stage-form">
+                <input type="hidden" name="dealId" value={deal.id} />
+                <input type="hidden" name="postId" value={post.id} />
+                {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+                <label className="contract-choices">
+                  <input type="checkbox" name="queueEmail" value="1" defaultChecked /> Email the post link to the brand
+                </label>
+                <button className="btn" type="submit" name="meetsBrief" value="yes">Matches the brief</button>
+                <button className="btn ghost" type="submit" name="meetsBrief" value="no">Does not match</button>
+              </form>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {deal.canSubmitPosts ? (
+        <form action={submitLivePostsAction} className="stage-form">
+          <input type="hidden" name="dealId" value={deal.id} />
+          {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+          <label>
+            Platform
+            <select name="platform" aria-label="Post platform" defaultValue="tiktok">
+              <option value="tiktok">TikTok</option>
+              <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
+              <option value="youtube">YouTube</option>
+            </select>
+          </label>
+          <label>
+            Live link
+            <input type="url" name="url" required placeholder="https://" aria-label="Live post link" />
+          </label>
+          <button className="btn" type="submit">Submit live post</button>
+        </form>
+      ) : null}
+      {postError === "early" ? <p className="note">This video isn&apos;t approved for posting yet. Nothing was changed.</p> : null}
+      {postError === "email" ? <p className="note">Add the brand email before the post links can be queued.</p> : null}
+      {postError === "1" ? <p className="note">That post was not saved.</p> : null}
+
+      {isOwner && deal.canMarkPayment ? (
+        <>
+          <div className="sec-title" style={{ marginTop: 14 }}>Payment</div>
+          <p>
+            <span className={`chip ${paymentStatusTone(deal.payment?.paymentStatus ?? null)}`}>{paymentStatusLabel(deal.payment?.paymentStatus ?? null, "owner")}</span>
+            {" · Commission "}
+            {commissionLabel(basis)}
+          </p>
+          <p className="note">Money stays put until you move it yourself. Nothing is charged or sent from here.</p>
+          {nextStatus ? (
+            <form action={markPaymentAction} className="stage-form">
+              <input type="hidden" name="dealId" value={deal.id} />
+              {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+              <button className="btn" type="submit" name="paymentStatus" value={nextStatus}>{nextLabel[nextStatus]}</button>
+            </form>
+          ) : null}
+          {paymentError === "early" ? <p className="note">Post the video before invoicing the brand. Nothing was changed.</p> : null}
+          {paymentError === "order" ? <p className="note">Mark the payment steps in order.</p> : null}
+          {paymentError === "1" ? <p className="note">That payment step was not saved.</p> : null}
+        </>
+      ) : null}
+      {!isOwner && !canChangeStage && deal.payment ? (
+        <p>
+          Your payout: {creatorPayoutAmount(null, null, deal.payment.creatorPayoutCents)}
+          {" · "}
+          {paymentStatusLabel(deal.payment.paymentStatus, "creator")}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
