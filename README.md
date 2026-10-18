@@ -26,6 +26,7 @@ Checked against Webflow Cloud docs on October 17, 2026 ([bring your own app](htt
 - Draft upload in 8 MB chunks. With Drive credentials, the portal opens a Google resumable session and forwards each chunk. The session URL stays on the server. The draft row stores the deal id, Drive file id, and the deal's Gmail thread id.
 - Bearer JSON API for the agency bot.
 - Creator interest. Kamron marks an offer "Screened and released to creator" before she can see it. She can say "I'm interested" or "Not for me". That moves the stage, tells Kamron, and drops a pending email into the approval queue. Nothing is sent until he approves it. The From address is `authentickambiz@gmail.com`.
+- Contract versions. An admin uploads the brand's PDF or DOCX. Each file is kept (v1, v2, …) in a Contracts folder. A private checklist stays with Kamron. Asking the brand for changes queues an email from `authentickambiz@gmail.com`. Approving the contract is admin-only and tells the creator the file is ready to sign. She never sees the checklist notes.
 
 Server-side rules, covered by `npm test`:
 
@@ -207,6 +208,30 @@ She sees a notice in the portal for either decision: what to fix, or that her ma
 curl -sS \
   -H "Authorization: Bearer $BOT_API_TOKEN" \
   "http://localhost:43123/api/bot/draft-reviews"
+```
+
+### Contracts
+
+An admin uploads the brand's contract on the deal (PDF or DOCX). The first file is v1. The next upload is v2, and so on. Older files stay. Nothing is overwritten and nothing is deleted. When Drive is connected, the file goes in a folder named `02 Contracts` inside that creator's folder for the brand. The deal's video folder is left alone.
+
+Each version has a review checklist: payment terms, usage rights and duration, exclusivity, deliverables and dates, revisions, kill fee, FTC disclosure, minors and kids' privacy, morality clause, and governing law. The notes on that list are only for Kamron. The creator never sees them.
+
+**Request revisions** writes an email to the brand that lists the items marked as an issue. That email goes into the approval queue from `authentickambiz@gmail.com` and stays pending until an admin approves it. Nothing is sent before that.
+
+**Approve contract** is admin-only. It moves the deal to Approved by Momma Mari, which means the contract is ready for signing later. There is no sign button yet. The creator gets a notice in the portal, and she can open the approved file. Versions that are still in review stay hidden from her.
+
+A PDF, or a file marked DocuSign, is fine for that later signing step. Any other format, including a Word file, is marked **needs review before signing** and cannot be approved until Kamron uploads a PDF or marks it as DocuSign.
+
+Momma Mari countersigning is optional. Kamron checks it on the version when this deal needs her signature too. The creator sees that as a status line on the approved file, not as a checklist note.
+
+KOSBLING is already past the contract (the draft is due). Uploading a contract there is refused, and that deal is not changed.
+
+`GET /api/bot/contracts` returns the versions and the checklist for Kash Bot (`?since=` is an ISO timestamp). `POST /api/bot/contracts` attaches a contract the bot already pulled from email. Neither call sends mail or returns a mailbox token.
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  "http://localhost:43123/api/bot/contracts"
 ```
 
 ### Upsert a deal

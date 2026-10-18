@@ -4,6 +4,8 @@ import {
   analyticsDaily,
   analyticsPosts,
   creators,
+  contractChecks,
+  contracts,
   dealStageEvents,
   deals,
   drafts,
@@ -12,6 +14,7 @@ import {
   revisions,
 } from "@/db/schema";
 import { adminDisplayName, adminEmails, canSeeDeal } from "./authz";
+import { CONTRACT_CHECKS, signingFormatLabel } from "./contract-shared";
 import { firstEmail, interestContextForDeal } from "./creator-interest";
 import { reviewsForDeal } from "./video-review";
 import { normalizeEmail, nowIso, parseJson } from "./format";
@@ -194,6 +197,37 @@ export async function listDealsForViewer(db: PortalDb, viewer: Viewer, creatorId
     .map((row) => toSummary(row, names.get(row.creatorId) ?? "Creator"));
 }
 
+async function contractsForViewer(db: PortalDb, role: Viewer["role"], dealId: string) {
+  const contractRows = await db.select().from(contracts).where(eq(contracts.dealId, dealId)).orderBy(asc(contracts.version));
+  const visible = role === "admin" ? contractRows : contractRows.filter((row) => row.status === "approved");
+  if (visible.length === 0) return [];
+  const checkRows = role === "admin"
+    ? await db.select().from(contractChecks).where(inArray(contractChecks.contractId, visible.map((row) => row.id)))
+    : [];
+  return visible.map((row) => ({
+    id: row.id,
+    version: row.version,
+    filename: row.filename,
+    mimeType: row.mimeType,
+    sha256: row.sha256,
+    driveFileId: row.driveFileId,
+    driveFileUrl: row.driveFileUrl,
+    signingFormat: row.signingFormat,
+    signingLabel: signingFormatLabel(row.signingFormat),
+    countersign: row.countersign,
+    status: row.status,
+    uploadedBy: row.uploadedBy,
+    createdAt: row.createdAt,
+    approvalId: role === "admin" ? row.approvalId : null,
+    checks: role === "admin"
+      ? CONTRACT_CHECKS.map((item) => {
+          const saved = checkRows.find((check) => check.contractId === row.id && check.item === item.id);
+          return { item: item.id, label: item.label, status: saved?.status ?? "unchecked", note: saved?.note ?? null };
+        })
+      : null,
+  }));
+}
+
 export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: string): Promise<DealDetail | null> {
   const rows = await db.select().from(deals).where(eq(deals.id, dealId));
   const row = rows[0];
@@ -255,6 +289,7 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
     interest: interestState.interest,
     offerReleased: interestState.offerReleased,
     brandEmail,
+    contracts: await contractsForViewer(db, viewer.role, dealId),
     canRespondToOffer:
       viewer.role === "creator" &&
       viewer.creatorId === row.creatorId &&

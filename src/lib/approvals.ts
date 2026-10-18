@@ -93,8 +93,8 @@ export async function createApprovalEmail(
   actor: { email: string; role: string },
 ): Promise<Result<{ id: string; status: "pending"; from: string }>> {
   const creatorDraft = actor.role === "creator" && (input.gate === "interest" || input.gate === "decline");
-  const adminVideo = actor.role === "admin" && input.gate === "video";
-  if (actor.role !== "bot" && !creatorDraft && !adminVideo) {
+  const adminDraft = actor.role === "admin" && (input.gate === "video" || input.gate === "revision");
+  if (actor.role !== "bot" && !creatorDraft && !adminDraft) {
     return { ok: false, status: 403, error: "Only the bot can draft an email. An admin approves it in the portal." };
   }
   if (input.status && input.status !== "pending") {

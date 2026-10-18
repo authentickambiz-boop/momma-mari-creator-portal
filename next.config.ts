@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
     // (permessage-deflate). Client buttons and uploads then never attach.
     // Production and Webflow Cloud do not use the channel.
     reactDebugChannel: false,
+    serverActions: {
+      bodySizeLimit: "20mb",
+    },
   },
 };
 

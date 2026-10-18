@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { changeDealStageAction, creatorInterestAction, releaseOfferAction, reviewDraftAction } from "@/app/actions";
+import { changeDealStageAction, contractReviewAction, creatorInterestAction, releaseOfferAction, reviewDraftAction, uploadContractAction } from "@/app/actions";
+import { CONTRACT_CHECKS, contractStageOpen, contractStatusLabel } from "@/lib/contract-shared";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
 import { UploadBox } from "./upload-box";
@@ -33,6 +34,7 @@ export function DealBoard({
   interestError = false,
   releaseError = null,
   reviewError = null,
+  contractError = null,
 }: {
   deals: DealSummary[];
   selected: DealDetail | null;
@@ -44,6 +46,7 @@ export function DealBoard({
   interestError?: boolean;
   releaseError?: string | null;
   reviewError?: string | null;
+  contractError?: string | null;
 }) {
   return (
     <div className={showDetail ? "grid showdetail" : "grid"} id="dealGrid">
@@ -85,6 +88,7 @@ export function DealBoard({
             interestError={interestError}
             releaseError={releaseError}
             reviewError={reviewError}
+            contractError={contractError}
           />
         ) : (
           <p className="note">Pick a deal to see the brief, the feedback, and where to upload.</p>
@@ -104,6 +108,7 @@ function DealDetailView({
   interestError,
   releaseError,
   reviewError,
+  contractError,
 }: {
   deal: DealDetail;
   backHref: string;
@@ -114,6 +119,7 @@ function DealDetailView({
   interestError: boolean;
   releaseError: string | null;
   reviewError: string | null;
+  contractError: string | null;
 }) {
   const creatorId = creatorQuery.startsWith("?creator=") ? creatorQuery.slice("?creator=".length) : "";
   const current = deal.workflowStage;
@@ -291,6 +297,12 @@ function DealDetailView({
         <div className="sec-title">Usage rights & exclusivity</div>
         <MaybeTbd value={deal.usageRights} />
       </div>
+      <ContractSection
+        deal={deal}
+        canChangeStage={canChangeStage}
+        creatorId={creatorId}
+        contractError={contractError}
+      />
       <div className="box">
         <div className="sec-title">Revisions & feedback history</div>
         <ul className="timeline">
@@ -364,5 +376,121 @@ function DealDetailView({
       ) : null}
       <UploadBox dealId={deal.id} brand={deal.brand} enabled={deal.uploadEnabled} label={deal.uploadLabel || "Upload your draft"} />
     </>
+  );
+}
+
+function ContractSection({
+  deal,
+  canChangeStage,
+  creatorId,
+  contractError,
+}: {
+  deal: DealDetail;
+  canChangeStage: boolean;
+  creatorId: string;
+  contractError: string | null;
+}) {
+  const open = contractStageOpen(deal.workflowStage);
+  if (canChangeStage && !open && deal.contracts.length === 0) return null;
+  if (!canChangeStage && deal.contracts.length === 0) return null;
+  return (
+    <div className="box" id="contract">
+      <div className="sec-title">Contract</div>
+      {canChangeStage ? (
+        <>
+          <p className="note">
+            Upload the brand&apos;s contract. Each file is kept as the next version in the Contracts folder. Nothing is overwritten.
+          </p>
+          {open ? (
+            <form action={uploadContractAction} className="stage-form">
+              <input type="hidden" name="dealId" value={deal.id} />
+              {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+              <label>
+                PDF or DOCX
+                <input type="file" name="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required aria-label="Contract file" />
+              </label>
+              <label className="contract-choices">
+                <input type="checkbox" name="docusign" value="1" /> DocuSign
+              </label>
+              <label className="contract-choices">
+                <input type="checkbox" name="countersign" value="1" /> Momma Mari countersigns
+              </label>
+              <button className="btn" type="submit">Upload contract</button>
+            </form>
+          ) : null}
+          {contractError === "type" ? <p className="note">Upload a PDF or DOCX under 20 MB.</p> : null}
+          {contractError === "past" ? <p className="note">This deal is already past the contract. Nothing was changed.</p> : null}
+          {contractError === "review" ? <p className="note">This file needs review before signing. Upload a PDF or mark it as DocuSign.</p> : null}
+          {contractError === "changes" ? <p className="note">Mark at least one checklist item as an issue, or write the changes to request.</p> : null}
+          {contractError === "email" ? <p className="note">Add the brand email before asking for changes. The email stays in your queue.</p> : null}
+          {contractError === "1" ? <p className="note">That contract change was not saved.</p> : null}
+          {deal.contracts.map((contract) => (
+            <form key={contract.id} action={contractReviewAction} className="contract-item">
+              <input type="hidden" name="dealId" value={deal.id} />
+              <input type="hidden" name="contractId" value={contract.id} />
+              {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+              <div>
+                <b>v{contract.version}</b>
+                {` · ${contract.filename} · ${contractStatusLabel(contract.status)} · ${contract.signingLabel}`}
+                {contract.countersign ? " · Momma Mari will countersign" : ""}
+                {contract.driveFileUrl ? <> · <a href={contract.driveFileUrl}>Drive file</a></> : null}
+              </div>
+              <div className="private-note">
+                <div className="sec-title">Only Kamron sees this</div>
+                {(contract.checks ?? CONTRACT_CHECKS.map((item) => ({ ...item, item: item.id, status: "unchecked", note: null }))).map((check) => (
+                  <div key={check.item} className="contract-item">
+                    <b>{check.label}</b>
+                    <div className="contract-choices">
+                      <label><input type="radio" name={`status:${check.item}`} value="ok" defaultChecked={check.status === "ok"} /> OK</label>
+                      <label><input type="radio" name={`status:${check.item}`} value="issue" defaultChecked={check.status === "issue"} /> Issue</label>
+                      <label><input type="radio" name={`status:${check.item}`} value="unchecked" defaultChecked={check.status !== "ok" && check.status !== "issue"} /> Not checked</label>
+                    </div>
+                    <input type="text" name={`note:${check.item}`} defaultValue={check.note ?? ""} aria-label={`${check.label} note`} placeholder="Note, only you see this" />
+                  </div>
+                ))}
+              </div>
+              <div className="stage-form">
+                <label>
+                  Signing
+                  <select name="signingFormat" defaultValue={contract.signingFormat} aria-label={`Signing format for v${contract.version}`}>
+                    <option value="pdf">PDF, ready for signing later</option>
+                    <option value="docusign">DocuSign, ready for signing later</option>
+                    <option value="needs_review">needs review before signing</option>
+                  </select>
+                </label>
+                <label className="contract-choices">
+                  <input type="checkbox" name="countersign" value="1" defaultChecked={contract.countersign} /> Momma Mari countersigns
+                </label>
+                <label>
+                  Brand email
+                  <input type="email" name="brandEmail" defaultValue={deal.brandEmail ?? ""} placeholder="hello@brand.com" aria-label={`Brand email for v${contract.version}`} />
+                </label>
+                <label>
+                  Changes for the brand
+                  <textarea name="changes" aria-label={`Changes for v${contract.version}`} placeholder="Anything else they should fix" />
+                </label>
+                <button className="btn ghost" type="submit" name="intent" value="save">Save checklist</button>
+                {contract.status === "approved" ? null : (
+                  <>
+                    <button className="btn ghost" type="submit" name="intent" value="revisions">Request revisions</button>
+                    <button className="btn" type="submit" name="intent" value="approve">Approve contract</button>
+                  </>
+                )}
+              </div>
+            </form>
+          ))}
+        </>
+      ) : (
+        <ul>
+          {deal.contracts.map((contract) => (
+            <li key={contract.id}>
+              v{contract.version} · {contract.filename} · {contract.signingLabel}
+              {contract.driveFileUrl ? <> · <a href={contract.driveFileUrl}>Open contract</a></> : null}
+              {contract.countersign ? <div className="note">Momma Mari will countersign.</div> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

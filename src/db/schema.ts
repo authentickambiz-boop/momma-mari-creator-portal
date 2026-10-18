@@ -283,6 +283,35 @@ export const creatorNotifications = sqliteTable("creator_notifications", {
   readAt: text("read_at"),
 });
 
+export const contracts = sqliteTable("contracts", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull(),
+  version: integer("version").notNull(),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes"),
+  sha256: text("sha256"),
+  driveFileId: text("drive_file_id"),
+  driveFileUrl: text("drive_file_url"),
+  driveFolderId: text("drive_folder_id"),
+  source: text("source").notNull(),
+  signingFormat: text("signing_format").notNull(),
+  countersign: integer("countersign", { mode: "boolean" }).notNull(),
+  status: text("status").notNull(),
+  uploadedBy: text("uploaded_by").notNull(),
+  approvalId: text("approval_id"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const contractChecks = sqliteTable("contract_checks", {
+  id: text("id").primaryKey(),
+  contractId: text("contract_id").notNull(),
+  item: text("item").notNull(),
+  status: text("status").notNull(),
+  note: text("note"),
+  createdAt: text("created_at").notNull(),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),

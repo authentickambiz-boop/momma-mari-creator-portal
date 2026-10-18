@@ -7,6 +7,8 @@ import { reviewApproval } from "@/lib/approvals";
 import { canApproveEmail, canChangeDealStage, devLoginEnabled } from "@/lib/authz";
 import { currentViewer } from "@/lib/current-user";
 import { logOfferScreening, recordCreatorInterest, releaseOffer } from "@/lib/creator-interest";
+import { approveContract, requestContractRevisions, saveChecklist, saveContract, setSigningFormat } from "@/lib/contracts";
+import { CONTRACT_CHECKS } from "@/lib/contract-shared";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
 import { isEmailSetup } from "@/lib/email-setup";
@@ -105,6 +107,108 @@ export async function reviewDraftAction(formData: FormData) {
   if (!result.ok) {
     const code = result.status === 400 && result.error.includes("brand email") ? "email" : result.status === 400 ? "note" : "1";
     redirect(`${back}${query ? "&" : "?"}reviewError=${code}`);
+  }
+  redirect(back);
+}
+
+function contractBack(dealId: string, creator: string) {
+  const query = creator ? `?creator=${encodeURIComponent(creator)}` : "";
+  return { query, back: `/deals/${dealId}${query}` };
+}
+
+function contractErrorCode(error: string) {
+  if (error.includes("past the contract")) return "past";
+  if (error.includes("needs review before signing")) return "review";
+  if (error.includes("PDF or DOCX") || error.includes("20 MB")) return "type";
+  if (error.includes("brand email")) return "email";
+  if (error.includes("checklist") || error.includes("changes to request")) return "changes";
+  return "1";
+}
+
+export async function uploadContractAction(formData: FormData) {
+  const dealId = String(formData.get("dealId") ?? "");
+  const creator = String(formData.get("creator") ?? "");
+  const { query, back } = contractBack(dealId, creator);
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "admin") redirect("/login");
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`${back}${query ? "&" : "?"}contractError=type`);
+  }
+  const db = await getDb();
+  const result = await saveContract(db, {
+    dealId,
+    filename: file.name,
+    mimeType: file.type || "application/octet-stream",
+    bytes: new Uint8Array(await file.arrayBuffer()),
+    docusign: formData.get("docusign") === "1",
+    countersign: formData.get("countersign") === "1",
+    actorEmail: viewer.email,
+    actorRole: "admin",
+  });
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}contractError=${contractErrorCode(result.error)}`);
+  redirect(back);
+}
+
+export async function contractReviewAction(formData: FormData) {
+  const dealId = String(formData.get("dealId") ?? "");
+  const contractId = String(formData.get("contractId") ?? "");
+  const creator = String(formData.get("creator") ?? "");
+  const { query, back } = contractBack(dealId, creator);
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "admin") redirect("/login");
+  const intent = String(formData.get("intent") ?? "save");
+  const checks = CONTRACT_CHECKS.map((item) => ({
+    item: item.id,
+    status: String(formData.get(`status:${item.id}`) ?? "unchecked"),
+    note: String(formData.get(`note:${item.id}`) ?? ""),
+  }));
+  const countersign = formData.get("countersign") === "1";
+  const signingFormat = String(formData.get("signingFormat") ?? "");
+  const db = await getDb();
+  const changes = String(formData.get("changes") ?? "");
+  const issueCount = checks.filter((check) => check.status === "issue").length;
+
+  if (intent === "approve" && signingFormat === "needs_review") {
+    redirect(`${back}${query ? "&" : "?"}contractError=review`);
+  }
+  if (intent === "revisions" && issueCount === 0 && !changes.trim()) {
+    redirect(`${back}${query ? "&" : "?"}contractError=changes`);
+  }
+
+  if (signingFormat) {
+    const format = await setSigningFormat(db, { contractId, signingFormat, actorRole: "admin" });
+    if (!format.ok) redirect(`${back}${query ? "&" : "?"}contractError=${contractErrorCode(format.error)}`);
+  }
+
+  const saved = await saveChecklist(db, {
+    contractId,
+    checks,
+    countersign,
+    actorEmail: viewer.email,
+    actorRole: "admin",
+    moveStage: intent !== "approve",
+  });
+  if (!saved.ok) redirect(`${back}${query ? "&" : "?"}contractError=${contractErrorCode(saved.error)}`);
+
+  if (intent === "revisions") {
+    const result = await requestContractRevisions(db, {
+      contractId,
+      changes,
+      brandEmail: String(formData.get("brandEmail") ?? ""),
+      actorEmail: viewer.email,
+      actorRole: "admin",
+    });
+    if (!result.ok) redirect(`${back}${query ? "&" : "?"}contractError=${contractErrorCode(result.error)}`);
+  }
+
+  if (intent === "approve") {
+    const result = await approveContract(db, {
+      contractId,
+      actorEmail: viewer.email,
+      actorRole: "admin",
+    });
+    if (!result.ok) redirect(`${back}${query ? "&" : "?"}contractError=${contractErrorCode(result.error)}`);
   }
   redirect(back);
 }
