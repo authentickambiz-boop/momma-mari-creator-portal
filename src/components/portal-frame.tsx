@@ -5,6 +5,7 @@ import type { CreatorProfile, Viewer } from "@/lib/types";
 const TABS = [
   { id: "deals", href: "/", label: "Brand deals" },
   { id: "earnings", href: "/earnings", label: "Earnings & payouts" },
+  { id: "report", href: "/report", label: "Report" },
   { id: "analytics", href: "/analytics", label: "Analytics" },
   { id: "connect", href: "/connect", label: "Connect accounts" },
   { id: "calendar", href: "/calendar", label: "Calendar" },
@@ -41,6 +42,7 @@ export function PortalFrame({
     if (item.id === "team") return viewer.role === "admin";
     if (item.id === "safety") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "earnings") return viewer.role !== "manager";
+    if (item.id === "report") return viewer.role !== "manager";
     if (item.id === "approvals") return viewer.role === "admin" || Boolean(viewer.permissions?.approveEmail);
     if (item.id === "profile") return viewer.role === "creator";
     if (item.id === "brands") return viewer.role === "admin" || viewer.role === "manager";

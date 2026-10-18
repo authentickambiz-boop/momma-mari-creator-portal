@@ -80,6 +80,7 @@ import { listUsageRights, saveUsageRights, suggestUsageRenewal, usageFlag } from
 import { myMediaKit, publicMediaKit, saveMediaKit, zernioStatsEnabled } from "../src/lib/media-kit";
 import { clearSafetyHold, listSafetyHolds, recordDraftSafety } from "../src/lib/safety";
 import { findSafetyKinds } from "../src/lib/safety-shared";
+import { buildMonthlyReport, draftMonthlyReport } from "../src/lib/report";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -3457,6 +3458,123 @@ test("a draft with a school, house number, location, or child's name is held for
   assert.equal(queued?.status, "pending");
   assert.equal(queued?.fromEmail, "authentickambiz@gmail.com");
   for (const secret of secrets) assert.equal((queued?.body ?? "").includes(secret), false, secret);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("a monthly report is one page, and the email waits in the approval queue", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  const created = await upsertDeal(db, {
+    id: "phase15-report",
+    brand: "Phase15 Soap",
+    creatorId: "mariclare",
+    status: "active",
+    workflowStage: "paid",
+    visibleToCreator: true,
+  });
+  assert.equal(created.status, 201);
+  const payment = await upsertPayment(db, {
+    dealId: "phase15-report",
+    creatorSplitPercent: 70,
+    amountOwedCents: 100000,
+    landedAmountCents: 100000,
+    landedDate: "2026-10-02",
+    paidOutDate: "2026-10-05",
+    paymentStatus: "creator_paid",
+  });
+  assert.equal(payment.status, 201);
+  await writeDailyAnalytics(db, {
+    creatorId: "mariclare",
+    date: "2026-10-01",
+    platform: "instagram",
+    followers: 1000,
+    views: 400,
+    example: false,
+  });
+  await writeDailyAnalytics(db, {
+    creatorId: "mariclare",
+    date: "2026-10-15",
+    platform: "instagram",
+    followers: 1100,
+    views: 500,
+    example: false,
+  });
+
+  const built = await buildMonthlyReport(db, "mariclare", "2026-10");
+  assert.equal(built.ok, true);
+  if (!built.ok) return;
+  const soap = built.report.earnings.dealsPaid.find((row) => row.brand === "Phase15 Soap");
+  assert.equal(soap?.payoutLabel, "$700");
+  assert.ok(built.report.earnings.paidCents >= 70000);
+  assert.equal(built.report.deals.some((row) => row.brand === "Phase15 Soap"), true);
+  assert.equal(built.report.growth.followers, 1100);
+  assert.equal(built.report.growth.followerChange, 100);
+  assert.equal(built.report.growth.views, 1900);
+  const packed = JSON.stringify(built.report);
+  assert.equal(packed.includes("Commission"), false);
+  assert.equal(packed.includes("20%"), false);
+  assert.equal(built.report.email.body.includes("Nothing has been sent."), true);
+  assert.equal(built.report.email.subject, "Your October 2026 report");
+
+  const creatorTry = await draftMonthlyReport(db, {
+    creatorId: "mariclare",
+    month: "2026-10",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+  });
+  assert.equal(creatorTry.ok, false);
+  if (!creatorTry.ok) assert.equal(creatorTry.error, "Only Kamron can draft the monthly report.");
+  const rileyLogin = await resolveLogin(db, "riley.manager@gmail.com");
+  assert.equal(rileyLogin.ok, true);
+  if (!rileyLogin.ok) return;
+  const managerTry = await draftMonthlyReport(db, {
+    creatorId: "mariclare",
+    month: "2026-10",
+    actorEmail: rileyLogin.viewer.email,
+    actorRole: "manager",
+  });
+  assert.equal(managerTry.ok, false);
+  if (!managerTry.ok) assert.equal(managerTry.error, "Only Kamron can draft the monthly report.");
+
+  const drafted = await draftMonthlyReport(db, {
+    creatorId: "mariclare",
+    month: "2026-10",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(drafted.ok, true);
+  if (!drafted.ok) return;
+  const queue = await listApprovalQueue(db, "all");
+  const queued = queue.find((row) => row.id === drafted.approvalId);
+  assert.equal(queued?.status, "pending");
+  assert.equal(queued?.gate, "report");
+  assert.equal(queued?.fromEmail, "authentickambiz@gmail.com");
+  assert.equal(queued?.toEmail, "mmaclamroc@gmail.com");
+  assert.equal(queued?.body.includes("Phase15 Soap"), true);
+  assert.equal(queued?.body.includes("$700"), true);
+  assert.equal(queued?.body.includes("Nothing has been sent."), true);
+  assert.equal((queued?.body ?? "").includes("Commission"), false);
+  assert.equal((queued?.body ?? "").includes("20%"), false);
+
+  const again = await draftMonthlyReport(db, {
+    creatorId: "mariclare",
+    month: "2026-10",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(again.ok, false);
+  if (!again.ok) assert.equal(again.error, "This month's report is already in the approval queue. Nothing was sent.");
+  assert.equal((await listApprovalQueue(db, "all")).filter((row) => row.gate === "report").length, 1);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");

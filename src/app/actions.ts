@@ -12,6 +12,7 @@ import { approveContract, requestContractRevisions, saveChecklist, saveContract,
 import { countersignContract, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "@/lib/signing";
 import { CONTRACT_CHECKS } from "@/lib/contract-shared";
 import { clearSafetyHold } from "@/lib/safety";
+import { draftMonthlyReport } from "@/lib/report";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
 import { confirmLivePost, confirmProductReceived, markPayment, saveShipment, submitLivePosts } from "@/lib/fulfillment";
@@ -19,6 +20,29 @@ import { isEmailSetup } from "@/lib/email-setup";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
 import { resolveLogin } from "@/lib/queries";
 import { createSession, destroySession, sessionCookieName, sessionCookieOptions } from "@/lib/session";
+
+export async function draftReportAction(formData: FormData) {
+  const viewer = await currentViewer();
+  const creatorId = String(formData.get("creatorId") ?? "");
+  const month = String(formData.get("month") ?? "");
+  const query = new URLSearchParams();
+  if (creatorId) query.set("creator", creatorId);
+  if (month) query.set("month", month);
+  const back = `/report?${query.toString()}`;
+  if (!viewer) redirect("/login");
+  const db = await getDb();
+  const result = await draftMonthlyReport(db, {
+    creatorId: creatorId || viewer.creatorId || "",
+    month,
+    actorEmail: viewer.email,
+    actorRole: viewer.role,
+  });
+  if (!result.ok) {
+    const code = result.status === 409 ? "queued" : "1";
+    redirect(`${back}&reportError=${code}`);
+  }
+  redirect(`${back}&drafted=1`);
+}
 
 export async function logoutAction() {
   const jar = await cookies();

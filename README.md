@@ -340,6 +340,10 @@ Photos are resized in the browser. The server strips EXIF and keeps the file pri
 
 Before a draft can go to a brand, the portal checks the file name, the caption, and the location tag for a school logo, a house number, a location tag, or a child's full name. A match is held for Kamron. The matched words are not saved, only the kind of flag. The creator and a manager cannot clear it. Approving the video while a flag is held does nothing: the stage stays put, and no brand email is queued. After Kamron clears it on the deal or on Safety, the manager can approve, and that email still waits in the approval queue.
 
+### Monthly report
+
+The Report page is one page for a month: her cut that was sent, the deals that moved, and follower and view numbers that were entered by hand. Kamron can draft that page into an email. It lands in the approval queue, from `authentickambiz@gmail.com`, and stays pending. Nothing is sent on its own. A second draft for the same creator and month is refused.
+
 ### Upsert a deal
 
 `id`, `brand`, and either `creatorEmail` or `creatorId` are required. A new deal is hidden from the creator unless you pass `"visibleToCreator": true`. Omitted text fields are left as they are on update. `chips` is an array of `[text, tone]` pairs. Tones used by the mockup are `c-red`, `c-gray`, `c-sun`, `c-blue`, and `c-sage`.
