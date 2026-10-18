@@ -27,6 +27,7 @@ Checked against Webflow Cloud docs on October 17, 2026 ([bring your own app](htt
 - Bearer JSON API for the agency bot.
 - Creator interest. Kamron marks an offer "Screened and released to creator" before she can see it. She can say "I'm interested" or "Not for me". That moves the stage, tells Kamron, and drops a pending email into the approval queue. Nothing is sent until he approves it. The From address is `authentickambiz@gmail.com`.
 - Contract versions. An admin uploads the brand's PDF or DOCX. Each file is kept (v1, v2, …) in a Contracts folder. A private checklist stays with Kamron. Asking the brand for changes queues an email from `authentickambiz@gmail.com`. Approving the contract is admin-only and tells the creator the file is ready to sign. She never sees the checklist notes.
+- Click-to-sign. After Kamron approves a PDF (or a DocuSign-marked PDF), the creator opens it on the sign page, agrees to sign electronically, and types or draws her signature. The portal stamps that signature on the PDF, adds a certificate page, and keeps every copy. A signed-contract email to the brand waits in the approval queue, from `authentickambiz@gmail.com`, until Kamron approves it. Have an attorney review this e-sign wording before you rely on it.
 
 Server-side rules, covered by `npm test`:
 
@@ -218,7 +219,7 @@ Each version has a review checklist: payment terms, usage rights and duration, e
 
 **Request revisions** writes an email to the brand that lists the items marked as an issue. That email goes into the approval queue from `authentickambiz@gmail.com` and stays pending until an admin approves it. Nothing is sent before that.
 
-**Approve contract** is admin-only. It moves the deal to Approved by Momma Mari, which means the contract is ready for signing later. There is no sign button yet. The creator gets a notice in the portal, and she can open the approved file. Versions that are still in review stay hidden from her.
+**Approve contract** is admin-only. It moves the deal to Approved by Momma Mari. The creator gets a notice in the portal, and she can open the approved file. Versions that are still in review stay hidden from her. Signing is the next step, described below.
 
 A PDF, or a file marked DocuSign, is fine for that later signing step. Any other format, including a Word file, is marked **needs review before signing** and cannot be approved until Kamron uploads a PDF or marks it as DocuSign.
 
@@ -232,6 +233,26 @@ KOSBLING is already past the contract (the draft is due). Uploading a contract t
 curl -sS \
   -H "Authorization: Bearer $BOT_API_TOKEN" \
   "http://localhost:43123/api/bot/contracts"
+```
+
+### Click-to-sign
+
+After the contract is Approved by Momma Mari, the creator opens **Sign this contract** on her deal. She sees the PDF. She checks that she agrees to do business electronically, types her full legal name, adds a typed or drawn signature, and checks that she has read and agrees. Have an attorney review this e-sign wording before you rely on it.
+
+The portal keeps an audit record: who signed, her email, the time in UTC, her IP address, her browser, and a SHA-256 of the exact file she signed. It stamps the signature on the last page, adds a certificate page, and saves that PDF in the Contracts folder. Older copies stay. Nothing is overwritten.
+
+If Kamron checked **Momma Mari countersigns**, her countersignature comes next, and the brand email waits until that is done. Once the package is final, a signed-contract email goes into the approval queue from `authentickambiz@gmail.com` and stays pending until an admin approves it. The deal moves to Signed by the creator. Nothing is sent before that approval.
+
+If the brand already sent a completed DocuSign, Kamron uploads that PDF on the deal. The sign page is skipped, and the file is stored as they sent it.
+
+If Kamron marks **The signer is a minor**, a parent or guardian signs instead, and Kamron gets a flag to review it. A creator can only sign her own deal, once per version. Uploading a new version voids a signature request that was not finished.
+
+`GET /api/bot/signatures` returns that status for Kash Bot (`?since=` is an ISO timestamp). It does not return a mailbox token.
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  "http://localhost:43123/api/bot/signatures"
 ```
 
 ### Upsert a deal

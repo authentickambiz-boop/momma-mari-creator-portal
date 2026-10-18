@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { changeDealStageAction, contractReviewAction, creatorInterestAction, releaseOfferAction, reviewDraftAction, uploadContractAction } from "@/app/actions";
+import { changeDealStageAction, contractReviewAction, creatorInterestAction, releaseOfferAction, reviewDraftAction, setSignerMinorAction, uploadBrandSignedCopyAction, uploadContractAction } from "@/app/actions";
 import { CONTRACT_CHECKS, contractStageOpen, contractStatusLabel } from "@/lib/contract-shared";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
@@ -401,6 +401,18 @@ function ContractSection({
           <p className="note">
             Upload the brand&apos;s contract. Each file is kept as the next version in the Contracts folder. Nothing is overwritten.
           </p>
+          <form action={setSignerMinorAction} className="stage-form">
+            <input type="hidden" name="dealId" value={deal.id} />
+            <input type="hidden" name="creatorId" value={deal.creatorId} />
+            {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+            <label className="contract-choices">
+              <input type="checkbox" name="minor" value="1" defaultChecked={deal.signerIsMinor} /> The signer is a minor
+            </label>
+            <button className="btn ghost" type="submit">Save signer</button>
+          </form>
+          {deal.signerIsMinor ? (
+            <p className="note">A parent or guardian has to sign. Kamron is flagged when they do.</p>
+          ) : null}
           {open ? (
             <form action={uploadContractAction} className="stage-form">
               <input type="hidden" name="dealId" value={deal.id} />
@@ -423,9 +435,20 @@ function ContractSection({
           {contractError === "review" ? <p className="note">This file needs review before signing. Upload a PDF or mark it as DocuSign.</p> : null}
           {contractError === "changes" ? <p className="note">Mark at least one checklist item as an issue, or write the changes to request.</p> : null}
           {contractError === "email" ? <p className="note">Add the brand email before asking for changes. The email stays in your queue.</p> : null}
+          {contractError === "signemail" ? <p className="note">Add the brand email before the signed contract can be queued.</p> : null}
+          {contractError === "upload" ? <p className="note">Upload the completed signed PDF.</p> : null}
+          {contractError === "signed" ? <p className="note">This version is already signed.</p> : null}
           {contractError === "1" ? <p className="note">That contract change was not saved.</p> : null}
-          {deal.contracts.map((contract) => (
-            <form key={contract.id} action={contractReviewAction} className="contract-item">
+          {deal.contracts.map((contract) => {
+            const signWindow = deal.workflowStage === "approved_by_agency" || deal.workflowStage === "awaiting_signature";
+            const copies = deal.signatures.filter((row) => row.contractId === contract.id);
+            const openRequest = copies.some((row) => row.status === "requested");
+            const waiting = copies.some((row) => row.status === "pending_countersign");
+            const filed = copies.some((row) => row.status === "final" || row.status === "pending_countersign");
+            const signQuery = creatorId ? `&creator=${encodeURIComponent(creatorId)}` : "";
+            return (
+            <div key={contract.id} className="contract-item">
+            <form action={contractReviewAction}>
               <input type="hidden" name="dealId" value={deal.id} />
               <input type="hidden" name="contractId" value={contract.id} />
               {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
@@ -478,17 +501,57 @@ function ContractSection({
                 )}
               </div>
             </form>
-          ))}
+            {copies.filter((row) => row.status !== "void" || canChangeStage).map((row) => (
+              <p key={row.id} className="note">
+                {row.status === "requested" ? "Waiting for a signature" : row.status === "pending_countersign" ? "Waiting for Momma Mari to countersign" : row.status === "void" ? "Replaced" : "Signed"}
+                {row.signerName ? ` · ${row.signerName}` : ""}
+                {row.signedAt ? ` · ${row.signedAt}` : ""}
+                {row.ip ? ` · ${row.ip}` : ""}
+                {row.signedFilename ? <> · <a href={`/api/deals/${deal.id}/signatures/${row.id}/file`}>{row.signedFilename}</a></> : null}
+              </p>
+            ))}
+            {waiting ? <p><Link href={`/deals/${deal.id}/sign?contract=${contract.id}${signQuery}`}>Countersign</Link></p> : null}
+            {signWindow && contract.status === "approved" && !filed ? (
+              <form action={uploadBrandSignedCopyAction} className="stage-form">
+                <input type="hidden" name="dealId" value={deal.id} />
+                <input type="hidden" name="contractId" value={contract.id} />
+                {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+                <label>
+                  Brand sent their own DocuSign
+                  <input type="file" name="file" accept="application/pdf,.pdf" required aria-label={`Completed signed PDF for v${contract.version}`} />
+                </label>
+                <button className="btn ghost" type="submit">Upload the completed copy</button>
+              </form>
+            ) : null}
+            {openRequest ? <p className="note">The creator can sign v{contract.version} on the sign page.</p> : null}
+            </div>
+            );
+          })}
         </>
       ) : (
         <ul>
-          {deal.contracts.map((contract) => (
-            <li key={contract.id}>
-              v{contract.version} · {contract.filename} · {contract.signingLabel}
-              {contract.driveFileUrl ? <> · <a href={contract.driveFileUrl}>Open contract</a></> : null}
-              {contract.countersign ? <div className="note">Momma Mari will countersign.</div> : null}
-            </li>
-          ))}
+          {deal.contracts.map((contract) => {
+            const signWindow = deal.workflowStage === "approved_by_agency" || deal.workflowStage === "awaiting_signature";
+            const requested = deal.signatures.some((row) => row.contractId === contract.id && row.status === "requested");
+            const copies = deal.signatures.filter((row) => row.contractId === contract.id && row.signedFilename);
+            const signable = contract.signingFormat === "pdf" || contract.signingFormat === "docusign";
+            return (
+              <li key={contract.id}>
+                v{contract.version} · {contract.filename} · {contract.signingLabel}
+                {contract.driveFileUrl ? <> · <a href={contract.driveFileUrl}>Open contract</a></> : null}
+                {contract.countersign ? <div className="note">Momma Mari will countersign.</div> : null}
+                {signWindow && requested && signable ? (
+                  <div><Link href={`/deals/${deal.id}/sign?contract=${contract.id}`}>Sign this contract</Link></div>
+                ) : null}
+                {copies.map((row) => (
+                  <div key={row.id}>
+                    <a href={`/api/deals/${deal.id}/signatures/${row.id}/file`}>{row.signedFilename}</a>
+                    {row.status === "pending_countersign" ? <span className="note"> Waiting for Momma Mari to countersign.</span> : null}
+                  </div>
+                ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

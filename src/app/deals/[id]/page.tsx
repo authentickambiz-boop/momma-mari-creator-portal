@@ -12,7 +12,7 @@ export default async function DealPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string }>;
+  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const portal = await loadPortal(query.creator ?? null);
@@ -54,6 +54,11 @@ export default async function DealPage({
           </form>
         </div>
       ))}
+      {query.signed === "1" ? (
+        <div className="callout">
+          <b>Your signature is saved.</b>
+        </div>
+      ) : null}
       {selected ? null : (
         <div className="card" style={{ marginBottom: 14 }}>
           <h2>That deal isn&apos;t on your list.</h2>
