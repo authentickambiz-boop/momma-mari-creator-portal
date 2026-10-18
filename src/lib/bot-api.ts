@@ -2,7 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { analyticsDaily, creators, deals, drafts, payments, revisions } from "@/db/schema";
 import { DEAL_STATUSES, DRAFT_STATUSES, type DealStatus, type DraftStatus } from "./types";
-import { normalizeEmail, nowIso, safeEqual } from "./format";
+import { AGENCY_COMMISSION_PERCENT, CREATOR_PAYOUT_PERCENT, feeAndPayout, normalizeEmail, nowIso, safeEqual } from "./format";
 import { createApprovalEmail, listSendableApprovals, markApprovalSent } from "./approvals";
 import { setDealStage } from "./deal-stage";
 import { isPaymentStatus } from "./fulfillment";
@@ -271,14 +271,9 @@ export async function upsertPayment(db: PortalDb, body: unknown) {
   const dealRows = await db.select().from(deals).where(eq(deals.id, body.dealId));
   const deal = dealRows[0];
   if (!deal) return { status: 404, body: { error: "Deal not found." } };
-  if ("creatorSplitPercent" in body) {
-    const split = body.creatorSplitPercent;
-    if (split !== null && typeof split !== "number") {
-      return { status: 400, body: { error: "creatorSplitPercent must be a number or null." } };
-    }
-    await db.update(creators).set({ splitPercent: split as number | null }).where(eq(creators.id, deal.creatorId));
+  if ("creatorSplitPercent" in body && body.creatorSplitPercent !== null && typeof body.creatorSplitPercent !== "number") {
+    return { status: 400, body: { error: "creatorSplitPercent must be a number or null." } };
   }
-  const creator = await findCreatorById(db, deal.creatorId);
   const existing = typeof body.id === "string"
     ? await db.select().from(payments).where(eq(payments.id, body.id))
     : await db.select().from(payments).where(eq(payments.dealId, body.dealId));
@@ -296,10 +291,9 @@ export async function upsertPayment(db: PortalDb, body: unknown) {
   const paymentStatus = "paymentStatus" in body
     ? (body.paymentStatus === null ? null : String(body.paymentStatus))
     : current?.paymentStatus ?? null;
-  const split = creator?.splitPercent ?? null;
   const basis = landedAmountCents ?? amountOwedCents;
-  const creatorPayoutCents = split != null && basis != null ? Math.round((basis * split) / 100) : null;
-  const agencySplitPercent = split == null ? null : 100 - split;
+  const share = feeAndPayout(basis);
+  const creatorPayoutCents = share.payoutCents;
   const id = current?.id ?? (typeof body.id === "string" ? body.id : `pay-${body.dealId}`);
   const row = {
     dealId: body.dealId,
@@ -309,8 +303,8 @@ export async function upsertPayment(db: PortalDb, body: unknown) {
     dueLabel: typeof body.dueLabel === "string" ? body.dueLabel : current?.dueLabel ?? null,
     landedDate: body.landedDate === null ? null : typeof body.landedDate === "string" ? body.landedDate : current?.landedDate ?? null,
     landedAmountCents,
-    creatorSplitPercent: split,
-    agencySplitPercent,
+    creatorSplitPercent: CREATOR_PAYOUT_PERCENT,
+    agencySplitPercent: AGENCY_COMMISSION_PERCENT,
     creatorPayoutCents,
     payoutApprovedOn: body.payoutApprovedOn === null
       ? null
@@ -327,10 +321,10 @@ export async function upsertPayment(db: PortalDb, body: unknown) {
   };
   if (current) {
     await db.update(payments).set(row).where(eq(payments.id, current.id));
-    return { status: 200, body: { id: current.id, creatorSplitPercent: split, creatorPayoutCents, paymentStatus } };
+    return { status: 200, body: { id: current.id, creatorSplitPercent: CREATOR_PAYOUT_PERCENT, creatorPayoutCents, paymentStatus } };
   }
   await db.insert(payments).values({ ...row, id, isSeed: false, createdAt: timestamp });
-  return { status: 201, body: { id, creatorSplitPercent: split, creatorPayoutCents, paymentStatus } };
+  return { status: 201, body: { id, creatorSplitPercent: CREATOR_PAYOUT_PERCENT, creatorPayoutCents, paymentStatus } };
 }
 
 export async function writeDailyAnalytics(db: PortalDb, body: unknown) {

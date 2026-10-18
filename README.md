@@ -43,7 +43,7 @@ Server-side rules, covered by `npm test`:
 - A creator's queries only return her rows, and only deals with "visible to creator" on.
 - Asking for another creator, for "all", or for a hidden deal returns the same "isn't on your list" result. The page does not reveal that the deal exists.
 - Kamron sees hidden deals and the private note on a card.
-- A null creator split renders as **Pending contract**.
+- The creator's cut is always the brand amount minus Momma Mari's 20% fee. A stored split is not used for that math.
 
 ## What is stubbed until you add credentials
 
@@ -377,7 +377,7 @@ curl -sS -X PUT \
 
 ### Upsert a payment
 
-`creatorSplitPercent` is stored on the creator (one split for all of her deals) and copied onto the payment. Send `null` while the contract is still out; the earnings table shows **Pending contract**. When the split is a number, creator payout is `round(landed or owed × split / 100)`.
+The creator's cut is always the brand amount minus a flat 20% fee, so the fee and the payout add up to what the brand paid. `creatorSplitPercent` may still be sent, but it is not used for the amount. The payment row stores 80 for her cut and 20 for the fee.
 
 ```bash
 curl -sS -X PUT \
@@ -385,7 +385,7 @@ curl -sS -X PUT \
   -H "Content-Type: application/json" \
   -d '{
     "dealId": "vev",
-    "creatorSplitPercent": 70,
+    "creatorSplitPercent": 80,
     "amountOwedCents": 120000,
     "landedAmountCents": 120000,
     "landedDate": "2026-11-02",
@@ -442,7 +442,7 @@ curl -sS -X PUT \
   -d '{
     "id": "abby",
     "name": "Abby Theriot",
-    "email": "abby@example.com",
+    "email": "theofficialtheriots@gmail.com",
     "splitPercent": null,
     "driveFolderId": "DRIVE_FOLDER_ID",
     "connect": {
@@ -554,7 +554,7 @@ Do this in Webflow. Nothing in this repo publishes the site.
    | --- | --- | --- |
    | `APP_BASE_URL` | `https://mommamari.com/portal` | no |
    | `NEXT_PUBLIC_BASE_PATH` | `/portal` | no |
-   | `AGENCY_TIMEZONE` | `America/Chicago` | no |
+   | `AGENCY_TIMEZONE` | `America/New_York` | no |
    | `SESSION_SECRET` | long random string | yes |
    | `ADMIN_EMAILS` | `Kamron@mommamari.com` | no |
    | `ADMIN_DISPLAY_NAME` | `Kamron` | no |
@@ -589,9 +589,9 @@ Local `next dev` serves the app at `/`, not at `/portal`. That is expected. The 
 | Item | Current value |
 | --- | --- |
 | MariClare sign-in | `mmaclamroc@gmail.com` |
-| Abby sign-in | `abby.theriot@example.com` |
-| AuthenticKam sign-in | `authentickam@example.com` |
-| Creator split | null, shown as Pending contract |
+| Abby sign-in | `theofficialtheriots@gmail.com` |
+| AuthenticKam sign-in | `authentickambiz@gmail.com` |
+| Creator cut | 80% of the brand amount. Momma Mari's fee is the other 20%. |
 | Gmail threads | `seed-thread-kosbling`, `seed-thread-vev`, and the same pattern for the other seed deals |
 | Grail | Hidden from MariClare. Note says payment on Grail-sourced deals routes to Grail first. |
 | Analytics | EXAMPLE. Followers, the 14-day bars, and the three posts are invented sample numbers. |

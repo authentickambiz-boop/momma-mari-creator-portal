@@ -2,7 +2,7 @@ import Link from "next/link";
 import { changeDealStageAction, clearSafetyAction, confirmLivePostAction, confirmProductAction, contractReviewAction, creatorInterestAction, markPaymentAction, releaseOfferAction, reviewDraftAction, saveShipmentAction, setSignerMinorAction, submitLivePostsAction, uploadBrandSignedCopyAction, uploadContractAction } from "@/app/actions";
 import { boldSignEnabled } from "@/lib/boldsign";
 import { CONTRACT_CHECKS, contractStageOpen, contractStatusLabel } from "@/lib/contract-shared";
-import { commissionLabel, creatorPayoutTracker, paymentStatusLabel, paymentStatusTone } from "@/lib/format";
+import { commissionLabel, creatorPayoutTracker, paymentStatusLabel, paymentStatusTone, withBasePath } from "@/lib/format";
 import { safetyLabel } from "@/lib/safety-shared";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
@@ -755,7 +755,7 @@ function ContractSection({
                 {row.signerName ? ` · ${row.signerName}` : ""}
                 {row.signedAt ? ` · ${row.signedAt}` : ""}
                 {row.ip ? ` · ${row.ip}` : ""}
-                {row.signedFilename ? <> · <a href={`/api/deals/${deal.id}/signatures/${row.id}/file`}>{row.signedFilename}</a></> : null}
+                {row.signedFilename ? <> · <a href={withBasePath(`/api/deals/${deal.id}/signatures/${row.id}/file`)}>{row.signedFilename}</a></> : null}
               </p>
             ))}
             {waiting && canCountersign ? <p><Link href={`/deals/${deal.id}/sign?contract=${contract.id}${signQuery}`}>Countersign</Link></p> : null}
@@ -793,7 +793,7 @@ function ContractSection({
                 ) : null}
                 {copies.map((row) => (
                   <div key={row.id}>
-                    <a href={`/api/deals/${deal.id}/signatures/${row.id}/file`}>{row.signedFilename}</a>
+                    <a href={withBasePath(`/api/deals/${deal.id}/signatures/${row.id}/file`)}>{row.signedFilename}</a>
                     {row.status === "pending_countersign" ? <span className="note"> Waiting for Momma Mari to countersign.</span> : null}
                   </div>
                 ))}

@@ -5,6 +5,7 @@ import { PortalFrame } from "@/components/portal-frame";
 import { contractFiles } from "@/db/schema";
 import { loadPortal } from "@/lib/current-user";
 import { findCreatorById, getDealForViewer } from "@/lib/queries";
+import { withBasePath } from "@/lib/format";
 import { ATTORNEY_NOTE, CONTENT_MINOR_LABEL, GUARDIAN_LABEL } from "@/lib/sign-copy";
 import type { ContractView, SignatureView } from "@/lib/types";
 
@@ -148,13 +149,13 @@ async function SignBody({
       </p>
       {signerIsMinor ? <p className="note">A parent or guardian has to sign this contract. Kamron is flagged when they do.</p> : null}
       {pdf ? (
-        <iframe className="sign-frame" title={`${brand} contract`} src={`/api/deals/${dealId}/contracts/${contract.id}/file`} />
+        <iframe className="sign-frame" title={`${brand} contract`} src={withBasePath(`/api/deals/${dealId}/contracts/${contract.id}/file`)} />
       ) : (
         <p className="note">This file isn&apos;t a PDF we can show here. Upload a PDF, or upload the completed DocuSign copy.</p>
       )}
       {signedCopies.map((row) => (
         <p key={row.id}>
-          <a href={`/api/deals/${dealId}/signatures/${row.id}/file`}>{row.signedFilename}</a>
+          <a href={withBasePath(`/api/deals/${dealId}/signatures/${row.id}/file`)}>{row.signedFilename}</a>
           {row.status === "pending_countersign" ? " · Waiting for Momma Mari to countersign" : ""}
           {row.signerName ? ` · Signed by ${row.signerName}` : ""}
         </p>

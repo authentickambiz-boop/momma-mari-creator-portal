@@ -2,6 +2,7 @@ import { connectCalendarAction, saveDeliverableDateAction } from "@/app/calendar
 import { PortalFrame } from "@/components/portal-frame";
 import { calendarConnected, listCalendar } from "@/lib/calendar";
 import { loadPortal } from "@/lib/current-user";
+import { withBasePath } from "@/lib/format";
 import { listDealsForViewer } from "@/lib/queries";
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ creator?: string; saved?: string; calendarError?: string }> }) {
@@ -69,7 +70,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             <input type="hidden" name="connected" value={connected ? "0" : "1"} />
             <button className="btn ghost" type="submit">{connected ? "Disconnect calendar" : "Connect calendar"}</button>
           </form>
-          {connected ? <p style={{ marginTop: 10 }}><a href="/api/calendar">Download calendar file</a></p> : null}
+          {connected ? <p style={{ marginTop: 10 }}><a href={withBasePath("/api/calendar")}>Download calendar file</a></p> : null}
         </div>
       ) : null}
     </PortalFrame>

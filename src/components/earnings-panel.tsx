@@ -1,5 +1,5 @@
 import { Chips } from "./portal-frame";
-import { commissionLabel, creatorCutLabel, creatorPayoutTracker, formatMoney, monthName, nextPayoutLabel, paidOutCents, paymentStatusLabel, paymentStatusTone, pipelineHeadline } from "@/lib/format";
+import { commissionLabel, creatorPayoutTracker, feeAndPayout, formatMoney, monthName, nextPayoutLabel, paidOutCents, paymentStatusLabel, paymentStatusTone, pipelineHeadline } from "@/lib/format";
 import type { CreatorProfile, DealSummary, InboxItem, PaymentView } from "@/lib/types";
 
 export function EarningsPanel({
@@ -65,6 +65,7 @@ export function EarningsPanel({
               {visible.map((deal) => {
                 const payment = paymentByDeal.get(deal.id);
                 const basis = payment?.landedAmountCents ?? payment?.amountOwedCents ?? null;
+                const share = feeAndPayout(basis);
                 const tracker = creatorPayoutTracker(payment ?? null);
                 const status = payment?.paymentStatus
                   ? <span className={`chip ${paymentStatusTone(payment.paymentStatus)}`}>{paymentStatusLabel(payment.paymentStatus, audience)}</span>
@@ -77,8 +78,8 @@ export function EarningsPanel({
                     {owner ? <td>{payment?.amountLabel ?? deal.amountDisplay}</td> : null}
                     {owner ? <td className={payment?.dueLabel?.startsWith("TBD") ? "tbd" : undefined}>{payment?.dueLabel ?? "TBD"}</td> : null}
                     {owner ? <td>{payment?.landedDate ? `${payment.landedDate}${payment.landedAmountCents != null ? ` · ${formatMoney(payment.landedAmountCents)}` : ""}` : "Not yet"}</td> : null}
-                    <td className={!owner && payment?.creatorPayoutCents == null ? "tbd" : creator.splitPercent == null ? "tbd" : undefined}>
-                      {owner ? creatorCutLabel(creator.splitPercent, basis) : tracker.payoutLabel}
+                    <td className={share.payoutCents == null ? "tbd" : undefined}>
+                      {owner ? (share.payoutCents == null ? "Pending" : formatMoney(share.payoutCents)) : tracker.payoutLabel}
                     </td>
                     <td>{owner ? commissionLabel(basis) : tracker.feeLabel}</td>
                     {owner ? null : <td>{tracker.brandPaidOn ?? "Not yet"}</td>}
@@ -92,9 +93,7 @@ export function EarningsPanel({
         </div>
         {owner ? (
           <p className="note">
-            {creator.splitPercent == null
-              ? "The creator's contract split isn't set yet, so their payout says pending contract. Momma Mari's commission stays 20% of the brand amount. Nothing is sent until you mark creator paid."
-              : `The contract split is ${creator.splitPercent}%. Momma Mari's commission is 20% of the brand amount. Payouts still wait until you mark creator paid.`}
+            Momma Mari&apos;s commission is 20% of the brand amount. Her cut is the rest, so the fee and the payout add up to what the brand paid. Nothing is sent until you mark creator paid.
           </p>
         ) : (
           <p className="note">You see when the brand paid, the 20% Momma Mari fee, and when your cut was sent. Kamron marks each step. Nothing is sent automatically.</p>

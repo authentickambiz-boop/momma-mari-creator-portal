@@ -15,12 +15,18 @@ self.addEventListener("push", (event) => {
   }
   const title = typeof payload.title === "string" && payload.title ? payload.title : "Momma Mari";
   const body = typeof payload.body === "string" ? payload.body : "";
-  const url = typeof payload.url === "string" && payload.url ? payload.url : "/";
+  const url = portalUrl(payload.url);
   event.waitUntil(self.registration.showNotification(title, { body, data: { url } }));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data && event.notification.data.url ? event.notification.data.url : "/";
+  const url = portalUrl(event.notification.data && event.notification.data.url);
   event.waitUntil(self.clients.openWindow(url));
 });
+
+function portalUrl(value) {
+  if (typeof value === "string" && /^https?:\/\//.test(value)) return value;
+  const path = typeof value === "string" && value.startsWith("/") ? value.slice(1) : "";
+  return new URL(path, self.registration.scope).href;
+}

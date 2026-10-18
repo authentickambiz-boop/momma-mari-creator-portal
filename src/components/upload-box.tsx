@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { publicBasePath } from "@/lib/format";
+import { withBasePath } from "@/lib/format";
 
 export function UploadBox({
   dealId,
@@ -28,8 +28,7 @@ export function UploadBox({
     setMessage(null);
     setDone(false);
     setProgress(0);
-    const base = publicBasePath();
-    const start = await fetch(`${base}/api/deals/${dealId}/uploads`, {
+    const start = await fetch(withBasePath(`/api/deals/${dealId}/uploads`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -51,7 +50,7 @@ export function UploadBox({
     while (offset < file.size) {
       const end = Math.min(offset + chunkBytes, file.size);
       const chunk = file.slice(offset, end);
-      const response = await fetch(`${base}/api/deals/${dealId}/uploads/${started.draftId}`, {
+      const response = await fetch(withBasePath(`/api/deals/${dealId}/uploads/${started.draftId}`), {
         method: "PUT",
         headers: {
           "Content-Type": "application/octet-stream",
