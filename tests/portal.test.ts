@@ -74,6 +74,7 @@ import { createSession, readSignedSessionId } from "../src/lib/session";
 import { decryptToken } from "../src/lib/token-crypto";
 import { assertCanUpload, parseContentRange, validateChunk } from "../src/lib/uploads";
 import type { Viewer } from "../src/lib/types";
+import { buildCalendarFeed, listCalendar, runDeliverableNudges, saveDeliverableDate, setCalendarConnected } from "../src/lib/calendar";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -2953,6 +2954,135 @@ test("a creator sees when the brand paid, the 20% fee, and when her cut was sent
   assert.equal(tracker.payoutLabel.includes("%"), false);
   assert.equal(JSON.stringify(creatorDeal).includes("Commission"), false);
   assert.equal((await getDealForViewer(db, admin, "phase9-pay"))?.workflowStage, "paid");
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("due dates remind three days ahead in the portal or the approval queue, and nothing is sent", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  const created = await upsertDeal(db, {
+    id: "phase10-dates",
+    brand: "Phase10 Dates",
+    creatorId: "mariclare",
+    status: "active",
+    workflowStage: "draft_due",
+    visibleToCreator: true,
+  });
+  assert.equal(created.status, 201);
+
+  const creatorDate = await saveDeliverableDate(db, {
+    dealId: "phase10-dates",
+    kind: "draft",
+    dueOn: "2026-10-21",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+  });
+  assert.equal(creatorDate.ok, false);
+  if (!creatorDate.ok) assert.equal(creatorDate.error, "You can't change due dates.");
+
+  const managerDate = await saveDeliverableDate(db, {
+    dealId: "phase10-dates",
+    kind: "draft",
+    dueOn: "2026-10-21",
+    actorEmail: "riley.manager@gmail.com",
+    actorRole: "manager",
+  });
+  assert.equal(managerDate.ok, false);
+  if (!managerDate.ok) assert.equal(managerDate.error, "That creator isn't on your list.");
+
+  const bad = await saveDeliverableDate(db, {
+    dealId: "phase10-dates",
+    kind: "draft",
+    dueOn: "Oct 21",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(bad.ok, false);
+
+  const draft = await saveDeliverableDate(db, {
+    dealId: "phase10-dates",
+    kind: "draft",
+    dueOn: "2026-10-21",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(draft.ok, true);
+  if (draft.ok) assert.equal(draft.remindOn, "2026-10-18");
+  assert.equal((await saveDeliverableDate(db, {
+    dealId: "phase10-dates",
+    kind: "post",
+    dueOn: "2026-10-20",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  })).ok, true);
+
+  const portalNudge = await runDeliverableNudges(db, { today: "2026-10-18", channel: "portal", actorRole: "bot" });
+  assert.equal(portalNudge.ok, true);
+  if (!portalNudge.ok) return;
+  assert.equal(portalNudge.nudged.length, 1);
+  assert.equal(portalNudge.nudged[0]?.kind, "draft");
+  assert.equal(portalNudge.nudged[0]?.channel, "portal");
+  assert.equal(portalNudge.nudged[0]?.approvalId, null);
+  const notices = await listUnreadCreatorNotices(db, "mariclare");
+  const notice = notices.find((item) => item.dealId === "phase10-dates" && item.kind === "reminder");
+  assert.equal(notice?.message, "Your draft for Phase10 Dates is due in 3 days, on 2026-10-21.");
+  assert.equal(notice?.message.includes("@"), false);
+  assert.equal(notice?.message.includes("$"), false);
+
+  const again = await runDeliverableNudges(db, { today: "2026-10-18", channel: "portal", actorRole: "bot" });
+  assert.equal(again.ok, true);
+  if (again.ok) assert.equal(again.nudged.length, 0);
+
+  const creatorRun = await runDeliverableNudges(db, { today: "2026-10-18", channel: "portal", actorRole: "creator" });
+  assert.equal(creatorRun.ok, false);
+
+  assert.equal((await saveDeliverableDate(db, {
+    dealId: "phase10-dates",
+    kind: "post",
+    dueOn: "2026-10-21",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  })).ok, true);
+  const queued = await runDeliverableNudges(db, { today: "2026-10-18", channel: "queue", actorRole: "bot" });
+  assert.equal(queued.ok, true);
+  if (!queued.ok) return;
+  assert.equal(queued.nudged.length, 1);
+  assert.equal(queued.nudged[0]?.kind, "post");
+  const approvalId = queued.nudged[0]?.approvalId ?? "";
+  const card = (await listApprovalQueue(db, "all")).find((row) => row.id === approvalId);
+  assert.equal(card?.status, "pending");
+  assert.equal(card?.gate, "reminder");
+  assert.equal(card?.fromEmail, "authentickambiz@gmail.com");
+  assert.equal(card?.toEmail, mariclare.email);
+  const sendable = await listApprovedApprovals(db);
+  assert.equal(JSON.stringify(sendable).includes(approvalId), false);
+
+  const off = await buildCalendarFeed(db, mariclare);
+  assert.equal(off.ok, false);
+  assert.equal((await setCalendarConnected(db, mariclare, true)).ok, true);
+  const feed = await buildCalendarFeed(db, mariclare);
+  assert.equal(feed.ok, true);
+  if (!feed.ok) return;
+  assert.equal(feed.body.includes("BEGIN:VCALENDAR"), true);
+  assert.equal(feed.body.includes("DTSTART;VALUE=DATE:20261021"), true);
+  assert.equal(feed.body.includes("Phase10 Dates"), true);
+  assert.equal(feed.body.includes("@"), false);
+  assert.equal(feed.body.includes("$"), false);
+  const packed = JSON.stringify(await listCalendar(db, mariclare));
+  assert.equal(packed.includes("phase10-dates"), true);
+  assert.equal(packed.includes("@"), false);
+  assert.equal(packed.includes("kosbling"), false);
+  assert.equal((await listCalendar(db, admin)).some((item) => item.dealId === "kosbling"), false);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");

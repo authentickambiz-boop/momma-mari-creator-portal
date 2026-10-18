@@ -540,6 +540,31 @@ export const profileAdminLog = sqliteTable("profile_admin_log", {
   createdAt: text("created_at").notNull(),
 });
 
+export const deliverableDates = sqliteTable("deliverable_dates", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull(),
+  kind: text("kind").notNull(),
+  dueOn: text("due_on").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const deliverableNudges = sqliteTable("deliverable_nudges", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull(),
+  kind: text("kind").notNull(),
+  dueOn: text("due_on").notNull(),
+  channel: text("channel").notNull(),
+  approvalId: text("approval_id"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const creatorCalendars = sqliteTable("creator_calendars", {
+  creatorId: text("creator_id").primaryKey(),
+  connected: integer("connected", { mode: "boolean" }).notNull().default(false),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),
