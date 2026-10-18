@@ -189,6 +189,26 @@ curl -sS \
   "http://localhost:43123/api/bot/interest"
 ```
 
+### Manager video review
+
+When a creator finishes uploading a video, the deal moves to Draft submitted and the file stays in her Brand Drafts folder. Each version is kept (v1, v2, v3).
+
+On a finished draft, an admin (`ADMIN_EMAILS`) sees **Approve** and **Request changes**, plus notes. A creator cannot review her own video.
+
+Request changes sends that version back to her with the notes, moves the deal to Draft due, writes the stage history, and turns the upload box back on for the next version. The brand is not emailed.
+
+Approve moves the deal to Manager review and puts a video email in the approval queue. The email includes the Drive link when there is one. From is always `authentickambiz@gmail.com`. It stays pending until an admin approves it on the Approvals page. Nothing is sent before that.
+
+She sees a notice in the portal for either decision: what to fix, or that her manager approved it and the brand email is waiting for Kamron.
+
+`GET /api/bot/draft-reviews` returns those reviews for Kash Bot (`?since=` is an ISO timestamp). It does not send the email.
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  "http://localhost:43123/api/bot/draft-reviews"
+```
+
 ### Upsert a deal
 
 `id`, `brand`, and either `creatorEmail` or `creatorId` are required. A new deal is hidden from the creator unless you pass `"visibleToCreator": true`. Omitted text fields are left as they are on update. `chips` is an array of `[text, tone]` pairs. Tones used by the mockup are `c-red`, `c-gray`, `c-sun`, `c-blue`, and `c-sage`.

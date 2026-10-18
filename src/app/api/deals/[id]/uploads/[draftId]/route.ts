@@ -4,6 +4,7 @@ import { currentViewer } from "@/lib/current-user";
 import { forwardChunk } from "@/lib/drive";
 import { getDealAccessRow, getDraftRow, markDraftProgress } from "@/lib/queries";
 import { assertCanUpload, parseContentRange, validateChunk } from "@/lib/uploads";
+import { onDraftSubmitted } from "@/lib/video-review";
 
 export async function PUT(request: Request, context: { params: Promise<{ id: string; draftId: string }> }) {
   const viewer = await currentViewer();
@@ -49,6 +50,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         driveFileId: result.fileId,
         driveFileUrl: result.fileUrl,
       });
+      await onDraftSubmitted(db, deal.id, { email: viewer.email });
       return NextResponse.json({ status: "complete", mode: "drive", driveFileId: result.fileId, driveFileUrl: result.fileUrl, gmailThreadId: draft.gmailThreadId });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Drive rejected the chunk.";
@@ -62,6 +64,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     driveFileId: check.complete ? "demo-not-uploaded" : null,
     driveFileUrl: null,
   });
+  if (check.complete) await onDraftSubmitted(db, deal.id, { email: viewer.email });
   return NextResponse.json({
     status: check.complete ? "complete" : "incomplete",
     mode: "demo",

@@ -93,6 +93,7 @@ export type DraftView = {
   gmailThreadId: string | null;
   uploadedAt: string | null;
   isSeed: boolean;
+  review: { decision: string; note: string | null; actorEmail: string; createdAt: string } | null;
 };
 
 export type PaymentView = {
