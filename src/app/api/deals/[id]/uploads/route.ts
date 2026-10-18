@@ -3,6 +3,7 @@ import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
 import { driveConfigured, openResumableSession, prepareDriveFolder } from "@/lib/drive";
 import { findCreatorById, getDealAccessRow, insertDraft, nextDraftVersion } from "@/lib/queries";
+import { recordDraftSafety } from "@/lib/safety";
 import { allowedVideoType, assertCanUpload, chunkSizeBytes, maxUploadBytes, safeFilename } from "@/lib/uploads";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -15,7 +16,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const allowed = assertCanUpload(viewer, deal);
   if (!allowed.ok) return NextResponse.json({ error: allowed.error }, { status: allowed.status });
 
-  const body = await request.json().catch(() => null) as { filename?: string; mimeType?: string; sizeBytes?: number } | null;
+  const body = await request.json().catch(() => null) as {
+    filename?: string;
+    mimeType?: string;
+    sizeBytes?: number;
+    caption?: string;
+    locationTag?: string;
+  } | null;
   if (!body || typeof body.filename !== "string" || typeof body.sizeBytes !== "number") {
     return NextResponse.json({ error: "filename and sizeBytes are required." }, { status: 400 });
   }
@@ -61,6 +68,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     gmailThreadId: deal.gmailThreadId,
     status: "uploading",
   });
+  const safety = await recordDraftSafety(db, {
+    draftId,
+    dealId: deal.id,
+    filename,
+    caption: typeof body.caption === "string" ? body.caption : null,
+    locationTag: typeof body.locationTag === "string" ? body.locationTag : null,
+  });
 
-  return NextResponse.json({ draftId, version, mode, chunkBytes: chunkSizeBytes() });
+  return NextResponse.json({
+    draftId,
+    version,
+    mode,
+    chunkBytes: chunkSizeBytes(),
+    held: safety.kinds.length > 0,
+    safetyKinds: safety.kinds,
+  });
 }

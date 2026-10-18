@@ -599,6 +599,21 @@ export const mediaKits = sqliteTable("media_kits", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const draftSafetyFlags = sqliteTable(
+  "draft_safety_flags",
+  {
+    id: text("id").primaryKey(),
+    draftId: text("draft_id").notNull(),
+    dealId: text("deal_id").notNull(),
+    kind: text("kind").notNull(),
+    held: integer("held", { mode: "boolean" }).notNull(),
+    clearedBy: text("cleared_by"),
+    clearedAt: text("cleared_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("draft_safety_flags_draft_kind").on(table.draftId, table.kind)],
+);
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),

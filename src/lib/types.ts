@@ -107,6 +107,7 @@ export type DraftView = {
   uploadedAt: string | null;
   isSeed: boolean;
   review: { decision: string; note: string | null; actorEmail: string; createdAt: string } | null;
+  safety: { kind: "school" | "house" | "location" | "name"; held: boolean }[];
 };
 
 export type PaymentView = {

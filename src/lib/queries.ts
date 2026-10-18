@@ -20,6 +20,7 @@ import { adminDisplayName, adminEmails, canSeeDeal } from "./authz";
 import { findManagerByEmail } from "./managers";
 import { CONTRACT_CHECKS, signingFormatLabel } from "./contract-shared";
 import { firstEmail, interestContextForDeal } from "./creator-interest";
+import { safetyForDeal } from "./safety";
 import { reviewsForDeal } from "./video-review";
 import { shipmentStatusLabel, trackingUrl } from "./fulfillment";
 import { normalizeEmail, nowIso, parseJson } from "./format";
@@ -134,6 +135,7 @@ function toDraft(row: typeof drafts.$inferSelect): DraftView {
     uploadedAt: row.uploadedAt,
     isSeed: row.isSeed,
     review: null,
+    safety: [],
   };
 }
 
@@ -307,7 +309,7 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
   if (!row || !canSeeDeal(viewer, row)) return null;
   const creator = await findCreatorById(db, row.creatorId);
   const staff = viewer.role === "admin" || viewer.role === "manager";
-  const [revisionRows, draftRows, paymentRows, stageRows, reviewByDraft, shipmentRows, postRows] = await Promise.all([
+  const [revisionRows, draftRows, paymentRows, stageRows, reviewByDraft, shipmentRows, postRows, safetyByDraft] = await Promise.all([
     db.select().from(revisions).where(eq(revisions.dealId, dealId)).orderBy(asc(revisions.sortOrder)),
     db.select().from(drafts).where(eq(drafts.dealId, dealId)).orderBy(asc(drafts.version)),
     db.select().from(payments).where(eq(payments.dealId, dealId)),
@@ -317,6 +319,7 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
     reviewsForDeal(db, dealId),
     db.select().from(shipments).where(eq(shipments.dealId, dealId)),
     db.select().from(livePosts).where(eq(livePosts.dealId, dealId)).orderBy(asc(livePosts.createdAt)),
+    safetyForDeal(db, dealId),
   ]);
   const summary = hideMoney(toSummary(row, creator?.name ?? "Creator"), viewer);
   const interestState = await interestContextForDeal(db, dealId);
@@ -360,6 +363,7 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
         review: review
           ? { decision: review.decision, note: review.note, actorEmail: review.actorEmail, createdAt: review.createdAt }
           : null,
+        safety: safetyByDraft.get(row.id) ?? [],
       };
     }),
     payment: paymentRows[0] ? paymentForViewer(paymentRows[0], viewer) : null,
