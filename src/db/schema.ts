@@ -565,6 +565,18 @@ export const creatorCalendars = sqliteTable("creator_calendars", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const brandCrmEntries = sqliteTable("brand_crm_entries", {
+  id: text("id").primaryKey(),
+  brandKey: text("brand_key").notNull(),
+  kind: text("kind").notNull(),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  response: text("response"),
+  note: text("note"),
+  actorName: text("actor_name").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),
