@@ -6,7 +6,7 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorNotifications, creators, emailCopies, emailCopyFiles, signatureFiles } from "../src/db/schema";
+import { communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorNotifications, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
@@ -78,6 +78,8 @@ import { buildCalendarFeed, listCalendar, runDeliverableNudges, saveDeliverableD
 import { addBrandCrmEntry, listBrandCrm } from "../src/lib/brand-crm";
 import { listUsageRights, saveUsageRights, suggestUsageRenewal, usageFlag } from "../src/lib/usage";
 import { myMediaKit, publicMediaKit, saveMediaKit, zernioStatsEnabled } from "../src/lib/media-kit";
+import { clearSafetyHold, listSafetyHolds, recordDraftSafety } from "../src/lib/safety";
+import { findSafetyKinds } from "../src/lib/safety-shared";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -3316,6 +3318,145 @@ test("a shared media kit shows hand-entered stats and hides pay, and Zernio stay
     globalThis.fetch = originalFetch;
     delete process.env.ZERNIO_STATS_ENABLED;
   }
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("a draft with a school, house number, location, or child's name is held for Kamron", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const caption = "Shot at Lincoln Elementary. My daughter Emma Johnson waves. We live at 123 Oak Street.";
+  const locationTag = "Lincoln Park";
+  const secrets = ["Emma Johnson", "Lincoln Elementary", "Lincoln Park", "123 Oak", "Oak Street"];
+
+  assert.deepEqual(findSafetyKinds({ caption: "Unboxing on the counter." }), []);
+  assert.deepEqual(
+    findSafetyKinds({ filename: "v1-draft.mp4", caption, locationTag }).sort(),
+    ["house", "location", "name", "school"],
+  );
+
+  const created = await upsertDeal(db, {
+    id: "phase14-safety",
+    brand: "Phase14 Soap",
+    creatorId: "mariclare",
+    status: "active",
+    workflowStage: "draft_due",
+    visibleToCreator: true,
+    uploadEnabled: true,
+    contact: "hello@phase14.example",
+  });
+  assert.equal(created.status, 201);
+  await insertDraft(db, {
+    id: "phase14-v1",
+    dealId: "phase14-safety",
+    version: 1,
+    filename: "v1-draft.mp4",
+    mimeType: "video/mp4",
+    sizeBytes: 800,
+    uploadSessionUrl: "demo://local",
+    driveFolderId: null,
+    gmailThreadId: null,
+    status: "uploading",
+  });
+  await recordDraftSafety(db, {
+    draftId: "phase14-v1",
+    dealId: "phase14-safety",
+    filename: "v1-draft.mp4",
+    caption,
+    locationTag,
+  });
+  await recordDraftSafety(db, {
+    draftId: "phase14-v1",
+    dealId: "phase14-safety",
+    filename: "v1-draft.mp4",
+    caption,
+    locationTag,
+  });
+  await markDraftProgress(db, "phase14-v1", { bytesReceived: 800, status: "new", driveFileId: "demo-not-uploaded", driveFileUrl: null });
+  assert.equal((await onDraftSubmitted(db, "phase14-safety", { email: mariclare.email })).ok, true);
+
+  const flagRows = await db.select().from(draftSafetyFlags).where(eq(draftSafetyFlags.draftId, "phase14-v1"));
+  assert.equal(flagRows.length, 4);
+  assert.deepEqual(flagRows.map((row) => row.kind).sort(), ["house", "location", "name", "school"]);
+  const stored = JSON.stringify(flagRows);
+  for (const secret of secrets) assert.equal(stored.includes(secret), false, secret);
+
+  const deal = await getDealForViewer(db, admin, "phase14-safety");
+  assert.equal(deal?.workflowStage, "draft_submitted");
+  assert.deepEqual(deal?.drafts[0]?.safety.map((flag) => flag.kind).sort(), ["house", "location", "name", "school"]);
+  const packedDeal = JSON.stringify(deal);
+  for (const secret of secrets) assert.equal(packedDeal.includes(secret), false, secret);
+
+  const creatorHolds = await listSafetyHolds(db, mariclare);
+  assert.equal(creatorHolds.ok, false);
+  if (!creatorHolds.ok) assert.equal(creatorHolds.error, "Safety holds are for the team.");
+  const rileyLogin = await resolveLogin(db, "riley.manager@gmail.com");
+  assert.equal(rileyLogin.ok, true);
+  if (!rileyLogin.ok) return;
+  const managerHolds = await listSafetyHolds(db, rileyLogin.viewer);
+  assert.equal(managerHolds.ok, true);
+  if (managerHolds.ok) assert.equal(managerHolds.holds.some((hold) => hold.dealId === "phase14-safety"), false);
+  const ownerHolds = await listSafetyHolds(db, admin);
+  assert.equal(ownerHolds.ok, true);
+  if (!ownerHolds.ok) return;
+  const hold = ownerHolds.holds.find((row) => row.draftId === "phase14-v1");
+  assert.deepEqual(hold?.kinds.sort(), ["house", "location", "name", "school"]);
+  const packedHolds = JSON.stringify(ownerHolds.holds);
+  for (const secret of secrets) assert.equal(packedHolds.includes(secret), false, secret);
+
+  const eventsBefore = deal?.stageEvents?.length ?? 0;
+  const queueBefore = (await listApprovalQueue(db, "all")).filter((row) => row.dealId === "phase14-safety").length;
+  const blocked = await reviewDraft(db, {
+    draftId: "phase14-v1",
+    decision: "approved",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(blocked.ok, false);
+  if (!blocked.ok) {
+    assert.equal(blocked.status, 409);
+    assert.equal(blocked.error, "This draft is held for Kamron. Nothing was sent to the brand.");
+  }
+  const still = await getDealForViewer(db, admin, "phase14-safety");
+  assert.equal(still?.workflowStage, "draft_submitted");
+  assert.equal(still?.stageEvents?.length, eventsBefore);
+  assert.equal(still?.drafts[0]?.status, "new");
+  assert.equal(still?.drafts[0]?.review, null);
+  assert.equal((await listApprovalQueue(db, "all")).filter((row) => row.dealId === "phase14-safety").length, queueBefore);
+
+  const creatorClear = await clearSafetyHold(db, { draftId: "phase14-v1", actorEmail: mariclare.email, actorRole: "creator" });
+  assert.equal(creatorClear.ok, false);
+  if (!creatorClear.ok) assert.equal(creatorClear.error, "You can't clear a safety hold.");
+  const managerClear = await clearSafetyHold(db, { draftId: "phase14-v1", actorEmail: rileyLogin.viewer.email, actorRole: "manager" });
+  assert.equal(managerClear.ok, false);
+  if (!managerClear.ok) assert.equal(managerClear.error, "Only Kamron can clear a safety hold.");
+  assert.equal((await db.select().from(draftSafetyFlags).where(eq(draftSafetyFlags.draftId, "phase14-v1"))).every((row) => row.held), true);
+
+  const cleared = await clearSafetyHold(db, { draftId: "phase14-v1", actorEmail: admin.email, actorRole: "admin" });
+  assert.equal(cleared.ok, true);
+  if (cleared.ok) assert.equal(cleared.cleared, 4);
+  const approved = await reviewDraft(db, {
+    draftId: "phase14-v1",
+    decision: "approved",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(approved.ok, true);
+  if (approved.ok) assert.ok(approved.approvalId);
+  const after = await getDealForViewer(db, admin, "phase14-safety");
+  assert.equal(after?.workflowStage, "manager_review");
+  const queued = (await listApprovalQueue(db, "all")).find((row) => row.dealId === "phase14-safety" && row.gate === "video");
+  assert.equal(queued?.status, "pending");
+  assert.equal(queued?.fromEmail, "authentickambiz@gmail.com");
+  for (const secret of secrets) assert.equal((queued?.body ?? "").includes(secret), false, secret);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");

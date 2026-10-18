@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { changeDealStageAction, confirmLivePostAction, confirmProductAction, contractReviewAction, creatorInterestAction, markPaymentAction, releaseOfferAction, reviewDraftAction, saveShipmentAction, setSignerMinorAction, submitLivePostsAction, uploadBrandSignedCopyAction, uploadContractAction } from "@/app/actions";
+import { changeDealStageAction, clearSafetyAction, confirmLivePostAction, confirmProductAction, contractReviewAction, creatorInterestAction, markPaymentAction, releaseOfferAction, reviewDraftAction, saveShipmentAction, setSignerMinorAction, submitLivePostsAction, uploadBrandSignedCopyAction, uploadContractAction } from "@/app/actions";
 import { boldSignEnabled } from "@/lib/boldsign";
 import { CONTRACT_CHECKS, contractStageOpen, contractStatusLabel } from "@/lib/contract-shared";
 import { commissionLabel, creatorPayoutTracker, paymentStatusLabel, paymentStatusTone } from "@/lib/format";
+import { safetyLabel } from "@/lib/safety-shared";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
 import { UploadBox } from "./upload-box";
@@ -45,6 +46,7 @@ export function DealBoard({
   productError = null,
   postError = null,
   paymentError = null,
+  safetyError = null,
 }: {
   deals: DealSummary[];
   selected: DealDetail | null;
@@ -65,6 +67,7 @@ export function DealBoard({
   productError?: string | null;
   postError?: string | null;
   paymentError?: string | null;
+  safetyError?: string | null;
 }) {
   return (
     <div className={showDetail ? "grid showdetail" : "grid"} id="dealGrid">
@@ -115,6 +118,7 @@ export function DealBoard({
             productError={productError}
             postError={postError}
             paymentError={paymentError}
+            safetyError={safetyError}
           />
         ) : (
           <p className="note">Pick a deal to see the brief, the feedback, and where to upload.</p>
@@ -143,6 +147,7 @@ function DealDetailView({
   productError,
   postError,
   paymentError,
+  safetyError,
 }: {
   deal: DealDetail;
   backHref: string;
@@ -162,6 +167,7 @@ function DealDetailView({
   productError: string | null;
   postError: string | null;
   paymentError: string | null;
+  safetyError: string | null;
 }) {
   const creatorId = creatorQuery.startsWith("?creator=") ? creatorQuery.slice("?creator=".length) : "";
   const current = deal.workflowStage;
@@ -391,6 +397,18 @@ function DealDetailView({
                   {DRAFT_STATUS[draft.status] ?? draft.status}
                   {draft.driveFileUrl ? <> · <a href={draft.driveFileUrl}>Drive file</a></> : draft.isSeed ? " · no portal file" : ""}
                 </div>
+                {draft.safety.some((flag) => flag.held) ? (
+                  <div className="note">
+                    Held for Kamron: {draft.safety.filter((flag) => flag.held).map((flag) => safetyLabel(flag.kind)).join(", ")}. Nothing goes to the brand until he clears it.
+                  </div>
+                ) : null}
+                {isOwner && draft.safety.some((flag) => flag.held) ? (
+                  <form action={clearSafetyAction} className="stage-form">
+                    <input type="hidden" name="draftId" value={draft.id} />
+                    <input type="hidden" name="back" value={`/deals/${deal.id}${creatorQuery}`} />
+                    <button className="btn" type="submit">Clear hold</button>
+                  </form>
+                ) : null}
                 {draft.review?.decision === "changes" && draft.review.note ? (
                   <div className="note">What to fix: {draft.review.note}</div>
                 ) : null}
@@ -420,7 +438,10 @@ function DealDetailView({
                     <button className="btn ghost" type="submit" name="decision" value="changes">Request changes</button>
                     {reviewError === "note" ? <span className="note">Tell her what to fix before sending it back.</span> : null}
                     {reviewError === "email" ? <span className="note">Add the brand email before approving. The email stays in your queue.</span> : null}
-                    {reviewError && reviewError !== "note" && reviewError !== "email" ? <span className="note">That review was not saved.</span> : null}
+                    {reviewError === "held" ? <span className="note">This draft is held for Kamron. Nothing was sent to the brand.</span> : null}
+                    {reviewError && reviewError !== "note" && reviewError !== "email" && reviewError !== "held" ? <span className="note">That review was not saved.</span> : null}
+                    {safetyError === "creator" ? <span className="note">You can&apos;t clear a safety hold.</span> : null}
+                    {safetyError === "owner" ? <span className="note">Only Kamron can clear a safety hold.</span> : null}
                   </form>
                 ) : null}
               </li>

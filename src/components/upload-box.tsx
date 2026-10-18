@@ -20,6 +20,8 @@ export function UploadBox({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [caption, setCaption] = useState("");
+  const [locationTag, setLocationTag] = useState("");
 
   async function send(file: File) {
     setError(null);
@@ -30,7 +32,13 @@ export function UploadBox({
     const start = await fetch(`${base}/api/deals/${dealId}/uploads`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: file.name, mimeType: file.type || "video/mp4", sizeBytes: file.size }),
+      body: JSON.stringify({
+        filename: file.name,
+        mimeType: file.type || "video/mp4",
+        sizeBytes: file.size,
+        caption,
+        locationTag,
+      }),
     });
     const started = await start.json();
     if (!start.ok) {
@@ -61,10 +69,14 @@ export function UploadBox({
       setProgress(Math.round((offset / file.size) * 100));
       if (body.status === "complete") {
         setDone(true);
+        setCaption("");
+        setLocationTag("");
         setMessage(
-          body.mode === "demo"
-            ? "Recorded on the deal. Your manager can review it here. Drive isn't connected, so the video file itself was not stored."
-            : "Saved in your Brand Drafts folder. Your manager will review it before it can go to the brand.",
+          body.held
+            ? "This draft is held for Kamron. It will not go to the brand until he clears it."
+            : body.mode === "demo"
+              ? "Recorded on the deal. Your manager can review it here. Drive isn't connected, so the video file itself was not stored."
+              : "Saved in your Brand Drafts folder. Your manager will review it before it can go to the brand.",
         );
         router.refresh();
         return;
@@ -82,7 +94,7 @@ export function UploadBox({
   }
 
   return (
-    <label
+    <div
       className={`upload ${done ? "done" : "idle"}`}
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
@@ -95,23 +107,45 @@ export function UploadBox({
       <b>{done ? `Draft received for ${brand}` : `${label} for ${brand}`}</b>
       <div className="note">
         Drag a video here or tap to choose. It&apos;s saved to your private {brand} folder, and your bot replies in the {brand} email thread only.
+        A school logo, house number, location tag, or child&apos;s full name holds the draft for Kamron. The matched words are not saved.
       </div>
-      <span className="btn">Choose video</span>
-      <input
-        type="file"
-        accept="video/*"
-        hidden
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) void send(file);
-          event.target.value = "";
-        }}
-      />
+      <label className="stage-form" style={{ width: "100%" }}>
+        Caption or on-screen text
+        <textarea
+          aria-label="Caption or on-screen text"
+          value={caption}
+          onChange={(event) => setCaption(event.target.value)}
+          placeholder="What the video says"
+        />
+      </label>
+      <label className="stage-form" style={{ width: "100%" }}>
+        Location tag
+        <input
+          type="text"
+          aria-label="Location tag"
+          value={locationTag}
+          onChange={(event) => setLocationTag(event.target.value)}
+          placeholder="Leave blank if there is none"
+        />
+      </label>
+      <label className="btn">
+        Choose video
+        <input
+          type="file"
+          accept="video/*"
+          hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void send(file);
+            event.target.value = "";
+          }}
+        />
+      </label>
       {progress !== null ? (
         <div className="progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
       ) : null}
       {message ? <div className="note" style={{ marginTop: 8 }}>{message}</div> : null}
       {error ? <div className="note" style={{ marginTop: 8, color: "#a33a2a" }}>{error}</div> : null}
-    </label>
+    </div>
   );
 }

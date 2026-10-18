@@ -11,6 +11,7 @@ import { logOfferScreening, recordCreatorInterest, releaseOffer } from "@/lib/cr
 import { approveContract, requestContractRevisions, saveChecklist, saveContract, setSigningFormat } from "@/lib/contracts";
 import { countersignContract, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "@/lib/signing";
 import { CONTRACT_CHECKS } from "@/lib/contract-shared";
+import { clearSafetyHold } from "@/lib/safety";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
 import { confirmLivePost, confirmProductReceived, markPayment, saveShipment, submitLivePosts } from "@/lib/fulfillment";
@@ -108,8 +109,32 @@ export async function reviewDraftAction(formData: FormData) {
     actorRole: viewer.role,
   });
   if (!result.ok) {
-    const code = result.status === 400 && result.error.includes("brand email") ? "email" : result.status === 400 ? "note" : "1";
+    const code = result.error.includes("held for Kamron")
+      ? "held"
+      : result.status === 400 && result.error.includes("brand email")
+        ? "email"
+        : result.status === 400
+          ? "note"
+          : "1";
     redirect(`${back}${query ? "&" : "?"}reviewError=${code}`);
+  }
+  redirect(back);
+}
+
+export async function clearSafetyAction(formData: FormData) {
+  const viewer = await currentViewer();
+  const back = String(formData.get("back") ?? "/safety");
+  if (!viewer) redirect("/login");
+  const db = await getDb();
+  const result = await clearSafetyHold(db, {
+    draftId: String(formData.get("draftId") ?? ""),
+    actorEmail: viewer.email,
+    actorRole: viewer.role,
+  });
+  const join = back.includes("?") ? "&" : "?";
+  if (!result.ok) {
+    const code = result.error.includes("can't clear") ? "creator" : "owner";
+    redirect(`${back}${join}safetyError=${code}`);
   }
   redirect(back);
 }

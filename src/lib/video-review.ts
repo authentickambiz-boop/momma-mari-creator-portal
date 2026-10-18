@@ -6,6 +6,7 @@ import { firstEmail } from "./creator-interest";
 import { setDealStage } from "./deal-stage";
 import { nowIso } from "./format";
 import { assertStaffAccess, assignedManagersByCreator, staffHistoryRole } from "./managers";
+import { heldSafetyKinds } from "./safety";
 
 const WAITING_FOR_DRAFT = new Set(["draft_due", "product_received", "brand_revisions", "manager_review"]);
 
@@ -163,6 +164,12 @@ export async function reviewDraft(
   const brandEmail = firstEmail(input.brandEmail) ?? firstEmail(deal.contact);
   if (input.decision === "approved" && !brandEmail) {
     return { ok: false, status: 400, error: "This deal has no brand email yet." };
+  }
+  if (input.decision === "approved") {
+    const held = await heldSafetyKinds(db, draft.id);
+    if (held.length > 0) {
+      return { ok: false, status: 409, error: "This draft is held for Kamron. Nothing was sent to the brand." };
+    }
   }
 
   const moved = await setDealStage(db, {
