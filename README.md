@@ -198,6 +198,8 @@ curl -sS -X POST \
 
 ### Upsert a creator
 
+Placeholder sign-in emails use the reserved `.invalid` domain (for example Abby's `abby.pending-signin@momma-mari.invalid` from `drizzle/0003_creator_profiles.sql`). `resolveLogin` refuses any `.invalid` address, so a placeholder can never open a session. Replace it with a real Google email through this endpoint.
+
 Use this for a real sign-in email, the split, a Drive folder id, and the Zernio connect links. Emails are stored lowercase. A connect URL turns that platform's button into a real link.
 
 ```bash
