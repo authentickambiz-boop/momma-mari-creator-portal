@@ -19,6 +19,7 @@ export function ConnectPanel({
   gmailEmail,
   emailSetup,
   hostedEmailAddress,
+  showBilling = true,
 }: {
   creator: CreatorProfile;
   canConnectEmail: boolean;
@@ -26,6 +27,7 @@ export function ConnectPanel({
   gmailEmail: string | null;
   emailSetup: "business" | "personal" | "hosted" | null;
   hostedEmailAddress: string | null;
+  showBilling?: boolean;
 }) {
   const [note, setNote] = useState<string | null>(null);
   return (
@@ -83,7 +85,10 @@ export function ConnectPanel({
         <p className="note" style={{ marginTop: 10 }}>We only process brand-related mail. Your bot sorts those threads and labels them.</p>
       ) : null}
       {emailSetup === "hosted" && hostedEmailAddress ? (
-        <p className="note" style={{ marginTop: 10 }}>Your address will be {hostedEmailAddress}. Roster price: {STRIPE_CATALOG.hostedCreatorEmail.roster.priceLabel}. Nothing is charged from this page.</p>
+        <p className="note" style={{ marginTop: 10 }}>
+          Your address will be {hostedEmailAddress}.
+          {showBilling ? ` Roster price: ${STRIPE_CATALOG.hostedCreatorEmail.roster.priceLabel}. Nothing is charged from this page.` : ""}
+        </p>
       ) : null}
       {canConnectEmail ? (
         <p className="note" style={{ marginTop: 10 }}>

@@ -4,12 +4,22 @@ export type DealStatus = (typeof DEAL_STATUSES)[number];
 export const DRAFT_STATUSES = ["uploading", "new", "email_awaiting_ok", "sent", "approved", "revisions"] as const;
 export type DraftStatus = (typeof DRAFT_STATUSES)[number];
 
+export type ManagerPermissions = {
+  approveEmail: boolean;
+  approveVideo: boolean;
+  approveContract: boolean;
+  countersign: boolean;
+};
+
 export type Viewer = {
   email: string;
-  role: "admin" | "creator";
+  role: "admin" | "manager" | "creator";
   creatorId: string | null;
   name: string;
   initials?: string;
+  managerId?: string | null;
+  permissions?: ManagerPermissions;
+  assignedCreatorIds?: string[];
 };
 
 export type Chip = { text: string; tone: string };
@@ -27,6 +37,8 @@ export type CreatorProfile = {
   initials: string;
   listNote: string | null;
   signerIsMinor: boolean;
+  primaryManagerId: string | null;
+  backupManagerId: string | null;
   isSeed: boolean;
   accounts: {
     tiktok: AccountLink;

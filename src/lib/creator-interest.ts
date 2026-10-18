@@ -1,9 +1,10 @@
 import { and, asc, eq, gt } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { adminNotifications, creatorInterest, creators, deals, offerScreenings } from "@/db/schema";
+import { creatorInterest, creators, deals, offerScreenings } from "@/db/schema";
 import { createApprovalEmail } from "./approvals";
 import { setDealStage } from "./deal-stage";
 import { normalizeEmail, nowIso } from "./format";
+import { assertStaffAccess, assignedManagersByCreator, notifyStaff, staffHistoryRole } from "./managers";
 
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 
@@ -20,6 +21,7 @@ export type CreatorInterestRow = {
   brand: string;
   creatorId: string;
   creatorName: string;
+  manager: { id: string; name: string; email: string } | null;
   decision: string;
   note: string | null;
   approvalId: string | null;
@@ -91,12 +93,21 @@ export async function releaseOffer(
   db: PortalDb,
   input: { dealId: string; actorEmail: string; actorRole: string; brandEmail?: string | null; note?: string | null },
 ): Promise<Result<{ changed: boolean; workflowStage: string | null }>> {
-  if (input.actorRole !== "admin") {
+  if (input.actorRole !== "admin" && input.actorRole !== "manager") {
     return { ok: false, status: 403, error: "Only Kamron can release an offer to a creator." };
   }
   const rows = await db.select().from(deals).where(eq(deals.id, input.dealId));
   const deal = rows[0];
   if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+  if (input.actorRole === "manager") {
+    const allowed = await assertStaffAccess(db, {
+      actorEmail: input.actorEmail,
+      actorRole: "manager",
+      creatorId: deal.creatorId,
+      permission: "stage",
+    });
+    if (!allowed.ok) return allowed;
+  }
   if (!offerStillOpen(deal.workflowStage)) {
     return { ok: false, status: 409, error: "This deal is already past the offer. Nothing was changed." };
   }
@@ -115,7 +126,7 @@ export async function releaseOffer(
       dealId: deal.id,
       toStage: "offer_shared",
       actorEmail: input.actorEmail,
-      actorRole: "admin",
+      actorRole: staffHistoryRole(input.actorRole),
       note,
     });
     if (!moved.ok) return { ok: false, status: moved.status, error: moved.error };
@@ -274,13 +285,10 @@ export async function recordCreatorInterest(
   const lead = input.decision === "interested"
     ? `${input.creatorName} is interested in ${deal.brand}.`
     : `${input.creatorName} passed on ${deal.brand}.`;
-  await db.insert(adminNotifications).values({
-    id: crypto.randomUUID(),
+  await notifyStaff(db, {
     kind: input.decision === "interested" ? "creator_interest" : "creator_passed",
     creatorId: deal.creatorId,
     message: note ? `${lead} ${note}` : lead,
-    createdAt: timestamp,
-    readAt: null,
   });
   return {
     ok: true,
@@ -294,9 +302,10 @@ export async function listCreatorInterest(db: PortalDb, since: string | null): P
   const choiceRows = since
     ? await db.select().from(creatorInterest).where(gt(creatorInterest.createdAt, since)).orderBy(asc(creatorInterest.createdAt))
     : await db.select().from(creatorInterest).orderBy(asc(creatorInterest.createdAt));
-  const [dealRows, creatorRows] = await Promise.all([
+  const [dealRows, creatorRows, managerByCreator] = await Promise.all([
     db.select({ id: deals.id, brand: deals.brand, workflowStage: deals.workflowStage }).from(deals),
     db.select({ id: creators.id, name: creators.name }).from(creators),
+    assignedManagersByCreator(db),
   ]);
   const dealById = new Map(dealRows.map((deal) => [deal.id, deal]));
   const nameById = new Map(creatorRows.map((creator) => [creator.id, creator.name]));
@@ -309,6 +318,7 @@ export async function listCreatorInterest(db: PortalDb, since: string | null): P
       brand: deal.brand,
       creatorId: row.creatorId,
       creatorName: nameById.get(row.creatorId) ?? "Creator",
+      manager: managerByCreator.get(row.creatorId) ?? null,
       decision: row.decision,
       note: row.note,
       approvalId: row.approvalId,

@@ -1,7 +1,7 @@
 import { dismissCreatorNoticeAction } from "@/app/actions";
 import { DealBoard } from "@/components/deal-board";
 import { PortalFrame } from "@/components/portal-frame";
-import { canChangeDealStage } from "@/lib/authz";
+import { dealPowers } from "@/lib/authz";
 import { longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
@@ -21,7 +21,8 @@ export default async function DealPage({
     : [];
   const deals = await listDealsForViewer(portal.db, portal.viewer, portal.viewedId);
   const selected = await getDealForViewer(portal.db, portal.viewer, id);
-  const creatorQuery = portal.viewer.role === "admin" ? `?creator=${portal.viewedId}` : "";
+  const staff = portal.viewer.role === "admin" || portal.viewer.role === "manager";
+  const creatorQuery = staff ? `?creator=${portal.viewedId}` : "";
   const visible = deals.filter((deal) => deal.visibleToCreator && deal.status !== "paid");
   const need = deals.filter((deal) => deal.visibleToCreator && deal.needsCreator);
   const hidden = deals.filter((deal) => !deal.visibleToCreator);
@@ -34,7 +35,7 @@ export default async function DealPage({
       hello={
         <div className="hello">
           <div>
-            <h1>{portal.viewed ? `Hi ${portal.viewed.name} 👋` : "All creators"}</h1>
+            <h1>{portal.viewer.role === "manager" ? "My creators" : portal.viewed ? `Hi ${portal.viewed.name} 👋` : "All creators"}</h1>
             <p>
               {portal.viewed
                 ? `${longDate(new Date())} · ${visible.length} deals in progress · ${need.length} need you this week${hidden.length ? ` · ${hidden.length} hidden from ${portal.viewed.name}` : ""}`
@@ -71,7 +72,7 @@ export default async function DealPage({
         showDetail={Boolean(selected)}
         listNote={portal.viewed?.listNote ?? null}
         creatorQuery={creatorQuery}
-        canChangeStage={canChangeDealStage(portal.viewer)}
+        {...dealPowers(portal.viewer)}
         stageError={query.stageError === "1"}
         interestError={query.interestError === "1"}
         releaseError={query.releaseError ?? null}

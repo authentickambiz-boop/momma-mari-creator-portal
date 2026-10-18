@@ -42,7 +42,8 @@ export default async function SignPage({
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const portal = await loadPortal(query.creator ?? null);
   const deal = await getDealForViewer(portal.db, portal.viewer, id);
-  const creatorQuery = portal.viewer.role === "admin" ? `?creator=${portal.viewedId}` : "";
+  const staff = portal.viewer.role === "admin" || portal.viewer.role === "manager";
+  const creatorQuery = staff ? `?creator=${portal.viewedId}` : "";
   const error = query.signError ? SIGN_ERRORS[query.signError] ?? SIGN_ERRORS["1"] : null;
   const profile = deal ? await findCreatorById(portal.db, deal.creatorId) : null;
 
@@ -64,6 +65,7 @@ export default async function SignPage({
           contractQuery={query.contract ?? null}
           creatorQuery={creatorQuery}
           role={portal.viewer.role}
+          allowCountersign={portal.viewer.role === "admin" || Boolean(portal.viewer.permissions?.countersign)}
           viewerCreatorId={portal.viewer.creatorId}
           db={portal.db}
           error={error}
@@ -85,6 +87,7 @@ async function SignBody({
   contractQuery,
   creatorQuery,
   role,
+  allowCountersign,
   viewerCreatorId,
   db,
   error,
@@ -100,6 +103,7 @@ async function SignBody({
   contractQuery: string | null;
   creatorQuery: string;
   role: string;
+  allowCountersign: boolean;
   viewerCreatorId: string | null;
   db: Awaited<ReturnType<typeof loadPortal>>["db"];
   error: string | null;
@@ -130,7 +134,7 @@ async function SignBody({
   const signedCopies = signatures.filter((row) => row.contractId === contract.id && row.signedFilename && row.status !== "void" && row.status !== "requested");
   const signable = contract.status === "approved" && (contract.signingFormat === "pdf" || contract.signingFormat === "docusign");
   const canSign = role === "creator" && viewerCreatorId === creatorId && signWindow && signable && Boolean(request) && pdf;
-  const canCountersign = role === "admin" && Boolean(pending);
+  const canCountersign = allowCountersign && role !== "creator" && Boolean(pending);
   const guardianLabel = signerIsMinor ? GUARDIAN_LABEL : kidsAges ? CONTENT_MINOR_LABEL : null;
   const viewedCreator = creatorQuery.startsWith("?creator=") ? creatorId : "";
 

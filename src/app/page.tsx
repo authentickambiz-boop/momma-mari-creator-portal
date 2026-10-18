@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { dismissCreatorNoticeAction, dismissNotificationAction } from "@/app/actions";
 import { DealBoard } from "@/components/deal-board";
 import { PortalFrame } from "@/components/portal-frame";
-import { canChangeDealStage } from "@/lib/authz";
+import { dealPowers } from "@/lib/authz";
 import { longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
+import { listManagerNotices, needsYou } from "@/lib/managers";
 import { listUnreadNotices } from "@/lib/onboarding";
 import { listUnreadCreatorNotices } from "@/lib/video-review";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
@@ -14,11 +16,21 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const deals = await listDealsForViewer(portal.db, portal.viewer, portal.viewedId);
   const fallback = deals.find((deal) => deal.id === "vev")?.id ?? deals[0]?.id;
   const selected = fallback ? await getDealForViewer(portal.db, portal.viewer, fallback) : null;
-  const creatorQuery = portal.viewer.role === "admin" ? `?creator=${portal.viewedId}` : "";
+  const staff = portal.viewer.role === "admin" || portal.viewer.role === "manager";
+  const creatorQuery = staff ? `?creator=${portal.viewedId}` : "";
   const visible = deals.filter((deal) => deal.visibleToCreator && deal.status !== "paid");
   const need = deals.filter((deal) => deal.visibleToCreator && deal.needsCreator);
   const hidden = deals.filter((deal) => !deal.visibleToCreator);
   const notices = portal.viewer.role === "admin" ? await listUnreadNotices(portal.db) : [];
+  const managerNotices = portal.viewer.role === "manager" && portal.viewer.managerId
+    ? await listManagerNotices(portal.db, portal.viewer.managerId)
+    : [];
+  const waiting = portal.viewer.role === "manager" ? await needsYou(portal.db, portal.viewer) : [];
+  const heading = portal.viewer.role === "manager"
+    ? "My creators"
+    : portal.viewed
+      ? `Hi ${portal.viewed.name} 👋`
+      : "All creators";
   const creatorNotices = portal.viewer.role === "creator" && portal.viewer.creatorId
     ? await listUnreadCreatorNotices(portal.db, portal.viewer.creatorId)
     : [];
@@ -31,7 +43,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       hello={
         <div className="hello">
           <div>
-            <h1>{portal.viewed ? `Hi ${portal.viewed.name} 👋` : "All creators"}</h1>
+            <h1>{heading}</h1>
             <p>
               {portal.viewed
                 ? `${longDate(new Date())} · ${visible.length} deals in progress · ${need.length} need you this week${hidden.length ? ` · ${hidden.length} hidden from ${portal.viewed.name}` : ""}`
@@ -55,6 +67,29 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </form>
         </div>
       ))}
+      {waiting.length > 0 ? (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="sec-title">Needs you</div>
+          <ul className="timeline">
+            {waiting.map((item) => (
+              <li key={item.id}>
+                <Link href={item.href}><b>{item.title}</b></Link>
+                <div className="note">{item.detail}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {managerNotices.map((notice) => (
+        <div className="admin-banner" key={notice.id}>
+          <b>{notice.message}</b>
+          {" "}· {notice.creatorName}
+          <form action={dismissNotificationAction} style={{ display: "inline", marginLeft: 10 }}>
+            <input type="hidden" name="id" value={notice.id} />
+            <button className="btn ghost" type="submit">Dismiss</button>
+          </form>
+        </div>
+      ))}
       {notices.map((notice) => (
         <div className="admin-banner" key={notice.id}>
           <b>{notice.message}</b>
@@ -71,7 +106,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         showDetail={false}
         listNote={portal.viewed?.listNote ?? null}
         creatorQuery={creatorQuery}
-        canChangeStage={canChangeDealStage(portal.viewer)}
+        {...dealPowers(portal.viewer)}
       />
     </PortalFrame>
   );

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { dealStageEvents, deals, revisions } from "@/db/schema";
 import { nowIso } from "./format";
+import { assertStaffAccess } from "./managers";
 import { creatorStageMessage, getDealStage, stageAdminLabel, type StageActorRole } from "./stages";
 
 export async function setDealStage(
@@ -31,7 +32,18 @@ export async function setDealStage(
     input.creatorId === deal.creatorId &&
     (deal.workflowStage === "approved_by_agency" || deal.workflowStage === "awaiting_signature") &&
     stage.id === "signed_by_creator";
-  if (input.actorRole !== "admin" && input.actorRole !== "bot" && input.actorRole !== "system" && !creatorChoice && !creatorSign) {
+  let managerOk = false;
+  if (input.actorRole === "manager") {
+    const allowed = await assertStaffAccess(db, {
+      actorEmail: input.actorEmail,
+      actorRole: "manager",
+      creatorId: deal.creatorId,
+      permission: "stage",
+    });
+    if (!allowed.ok) return { ok: false as const, status: 403, error: "You can't move this deal." };
+    managerOk = true;
+  }
+  if (!managerOk && input.actorRole !== "admin" && input.actorRole !== "bot" && input.actorRole !== "system" && !creatorChoice && !creatorSign) {
     return { ok: false as const, status: 403, error: "You can't move this deal." };
   }
   if (deal.workflowStage === stage.id) {

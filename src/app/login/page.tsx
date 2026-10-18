@@ -6,6 +6,7 @@ import { devLoginEnabled } from "@/lib/authz";
 import { currentViewer } from "@/lib/current-user";
 import { publicBasePath } from "@/lib/format";
 import { googleConfigured } from "@/lib/google-oauth";
+import { listManagers } from "@/lib/managers";
 import { listCreators } from "@/lib/queries";
 
 const ERRORS: Record<string, string> = {
@@ -21,6 +22,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const db = await getDb();
   const creators = devLoginEnabled() ? await listCreators(db) : [];
+  const managers = devLoginEnabled() ? (await listManagers(db)).filter((manager) => manager.active) : [];
   const error = params.error ? ERRORS[params.error] : null;
   const base = publicBasePath();
   return (
@@ -44,6 +46,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                 <input type="hidden" name="email" value="Kamron@mommamari.com" />
                 <button className="btn ghost" type="submit">Continue as Kamron (admin, sees everyone)</button>
               </form>
+              {managers.map((manager) => (
+                <form key={manager.id} action={devLoginAction}>
+                  <input type="hidden" name="email" value={manager.email} />
+                  <button className="btn ghost" type="submit">Continue as {manager.name} (manager)</button>
+                </form>
+              ))}
               {creators.map((creator) => (
                 <form key={creator.id} action={devLoginAction}>
                   <input type="hidden" name="email" value={creator.email} />

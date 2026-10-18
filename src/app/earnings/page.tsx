@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { EarningsPanel } from "@/components/earnings-panel";
 import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
@@ -14,6 +15,7 @@ async function panelFor(db: Awaited<ReturnType<typeof loadPortal>>["db"], viewer
 export default async function EarningsPage({ searchParams }: { searchParams: Promise<{ creator?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
+  if (portal.viewer.role === "manager") redirect("/");
   const creators = portal.viewed ? [portal.viewed] : portal.creators;
   const panels = await Promise.all(creators.map((creator) => panelFor(portal.db, portal.viewer, creator)));
   return (

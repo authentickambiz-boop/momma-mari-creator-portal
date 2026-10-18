@@ -51,6 +51,7 @@ import {
   saveGmailConnection,
 } from "../src/lib/onboarding";
 import { hostedEmailPreview, STRIPE_CATALOG } from "../src/lib/email-setup";
+import { addManager, assignCreatorManagers, assignedCreatorIds, listManagerNotices, notifyStaff, setManagerActive, setManagerPermissions } from "../src/lib/managers";
 import { countersignContract, listSignatures, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "../src/lib/signing";
 import { createSession, readSignedSessionId } from "../src/lib/session";
 import { decryptToken } from "../src/lib/token-crypto";
@@ -1955,6 +1956,319 @@ test("a creator signs her own approved PDF once, and a new version voids the req
   assert.equal(kosblingAfter?.brand, "KOSBLING");
   assert.equal(kosblingAfter?.contact, null);
   assert.equal(kosblingAfter?.drafts.length, kosblingBefore?.drafts.length);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+});
+
+test("an owner assigns a manager, and that manager only sees their creators", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+
+  const added = await addManager(db, { actorRole: "admin", name: "Riley", email: "riley.manager@gmail.com" });
+  assert.equal(added.ok, true);
+  if (!added.ok) return;
+  assert.equal(added.permissions.approveEmail, true);
+  assert.equal(added.permissions.approveVideo, true);
+  assert.equal(added.permissions.approveContract, false);
+  assert.equal(added.permissions.countersign, false);
+  const creatorAdd = await addManager(db, { actorRole: "creator", name: "Nope", email: "nope.manager@gmail.com" });
+  assert.equal(creatorAdd.ok, false);
+  if (!creatorAdd.ok) assert.equal(creatorAdd.status, 403);
+  assert.equal((await addManager(db, { actorRole: "admin", name: "Bad", email: "someone@example.invalid" })).ok, false);
+  assert.equal((await addManager(db, { actorRole: "admin", name: "Kamron", email: "Kamron@mommamari.com" })).ok, false);
+
+  const sam = await addManager(db, { actorRole: "admin", name: "Sam", email: "sam.manager@gmail.com" });
+  assert.equal(sam.ok, true);
+  if (!sam.ok) return;
+  assert.equal((await setManagerActive(db, { actorRole: "admin", managerId: sam.id, active: false })).ok, true);
+  assert.equal((await resolveLogin(db, "sam.manager@gmail.com")).ok, false);
+  assert.equal((await resolveLogin(db, "stranger.manager@gmail.com")).ok, false);
+  assert.equal((await resolveLogin(db, "also@example.invalid")).ok, false);
+  const signedIn = await resolveLogin(db, "riley.manager@gmail.com");
+  assert.equal(signedIn.ok, true);
+  if (!signedIn.ok) return;
+  assert.equal(signedIn.viewer.role, "manager");
+
+  assert.equal((await assignCreatorManagers(db, {
+    actorRole: "admin",
+    creatorId: "mariclare",
+    primaryManagerId: added.id,
+    backupManagerId: null,
+  })).ok, true);
+
+  const riley: Viewer = {
+    email: "riley.manager@gmail.com",
+    role: "manager",
+    creatorId: null,
+    name: "Riley",
+    managerId: added.id,
+    permissions: added.permissions,
+    assignedCreatorIds: await assignedCreatorIds(db, added.id),
+  };
+  const hidden = await upsertDeal(db, {
+    id: "phase7-hidden",
+    brand: "Phase7 Hidden",
+    creatorId: "mariclare",
+    status: "pitch",
+    workflowStage: "offer_received",
+    visibleToCreator: false,
+    amountDisplay: "$900",
+    contact: "hello@phase7hidden.example",
+  });
+  assert.equal(hidden.status, 201);
+  assert.ok(await getDealForViewer(db, riley, "phase7-hidden"));
+  assert.equal(await getDealForViewer(db, mariclare, "phase7-hidden"), null);
+  const abbyDeal = await upsertDeal(db, {
+    id: "phase7-abby",
+    brand: "Phase7 Abby",
+    creatorId: "abby",
+    status: "pitch",
+    workflowStage: "offer_received",
+    visibleToCreator: true,
+    amountDisplay: "$400",
+    contact: "hello@phase7abby.example",
+  });
+  assert.equal(abbyDeal.status, 201);
+  assert.equal(await getDealForViewer(db, riley, "phase7-abby"), null);
+  const roster = await listDealsForViewer(db, riley, "all");
+  assert.equal(roster.some((deal) => deal.creatorId === "abby"), false);
+  assert.equal(roster.some((deal) => deal.id === "phase7-hidden"), true);
+  const vev = await getDealForViewer(db, riley, "vev");
+  assert.equal(vev?.amountDisplay, null);
+  assert.equal(vev?.rateCents, null);
+  assert.equal(vev?.rateLabel, null);
+  assert.equal(vev?.paymentTerms, null);
+  assert.equal(vev?.payment, null);
+  assert.equal(vev?.pipelineCents, null);
+  assert.ok(await getDealForViewer(db, admin, "vev"));
+  assert.notEqual((await getDealForViewer(db, admin, "vev"))?.amountDisplay, null);
+
+  const moved = await upsertDeal(db, {
+    id: "phase7-role",
+    brand: "Phase7 Role",
+    creatorId: "mariclare",
+    status: "pitch",
+    workflowStage: "offer_received",
+    visibleToCreator: false,
+    contact: "hello@phase7role.example",
+  });
+  assert.equal(moved.status, 201);
+  const stage = await setDealStage(db, {
+    dealId: "phase7-role",
+    toStage: "offer_shared",
+    actorEmail: riley.email,
+    actorRole: "manager",
+  });
+  assert.equal(stage.ok, true);
+  const staged = await getDealForViewer(db, admin, "phase7-role");
+  const stageEvent = staged?.stageEvents?.find((event) => event.toStage === "offer_shared");
+  assert.equal(stageEvent?.actorRole, "manager");
+  assert.equal(stageEvent?.actorEmail, "riley.manager@gmail.com");
+
+  async function onePagePdf() {
+    const doc = await PDFDocument.create();
+    doc.addPage([420, 560]);
+    return new Uint8Array(await doc.save());
+  }
+  const ownerDeal = await upsertDeal(db, {
+    id: "phase7-owner-contract",
+    brand: "Phase7 Owner",
+    creatorId: "mariclare",
+    status: "negotiating",
+    workflowStage: "creator_interested",
+    visibleToCreator: true,
+    contact: "hello@phase7owner.example",
+  });
+  assert.equal(ownerDeal.status, 201);
+  const ownerFile = await saveContract(db, {
+    dealId: "phase7-owner-contract",
+    filename: "owner.pdf",
+    mimeType: "application/pdf",
+    bytes: await onePagePdf(),
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(ownerFile.ok, true);
+  if (!ownerFile.ok) return;
+  const managerDeal = await upsertDeal(db, {
+    id: "phase7-contract",
+    brand: "Phase7 Contract",
+    creatorId: "mariclare",
+    status: "negotiating",
+    workflowStage: "creator_interested",
+    visibleToCreator: true,
+    contact: "hello@phase7contract.example",
+  });
+  assert.equal(managerDeal.status, 201);
+  const managerFile = await saveContract(db, {
+    dealId: "phase7-contract",
+    filename: "manager.pdf",
+    mimeType: "application/pdf",
+    bytes: await onePagePdf(),
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(managerFile.ok, true);
+  if (!managerFile.ok) return;
+  const blocked = await approveContract(db, { contractId: managerFile.id, actorEmail: riley.email, actorRole: "manager" });
+  assert.equal(blocked.ok, false);
+  if (!blocked.ok) assert.equal(blocked.error, "You can't approve contracts.");
+  assert.equal((await approveContract(db, { contractId: ownerFile.id, actorEmail: admin.email, actorRole: "admin" })).ok, true);
+  assert.equal((await setManagerPermissions(db, {
+    actorRole: "admin",
+    managerId: added.id,
+    permissions: { approveEmail: true, approveVideo: true, approveContract: true, countersign: false },
+  })).ok, true);
+  const approved = await approveContract(db, { contractId: managerFile.id, actorEmail: riley.email, actorRole: "manager" });
+  assert.equal(approved.ok, true);
+  const approvedDeal = await getDealForViewer(db, admin, "phase7-contract");
+  assert.equal(approvedDeal?.stageEvents?.some((event) => event.toStage === "approved_by_agency" && event.actorRole === "manager" && event.actorEmail === riley.email), true);
+  const noSign = await countersignContract(db, {
+    contractId: managerFile.id,
+    actorEmail: riley.email,
+    actorRole: "manager",
+    legalName: "Riley Manager",
+    signatureKind: "typed",
+    consentEsign: true,
+    consentRead: true,
+    ip: "203.0.113.20",
+    userAgent: "PortalTest/7",
+  });
+  assert.equal(noSign.ok, false);
+  if (!noSign.ok) assert.equal(noSign.error, "You can't countersign.");
+  assert.equal((await setManagerPermissions(db, {
+    actorRole: "admin",
+    managerId: added.id,
+    permissions: { approveEmail: true, approveVideo: true, approveContract: true, countersign: true },
+  })).ok, true);
+  const signOpened = await countersignContract(db, {
+    contractId: managerFile.id,
+    actorEmail: riley.email,
+    actorRole: "manager",
+    legalName: "Riley Manager",
+    signatureKind: "typed",
+    consentEsign: true,
+    consentRead: true,
+    ip: "203.0.113.20",
+    userAgent: "PortalTest/7",
+  });
+  assert.equal(signOpened.ok, false);
+  if (!signOpened.ok) assert.notEqual(signOpened.error, "You can't countersign.");
+
+  const hers = await createApprovalEmail(db, {
+    dealId: "phase7-role",
+    gate: "signed_contract",
+    to: "hello@phase7role.example",
+    subject: "Phase7 signed contract",
+    body: "The signed contract is attached.",
+  }, { email: "bot@mommamari.com", role: "bot" });
+  assert.equal(hers.ok, true);
+  if (!hers.ok) return;
+  const reviewed = await reviewApproval(db, {
+    approvalId: hers.id,
+    intent: "approve",
+    actorEmail: riley.email,
+    actorRole: "manager",
+  });
+  assert.equal(reviewed.ok, true);
+  const queue = await listApprovalQueue(db, "all");
+  assert.equal(queue.find((row) => row.id === hers.id)?.events.some((event) => event.action === "approved" && event.actorRole === "manager"), true);
+  const theirs = await createApprovalEmail(db, {
+    dealId: "phase7-abby",
+    gate: "signed_contract",
+    to: "hello@phase7abby.example",
+    subject: "Phase7 Abby email",
+    body: "This one is not Riley's.",
+  }, { email: "bot@mommamari.com", role: "bot" });
+  assert.equal(theirs.ok, true);
+  if (!theirs.ok) return;
+  const denied = await reviewApproval(db, {
+    approvalId: theirs.id,
+    intent: "approve",
+    actorEmail: riley.email,
+    actorRole: "manager",
+  });
+  assert.equal(denied.ok, false);
+  if (!denied.ok) assert.equal(denied.error, "That creator isn't on your list.");
+
+  const released = await releaseOffer(db, {
+    dealId: "phase7-hidden",
+    actorEmail: admin.email,
+    actorRole: "admin",
+    brandEmail: "hello@phase7hidden.example",
+  });
+  assert.equal(released.ok, true);
+  const interest = await recordCreatorInterest(db, {
+    dealId: "phase7-hidden",
+    creatorId: "mariclare",
+    creatorEmail: mariclare.email,
+    creatorName: "MariClare",
+    decision: "interested",
+    note: "Phase7 yes",
+  });
+  assert.equal(interest.ok, true);
+  const managerInbox = await listManagerNotices(db, added.id);
+  assert.equal(managerInbox.some((note) => note.kind === "creator_interest" && note.message.includes("Phase7 Hidden")), true);
+  assert.equal((await listUnreadNotices(db)).some((note) => note.kind === "creator_interest" && note.message.includes("Phase7 Hidden")), false);
+
+  const listed = await listContracts(db, null);
+  const packed = JSON.stringify(listed);
+  assert.equal(packed.includes("riley.manager@gmail.com"), true);
+  assert.equal(packed.includes("gmailRefreshToken"), false);
+  assert.equal(packed.includes("refresh_token"), false);
+  const signatures = JSON.stringify(await listSignatures(db, null));
+  assert.equal(signatures.includes("gmailRefreshToken"), false);
+  assert.equal(signatures.includes("refresh_token"), false);
+
+  const jordan = await addManager(db, { actorRole: "admin", name: "Jordan", email: "jordan.manager@gmail.com" });
+  assert.equal(jordan.ok, true);
+  if (!jordan.ok) return;
+  assert.equal((await assignCreatorManagers(db, {
+    actorRole: "admin",
+    creatorId: "mariclare",
+    primaryManagerId: jordan.id,
+    backupManagerId: null,
+  })).ok, true);
+  const rileyAfter = { ...riley, assignedCreatorIds: await assignedCreatorIds(db, added.id) };
+  assert.equal(await getDealForViewer(db, rileyAfter, "vev"), null);
+
+  assert.equal((await setManagerActive(db, { actorRole: "admin", managerId: jordan.id, active: false })).ok, true);
+  assert.equal((await assignCreatorManagers(db, {
+    actorRole: "admin",
+    creatorId: "mariclare",
+    primaryManagerId: jordan.id,
+    backupManagerId: added.id,
+  })).ok, false);
+  assert.equal((await setManagerActive(db, { actorRole: "admin", managerId: jordan.id, active: true })).ok, true);
+  assert.equal((await assignCreatorManagers(db, {
+    actorRole: "admin",
+    creatorId: "mariclare",
+    primaryManagerId: jordan.id,
+    backupManagerId: added.id,
+  })).ok, true);
+  assert.equal((await setManagerActive(db, { actorRole: "admin", managerId: jordan.id, active: false })).ok, true);
+  await notifyStaff(db, { kind: "creator_interest", creatorId: "mariclare", message: "Backup cover check for Phase7." });
+  const backupInbox = await listManagerNotices(db, added.id);
+  assert.equal(backupInbox.some((note) => note.message === "Backup cover check for Phase7."), true);
+  const ownerCopy = (await listUnreadNotices(db)).find((note) => note.message.includes("Backup cover check for Phase7."));
+  assert.ok(ownerCopy);
+  assert.equal(ownerCopy?.message.includes("The backup manager is covering."), true);
+
+  assert.equal((await assignCreatorManagers(db, {
+    actorRole: "admin",
+    creatorId: "mariclare",
+    primaryManagerId: null,
+    backupManagerId: null,
+  })).ok, true);
+  await notifyStaff(db, { kind: "creator_interest", creatorId: "mariclare", message: "Owner only check for Phase7." });
+  assert.equal((await listUnreadNotices(db)).some((note) => note.message === "Owner only check for Phase7."), true);
+  assert.equal((await listManagerNotices(db, added.id)).some((note) => note.message === "Owner only check for Phase7."), false);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
   assert.equal(kosblingAfter?.contracts.length, 0);
 });
 });

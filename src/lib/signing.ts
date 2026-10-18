@@ -2,7 +2,6 @@ import { and, asc, eq, gt } from "drizzle-orm";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { PortalDb } from "@/db";
 import {
-  adminNotifications,
   contractFiles,
   contractSignatures,
   contracts,
@@ -16,6 +15,7 @@ import {
 import { createApprovalEmail } from "./approvals";
 import { firstEmail } from "./creator-interest";
 import { setDealStage } from "./deal-stage";
+import { assertStaffAccess, assignedManagersByCreator, notifyStaff, staffHistoryRole } from "./managers";
 import { driveConfigured, prepareContractsFolder, uploadDriveFile } from "./drive";
 import { nowIso } from "./format";
 import { isFullLegalName } from "./sign-copy";
@@ -30,6 +30,7 @@ export type SignatureListRow = {
   brand: string;
   creatorId: string;
   creatorName: string;
+  manager: { id: string; name: string; email: string } | null;
   contractId: string;
   version: number;
   role: string;
@@ -334,13 +335,10 @@ export async function signContract(
   }).where(eq(contractSignatures.id, request.id));
 
   if (minor) {
-    await db.insert(adminNotifications).values({
-      id: crypto.randomUUID(),
+    await notifyStaff(db, {
       kind: "minor_signature",
       creatorId: deal.creatorId,
       message: `A parent or guardian signed the ${deal.brand} contract for ${creator?.name ?? "a creator"}. Please review.`,
-      createdAt: signedAt,
-      readAt: null,
     });
   }
 
@@ -396,14 +394,23 @@ export async function countersignContract(
     userAgent: string;
   },
 ): Promise<Result<{ signatureId: string; workflowStage: string | null }>> {
-  if (input.actorRole !== "admin") return { ok: false, status: 403, error: "Only an admin can countersign." };
+  if (input.actorRole !== "admin" && input.actorRole !== "manager") return { ok: false, status: 403, error: "Only an admin can countersign." };
   const contractRows = await db.select().from(contracts).where(eq(contracts.id, input.contractId));
   const contract = contractRows[0];
   if (!contract) return { ok: false, status: 404, error: "Contract not found." };
-  if (!contract.countersign) return { ok: false, status: 400, error: "This contract is not marked for a Momma Mari countersignature." };
   const dealRows = await db.select().from(deals).where(eq(deals.id, contract.dealId));
   const deal = dealRows[0];
   if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+  if (input.actorRole === "manager") {
+    const allowed = await assertStaffAccess(db, {
+      actorEmail: input.actorEmail,
+      actorRole: "manager",
+      creatorId: deal.creatorId,
+      permission: "countersign",
+    });
+    if (!allowed.ok) return allowed;
+  }
+  if (!contract.countersign) return { ok: false, status: 400, error: "This contract is not marked for a Momma Mari countersignature." };
   if (deal.workflowStage !== "signed_by_creator") {
     return { ok: false, status: 409, error: notReady(deal.workflowStage) };
   }
@@ -482,7 +489,7 @@ export async function countersignContract(
     fromStage: deal.workflowStage,
     toStage: deal.workflowStage,
     actorEmail: input.actorEmail,
-    actorRole: "admin",
+    actorRole: staffHistoryRole(input.actorRole),
     note: `Momma Mari countersigned contract v${contract.version}.`,
     createdAt: signedAt,
   });
@@ -525,13 +532,22 @@ export async function uploadBrandSignedCopy(
     userAgent: string;
   },
 ): Promise<Result<{ signatureId: string; workflowStage: string | null }>> {
-  if (input.actorRole !== "admin") return { ok: false, status: 403, error: "Only an admin can upload a signed copy." };
+  if (input.actorRole !== "admin" && input.actorRole !== "manager") return { ok: false, status: 403, error: "Only an admin can upload a signed copy." };
   const contractRows = await db.select().from(contracts).where(eq(contracts.id, input.contractId));
   const contract = contractRows[0];
   if (!contract) return { ok: false, status: 404, error: "Contract not found." };
   const dealRows = await db.select().from(deals).where(eq(deals.id, contract.dealId));
   const deal = dealRows[0];
   if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+  if (input.actorRole === "manager") {
+    const allowed = await assertStaffAccess(db, {
+      actorEmail: input.actorEmail,
+      actorRole: "manager",
+      creatorId: deal.creatorId,
+      permission: "contract",
+    });
+    if (!allowed.ok) return allowed;
+  }
   if (!deal.workflowStage || !SIGN_WINDOW.has(deal.workflowStage)) {
     return { ok: false, status: 409, error: notReady(deal.workflowStage) };
   }
@@ -591,7 +607,7 @@ export async function uploadBrandSignedCopy(
     dealId: deal.id,
     toStage: "signed_by_creator",
     actorEmail: input.actorEmail,
-    actorRole: "admin",
+    actorRole: staffHistoryRole(input.actorRole),
     note: `Uploaded the brand's completed DocuSign for v${contract.version}. The sign page was skipped.`,
   });
   if (!moved.ok) return { ok: false, status: moved.status, error: moved.error };
@@ -625,6 +641,7 @@ export async function listSignatures(db: PortalDb, since: string | null): Promis
   if (rows.length === 0) return [];
   const dealRows = await db.select().from(deals);
   const creatorRows = await db.select({ id: creators.id, name: creators.name }).from(creators);
+  const managerByCreator = await assignedManagersByCreator(db);
   const dealById = new Map(dealRows.map((deal) => [deal.id, deal]));
   const creatorById = new Map(creatorRows.map((creator) => [creator.id, creator.name]));
   return rows.map((row) => {
@@ -635,6 +652,7 @@ export async function listSignatures(db: PortalDb, since: string | null): Promis
       brand: deal?.brand ?? "",
       creatorId: deal?.creatorId ?? "",
       creatorName: deal ? creatorById.get(deal.creatorId) ?? "Creator" : "Creator",
+      manager: deal ? managerByCreator.get(deal.creatorId) ?? null : null,
       contractId: row.contractId,
       version: row.version,
       role: row.role,

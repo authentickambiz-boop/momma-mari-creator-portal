@@ -15,6 +15,7 @@ import {
   revisions,
 } from "@/db/schema";
 import { adminDisplayName, adminEmails, canSeeDeal } from "./authz";
+import { findManagerByEmail } from "./managers";
 import { CONTRACT_CHECKS, signingFormatLabel } from "./contract-shared";
 import { firstEmail, interestContextForDeal } from "./creator-interest";
 import { reviewsForDeal } from "./video-review";
@@ -52,6 +53,8 @@ function toCreator(row: typeof creators.$inferSelect): CreatorProfile {
     initials: row.initials,
     listNote: row.listNote,
     signerIsMinor: row.signerIsMinor,
+    primaryManagerId: row.primaryManagerId,
+    backupManagerId: row.backupManagerId,
     isSeed: row.isSeed,
     accounts: {
       tiktok: { status: row.tiktokStatus, connectUrl: row.tiktokConnectUrl },
@@ -168,6 +171,20 @@ export async function resolveLogin(db: PortalDb, email: string) {
       },
     };
   }
+  const manager = await findManagerByEmail(db, normalized);
+  if (manager?.active) {
+    return {
+      ok: true as const,
+      viewer: {
+        email: manager.email,
+        role: "manager" as const,
+        creatorId: null,
+        name: manager.name,
+        managerId: manager.id,
+        permissions: manager.permissions,
+      },
+    };
+  }
   const creator = await findCreatorByEmail(db, normalized);
   if (!creator) return { ok: false as const, reason: "not_allowed" as const };
   return {
@@ -192,16 +209,37 @@ export async function listDealsForViewer(db: PortalDb, viewer: Viewer, creatorId
   return rows
     .filter((row) => {
       if (!canSeeDeal(viewer, row)) return false;
-      if (viewer.role === "admin" && creatorId !== "all" && row.creatorId !== creatorId) return false;
-      if (viewer.role !== "admin" && row.creatorId !== viewer.creatorId) return false;
+      if ((viewer.role === "admin" || viewer.role === "manager") && creatorId !== "all" && row.creatorId !== creatorId) return false;
+      if (viewer.role === "creator" && row.creatorId !== viewer.creatorId) return false;
       return true;
     })
-    .map((row) => toSummary(row, names.get(row.creatorId) ?? "Creator"));
+    .map((row) => hideMoney(toSummary(row, names.get(row.creatorId) ?? "Creator"), viewer));
 }
 
-async function signaturesForViewer(db: PortalDb, role: Viewer["role"], dealId: string) {
+function hideMoney<T extends DealSummary>(summary: T, viewer: Viewer): T {
+  if (viewer.role !== "manager") return summary;
+  return {
+    ...summary,
+    amountDisplay: null,
+    earningsChipText: null,
+    earningsChipTone: null,
+    pipelineCents: null,
+    pipelineName: null,
+  };
+}
+
+function ownerAudit(viewer: Viewer) {
+  return viewer.role === "admin";
+}
+
+function seesChecklist(viewer: Viewer) {
+  return viewer.role === "admin" || (viewer.role === "manager" && Boolean(viewer.permissions?.approveContract));
+}
+
+async function signaturesForViewer(db: PortalDb, viewer: Viewer, dealId: string) {
   const rows = await db.select().from(contractSignatures).where(eq(contractSignatures.dealId, dealId)).orderBy(asc(contractSignatures.createdAt));
-  const visible = role === "admin" ? rows : rows.filter((row) => row.status !== "void");
+  const visible = viewer.role === "creator" ? rows.filter((row) => row.status !== "void") : rows;
+  const audit = ownerAudit(viewer);
   return visible.map((row) => ({
     id: row.id,
     contractId: row.contractId,
@@ -209,23 +247,24 @@ async function signaturesForViewer(db: PortalDb, role: Viewer["role"], dealId: s
     role: row.role,
     status: row.status,
     signerName: row.signerName,
-    signerEmail: role === "admin" ? row.signerEmail : null,
+    signerEmail: audit ? row.signerEmail : null,
     signedAt: row.signedAt,
-    documentSha256: role === "admin" ? row.documentSha256 : null,
-    signedSha256: role === "admin" ? row.signedSha256 : null,
+    documentSha256: audit ? row.documentSha256 : null,
+    signedSha256: audit ? row.signedSha256 : null,
     signedFilename: row.signedFilename,
     driveFileUrl: row.driveFileUrl,
     guardian: row.guardian,
-    ip: role === "admin" ? row.ip : null,
-    userAgent: role === "admin" ? row.userAgent : null,
+    ip: audit ? row.ip : null,
+    userAgent: audit ? row.userAgent : null,
   }));
 }
 
-async function contractsForViewer(db: PortalDb, role: Viewer["role"], dealId: string) {
+async function contractsForViewer(db: PortalDb, viewer: Viewer, dealId: string) {
   const contractRows = await db.select().from(contracts).where(eq(contracts.dealId, dealId)).orderBy(asc(contracts.version));
-  const visible = role === "admin" ? contractRows : contractRows.filter((row) => row.status === "approved");
+  const visible = viewer.role === "creator" ? contractRows.filter((row) => row.status === "approved") : contractRows;
   if (visible.length === 0) return [];
-  const checkRows = role === "admin"
+  const checklist = seesChecklist(viewer);
+  const checkRows = checklist
     ? await db.select().from(contractChecks).where(inArray(contractChecks.contractId, visible.map((row) => row.id)))
     : [];
   return visible.map((row) => ({
@@ -242,8 +281,8 @@ async function contractsForViewer(db: PortalDb, role: Viewer["role"], dealId: st
     status: row.status,
     uploadedBy: row.uploadedBy,
     createdAt: row.createdAt,
-    approvalId: role === "admin" ? row.approvalId : null,
-    checks: role === "admin"
+    approvalId: checklist ? row.approvalId : null,
+    checks: checklist
       ? CONTRACT_CHECKS.map((item) => {
           const saved = checkRows.find((check) => check.contractId === row.id && check.item === item.id);
           return { item: item.id, label: item.label, status: saved?.status ?? "unchecked", note: saved?.note ?? null };
@@ -257,36 +296,38 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
   const row = rows[0];
   if (!row || !canSeeDeal(viewer, row)) return null;
   const creator = await findCreatorById(db, row.creatorId);
+  const staff = viewer.role === "admin" || viewer.role === "manager";
   const [revisionRows, draftRows, paymentRows, stageRows, reviewByDraft] = await Promise.all([
     db.select().from(revisions).where(eq(revisions.dealId, dealId)).orderBy(asc(revisions.sortOrder)),
     db.select().from(drafts).where(eq(drafts.dealId, dealId)).orderBy(asc(drafts.version)),
     db.select().from(payments).where(eq(payments.dealId, dealId)),
-    viewer.role === "admin"
+    staff
       ? db.select().from(dealStageEvents).where(eq(dealStageEvents.dealId, dealId)).orderBy(asc(dealStageEvents.createdAt))
       : Promise.resolve([]),
     reviewsForDeal(db, dealId),
   ]);
-  const summary = toSummary(row, creator?.name ?? "Creator");
+  const summary = hideMoney(toSummary(row, creator?.name ?? "Creator"), viewer);
   const interestState = await interestContextForDeal(db, dealId);
   const brandEmail = interestState.brandEmail ?? firstEmail(row.contact);
   const offerOpen = !row.workflowStage || row.workflowStage === "offer_received" || row.workflowStage === "offer_shared";
+  const managerView = viewer.role === "manager";
   return {
     ...summary,
     contact: row.contact,
     gmailThreadId: row.gmailThreadId,
-    rateLabel: row.rateLabel,
-    rateCents: row.rateCents,
+    rateLabel: managerView ? null : row.rateLabel,
+    rateCents: managerView ? null : row.rateCents,
     deliverables: parseJson<string[]>(row.deliverablesJson, []),
     usageRights: row.usageRights,
     brief: row.brief,
     briefUrl: row.briefUrl,
     draftDue: row.draftDue,
     postDate: row.postDate,
-    paymentTerms: row.paymentTerms,
-    kamronNotes: viewer.role === "admin" ? row.kamronNotes : null,
+    paymentTerms: managerView ? null : row.paymentTerms,
+    kamronNotes: staff ? row.kamronNotes : null,
     botMessage: row.botMessage,
     stage: row.stage,
-    stageEvents: viewer.role === "admin"
+    stageEvents: staff
       ? stageRows.map((event) => ({
           id: event.id,
           fromStage: event.fromStage,
@@ -309,12 +350,12 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
           : null,
       };
     }),
-    payment: paymentRows[0] ? toPayment(paymentRows[0]) : null,
+    payment: managerView ? null : (paymentRows[0] ? toPayment(paymentRows[0]) : null),
     interest: interestState.interest,
     offerReleased: interestState.offerReleased,
     brandEmail,
-    contracts: await contractsForViewer(db, viewer.role, dealId),
-    signatures: await signaturesForViewer(db, viewer.role, dealId),
+    contracts: await contractsForViewer(db, viewer, dealId),
+    signatures: await signaturesForViewer(db, viewer, dealId),
     signerIsMinor: Boolean(creator?.signerIsMinor),
     canRespondToOffer:
       viewer.role === "creator" &&
@@ -324,7 +365,7 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
       interestState.offerReleased &&
       Boolean(brandEmail) &&
       !interestState.interest,
-    canReleaseOffer: viewer.role === "admin" && offerOpen && !(interestState.offerReleased && brandEmail),
+    canReleaseOffer: staff && offerOpen && !(interestState.offerReleased && brandEmail),
   };
 }
 
