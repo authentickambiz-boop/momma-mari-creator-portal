@@ -120,6 +120,32 @@ export type InterestView = {
   approvalId: string | null;
 };
 
+export type ContractCheckView = {
+  item: string;
+  label: string;
+  status: string;
+  note: string | null;
+};
+
+export type ContractView = {
+  id: string;
+  version: number;
+  filename: string;
+  mimeType: string;
+  sha256: string | null;
+  driveFileId: string | null;
+  driveFileUrl: string | null;
+  signingFormat: string;
+  signingLabel: string;
+  countersign: boolean;
+  status: string;
+  uploadedBy: string;
+  createdAt: string;
+  approvalId: string | null;
+  /** Null for creators. Checklist notes never leave the admin view. */
+  checks: ContractCheckView[] | null;
+};
+
 export type DealDetail = DealSummary & {
   contact: string | null;
   gmailThreadId: string | null;
@@ -146,6 +172,7 @@ export type DealDetail = DealSummary & {
   brandEmail: string | null;
   canRespondToOffer: boolean;
   canReleaseOffer: boolean;
+  contracts: ContractView[];
 };
 
 export type InboxItem = {

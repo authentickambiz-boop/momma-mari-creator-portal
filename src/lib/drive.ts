@@ -191,3 +191,43 @@ export async function prepareDriveFolder(
   if (folderId !== deal.driveFolderId) await setDealFolder(db, deal.id, folderId);
   return folderId;
 }
+
+/** Brand folder, then a Contracts subfolder. The subfolder id is not written onto the deal. */
+export async function prepareContractsFolder(
+  db: PortalDb,
+  deal: { id: string; brand: string; driveFolderId: string | null; creatorFolderId: string | null },
+) {
+  const brandFolderId = await prepareDriveFolder(db, deal);
+  return ensureDealFolder({ parentId: brandFolderId, name: "02 Contracts", existingId: null });
+}
+
+export async function uploadDriveFile(input: {
+  folderId: string;
+  filename: string;
+  mimeType: string;
+  bytes: Uint8Array;
+}) {
+  const boundary = `mm-${crypto.randomUUID()}`;
+  const meta = JSON.stringify({ name: input.filename, parents: [input.folderId] });
+  const preamble = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: ${input.mimeType || "application/octet-stream"}\r\n\r\n`;
+  const ending = `\r\n--${boundary}--`;
+  const head = new TextEncoder().encode(preamble);
+  const tail = new TextEncoder().encode(ending);
+  const body = new Uint8Array(head.length + input.bytes.length + tail.length);
+  body.set(head, 0);
+  body.set(input.bytes, head.length);
+  body.set(tail, head.length + input.bytes.length);
+  const response = await driveFetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id",
+    {
+      method: "POST",
+      headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+      body,
+    },
+  );
+  const json = (await response.json()) as { id?: string; error?: { message: string } };
+  if (!response.ok || !json.id) {
+    throw new Error(json.error?.message || "Drive did not store the contract.");
+  }
+  return { fileId: json.id, fileUrl: `https://drive.google.com/file/d/${json.id}/view` };
+}
