@@ -6,7 +6,7 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { communityMembers, communityPhotos, communitySettings, contracts as contractTable, creators, emailCopies, emailCopyFiles, signatureFiles } from "../src/db/schema";
+import { communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorNotifications, creators, emailCopies, emailCopyFiles, signatureFiles } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
@@ -22,6 +22,7 @@ import {
   setCommunityQueryTap,
   stripJpegMetadata,
 } from "../src/lib/community";
+import { hideMyProfile, listPublicProfiles, moderateProfileField, saveMyProfile } from "../src/lib/profiles";
 import { canApproveEmail, canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
 import { addFeedback, authorizeBot, createApprovalDraft, listApprovedApprovals, markApprovalDraftSent, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
 import { listCreatorInterest, listOfferScreenings, recordCreatorInterest, releaseOffer } from "../src/lib/creator-interest";
@@ -2777,6 +2778,96 @@ test("community chat stays on the roster and off deal data", async () => {
   await db.update(communitySettings).set({ readOnly: false, slowSeconds: 0 }).where(eq(communitySettings.id, "default"));
   setCommunityQueryTap(null);
   for (const table of touched) assert.equal(["deals", "payments", "drafts", "earnings"].includes(table), false, table);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("the member directory hides private fields and other creators cannot edit a profile", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  const base = {
+    creatorId: "mariclare",
+    profileOn: true,
+    displayName: "MariClare",
+    displayNameOn: true,
+    avatarOn: false,
+    bio: "Stories from our kitchen table.",
+    bioOn: true,
+    niches: ["food"],
+    nichesOn: false,
+    handles: "@secret",
+    handlesOn: false,
+    audience: "not a range",
+    audienceOn: true,
+    formats: ["TikTok"],
+    formatsOn: false,
+    askMe: "lunchboxes",
+    askMeOn: false,
+    collabs: true,
+    collabsOn: false,
+    state: "TX",
+    stateOn: false,
+    brands: "VEV $1200",
+    brandsOn: true,
+    childName: "Sunny",
+    childAge: "6–8",
+    familyOn: true,
+    familyConfirm: false,
+    joinedOn: true,
+  };
+  const unconfirmed = await saveMyProfile(db, mariclare, base);
+  assert.equal(unconfirmed.ok, false);
+  const saved = await saveMyProfile(db, mariclare, { ...base, familyConfirm: true });
+  assert.equal(saved.ok, true);
+  const cards = await listPublicProfiles(db);
+  const hers = cards.find((card) => card.creatorId === "mariclare");
+  assert.equal(hers?.displayName, "MariClare");
+  assert.equal(hers?.bio, "Stories from our kitchen table.");
+  assert.ok(hers?.joined);
+  assert.equal(hers?.family?.name, "Sunny");
+  assert.deepEqual(hers?.brands, ["VEV"]);
+  assert.equal("handles" in (hers ?? {}), false);
+  assert.equal("audience" in (hers ?? {}), false);
+  assert.equal("niches" in (hers ?? {}), false);
+  const packed = JSON.stringify(cards);
+  assert.equal(/full access|full_access|\bCore\b|@gmail|rate|earning|contract/i.test(packed), false);
+
+  const other = await saveMyProfile(db, abby, { ...base, creatorId: "mariclare", familyConfirm: true });
+  assert.equal(other.ok, false);
+  if (!other.ok) assert.equal(other.status, 403);
+
+  assert.equal((await hideMyProfile(db, mariclare)).ok, true);
+  assert.equal((await listPublicProfiles(db)).some((card) => card.creatorId === "mariclare"), false);
+  assert.equal((await saveMyProfile(db, mariclare, { ...base, familyConfirm: true })).ok, true);
+
+  const hidden = await moderateProfileField(db, admin, { creatorId: "mariclare", field: "bio", action: "hide", reason: "Too specific." });
+  assert.equal(hidden.ok, true);
+  const afterHide = (await listPublicProfiles(db)).find((card) => card.creatorId === "mariclare");
+  assert.equal(afterHide?.bio, undefined);
+  const notes = await db.select().from(creatorNotifications).where(eq(creatorNotifications.creatorId, "mariclare"));
+  assert.equal(notes.some((note) => note.message.includes("Too specific.")), true);
+  const creatorHide = await moderateProfileField(db, mariclare, { creatorId: "abby", field: "bio", action: "hide", reason: "no" });
+  assert.equal(creatorHide.ok, false);
+
+  assert.equal((await upsertCreator(db, { id: "profile-guest", name: "Profile Guest", email: "profile.guest@gmail.com", initials: "PG" })).status, 201);
+  assert.equal((await saveMyProfile(db, { email: "profile.guest@gmail.com", name: "Profile Guest", role: "creator", creatorId: "profile-guest" }, {
+    ...base,
+    creatorId: "profile-guest",
+    displayName: "Guest",
+    familyConfirm: true,
+    familyOn: false,
+  })).ok, true);
+  await db.delete(creators).where(eq(creators.id, "profile-guest"));
+  assert.equal((await listPublicProfiles(db)).some((card) => card.creatorId === "profile-guest"), false);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
