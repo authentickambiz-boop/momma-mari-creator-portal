@@ -403,6 +403,18 @@ export const emailCopies = sqliteTable("email_copies", {
   createdAt: text("created_at").notNull(),
 });
 
+export const creatorReportDrafts = sqliteTable(
+  "creator_report_drafts",
+  {
+    id: text("id").primaryKey(),
+    creatorId: text("creator_id").notNull(),
+    month: text("month").notNull(),
+    approvalId: text("approval_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("creator_report_drafts_creator_month").on(table.creatorId, table.month)],
+);
+
 export const emailCopyFiles = sqliteTable("email_copy_files", {
   copyId: text("copy_id").primaryKey(),
   bytesBase64: text("bytes_base64").notNull(),
