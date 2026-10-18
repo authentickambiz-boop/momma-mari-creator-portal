@@ -6,12 +6,15 @@ import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandC
 import { canApproveEmail, canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
 import { addFeedback, authorizeBot, createApprovalDraft, listApprovedApprovals, markApprovalDraftSent, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
 import { listCreatorInterest, listOfferScreenings, recordCreatorInterest, releaseOffer } from "../src/lib/creator-interest";
+import { listDraftReviews, listUnreadCreatorNotices, onDraftSubmitted, reviewDraft } from "../src/lib/video-review";
 import { setDealStage } from "../src/lib/deal-stage";
 import { sideStages, trackStages } from "../src/lib/stages";
 import { creatorCutLabel, nextPayoutLabel, pipelineHeadline } from "../src/lib/format";
 import {
   findCreatorById,
   getDealForViewer,
+  insertDraft,
+  markDraftProgress,
   listDealsForViewer,
   listDraftsSince,
   listDailyMetrics,
@@ -1025,5 +1028,198 @@ test("a creator can accept or pass a screened offer, and KOSBLING stays put", as
   assert.equal(kosblingEnd?.workflowStage, "draft_due");
   assert.equal(kosblingEnd?.visibleToCreator, true);
   assert.equal(kosblingEnd?.brand, "KOSBLING");
+});
+
+test("a manager can send a video back or queue it for the brand, and KOSBLING stays put", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const waterhBefore = await getDealForViewer(db, admin, "waterh");
+  const untouched = await onDraftSubmitted(db, "kosbling", { email: mariclare.email });
+  assert.equal(untouched.ok, true);
+  if (untouched.ok) assert.equal(untouched.changed, false);
+  assert.equal((await getDealForViewer(db, admin, "kosbling"))?.workflowStage, kosblingBefore?.workflowStage);
+  assert.equal((await getDealForViewer(db, admin, "kosbling"))?.visibleToCreator, true);
+
+  const seedReview = await reviewDraft(db, {
+    draftId: "draft-waterh-v1",
+    decision: "approved",
+    actorEmail: admin.email,
+    actorRole: "admin",
+    brandEmail: "hello@waterh.example",
+  });
+  assert.equal(seedReview.ok, false);
+  assert.equal((await getDealForViewer(db, admin, "waterh"))?.workflowStage, waterhBefore?.workflowStage);
+
+  const created = await upsertDeal(db, {
+    id: "phase4-video",
+    brand: "Lumen Co",
+    creatorId: "mariclare",
+    status: "active",
+    workflowStage: "draft_due",
+    visibleToCreator: true,
+    uploadEnabled: true,
+    contact: "hello@lumen.example",
+    amountDisplay: "$650",
+  });
+  assert.equal(created.status, 201);
+
+  await insertDraft(db, {
+    id: "phase4-v1",
+    dealId: "phase4-video",
+    version: 1,
+    filename: "v1-morning.mp4",
+    mimeType: "video/mp4",
+    sizeBytes: 1000,
+    uploadSessionUrl: "demo://local",
+    driveFolderId: null,
+    gmailThreadId: null,
+    status: "uploading",
+  });
+  await markDraftProgress(db, "phase4-v1", {
+    bytesReceived: 1000,
+    status: "new",
+    driveFileId: "drive-v1",
+    driveFileUrl: "https://drive.google.com/file/d/phase4-v1",
+  });
+  const submitted = await onDraftSubmitted(db, "phase4-video", { email: mariclare.email });
+  assert.equal(submitted.ok, true);
+  assert.equal((await getDealForViewer(db, admin, "phase4-video"))?.workflowStage, "draft_submitted");
+
+  const creatorTry = await reviewDraft(db, {
+    draftId: "phase4-v1",
+    decision: "approved",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+    brandEmail: "hello@lumen.example",
+  });
+  assert.equal(creatorTry.ok, false);
+  if (!creatorTry.ok) assert.equal(creatorTry.status, 403);
+  const otherTry = await reviewDraft(db, {
+    draftId: "phase4-v1",
+    decision: "changes",
+    note: "Open on the bottle.",
+    actorEmail: abby.email,
+    actorRole: "creator",
+  });
+  assert.equal(otherTry.ok, false);
+
+  const noNote = await reviewDraft(db, {
+    draftId: "phase4-v1",
+    decision: "changes",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(noNote.ok, false);
+  if (!noNote.ok) assert.equal(noNote.status, 400);
+
+  const changes = await reviewDraft(db, {
+    draftId: "phase4-v1",
+    decision: "changes",
+    note: "Open on the bottle in the first three seconds.",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(changes.ok, true);
+  const afterChanges = await getDealForViewer(db, admin, "phase4-video");
+  assert.equal(afterChanges?.workflowStage, "draft_due");
+  assert.equal(afterChanges?.uploadEnabled, true);
+  assert.equal(afterChanges?.drafts.length, 1);
+  assert.equal(afterChanges?.drafts[0]?.status, "revisions");
+  assert.equal(afterChanges?.drafts[0]?.review?.decision, "changes");
+  assert.equal(afterChanges?.drafts[0]?.review?.note, "Open on the bottle in the first three seconds.");
+  const history = afterChanges?.stageEvents?.find((event) => event.toStage === "draft_due" && event.actorRole === "admin");
+  assert.equal(history?.note, "Open on the bottle in the first three seconds.");
+  assert.equal(history?.actorEmail, admin.email);
+  const creatorView = await getDealForViewer(db, mariclare, "phase4-video");
+  assert.equal(creatorView?.drafts[0]?.review?.note, "Open on the bottle in the first three seconds.");
+  assert.equal(creatorView?.stageEvents, null);
+  const notices = await listUnreadCreatorNotices(db, "mariclare");
+  assert.equal(notices.some((notice) => notice.kind === "video_changes" && notice.message.includes("Open on the bottle")), true);
+  assert.equal((await listApprovalQueue(db, "all")).some((row) => row.dealId === "phase4-video" && row.gate === "video"), false);
+
+  await insertDraft(db, {
+    id: "phase4-v2",
+    dealId: "phase4-video",
+    version: 2,
+    filename: "v2-morning.mp4",
+    mimeType: "video/mp4",
+    sizeBytes: 1200,
+    uploadSessionUrl: "demo://local",
+    driveFolderId: null,
+    gmailThreadId: null,
+    status: "uploading",
+  });
+  await markDraftProgress(db, "phase4-v2", {
+    bytesReceived: 1200,
+    status: "new",
+    driveFileId: "drive-v2",
+    driveFileUrl: "https://drive.google.com/file/d/phase4-v2",
+  });
+  const resubmitted = await onDraftSubmitted(db, "phase4-video", { email: mariclare.email });
+  assert.equal(resubmitted.ok, true);
+  const both = await getDealForViewer(db, admin, "phase4-video");
+  assert.equal(both?.workflowStage, "draft_submitted");
+  assert.deepEqual(both?.drafts.map((draft) => draft.version), [1, 2]);
+  assert.equal(both?.drafts[0]?.status, "revisions");
+  assert.equal(both?.drafts[1]?.status, "new");
+
+  const approved = await reviewDraft(db, {
+    draftId: "phase4-v2",
+    decision: "approved",
+    note: "Good to send.",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(approved.ok, true);
+  if (approved.ok) assert.ok(approved.approvalId);
+  const afterApprove = await getDealForViewer(db, admin, "phase4-video");
+  assert.equal(afterApprove?.workflowStage, "manager_review");
+  assert.equal(afterApprove?.uploadEnabled, false);
+  assert.equal(afterApprove?.drafts[1]?.status, "email_awaiting_ok");
+  assert.equal(afterApprove?.drafts[1]?.review?.decision, "approved");
+  assert.equal(afterApprove?.drafts[0]?.version, 1);
+  const videoEmail = (await listApprovalQueue(db, "all")).find((row) => row.dealId === "phase4-video" && row.gate === "video");
+  assert.equal(videoEmail?.status, "pending");
+  assert.equal(videoEmail?.fromEmail, "authentickambiz@gmail.com");
+  assert.equal(videoEmail?.toEmail, "hello@lumen.example");
+  assert.match(videoEmail?.body ?? "", /https:\/\/drive\.google\.com\/file\/d\/phase4-v2/);
+  assert.equal((videoEmail?.body ?? "").includes("Open on the bottle"), false);
+  assert.equal((videoEmail?.body ?? "").includes("Good to send"), false);
+  const waiting = await listApprovedApprovals(db);
+  assert.equal(waiting.body.approvals.some((row) => row.id === videoEmail?.id), false);
+  const approvedNotices = await listUnreadCreatorNotices(db, "mariclare");
+  assert.equal(approvedNotices.some((notice) => notice.kind === "video_approved" && notice.message.includes("v2")), true);
+
+  const twice = await reviewDraft(db, {
+    draftId: "phase4-v2",
+    decision: "changes",
+    note: "One more tweak.",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(twice.ok, false);
+  if (!twice.ok) assert.equal(twice.status, 409);
+
+  const listed = await listDraftReviews(db, null);
+  assert.equal(listed.filter((row) => row.dealId === "phase4-video").length, 2);
+  assert.equal(JSON.stringify(listed).includes("gmailRefreshToken"), false);
+  assert.equal(JSON.stringify(listed).includes("refresh_token"), false);
+  const later = await listDraftReviews(db, "2999-01-01T00:00:00.000Z");
+  assert.equal(later.some((row) => row.dealId === "phase4-video"), false);
+
+  const adminInterest = await createApprovalEmail(db, {
+    dealId: "phase4-video",
+    gate: "interest",
+    to: "hello@lumen.example",
+    subject: "Interested",
+    body: "She is interested.",
+  }, { email: admin.email, role: "admin" });
+  assert.equal(adminInterest.ok, false);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingBefore?.drafts.length);
 });
 });

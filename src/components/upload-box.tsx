@@ -63,8 +63,8 @@ export function UploadBox({
         setDone(true);
         setMessage(
           body.mode === "demo"
-            ? "Recorded on the deal. Drive isn't connected on this server, so the video itself was not stored."
-            : "Saved in the private Drive folder for this deal. Your bot will see it on its next check.",
+            ? "Recorded on the deal. Your manager can review it here. Drive isn't connected, so the video file itself was not stored."
+            : "Saved in your Brand Drafts folder. Your manager will review it before it can go to the brand.",
         );
         router.refresh();
         return;

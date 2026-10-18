@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { changeDealStageAction, creatorInterestAction, releaseOfferAction } from "@/app/actions";
+import { changeDealStageAction, creatorInterestAction, releaseOfferAction, reviewDraftAction } from "@/app/actions";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
 import { UploadBox } from "./upload-box";
@@ -15,11 +15,11 @@ const STEPS = [
 
 const DRAFT_STATUS: Record<string, string> = {
   uploading: "Upload in progress",
-  new: "New — waiting for the bot",
-  email_awaiting_ok: "Email drafted, waiting for Kamron",
+  new: "Waiting for your manager",
+  email_awaiting_ok: "Approved — email waiting for Kamron",
   sent: "Sent to the brand",
   approved: "Approved",
-  revisions: "Revisions requested",
+  revisions: "Changes requested",
 };
 
 export function DealBoard({
@@ -32,6 +32,7 @@ export function DealBoard({
   stageError = false,
   interestError = false,
   releaseError = null,
+  reviewError = null,
 }: {
   deals: DealSummary[];
   selected: DealDetail | null;
@@ -42,6 +43,7 @@ export function DealBoard({
   stageError?: boolean;
   interestError?: boolean;
   releaseError?: string | null;
+  reviewError?: string | null;
 }) {
   return (
     <div className={showDetail ? "grid showdetail" : "grid"} id="dealGrid">
@@ -82,6 +84,7 @@ export function DealBoard({
             stageError={stageError}
             interestError={interestError}
             releaseError={releaseError}
+            reviewError={reviewError}
           />
         ) : (
           <p className="note">Pick a deal to see the brief, the feedback, and where to upload.</p>
@@ -100,6 +103,7 @@ function DealDetailView({
   stageError,
   interestError,
   releaseError,
+  reviewError,
 }: {
   deal: DealDetail;
   backHref: string;
@@ -109,9 +113,14 @@ function DealDetailView({
   stageError: boolean;
   interestError: boolean;
   releaseError: string | null;
+  reviewError: string | null;
 }) {
   const creatorId = creatorQuery.startsWith("?creator=") ? creatorQuery.slice("?creator=".length) : "";
   const current = deal.workflowStage;
+  const latestDraft = deal.drafts.reduce<DealDetail["drafts"][number] | null>((latest, draft) => {
+    if (!latest || draft.version > latest.version) return draft;
+    return latest;
+  }, null);
   const currentDef = trackStages().find((stage) => stage.id === current);
   const onTrack = Boolean(currentDef);
   return (
@@ -125,6 +134,15 @@ function DealDetailView({
         <>
           <div className="sec-title" style={{ marginTop: 14 }}>Where this deal is</div>
           <p className="stage-note">{creatorStageMessage(current, deal.brand)}</p>
+          {latestDraft?.review?.decision === "approved" ? (
+            <p className="stage-note">Approved by your manager, sending to {deal.brand}.</p>
+          ) : null}
+          {latestDraft?.review?.decision === "changes" ? (
+            <div className="callout">
+              <b>Your manager asked for changes.</b>
+              {latestDraft.review.note ? <div>{latestDraft.review.note}</div> : null}
+            </div>
+          ) : null}
           <div className="steps">
             {trackStages().map((stage) => {
               const state = !onTrack ? "" : stage.order! < currentDef!.order! ? "done" : stage.id === current ? "now" : "";
@@ -300,11 +318,45 @@ function DealDetailView({
           <ul>
             {deal.drafts.map((draft) => (
               <li key={draft.id}>
-                v{draft.version}
-                {draft.filename ? ` · ${draft.filename}` : ""}
-                {" · "}
-                {DRAFT_STATUS[draft.status] ?? draft.status}
-                {draft.driveFileUrl ? <> · <a href={draft.driveFileUrl}>Drive file</a></> : draft.isSeed ? " · no portal file" : ""}
+                <div>
+                  v{draft.version}
+                  {draft.filename ? ` · ${draft.filename}` : ""}
+                  {" · "}
+                  {DRAFT_STATUS[draft.status] ?? draft.status}
+                  {draft.driveFileUrl ? <> · <a href={draft.driveFileUrl}>Drive file</a></> : draft.isSeed ? " · no portal file" : ""}
+                </div>
+                {draft.review?.decision === "changes" && draft.review.note ? (
+                  <div className="note">What to fix: {draft.review.note}</div>
+                ) : null}
+                {draft.review?.decision === "approved" ? (
+                  <div className="note">Approved by your manager, sending to {deal.brand}.</div>
+                ) : null}
+                {canChangeStage && !draft.isSeed && draft.status === "new" && !draft.review ? (
+                  <form action={reviewDraftAction} className="stage-form">
+                    <input type="hidden" name="dealId" value={deal.id} />
+                    <input type="hidden" name="draftId" value={draft.id} />
+                    {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+                    <label>
+                      Notes
+                      <textarea name="note" placeholder="What should she fix?" aria-label="Review notes" />
+                    </label>
+                    <label>
+                      Brand email
+                      <input
+                        type="email"
+                        name="brandEmail"
+                        defaultValue={deal.brandEmail ?? ""}
+                        placeholder="hello@brand.com"
+                        aria-label="Brand email for the video"
+                      />
+                    </label>
+                    <button className="btn" type="submit" name="decision" value="approved">Approve</button>
+                    <button className="btn ghost" type="submit" name="decision" value="changes">Request changes</button>
+                    {reviewError === "note" ? <span className="note">Tell her what to fix before sending it back.</span> : null}
+                    {reviewError === "email" ? <span className="note">Add the brand email before approving. The email stays in your queue.</span> : null}
+                    {reviewError && reviewError !== "note" && reviewError !== "email" ? <span className="note">That review was not saved.</span> : null}
+                  </form>
+                ) : null}
               </li>
             ))}
           </ul>

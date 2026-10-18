@@ -1,19 +1,24 @@
+import { dismissCreatorNoticeAction } from "@/app/actions";
 import { DealBoard } from "@/components/deal-board";
 import { PortalFrame } from "@/components/portal-frame";
 import { canChangeDealStage } from "@/lib/authz";
 import { longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
+import { listUnreadCreatorNotices } from "@/lib/video-review";
 
 export default async function DealPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string }>;
+  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const portal = await loadPortal(query.creator ?? null);
+  const creatorNotices = portal.viewer.role === "creator" && portal.viewer.creatorId
+    ? await listUnreadCreatorNotices(portal.db, portal.viewer.creatorId)
+    : [];
   const deals = await listDealsForViewer(portal.db, portal.viewer, portal.viewedId);
   const selected = await getDealForViewer(portal.db, portal.viewer, id);
   const creatorQuery = portal.viewer.role === "admin" ? `?creator=${portal.viewedId}` : "";
@@ -39,6 +44,16 @@ export default async function DealPage({
         </div>
       }
     >
+      {creatorNotices.map((notice) => (
+        <div className="callout" key={notice.id}>
+          <b>{notice.message}</b>
+          <form action={dismissCreatorNoticeAction} style={{ display: "inline", marginLeft: 10 }}>
+            <input type="hidden" name="id" value={notice.id} />
+            <input type="hidden" name="dealId" value={id} />
+            <button className="btn ghost" type="submit">Dismiss</button>
+          </form>
+        </div>
+      ))}
       {selected ? null : (
         <div className="card" style={{ marginBottom: 14 }}>
           <h2>That deal isn&apos;t on your list.</h2>
@@ -55,6 +70,7 @@ export default async function DealPage({
         stageError={query.stageError === "1"}
         interestError={query.interestError === "1"}
         releaseError={query.releaseError ?? null}
+        reviewError={query.reviewError ?? null}
       />
     </PortalFrame>
   );

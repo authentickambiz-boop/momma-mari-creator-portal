@@ -7,6 +7,7 @@ import { reviewApproval } from "@/lib/approvals";
 import { canApproveEmail, canChangeDealStage, devLoginEnabled } from "@/lib/authz";
 import { currentViewer } from "@/lib/current-user";
 import { logOfferScreening, recordCreatorInterest, releaseOffer } from "@/lib/creator-interest";
+import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
 import { isEmailSetup } from "@/lib/email-setup";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
@@ -83,6 +84,38 @@ export async function creatorInterestAction(formData: FormData) {
   if (!result.ok) redirect(`/deals/${dealId}?interestError=1`);
   if (result.decision === "declined") redirect("/?passed=1");
   redirect(`/deals/${dealId}`);
+}
+
+export async function reviewDraftAction(formData: FormData) {
+  const dealId = String(formData.get("dealId") ?? "");
+  const creator = String(formData.get("creator") ?? "");
+  const query = creator ? `?creator=${encodeURIComponent(creator)}` : "";
+  const back = `/deals/${dealId}${query}`;
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "admin") redirect("/login");
+  const db = await getDb();
+  const result = await reviewDraft(db, {
+    draftId: String(formData.get("draftId") ?? ""),
+    decision: String(formData.get("decision") ?? ""),
+    note: String(formData.get("note") ?? ""),
+    brandEmail: String(formData.get("brandEmail") ?? ""),
+    actorEmail: viewer.email,
+    actorRole: "admin",
+  });
+  if (!result.ok) {
+    const code = result.status === 400 && result.error.includes("brand email") ? "email" : result.status === 400 ? "note" : "1";
+    redirect(`${back}${query ? "&" : "?"}reviewError=${code}`);
+  }
+  redirect(back);
+}
+
+export async function dismissCreatorNoticeAction(formData: FormData) {
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "creator" || !viewer.creatorId) redirect("/login");
+  const db = await getDb();
+  await dismissCreatorNotice(db, viewer.creatorId, String(formData.get("id") ?? ""));
+  const dealId = String(formData.get("dealId") ?? "");
+  redirect(dealId ? `/deals/${dealId}` : "/");
 }
 
 export async function chooseEmailSetupAction(formData: FormData) {

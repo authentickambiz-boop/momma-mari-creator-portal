@@ -13,6 +13,7 @@ import {
 } from "@/db/schema";
 import { adminDisplayName, adminEmails, canSeeDeal } from "./authz";
 import { firstEmail, interestContextForDeal } from "./creator-interest";
+import { reviewsForDeal } from "./video-review";
 import { normalizeEmail, nowIso, parseJson } from "./format";
 import type {
   Chip,
@@ -114,6 +115,7 @@ function toDraft(row: typeof drafts.$inferSelect): DraftView {
     gmailThreadId: row.gmailThreadId,
     uploadedAt: row.uploadedAt,
     isSeed: row.isSeed,
+    review: null,
   };
 }
 
@@ -197,13 +199,14 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
   const row = rows[0];
   if (!row || !canSeeDeal(viewer, row)) return null;
   const creator = await findCreatorById(db, row.creatorId);
-  const [revisionRows, draftRows, paymentRows, stageRows] = await Promise.all([
+  const [revisionRows, draftRows, paymentRows, stageRows, reviewByDraft] = await Promise.all([
     db.select().from(revisions).where(eq(revisions.dealId, dealId)).orderBy(asc(revisions.sortOrder)),
     db.select().from(drafts).where(eq(drafts.dealId, dealId)).orderBy(asc(drafts.version)),
     db.select().from(payments).where(eq(payments.dealId, dealId)),
     viewer.role === "admin"
       ? db.select().from(dealStageEvents).where(eq(dealStageEvents.dealId, dealId)).orderBy(asc(dealStageEvents.createdAt))
       : Promise.resolve([]),
+    reviewsForDeal(db, dealId),
   ]);
   const summary = toSummary(row, creator?.name ?? "Creator");
   const interestState = await interestContextForDeal(db, dealId);
@@ -239,7 +242,15 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
     uploadLabel: row.uploadLabel,
     driveFolderId: row.driveFolderId,
     revisions: revisionRows.map(toRevision),
-    drafts: draftRows.map(toDraft),
+    drafts: draftRows.map((row) => {
+      const review = reviewByDraft.get(row.id);
+      return {
+        ...toDraft(row),
+        review: review
+          ? { decision: review.decision, note: review.note, actorEmail: review.actorEmail, createdAt: review.createdAt }
+          : null,
+      };
+    }),
     payment: paymentRows[0] ? toPayment(paymentRows[0]) : null,
     interest: interestState.interest,
     offerReleased: interestState.offerReleased,

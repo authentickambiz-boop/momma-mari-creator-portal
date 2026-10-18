@@ -262,6 +262,27 @@ export const creatorInterest = sqliteTable("creator_interest", {
   createdAt: text("created_at").notNull(),
 });
 
+export const draftReviews = sqliteTable("draft_reviews", {
+  id: text("id").primaryKey(),
+  draftId: text("draft_id").notNull(),
+  dealId: text("deal_id").notNull(),
+  decision: text("decision").notNull(),
+  note: text("note"),
+  actorEmail: text("actor_email").notNull(),
+  approvalId: text("approval_id"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const creatorNotifications = sqliteTable("creator_notifications", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  dealId: text("deal_id"),
+  kind: text("kind").notNull(),
+  message: text("message").notNull(),
+  createdAt: text("created_at").notNull(),
+  readAt: text("read_at"),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),
