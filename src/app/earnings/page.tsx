@@ -17,12 +17,9 @@ async function panelFor(db: Awaited<ReturnType<typeof loadPortal>>["db"], viewer
     ? payments
     : payments.map((payment) => ({
         ...payment,
-        amountOwedCents: null,
         amountLabel: null,
         dueDate: null,
         dueLabel: null,
-        landedDate: null,
-        landedAmountCents: null,
         creatorSplitPercent: null,
         agencySplitPercent: null,
         payoutApprovedOn: null,

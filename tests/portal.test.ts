@@ -30,7 +30,7 @@ import { approveContract, listContracts, requestContractRevisions, saveChecklist
 import { listDraftReviews, listUnreadCreatorNotices, onDraftSubmitted, reviewDraft } from "../src/lib/video-review";
 import { setDealStage } from "../src/lib/deal-stage";
 import { sideStages, trackStages } from "../src/lib/stages";
-import { commissionLabel, creatorCutLabel, nextPayoutLabel, pipelineHeadline } from "../src/lib/format";
+import { commissionLabel, creatorCutLabel, creatorPayoutTracker, nextPayoutLabel, pipelineHeadline } from "../src/lib/format";
 import { confirmLivePost, confirmProductReceived, listLivePostsSince, listPaymentsSince, listShipmentsSince, markPayment, saveShipment, submitLivePosts } from "../src/lib/fulfillment";
 import {
   findCreatorById,
@@ -2868,6 +2868,91 @@ test("the member directory hides private fields and other creators cannot edit a
   })).ok, true);
   await db.delete(creators).where(eq(creators.id, "profile-guest"));
   assert.equal((await listPublicProfiles(db)).some((card) => card.creatorId === "profile-guest"), false);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("a creator sees when the brand paid, the 20% fee, and when her cut was sent", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  const created = await upsertDeal(db, {
+    id: "phase9-pay",
+    brand: "Phase9 Pay",
+    creatorId: "mariclare",
+    status: "active",
+    workflowStage: "scheduled_posted",
+    visibleToCreator: true,
+    rateCents: 100000,
+  });
+  assert.equal(created.status, 201);
+
+  const managerPay = await markPayment(db, {
+    dealId: "phase9-pay",
+    paymentStatus: "brand_invoiced",
+    actorEmail: "riley.manager@gmail.com",
+    actorRole: "manager",
+  });
+  assert.equal(managerPay.ok, false);
+  if (!managerPay.ok) assert.equal(managerPay.error, "Only an owner can update payment.");
+
+  const invoiced = await markPayment(db, {
+    dealId: "phase9-pay",
+    paymentStatus: "brand_invoiced",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(invoiced.ok, true);
+  const afterInvoice = creatorPayoutTracker((await getDealForViewer(db, mariclare, "phase9-pay"))?.payment ?? null);
+  assert.equal(afterInvoice.brandPaidOn, null);
+  assert.equal(afterInvoice.cutSentOn, null);
+  assert.equal(afterInvoice.feeLabel, "$200 (20%)");
+  assert.equal(afterInvoice.payoutLabel.includes("%"), false);
+
+  const paid = await markPayment(db, {
+    dealId: "phase9-pay",
+    paymentStatus: "brand_paid",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(paid.ok, true);
+  const afterBrand = creatorPayoutTracker((await getDealForViewer(db, mariclare, "phase9-pay"))?.payment ?? null);
+  assert.match(afterBrand.brandPaidOn ?? "", /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(afterBrand.cutSentOn, null);
+  assert.equal(afterBrand.feeLabel, "$200 (20%)");
+
+  assert.equal((await markPayment(db, {
+    dealId: "phase9-pay",
+    paymentStatus: "creator_payout_pending",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  })).ok, true);
+  const pending = creatorPayoutTracker((await getDealForViewer(db, mariclare, "phase9-pay"))?.payment ?? null);
+  assert.equal(pending.cutSentOn, null);
+  assert.equal(pending.statusLabel, "Your payout is pending");
+
+  assert.equal((await markPayment(db, {
+    dealId: "phase9-pay",
+    paymentStatus: "creator_paid",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  })).ok, true);
+  const creatorDeal = await getDealForViewer(db, mariclare, "phase9-pay");
+  const tracker = creatorPayoutTracker(creatorDeal?.payment ?? null);
+  assert.match(tracker.cutSentOn ?? "", /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(tracker.feeLabel, "$200 (20%)");
+  assert.equal(tracker.statusLabel, "Paid");
+  assert.equal(tracker.payoutLabel.includes("%"), false);
+  assert.equal(JSON.stringify(creatorDeal).includes("Commission"), false);
+  assert.equal((await getDealForViewer(db, admin, "phase9-pay"))?.workflowStage, "paid");
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
