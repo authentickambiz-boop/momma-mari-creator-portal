@@ -235,6 +235,18 @@ curl -sS -X POST \
   http://localhost:43123/api/bot/analytics/daily
 ```
 
+### Finished creator onboarding
+
+`GET /api/bot/onboarding` returns creators who connected Gmail and finished the bot profile. The Gmail refresh token is never included. Optional `since` is an ISO timestamp compared with `finishedAt`.
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  "http://localhost:43123/api/bot/onboarding?since=2026-10-01T00:00:00.000Z"
+```
+
+Each profile includes `creatorId`, `name`, `email`, `gmailEmail`, `gmailConnected`, `emailSetup` (`business`, `personal`, or `hosted`), `hostedEmailAddress` (always `name@mommamari.com` when hosted), `hostedEmailAddOn` (only for a hosted request: name `hosted creator email`, roster price `$79 one-time setup + $15/month`, public price `$99 one-time setup + $19/month`, `charged: false`), `botName`, `niche`, `kidsAges`, `contentStyle`, `rates`, `favoriteBrands`, `platforms`, `finishedAt`, and `message` (`New creator ready for bot`). The refresh token is never included.
+
 ### Upsert a creator
 
 `resolveLogin` refuses any `.invalid` address, so a reserved placeholder can never open a session. Abby Theriot's sign-in is `theofficialtheriots@gmail.com` (`drizzle/0004_creator_profiles.sql`). Use this endpoint to replace a sign-in email.
@@ -280,6 +292,26 @@ Google's resumable URL is not called from the browser, because Drive does not al
 5. Set `APP_BASE_URL` to the same origin the browser uses, including `/portal` in production, with no trailing slash. The callback is built from `APP_BASE_URL`, not from the incoming request, so the mount path is not dropped.
 6. Restart the server. The login page shows **Continue with Google**.
 7. Only addresses in `ADMIN_EMAILS` or in `creators.email` get a session. Everyone else lands on `/login?error=not_allowed`.
+
+## Connect your email
+
+Sign-in stays on `openid email profile`. **Connect your email** is a second Google screen for the signed-in creator. It asks only for `gmail.readonly` and `gmail.compose`, with `include_granted_scopes=true` so earlier sign-in permissions are kept. The redirect URI is the existing `/api/auth/callback`. Do not add another one.
+
+1. Enable the Gmail API on the same Google Cloud project.
+2. Add those two Gmail scopes on the OAuth consent screen. They are restricted. While the app is unverified, creators must be test users (up to 100). A public launch needs Google's restricted-scope review.
+3. Generate `TOKEN_ENCRYPTION_KEY` and set it as a Secret Variable:
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+   The refresh token is encrypted before it is saved. The bot API never receives it. If this key is empty, the button will not start.
+
+4. A creator signs in and opens **Set up your bot**. She picks one email option:
+   - **Recommended:** create a new Gmail used only for brand deals, then connect it. The page lists short steps for making that account.
+   - **Personal email:** connect the inbox she already uses. The page says we only process brand-related mail, which the bot sorts and labels.
+   - **Hosted email:** ask Momma Mari to host a business address on `@mommamari.com`. She types a name and sees a preview such as `abby@mommamari.com`. Momma Mari owns the domain and the mailbox. Roster creators are `$79 one-time setup + $15/month`. The public price is `$99 one-time setup + $19/month`. The portal does not charge anyone; Stripe is not connected yet. She can finish her profile without connecting Google.
+5. Connecting a new or personal Gmail uses **Connect your email**. Finishing the profile writes **New creator ready for bot** on Kamron's home page. Kash Bot reads finished profiles, including `emailSetup`, from `GET /api/bot/onboarding` and creates the bot manually after Kamron says OK.
 
 ## Google Drive
 
@@ -347,6 +379,7 @@ Do this in Webflow. Nothing in this repo publishes the site.
    | `BOT_API_TOKEN` | long random string | yes |
    | `GOOGLE_CLIENT_ID` | from the OAuth client | no |
    | `GOOGLE_CLIENT_SECRET` | from the OAuth client | yes |
+   | `TOKEN_ENCRYPTION_KEY` | 64 hex characters | yes |
    | `GOOGLE_DRIVE_REFRESH_TOKEN` or `GOOGLE_SERVICE_ACCOUNT_JSON` | one of the Drive options | yes |
    | `GOOGLE_DRIVE_ROOT_FOLDER_ID` | optional fallback folder | no |
 

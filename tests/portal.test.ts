@@ -18,13 +18,39 @@ import {
   resolveLogin,
   summarizeAnalytics,
 } from "../src/lib/queries";
+import {
+  GMAIL_SCOPES,
+  createGmailOAuthState,
+  createOAuthState,
+  googleAuthUrl,
+  googleGmailAuthUrl,
+  googleRedirectUri,
+  verifyGmailOAuthState,
+  verifyOAuthState,
+} from "../src/lib/google-oauth";
+import {
+  CREATOR_READY_MESSAGE,
+  dismissNotification,
+  emailSetupFor,
+  finishOnboarding,
+  gmailConnectionState,
+  hostedEmailRequestMessage,
+  listFinishedOnboarding,
+  listUnreadCreatorReady,
+  listUnreadNotices,
+  saveEmailSetup,
+  saveGmailConnection,
+} from "../src/lib/onboarding";
+import { hostedEmailPreview, STRIPE_CATALOG } from "../src/lib/email-setup";
 import { createSession, readSignedSessionId } from "../src/lib/session";
+import { decryptToken } from "../src/lib/token-crypto";
 import { assertCanUpload, parseContentRange, validateChunk } from "../src/lib/uploads";
 import type { Viewer } from "../src/lib/types";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
 process.env.ADMIN_EMAILS = "Kamron@mommamari.com";
+process.env.TOKEN_ENCRYPTION_KEY = "ab".repeat(32);
 
 let db: PortalDb;
 
@@ -393,6 +419,178 @@ test("admins and the bot can move a deal's stage, and creators cannot", async ()
     assert.equal(shownBrand.body.workflowStage, "offer_received");
     assert.equal(shownBrand.body.visibleToCreator, true);
   }
+});
+
+test("gmail connect is separate from sign-in and onboarding notifies Kamron", async () => {
+  const loginUrl = new URL(googleAuthUrl(await createOAuthState()));
+  assert.equal(loginUrl.searchParams.get("scope"), "openid email profile");
+  assert.equal(loginUrl.searchParams.get("redirect_uri"), googleRedirectUri());
+
+  const gmailState = await createGmailOAuthState();
+  assert.equal(await verifyGmailOAuthState(gmailState, gmailState), true);
+  assert.equal(await verifyOAuthState(gmailState, gmailState), false);
+  const gmailUrl = new URL(googleGmailAuthUrl(gmailState, mariclare.email));
+  assert.equal(gmailUrl.searchParams.get("redirect_uri"), googleRedirectUri());
+  assert.equal(gmailUrl.searchParams.get("include_granted_scopes"), "true");
+  assert.equal(gmailUrl.searchParams.get("access_type"), "offline");
+  assert.equal(gmailUrl.searchParams.get("prompt"), "consent");
+  for (const scope of GMAIL_SCOPES) assert.match(gmailUrl.searchParams.get("scope") ?? "", new RegExp(scope.replaceAll(".", "\\.")));
+  assert.doesNotMatch(gmailUrl.searchParams.get("scope") ?? "", /openid/);
+
+  const before = await gmailConnectionState(db, "mariclare");
+  assert.equal(before.connected, false);
+  const unfinished = await finishOnboarding(db, "mariclare", {
+    botName: "MariClare Bot",
+    niche: "Mom life",
+    contentStyle: "Warm talking-to-camera videos",
+    rates: "$500 a TikTok",
+    platforms: ["tiktok"],
+  });
+  assert.equal(unfinished.ok, false);
+
+  const refreshToken = "1//secret-refresh-token-not-for-storage";
+  const missingKey = process.env.TOKEN_ENCRYPTION_KEY;
+  delete process.env.TOKEN_ENCRYPTION_KEY;
+  const blocked = await saveGmailConnection(db, "mariclare", { refreshToken, gmailEmail: "mmaclamroc@gmail.com" });
+  assert.equal(blocked.ok, false);
+  process.env.TOKEN_ENCRYPTION_KEY = missingKey;
+
+  const saved = await saveGmailConnection(db, "mariclare", { refreshToken, gmailEmail: "MMACLamroc@gmail.com" });
+  assert.equal(saved.ok, true);
+  const chosen = await saveEmailSetup(db, "mariclare", "personal");
+  assert.equal(chosen.ok, true);
+  if (chosen.ok) assert.equal(chosen.notified, false);
+  const stored = await gmailConnectionState(db, "mariclare");
+  assert.equal(stored.connected, true);
+  assert.equal(stored.gmailEmail, "mmaclamroc@gmail.com");
+  assert.ok(stored.cipher);
+  assert.equal(stored.cipher?.includes(refreshToken), false);
+  assert.equal(await decryptToken(stored.cipher ?? ""), refreshToken);
+
+  const incomplete = await finishOnboarding(db, "mariclare", { botName: "MariClare Bot", platforms: ["tiktok"] });
+  assert.equal(incomplete.ok, false);
+  const done = await finishOnboarding(db, "mariclare", {
+    botName: "MariClare Bot",
+    niche: "Mom life",
+    contentStyle: "Warm talking-to-camera videos",
+    rates: "$500 a TikTok",
+    favoriteBrands: "VEV",
+    kidsAges: "6 and 8",
+    platforms: ["tiktok", "instagram", "nope"],
+  });
+  assert.equal(done.ok, true);
+  if (done.ok) assert.equal(done.notified, true);
+  const firstProfile = (await listFinishedOnboarding(db, null)).find((profile) => profile.creatorId === "mariclare");
+  assert.equal(firstProfile?.botName, "MariClare Bot");
+  assert.equal(firstProfile?.kidsAges, "6 and 8");
+  assert.equal(firstProfile?.emailSetup, "personal");
+  assert.equal(firstProfile?.hostedEmailAddress, null);
+  assert.equal(firstProfile?.hostedEmailAddOn, null);
+  assert.deepEqual(firstProfile?.platforms, ["tiktok", "instagram"]);
+  const again = await finishOnboarding(db, "mariclare", {
+    botName: "MariClare Bot",
+    niche: "Mom life",
+    contentStyle: "Warm talking-to-camera videos",
+    rates: "$600 a TikTok",
+    platforms: ["tiktok"],
+  });
+  assert.equal(again.ok, true);
+  if (again.ok) assert.equal(again.notified, false);
+
+  const notices = await listUnreadCreatorReady(db);
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0]?.message, CREATOR_READY_MESSAGE);
+  assert.equal(notices[0]?.message, "New creator ready for bot");
+  assert.equal(notices[0]?.creatorName, "MariClare");
+
+  const profiles = await listFinishedOnboarding(db, null);
+  const hers = profiles.find((profile) => profile.creatorId === "mariclare");
+  assert.equal(hers?.rates, "$600 a TikTok");
+  assert.equal(hers?.kidsAges, "6 and 8");
+  assert.deepEqual(hers?.platforms, ["tiktok"]);
+  assert.equal(hers?.gmailConnected, true);
+  const packed = JSON.stringify(profiles);
+  assert.equal(packed.includes(refreshToken), false);
+  assert.equal(packed.includes(stored.cipher ?? "missing-cipher"), false);
+  const future = await listFinishedOnboarding(db, "2999-01-01T00:00:00.000Z");
+  assert.equal(future.length, 0);
+
+  const mari = await findCreatorById(db, "mariclare");
+  assert.equal(mari?.name, "MariClare");
+  assert.equal(mari?.kidsAges, "6 and 8");
+
+  assert.equal((await dismissNotification(db, notices[0]?.id ?? "")).ok, true);
+  assert.equal((await listUnreadCreatorReady(db)).length, 0);
+});
+
+test("hosted creator email uses roster and public prices on @mommamari.com", async () => {
+  assert.equal(hostedEmailPreview("Abby"), "abby@mommamari.com");
+  assert.equal(hostedEmailPreview("Deals@AbbyBrand.com"), "deals@mommamari.com");
+  assert.equal(hostedEmailPreview("abby theriot"), "abby.theriot@mommamari.com");
+  assert.equal(hostedEmailPreview("@@@"), null);
+  const missing = await saveEmailSetup(db, "abby", "hosted", "@@@");
+  assert.equal(missing.ok, false);
+  const blocked = await finishOnboarding(db, "abby", {
+    botName: "Abby Bot",
+    niche: "Family",
+    contentStyle: "Day in the life",
+    rates: "$400 a TikTok",
+    platforms: ["tiktok"],
+  });
+  assert.equal(blocked.ok, false);
+
+  const requested = await saveEmailSetup(db, "abby", "hosted", "Deals@AbbyBrand.com");
+  assert.equal(requested.ok, true);
+  if (requested.ok) {
+    assert.equal(requested.notified, true);
+    assert.equal(requested.hostedEmailAddress, "deals@mommamari.com");
+  }
+  const again = await saveEmailSetup(db, "abby", "hosted", "deals");
+  assert.equal(again.ok, true);
+  if (again.ok) assert.equal(again.notified, false);
+
+  const setup = await emailSetupFor(db, "abby");
+  assert.equal(setup.choice, "hosted");
+  assert.equal(setup.hostedEmailAddress, "deals@mommamari.com");
+  const message = hostedEmailRequestMessage("deals@mommamari.com");
+  assert.equal(message, "Hosted email requested: deals@mommamari.com. Paid add-on: hosted creator email. Roster: $79 one-time setup + $15/month. Public: $99 one-time setup + $19/month. Not charged yet.");
+  assert.equal(STRIPE_CATALOG.hostedCreatorEmail.name, "hosted creator email");
+  assert.equal(STRIPE_CATALOG.hostedCreatorEmail.roster.priceLabel, "$79 one-time setup + $15/month");
+  assert.equal(STRIPE_CATALOG.hostedCreatorEmail.public.priceLabel, "$99 one-time setup + $19/month");
+  assert.equal(STRIPE_CATALOG.hostedCreatorEmail.charged, false);
+
+  const notices = await listUnreadNotices(db);
+  const hers = notices.filter((note) => note.creatorId === "abby" && note.kind === "hosted_email");
+  assert.equal(hers.length, 1);
+  assert.equal(hers[0]?.message, message);
+  assert.equal(hers[0]?.creatorName, "Abby Theriot");
+
+  const done = await finishOnboarding(db, "abby", {
+    botName: "Abby Bot",
+    niche: "Family",
+    contentStyle: "Day in the life",
+    rates: "$400 a TikTok",
+    platforms: ["instagram"],
+  });
+  assert.equal(done.ok, true);
+  const profile = (await listFinishedOnboarding(db, null)).find((row) => row.creatorId === "abby");
+  assert.equal(profile?.emailSetup, "hosted");
+  assert.equal(profile?.hostedEmailAddress, "deals@mommamari.com");
+  assert.equal(profile?.gmailConnected, false);
+  assert.equal(profile?.hostedEmailAddOn?.charged, false);
+  assert.equal(profile?.hostedEmailAddOn?.priceLabel, "$79 one-time setup + $15/month");
+  assert.equal(profile?.hostedEmailAddOn?.publicPriceLabel, "$99 one-time setup + $19/month");
+  assert.equal(JSON.stringify(profile).includes("placeholder"), false);
+  assert.equal(JSON.stringify(profile).includes("v1:"), false);
+
+  const changed = await saveEmailSetup(db, "abby", "hosted", "brands");
+  assert.equal(changed.ok, true);
+  if (changed.ok) assert.equal(changed.notified, false);
+  const updated = (await listUnreadNotices(db)).filter((note) => note.creatorId === "abby" && note.kind === "hosted_email");
+  assert.equal(updated.length, 1);
+  assert.match(updated[0]?.message ?? "", /brands@mommamari.com/);
+  assert.match(updated[0]?.message ?? "", /\$79 one-time setup \+ \$15\/month/);
+  assert.match(updated[0]?.message ?? "", /Not charged yet/);
 });
 
 test("outgoing brand email stays pending until an admin approves it", async () => {

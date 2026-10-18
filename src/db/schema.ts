@@ -21,8 +21,36 @@ export const creators = sqliteTable("creators", {
   facebookConnectUrl: text("facebook_connect_url"),
   youtubeConnectUrl: text("youtube_connect_url"),
   listNote: text("list_note"),
+  gmailRefreshToken: text("gmail_refresh_token"),
+  gmailEmail: text("gmail_email"),
+  gmailConnectedAt: text("gmail_connected_at"),
+  emailSetup: text("email_setup"),
+  hostedEmailAddress: text("hosted_email_address"),
   isSeed: integer("is_seed", { mode: "boolean" }).notNull(),
   createdAt: text("created_at").notNull(),
+});
+
+export const creatorOnboarding = sqliteTable("creator_onboarding", {
+  creatorId: text("creator_id").primaryKey(),
+  botName: text("bot_name"),
+  niche: text("niche"),
+  kidsAges: text("kids_ages"),
+  contentStyle: text("content_style"),
+  rates: text("rates"),
+  favoriteBrands: text("favorite_brands"),
+  platformsJson: text("platforms_json").notNull(),
+  finishedAt: text("finished_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const adminNotifications = sqliteTable("admin_notifications", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  creatorId: text("creator_id"),
+  message: text("message").notNull(),
+  createdAt: text("created_at").notNull(),
+  readAt: text("read_at"),
 });
 
 export const deals = sqliteTable("deals", {
