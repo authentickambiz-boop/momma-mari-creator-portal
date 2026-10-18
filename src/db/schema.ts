@@ -586,6 +586,19 @@ export const usageRights = sqliteTable("usage_rights", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const mediaKits = sqliteTable("media_kits", {
+  creatorId: text("creator_id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  published: integer("published", { mode: "boolean" }).notNull().default(false),
+  displayName: text("display_name"),
+  bio: text("bio"),
+  followers: integer("followers"),
+  avgViews: integer("avg_views"),
+  engagement: text("engagement"),
+  niches: text("niches"),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),

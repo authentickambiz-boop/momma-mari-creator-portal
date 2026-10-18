@@ -77,6 +77,7 @@ import type { Viewer } from "../src/lib/types";
 import { buildCalendarFeed, listCalendar, runDeliverableNudges, saveDeliverableDate, setCalendarConnected } from "../src/lib/calendar";
 import { addBrandCrmEntry, listBrandCrm } from "../src/lib/brand-crm";
 import { listUsageRights, saveUsageRights, suggestUsageRenewal, usageFlag } from "../src/lib/usage";
+import { myMediaKit, publicMediaKit, saveMediaKit, zernioStatsEnabled } from "../src/lib/media-kit";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -3251,6 +3252,70 @@ test("usage rights flag a license nearing expiry and suggest a renewal sku", asy
   assert.equal(card?.renewalSku, "B-UA90");
   assert.equal(JSON.stringify(card).includes("$"), false);
   assert.equal(cards.some((item) => item.dealId === "kosbling"), false);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("a shared media kit shows hand-entered stats and hides pay, and Zernio stays off", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = (async () => {
+    fetchCalls += 1;
+    return new Response("unexpected", { status: 500 });
+  }) as typeof fetch;
+
+  try {
+    assert.equal(zernioStatsEnabled(), false);
+    assert.equal(await publicMediaKit(db, "mariclare"), null);
+    const other = await saveMediaKit(db, { role: "creator", creatorId: "abby" }, {
+      creatorId: "mariclare",
+      published: true,
+      displayName: "MariClare",
+      bio: "Everyday life.",
+      followers: "12000",
+      avgViews: "4000",
+      engagement: "3%",
+      niches: "parenting, home",
+    });
+    assert.equal(other.ok, false);
+    if (!other.ok) assert.equal(other.error, "You can only edit your own media kit.");
+
+    const saved = await saveMediaKit(db, mariclare, {
+      creatorId: "mariclare",
+      published: true,
+      displayName: "MariClare",
+      bio: "Everyday life.",
+      followers: "12000",
+      avgViews: "4000",
+      engagement: "3%",
+      niches: "parenting, home",
+    });
+    assert.equal(saved.ok, true);
+    if (!saved.ok) return;
+    const kit = await publicMediaKit(db, saved.slug);
+    assert.equal(kit?.displayName, "MariClare");
+    assert.equal(kit?.followers, 12000);
+    const packed = JSON.stringify(kit);
+    assert.equal(packed.includes("@"), false);
+    assert.equal(packed.includes("$"), false);
+    assert.equal(packed.includes("rate"), false);
+    assert.equal(fetchCalls, 0);
+    const mine = await myMediaKit(db, mariclare);
+    assert.equal(mine?.published, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.ZERNIO_STATS_ENABLED;
+  }
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
