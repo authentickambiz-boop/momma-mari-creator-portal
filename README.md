@@ -209,7 +209,7 @@ curl -sS \
   "http://localhost:43123/api/bot/onboarding?since=2026-10-01T00:00:00.000Z"
 ```
 
-Each profile includes `creatorId`, `name`, `email`, `gmailEmail`, `gmailConnected`, `botName`, `niche`, `kidsAges`, `contentStyle`, `rates`, `favoriteBrands`, `platforms`, `finishedAt`, and `message` (`New creator ready for bot`).
+Each profile includes `creatorId`, `name`, `email`, `gmailEmail`, `gmailConnected`, `emailSetup` (`business`, `personal`, or `hosted`), `hostedEmailAddress`, `hostedEmailAddOn` (only for a hosted request: name `hosted creator email`, price `placeholder`), `botName`, `niche`, `kidsAges`, `contentStyle`, `rates`, `favoriteBrands`, `platforms`, `finishedAt`, and `message` (`New creator ready for bot`). The refresh token is never included.
 
 ### Upsert a creator
 
@@ -271,8 +271,11 @@ Sign-in stays on `openid email profile`. **Connect your email** is a second Goog
 
    The refresh token is encrypted before it is saved. The bot API never receives it. If this key is empty, the button will not start.
 
-4. A creator signs in, opens Connect accounts, and clicks **Connect your email**. She then names her bot and fills in niche, content style, rates, platforms, and optional kids' ages and favorite brands.
-5. Finishing writes an admin notice, **New creator ready for bot**, on Kamron's home page. Kash Bot reads finished profiles from `GET /api/bot/onboarding` and creates the bot manually after Kamron says OK.
+4. A creator signs in and opens **Set up your bot**. She picks one email option:
+   - **Recommended:** create a new Gmail used only for brand deals, then connect it. The page lists short steps for making that account.
+   - **Personal email:** connect the inbox she already uses. The page says we only process brand-related mail, which the bot sorts and labels.
+   - **Hosted email:** ask Momma Mari to host a business address. She enters the address she wants. Kamron gets a notice marked as the paid add-on `hosted creator email`. The price in the Stripe catalog is the placeholder `placeholder` until a real Stripe price is set. She can finish her profile without connecting Google.
+5. Connecting a new or personal Gmail uses **Connect your email**. Finishing the profile writes **New creator ready for bot** on Kamron's home page. Kash Bot reads finished profiles, including `emailSetup`, from `GET /api/bot/onboarding` and creates the bot manually after Kamron says OK.
 
 ## Google Drive
 

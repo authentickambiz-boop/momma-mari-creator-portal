@@ -4,7 +4,7 @@ import { PortalFrame } from "@/components/portal-frame";
 import { canChangeDealStage } from "@/lib/authz";
 import { longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
-import { listUnreadCreatorReady } from "@/lib/onboarding";
+import { listUnreadNotices } from "@/lib/onboarding";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string }> }) {
@@ -17,7 +17,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const visible = deals.filter((deal) => deal.visibleToCreator && deal.status !== "paid");
   const need = deals.filter((deal) => deal.visibleToCreator && deal.needsCreator);
   const hidden = deals.filter((deal) => !deal.visibleToCreator);
-  const notices = portal.viewer.role === "admin" ? await listUnreadCreatorReady(portal.db) : [];
+  const notices = portal.viewer.role === "admin" ? await listUnreadNotices(portal.db) : [];
   return (
     <PortalFrame
       viewer={portal.viewer}

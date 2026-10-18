@@ -30,12 +30,17 @@ import {
 import {
   CREATOR_READY_MESSAGE,
   dismissNotification,
+  emailSetupFor,
   finishOnboarding,
   gmailConnectionState,
+  hostedEmailRequestMessage,
   listFinishedOnboarding,
   listUnreadCreatorReady,
+  listUnreadNotices,
+  saveEmailSetup,
   saveGmailConnection,
 } from "../src/lib/onboarding";
+import { STRIPE_CATALOG } from "../src/lib/email-setup";
 import { createSession, readSignedSessionId } from "../src/lib/session";
 import { decryptToken } from "../src/lib/token-crypto";
 import { assertCanUpload, parseContentRange, validateChunk } from "../src/lib/uploads";
@@ -451,6 +456,9 @@ test("gmail connect is separate from sign-in and onboarding notifies Kamron", as
 
   const saved = await saveGmailConnection(db, "mariclare", { refreshToken, gmailEmail: "MMACLamroc@gmail.com" });
   assert.equal(saved.ok, true);
+  const chosen = await saveEmailSetup(db, "mariclare", "personal");
+  assert.equal(chosen.ok, true);
+  if (chosen.ok) assert.equal(chosen.notified, false);
   const stored = await gmailConnectionState(db, "mariclare");
   assert.equal(stored.connected, true);
   assert.equal(stored.gmailEmail, "mmaclamroc@gmail.com");
@@ -474,6 +482,9 @@ test("gmail connect is separate from sign-in and onboarding notifies Kamron", as
   const firstProfile = (await listFinishedOnboarding(db, null)).find((profile) => profile.creatorId === "mariclare");
   assert.equal(firstProfile?.botName, "MariClare Bot");
   assert.equal(firstProfile?.kidsAges, "6 and 8");
+  assert.equal(firstProfile?.emailSetup, "personal");
+  assert.equal(firstProfile?.hostedEmailAddress, null);
+  assert.equal(firstProfile?.hostedEmailAddOn, null);
   assert.deepEqual(firstProfile?.platforms, ["tiktok", "instagram"]);
   const again = await finishOnboarding(db, "mariclare", {
     botName: "MariClare Bot",
@@ -509,5 +520,64 @@ test("gmail connect is separate from sign-in and onboarding notifies Kamron", as
 
   assert.equal((await dismissNotification(db, notices[0]?.id ?? "")).ok, true);
   assert.equal((await listUnreadCreatorReady(db)).length, 0);
+});
+
+test("hosted creator email is a paid add-on request with a placeholder price", async () => {
+  const missing = await saveEmailSetup(db, "abby", "hosted", "not-an-email");
+  assert.equal(missing.ok, false);
+  const blocked = await finishOnboarding(db, "abby", {
+    botName: "Abby Bot",
+    niche: "Family",
+    contentStyle: "Day in the life",
+    rates: "$400 a TikTok",
+    platforms: ["tiktok"],
+  });
+  assert.equal(blocked.ok, false);
+
+  const requested = await saveEmailSetup(db, "abby", "hosted", "Deals@AbbyBrand.com");
+  assert.equal(requested.ok, true);
+  if (requested.ok) {
+    assert.equal(requested.notified, true);
+    assert.equal(requested.hostedEmailAddress, "deals@abbybrand.com");
+  }
+  const again = await saveEmailSetup(db, "abby", "hosted", "deals@abbybrand.com");
+  assert.equal(again.ok, true);
+  if (again.ok) assert.equal(again.notified, false);
+
+  const setup = await emailSetupFor(db, "abby");
+  assert.equal(setup.choice, "hosted");
+  assert.equal(setup.hostedEmailAddress, "deals@abbybrand.com");
+  const message = hostedEmailRequestMessage("deals@abbybrand.com");
+  assert.equal(message, "Hosted email requested: deals@abbybrand.com. Paid add-on: hosted creator email. Price: placeholder.");
+  assert.equal(STRIPE_CATALOG.hostedCreatorEmail.name, "hosted creator email");
+  assert.equal(STRIPE_CATALOG.hostedCreatorEmail.priceLabel, "placeholder");
+
+  const notices = await listUnreadNotices(db);
+  const hers = notices.filter((note) => note.creatorId === "abby" && note.kind === "hosted_email");
+  assert.equal(hers.length, 1);
+  assert.equal(hers[0]?.message, message);
+  assert.equal(hers[0]?.creatorName, "Abby Theriot");
+
+  const done = await finishOnboarding(db, "abby", {
+    botName: "Abby Bot",
+    niche: "Family",
+    contentStyle: "Day in the life",
+    rates: "$400 a TikTok",
+    platforms: ["instagram"],
+  });
+  assert.equal(done.ok, true);
+  const profile = (await listFinishedOnboarding(db, null)).find((row) => row.creatorId === "abby");
+  assert.equal(profile?.emailSetup, "hosted");
+  assert.equal(profile?.hostedEmailAddress, "deals@abbybrand.com");
+  assert.equal(profile?.gmailConnected, false);
+  assert.deepEqual(profile?.hostedEmailAddOn, { name: "hosted creator email", priceLabel: "placeholder" });
+  assert.equal(JSON.stringify(profile).includes("v1:"), false);
+
+  const changed = await saveEmailSetup(db, "abby", "hosted", "brands@abbybrand.com");
+  assert.equal(changed.ok, true);
+  if (changed.ok) assert.equal(changed.notified, false);
+  const updated = (await listUnreadNotices(db)).filter((note) => note.creatorId === "abby" && note.kind === "hosted_email");
+  assert.equal(updated.length, 1);
+  assert.match(updated[0]?.message ?? "", /brands@abbybrand.com/);
 });
 });

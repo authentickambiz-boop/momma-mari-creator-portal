@@ -1,7 +1,7 @@
 import { ConnectPanel } from "@/components/connect-panel";
 import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
-import { gmailConnectionState } from "@/lib/onboarding";
+import { emailSetupFor, gmailConnectionState } from "@/lib/onboarding";
 
 const GMAIL_ERRORS: Record<string, string> = {
   oauth: "Google didn't finish connecting that email. Try again.",
@@ -15,6 +15,7 @@ export default async function ConnectPage({ searchParams }: { searchParams: Prom
   const portal = await loadPortal(params.creator ?? null);
   const creators = portal.viewed ? [portal.viewed] : portal.creators;
   const connections = await Promise.all(creators.map((creator) => gmailConnectionState(portal.db, creator.id)));
+  const setups = await Promise.all(creators.map((creator) => emailSetupFor(portal.db, creator.id)));
   const gmailError = params.gmail ? GMAIL_ERRORS[params.gmail] : null;
   return (
     <PortalFrame
@@ -34,6 +35,8 @@ export default async function ConnectPage({ searchParams }: { searchParams: Prom
               canConnectEmail={portal.viewer.role === "creator" && portal.viewer.creatorId === creator.id}
               emailConnected={connections[index]?.connected ?? false}
               gmailEmail={connections[index]?.gmailEmail ?? null}
+              emailSetup={setups[index]?.choice ?? null}
+              hostedEmailAddress={setups[index]?.hostedEmailAddress ?? null}
             />
           </section>
         ))}

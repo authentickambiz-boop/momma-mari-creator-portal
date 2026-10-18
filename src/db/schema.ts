@@ -24,6 +24,8 @@ export const creators = sqliteTable("creators", {
   gmailRefreshToken: text("gmail_refresh_token"),
   gmailEmail: text("gmail_email"),
   gmailConnectedAt: text("gmail_connected_at"),
+  emailSetup: text("email_setup"),
+  hostedEmailAddress: text("hosted_email_address"),
   isSeed: integer("is_seed", { mode: "boolean" }).notNull(),
   createdAt: text("created_at").notNull(),
 });

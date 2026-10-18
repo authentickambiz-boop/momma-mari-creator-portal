@@ -7,6 +7,11 @@ ALTER TABLE creators ADD COLUMN gmail_refresh_token TEXT;
 ALTER TABLE creators ADD COLUMN gmail_email TEXT;
 ALTER TABLE creators ADD COLUMN gmail_connected_at TEXT;
 
+-- How she wants brand mail handled: business (new Gmail), personal, or hosted.
+-- hosted_email_address is the address she asked Momma Mari to set up.
+ALTER TABLE creators ADD COLUMN email_setup TEXT;
+ALTER TABLE creators ADD COLUMN hosted_email_address TEXT;
+
 CREATE TABLE creator_onboarding (
   creator_id TEXT PRIMARY KEY,
   bot_name TEXT,

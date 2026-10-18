@@ -16,11 +16,15 @@ export function ConnectPanel({
   canConnectEmail,
   emailConnected,
   gmailEmail,
+  emailSetup,
+  hostedEmailAddress,
 }: {
   creator: CreatorProfile;
   canConnectEmail: boolean;
   emailConnected: boolean;
   gmailEmail: string | null;
+  emailSetup: "business" | "personal" | "hosted" | null;
+  hostedEmailAddress: string | null;
 }) {
   const [note, setNote] = useState<string | null>(null);
   return (
@@ -64,15 +68,26 @@ export function ConnectPanel({
             <div className="note">Separate from sign-in. Lets your bot read brand threads and draft replies.</div>
           </div>
         </div>
-        {emailConnected ? <span className="chip c-sage">Connected</span> : canConnectEmail ? (
+        {emailConnected ? <span className="chip c-sage">Connected</span> : emailSetup === "hosted" ? (
+          <span className="chip c-gray">Hosted email requested</span>
+        ) : canConnectEmail && (emailSetup === "business" || emailSetup === "personal") ? (
           <a className="btn" href={`${publicBasePath()}/api/auth/gmail`}>Connect your email</a>
+        ) : canConnectEmail ? (
+          <a className="btn" href={`${publicBasePath()}/onboarding`}>Choose email setup</a>
         ) : (
           <span className="chip c-gray">Not connected</span>
         )}
       </div>
+      {emailSetup === "personal" ? (
+        <p className="note" style={{ marginTop: 10 }}>We only process brand-related mail. Your bot sorts those threads and labels them.</p>
+      ) : null}
+      {emailSetup === "hosted" && hostedEmailAddress ? (
+        <p className="note" style={{ marginTop: 10 }}>Requested address: {hostedEmailAddress}. Paid add-on: hosted creator email. Price: placeholder.</p>
+      ) : null}
       {canConnectEmail ? (
         <p className="note" style={{ marginTop: 10 }}>
-          <a href={`${publicBasePath()}/onboarding`}>Set up your bot</a> after your email is connected.
+          <a href={`${publicBasePath()}/onboarding`}>Set up your bot</a>
+          {emailSetup === "business" || emailSetup === "personal" ? " after your email is connected." : "."}
         </p>
       ) : !emailConnected ? (
         <p className="note" style={{ marginTop: 10 }}>{creator.name} connects her email from her own sign-in.</p>

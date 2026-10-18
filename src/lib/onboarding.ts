@@ -1,12 +1,21 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { adminNotifications, creatorOnboarding, creators } from "@/db/schema";
+import {
+  STRIPE_CATALOG,
+  hostedEmailRequestMessage,
+  isEmailSetup,
+  looksLikeEmail,
+  type EmailSetup,
+} from "./email-setup";
 import { normalizeEmail, nowIso } from "./format";
 import { ONBOARDING_PLATFORMS, type OnboardingPlatform } from "./onboarding-fields";
 import { encryptToken } from "./token-crypto";
 
 export const CREATOR_READY_MESSAGE = "New creator ready for bot";
+export const HOSTED_EMAIL_KIND = "hosted_email";
 export { ONBOARDING_PLATFORMS, onboardingPlatformLabel } from "./onboarding-fields";
+export { STRIPE_CATALOG, emailSetupLabel, hostedEmailRequestMessage } from "./email-setup";
 
 function clean(value: string | null | undefined) {
   const trimmed = value?.trim() ?? "";
@@ -69,10 +78,80 @@ export type OnboardingInput = {
   platforms?: string[] | null;
 };
 
+export async function emailSetupFor(db: PortalDb, creatorId: string) {
+  const rows = await db.select({
+    choice: creators.emailSetup,
+    hostedEmailAddress: creators.hostedEmailAddress,
+  }).from(creators).where(eq(creators.id, creatorId));
+  const choice = rows[0]?.choice;
+  return {
+    choice: isEmailSetup(choice) ? choice : null,
+    hostedEmailAddress: rows[0]?.hostedEmailAddress ?? null,
+  };
+}
+
+export async function saveEmailSetup(
+  db: PortalDb,
+  creatorId: string,
+  choice: EmailSetup | "reset",
+  hostedAddress?: string | null,
+) {
+  const creator = await db.select().from(creators).where(eq(creators.id, creatorId));
+  if (!creator[0]) return { ok: false as const, status: 404, error: "Creator not found." };
+  if (choice === "reset") {
+    await db.update(creators).set({ emailSetup: null }).where(eq(creators.id, creatorId));
+    return { ok: true as const, choice: null, hostedEmailAddress: creator[0].hostedEmailAddress, notified: false };
+  }
+  let hostedEmailAddress = creator[0].hostedEmailAddress;
+  let notified = false;
+  if (choice === "hosted") {
+    const address = normalizeEmail(hostedAddress ?? "");
+    if (!looksLikeEmail(address)) {
+      return { ok: false as const, status: 400, error: "Enter the address you want Momma Mari to host." };
+    }
+    hostedEmailAddress = address;
+    const message = hostedEmailRequestMessage(address);
+    const existing = await db.select().from(adminNotifications).where(and(
+      eq(adminNotifications.creatorId, creatorId),
+      eq(adminNotifications.kind, HOSTED_EMAIL_KIND),
+      isNull(adminNotifications.readAt),
+    ));
+    if (existing[0]) {
+      if (existing[0].message !== message) {
+        await db.update(adminNotifications).set({ message }).where(eq(adminNotifications.id, existing[0].id));
+      }
+    } else {
+      await db.insert(adminNotifications).values({
+        id: crypto.randomUUID(),
+        kind: HOSTED_EMAIL_KIND,
+        creatorId,
+        message,
+        createdAt: nowIso(),
+        readAt: null,
+      });
+      notified = true;
+    }
+  }
+  await db.update(creators).set({
+    emailSetup: choice,
+    hostedEmailAddress,
+  }).where(eq(creators.id, creatorId));
+  return { ok: true as const, choice, hostedEmailAddress, notified };
+}
+
 export async function finishOnboarding(db: PortalDb, creatorId: string, input: OnboardingInput) {
+  const setup = await emailSetupFor(db, creatorId);
   const connection = await gmailConnectionState(db, creatorId);
-  if (!connection.connected) {
-    return { ok: false as const, status: 400, error: "Connect your email before finishing." };
+  const hostedReady = setup.choice === "hosted" && Boolean(setup.hostedEmailAddress);
+  const connectReady = (setup.choice === "business" || setup.choice === "personal") && connection.connected;
+  if (!hostedReady && !connectReady) {
+    return {
+      ok: false as const,
+      status: 400,
+      error: setup.choice === "hosted"
+        ? "Enter the address you want Momma Mari to host."
+        : "Choose how brand email should work, then connect it.",
+    };
   }
   const botName = clean(input.botName);
   const niche = clean(input.niche);
@@ -138,6 +217,9 @@ export type FinishedOnboarding = {
   email: string;
   gmailEmail: string | null;
   gmailConnected: boolean;
+  emailSetup: EmailSetup | null;
+  hostedEmailAddress: string | null;
+  hostedEmailAddOn: { name: string; priceLabel: string } | null;
   botName: string;
   niche: string;
   kidsAges: string | null;
@@ -168,6 +250,9 @@ export async function listFinishedOnboarding(db: PortalDb, since: string | null)
         email: creator.email,
         gmailEmail: creator.gmailEmail,
         gmailConnected: Boolean(creator.gmailRefreshToken),
+        emailSetup: isEmailSetup(creator.emailSetup) ? creator.emailSetup : null,
+        hostedEmailAddress: creator.emailSetup === "hosted" ? creator.hostedEmailAddress : null,
+        hostedEmailAddOn: creator.emailSetup === "hosted" ? { ...STRIPE_CATALOG.hostedCreatorEmail } : null,
         botName: profile.botName ?? "",
         niche: profile.niche ?? "",
         kidsAges: profile.kidsAges,
@@ -181,14 +266,32 @@ export async function listFinishedOnboarding(db: PortalDb, since: string | null)
     });
 }
 
-export async function listUnreadCreatorReady(db: PortalDb) {
+async function unreadNotes(db: PortalDb, kind?: string) {
   const [notes, people] = await Promise.all([
-    db.select().from(adminNotifications).where(and(
-      eq(adminNotifications.kind, "creator_ready"),
-      isNull(adminNotifications.readAt),
-    )).orderBy(asc(adminNotifications.createdAt)),
+    db.select().from(adminNotifications).where(kind
+      ? and(eq(adminNotifications.kind, kind), isNull(adminNotifications.readAt))
+      : isNull(adminNotifications.readAt),
+    ).orderBy(asc(adminNotifications.createdAt)),
     db.select().from(creators),
   ]);
+  return { notes, people };
+}
+
+export async function listUnreadNotices(db: PortalDb) {
+  const { notes, people } = await unreadNotes(db);
+  const names = new Map(people.map((creator) => [creator.id, creator.name]));
+  return notes.map((note) => ({
+    id: note.id,
+    kind: note.kind,
+    creatorId: note.creatorId,
+    creatorName: note.creatorId ? names.get(note.creatorId) ?? "Creator" : "Creator",
+    message: note.message,
+    createdAt: note.createdAt,
+  }));
+}
+
+export async function listUnreadCreatorReady(db: PortalDb) {
+  const { notes, people } = await unreadNotes(db, "creator_ready");
   const names = new Map(people.map((creator) => [creator.id, creator.name]));
   return notes.map((note) => ({
     id: note.id,
