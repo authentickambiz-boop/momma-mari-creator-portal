@@ -641,6 +641,27 @@ export const referrals = sqliteTable("referrals", {
   createdAt: text("created_at").notNull(),
 });
 
+export const pushSubscriptions = sqliteTable(
+  "push_subscriptions",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    endpoint: text("endpoint").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("push_subscriptions_endpoint").on(table.endpoint)],
+);
+
+export const pushNotices = sqliteTable("push_notices", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  kind: text("kind").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CommunityPanel } from "@/components/community-panel";
+import { HomeScreen } from "@/components/home-screen";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <CommunityPanel />
+        <HomeScreen />
       </body>
     </html>
   );
