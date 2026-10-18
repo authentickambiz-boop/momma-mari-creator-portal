@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
 import { createDb, type PortalDb } from "../src/db/index";
 import { openDatabase } from "../src/db/local-d1";
-import { approvalListAllowed, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
+import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { canApproveEmail, canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
 import { addFeedback, authorizeBot, createApprovalDraft, listApprovedApprovals, markApprovalDraftSent, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
+import { listCreatorInterest, listOfferScreenings, recordCreatorInterest, releaseOffer } from "../src/lib/creator-interest";
 import { setDealStage } from "../src/lib/deal-stage";
 import { sideStages, trackStages } from "../src/lib/stages";
 import { creatorCutLabel, nextPayoutLabel, pipelineHeadline } from "../src/lib/format";
@@ -775,5 +776,254 @@ test("outgoing brand email stays pending until an admin approves it", async () =
   const declineCard = (await listApprovalQueue(db, "all")).find((row) => row.id === declineId);
   assert.equal(declineCard?.suggestedCreatorName, "Abby Theriot");
   assert.equal(declineCard?.fromEmail, "authentickambiz@gmail.com");
+});
+
+test("a creator can accept or pass a screened offer, and KOSBLING stays put", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingBefore?.workflowStage, "draft_due");
+  assert.equal(kosblingBefore?.visibleToCreator, true);
+  assert.equal(kosblingBefore?.contact, null);
+
+  const created = await upsertDeal(db, {
+    id: "phase3-offer",
+    brand: "Glow Co",
+    creatorId: "mariclare",
+    status: "pitch",
+    workflowStage: "offer_received",
+    visibleToCreator: false,
+    amountDisplay: "$800",
+    rateLabel: "$800",
+    deliverables: ["1 TikTok"],
+    usageRights: "Organic only",
+  });
+  assert.equal(created.status, 201);
+
+  assert.equal(await getDealForViewer(db, mariclare, "phase3-offer"), null);
+  const tooSoon = await recordCreatorInterest(db, {
+    dealId: "phase3-offer",
+    creatorId: mariclare.creatorId!,
+    creatorEmail: mariclare.email,
+    creatorName: mariclare.name,
+    decision: "interested",
+    note: "I'd want $500",
+  });
+  assert.equal(tooSoon.ok, false);
+  if (!tooSoon.ok) assert.equal(tooSoon.status, 403);
+
+  const blocked = await releaseOffer(db, {
+    dealId: "kosbling",
+    actorEmail: admin.email,
+    actorRole: "admin",
+    brandEmail: "hello@kosbling.example",
+  });
+  assert.equal(blocked.ok, false);
+  if (!blocked.ok) assert.equal(blocked.status, 409);
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal((await listOfferScreenings(db, "kosbling")).length, 0);
+
+  const noEmail = await releaseOffer(db, {
+    dealId: "phase3-offer",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(noEmail.ok, false);
+  if (!noEmail.ok) assert.equal(noEmail.status, 400);
+
+  const released = await releaseOffer(db, {
+    dealId: "phase3-offer",
+    actorEmail: admin.email,
+    actorRole: "admin",
+    brandEmail: "hello@glow.example",
+    note: "Rate looks fine.",
+  });
+  assert.equal(released.ok, true);
+  const again = await releaseOffer(db, {
+    dealId: "phase3-offer",
+    actorEmail: admin.email,
+    actorRole: "admin",
+    brandEmail: "hello@glow.example",
+  });
+  assert.equal(again.ok, true);
+  if (again.ok) assert.equal(again.changed, false);
+  const screenings = await listOfferScreenings(db, "phase3-offer");
+  assert.equal(screenings.length, 1);
+  assert.equal(screenings[0]?.decision, "released");
+  assert.equal(screenings[0]?.brandEmail, "hello@glow.example");
+
+  const shown = await getDealForViewer(db, mariclare, "phase3-offer");
+  assert.equal(shown?.workflowStage, "offer_shared");
+  assert.equal(shown?.visibleToCreator, true);
+  assert.equal(shown?.canRespondToOffer, true);
+  const adminView = await getDealForViewer(db, admin, "phase3-offer");
+  assert.equal(adminView?.offerReleased, true);
+  assert.equal(adminView?.canReleaseOffer, false);
+  assert.equal(adminView?.canRespondToOffer, false);
+  assert.equal(adminView?.stageEvents?.some((event) => event.toStage === "offer_shared" && event.note === "Rate looks fine."), true);
+
+  const other = await recordCreatorInterest(db, {
+    dealId: "phase3-offer",
+    creatorId: "abby",
+    creatorEmail: abby.email,
+    creatorName: "Abby Theriot",
+    decision: "interested",
+  });
+  assert.equal(other.ok, false);
+  if (!other.ok) assert.equal(other.status, 403);
+  const steal = await setDealStage(db, {
+    dealId: "phase3-offer",
+    toStage: "creator_interested",
+    actorEmail: abby.email,
+    actorRole: "creator",
+    creatorId: "abby",
+  });
+  assert.equal(steal.ok, false);
+  if (!steal.ok) assert.equal(steal.status, 403);
+
+  const videoDraft = await createApprovalEmail(db, {
+    dealId: "phase3-offer",
+    gate: "video",
+    to: "hello@glow.example",
+    subject: "Video",
+    body: "Here is the video.",
+  }, { email: mariclare.email, role: "creator" });
+  assert.equal(videoDraft.ok, false);
+
+  const interested = await recordCreatorInterest(db, {
+    dealId: "phase3-offer",
+    creatorId: mariclare.creatorId!,
+    creatorEmail: mariclare.email,
+    creatorName: "MariClare",
+    decision: "interested",
+    note: "I'd want $500, or I can't post until November",
+  });
+  assert.equal(interested.ok, true);
+  const after = await getDealForViewer(db, admin, "phase3-offer");
+  assert.equal(after?.workflowStage, "creator_interested");
+  assert.equal(after?.interest?.decision, "interested");
+  assert.equal(after?.interest?.note, "I'd want $500, or I can't post until November");
+  const history = after?.stageEvents?.find((event) => event.toStage === "creator_interested");
+  assert.equal(history?.actorRole, "creator");
+  assert.equal(history?.actorEmail, mariclare.email);
+  assert.equal(history?.note, "I'd want $500, or I can't post until November");
+  const creatorAfter = await getDealForViewer(db, mariclare, "phase3-offer");
+  assert.equal(creatorAfter?.canRespondToOffer, false);
+  assert.equal(creatorAfter?.interest?.decision, "interested");
+  assert.equal(creatorAfter?.stageEvents, null);
+
+  const notices = await listUnreadNotices(db);
+  assert.equal(notices.some((notice) => notice.kind === "creator_interest" && notice.message.includes("MariClare is interested in Glow Co.") && notice.message.includes("I'd want $500")), true);
+
+  const queue = await listApprovalQueue(db, "all");
+  const draft = queue.find((row) => row.dealId === "phase3-offer" && row.gate === "interest");
+  assert.equal(draft?.status, "pending");
+  assert.equal(draft?.fromEmail, "authentickambiz@gmail.com");
+  assert.equal(draft?.toEmail, "hello@glow.example");
+  assert.match(draft?.body ?? "", /I'd want \$500, or I can't post until November/);
+  assert.equal(draft?.events[0]?.actorRole, "creator");
+  const waiting = await listApprovedApprovals(db);
+  assert.equal(waiting.body.approvals.some((row) => row.id === draft?.id), false);
+
+  const listed = await listCreatorInterest(db, null);
+  const row = listed.find((item) => item.dealId === "phase3-offer");
+  assert.equal(row?.decision, "interested");
+  assert.equal(row?.creatorName, "MariClare");
+  assert.equal(row?.workflowStage, "creator_interested");
+  assert.equal(JSON.stringify(listed).includes("gmailRefreshToken"), false);
+  assert.equal(JSON.stringify(listed).includes("refresh_token"), false);
+  const later = await listCreatorInterest(db, "2999-01-01T00:00:00.000Z");
+  assert.equal(later.some((item) => item.dealId === "phase3-offer"), false);
+
+  const twice = await recordCreatorInterest(db, {
+    dealId: "phase3-offer",
+    creatorId: mariclare.creatorId!,
+    creatorEmail: mariclare.email,
+    creatorName: "MariClare",
+    decision: "declined",
+  });
+  assert.equal(twice.ok, false);
+  if (!twice.ok) assert.equal(twice.status, 409);
+
+  const passed = await upsertDeal(db, {
+    id: "phase3-pass",
+    brand: "Nimbus",
+    creatorId: "mariclare",
+    status: "pitch",
+    workflowStage: "offer_received",
+    visibleToCreator: false,
+    contact: "Nimbus Team <hello@nimbus.example>",
+  });
+  assert.equal(passed.status, 201);
+  const releasedPass = await releaseOffer(db, {
+    dealId: "phase3-pass",
+    actorEmail: admin.email,
+    actorRole: "admin",
+    brandEmail: "hello@nimbus.example",
+  });
+  assert.equal(releasedPass.ok, true);
+  const beforeContacts = await listBrandContacts(db);
+  const declined = await recordCreatorInterest(db, {
+    dealId: "phase3-pass",
+    creatorId: mariclare.creatorId!,
+    creatorEmail: mariclare.email,
+    creatorName: "MariClare",
+    decision: "declined",
+    note: "The dates don't work for me",
+  });
+  assert.equal(declined.ok, true);
+  assert.equal(await getDealForViewer(db, mariclare, "phase3-pass"), null);
+  const passAdmin = await getDealForViewer(db, admin, "phase3-pass");
+  assert.equal(passAdmin?.workflowStage, "creator_declined");
+  assert.equal(passAdmin?.visibleToCreator, false);
+  assert.equal(passAdmin?.interest?.decision, "declined");
+  assert.equal(passAdmin?.interest?.note, "The dates don't work for me");
+  const passNotices = await listUnreadNotices(db);
+  assert.equal(passNotices.some((notice) => notice.kind === "creator_passed" && notice.message.includes("MariClare passed on Nimbus.") && notice.message.includes("The dates don't work for me")), true);
+
+  const declineDraft = (await listApprovalQueue(db, "all")).find((item) => item.dealId === "phase3-pass" && item.gate === "decline");
+  assert.equal(declineDraft?.status, "pending");
+  assert.equal(declineDraft?.fromEmail, "authentickambiz@gmail.com");
+  assert.equal(declineDraft?.toEmail, "hello@nimbus.example");
+  assert.equal(declineDraft?.brandContactCompany, "Nimbus");
+  assert.equal(declineDraft?.brandContactEmail, "hello@nimbus.example");
+  assert.equal(declineDraft?.brandContactName, "Nimbus Team");
+  assert.equal(declineDraft?.suggestedCreatorId, "abby");
+  assert.notEqual(declineDraft?.suggestedCreatorId, "mariclare");
+  assert.match(declineDraft?.suggestedPlan ?? "", /gifted post/);
+  assert.match(declineDraft?.body ?? "", /isn't the right fit/);
+  assert.equal((declineDraft?.body ?? "").includes("The dates don't work"), false);
+  assert.equal((declineDraft?.body ?? "").includes("Abby"), false);
+  assert.equal((await listBrandContacts(db)).length, beforeContacts.length);
+
+  assert.equal(declined.ok, true);
+  const saved = await reviewApproval(db, {
+    approvalId: declined.ok ? declined.approvalId : "",
+    intent: "approve",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(saved.ok, true);
+  const contacts = await listBrandContacts(db);
+  assert.equal(contacts.length, beforeContacts.length + 1);
+  assert.equal(contacts.at(-1)?.company, "Nimbus");
+  assert.equal(contacts.at(-1)?.contactEmail, "hello@nimbus.example");
+  assert.equal(contacts.at(-1)?.suggestedCreatorId, "abby");
+
+  const sneak = await setDealStage(db, {
+    dealId: "phase3-offer",
+    toStage: "paid",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+    creatorId: mariclare.creatorId,
+  });
+  assert.equal(sneak.ok, false);
+  if (!sneak.ok) assert.equal(sneak.status, 403);
+
+  const kosblingEnd = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingEnd?.workflowStage, "draft_due");
+  assert.equal(kosblingEnd?.visibleToCreator, true);
+  assert.equal(kosblingEnd?.brand, "KOSBLING");
 });
 });

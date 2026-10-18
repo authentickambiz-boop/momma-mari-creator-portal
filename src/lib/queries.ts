@@ -12,6 +12,7 @@ import {
   revisions,
 } from "@/db/schema";
 import { adminDisplayName, adminEmails, canSeeDeal } from "./authz";
+import { firstEmail, interestContextForDeal } from "./creator-interest";
 import { normalizeEmail, nowIso, parseJson } from "./format";
 import type {
   Chip,
@@ -205,6 +206,9 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
       : Promise.resolve([]),
   ]);
   const summary = toSummary(row, creator?.name ?? "Creator");
+  const interestState = await interestContextForDeal(db, dealId);
+  const brandEmail = interestState.brandEmail ?? firstEmail(row.contact);
+  const offerOpen = !row.workflowStage || row.workflowStage === "offer_received" || row.workflowStage === "offer_shared";
   return {
     ...summary,
     contact: row.contact,
@@ -237,6 +241,18 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
     revisions: revisionRows.map(toRevision),
     drafts: draftRows.map(toDraft),
     payment: paymentRows[0] ? toPayment(paymentRows[0]) : null,
+    interest: interestState.interest,
+    offerReleased: interestState.offerReleased,
+    brandEmail,
+    canRespondToOffer:
+      viewer.role === "creator" &&
+      viewer.creatorId === row.creatorId &&
+      row.visibleToCreator &&
+      row.workflowStage === "offer_shared" &&
+      interestState.offerReleased &&
+      Boolean(brandEmail) &&
+      !interestState.interest,
+    canReleaseOffer: viewer.role === "admin" && offerOpen && !(interestState.offerReleased && brandEmail),
   };
 }
 

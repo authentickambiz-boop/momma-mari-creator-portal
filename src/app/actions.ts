@@ -6,6 +6,7 @@ import { getDb } from "@/db/getDb";
 import { reviewApproval } from "@/lib/approvals";
 import { canApproveEmail, canChangeDealStage, devLoginEnabled } from "@/lib/authz";
 import { currentViewer } from "@/lib/current-user";
+import { logOfferScreening, recordCreatorInterest, releaseOffer } from "@/lib/creator-interest";
 import { setDealStage } from "@/lib/deal-stage";
 import { isEmailSetup } from "@/lib/email-setup";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
@@ -37,7 +38,51 @@ export async function changeDealStageAction(formData: FormData) {
     note,
   });
   if (!result.ok) redirect(`${back}${query ? "&" : "?"}stageError=1`);
+  if (String(formData.get("workflowStage") ?? "") === "offer_shared") {
+    await logOfferScreening(db, { dealId, actorEmail: viewer.email, note });
+  }
   redirect(back);
+}
+
+export async function releaseOfferAction(formData: FormData) {
+  const dealId = String(formData.get("dealId") ?? "");
+  const creator = String(formData.get("creator") ?? "");
+  const query = creator ? `?creator=${encodeURIComponent(creator)}` : "";
+  const back = `/deals/${dealId}${query}`;
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "admin") redirect("/login");
+  const db = await getDb();
+  const result = await releaseOffer(db, {
+    dealId,
+    actorEmail: viewer.email,
+    actorRole: "admin",
+    brandEmail: String(formData.get("brandEmail") ?? ""),
+    note: String(formData.get("note") ?? ""),
+  });
+  if (!result.ok) {
+    const code = result.status === 409 ? "past" : "1";
+    redirect(`${back}${query ? "&" : "?"}releaseError=${code}`);
+  }
+  redirect(back);
+}
+
+export async function creatorInterestAction(formData: FormData) {
+  const dealId = String(formData.get("dealId") ?? "");
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "creator" || !viewer.creatorId) redirect("/login");
+  const db = await getDb();
+  const decision = String(formData.get("decision") ?? "");
+  const result = await recordCreatorInterest(db, {
+    dealId,
+    creatorId: viewer.creatorId,
+    creatorEmail: viewer.email,
+    creatorName: viewer.name,
+    decision,
+    note: String(formData.get("note") ?? ""),
+  });
+  if (!result.ok) redirect(`/deals/${dealId}?interestError=1`);
+  if (result.decision === "declined") redirect("/?passed=1");
+  redirect(`/deals/${dealId}`);
 }
 
 export async function chooseEmailSetupAction(formData: FormData) {

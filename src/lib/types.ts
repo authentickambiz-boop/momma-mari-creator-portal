@@ -112,6 +112,13 @@ export type PaymentView = {
   isSeed: boolean;
 };
 
+export type InterestView = {
+  decision: string;
+  note: string | null;
+  createdAt: string;
+  approvalId: string | null;
+};
+
 export type DealDetail = DealSummary & {
   contact: string | null;
   gmailThreadId: string | null;
@@ -133,6 +140,11 @@ export type DealDetail = DealSummary & {
   revisions: RevisionView[];
   drafts: DraftView[];
   payment: PaymentView | null;
+  interest: InterestView | null;
+  offerReleased: boolean;
+  brandEmail: string | null;
+  canRespondToOffer: boolean;
+  canReleaseOffer: boolean;
 };
 
 export type InboxItem = {

@@ -26,7 +26,7 @@ export function ApprovalsQueue({
       {waiting.length === 0 ? (
         <div className="card">
           <b>Nothing is waiting.</b>
-          <p className="note">When the bot drafts an email to a brand, it shows up here first. Nothing is sent until you approve it.</p>
+          <p className="note">When a creator says they are interested or passes, or the bot drafts an email to a brand, it shows up here first. Nothing is sent until you approve it.</p>
         </div>
       ) : (
         waiting.map((item) => <ApprovalCard key={item.id} item={item} creatorQuery={creatorQuery} />)

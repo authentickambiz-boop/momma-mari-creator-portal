@@ -1,6 +1,6 @@
 import type { DealStatus } from "./types";
 
-export type StageActorRole = "admin" | "bot" | "system";
+export type StageActorRole = "admin" | "bot" | "system" | "creator";
 
 export type DealStage = {
   id: string;

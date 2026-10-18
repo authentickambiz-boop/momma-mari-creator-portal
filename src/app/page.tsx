@@ -7,7 +7,7 @@ import { loadPortal } from "@/lib/current-user";
 import { listUnreadNotices } from "@/lib/onboarding";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string }> }) {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string; passed?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
   const deals = await listDealsForViewer(portal.db, portal.viewer, portal.viewedId);
@@ -37,6 +37,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
       }
     >
+      {params.passed === "1" && portal.viewer.role === "creator" ? (
+        <div className="callout">
+          <b>You passed on that offer.</b> It is off your list. Kamron has a polite note to the brand waiting for his OK. Nothing goes out until he approves it.
+        </div>
+      ) : null}
       {notices.map((notice) => (
         <div className="admin-banner" key={notice.id}>
           <b>{notice.message}</b>
