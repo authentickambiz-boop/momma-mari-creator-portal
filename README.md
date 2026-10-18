@@ -348,6 +348,10 @@ The Report page is one page for a month: her cut that was sent, the deals that m
 
 The Referrals page lists people a creator referred. The perk amount is a placeholder Kamron can type in, or set with `REFERRAL_PERK_CENTS` until he saves one. Leave that empty. Nothing is paid automatically. Have a lawyer review the perk before anyone is paid.
 
+### Home screen
+
+The portal can be added to a phone home screen. It has a manifest and a service worker. On the installed app, Chat is a button on the bottom bar. Quiet hours are 9 PM to 8 AM Eastern: approval, announcement, mention, and reply notices wait until morning. Leave `PUSH_ENABLED` empty. Nothing is sent to a push service while it is empty.
+
 ### Upsert a deal
 
 `id`, `brand`, and either `creatorEmail` or `creatorId` are required. A new deal is hidden from the creator unless you pass `"visibleToCreator": true`. Omitted text fields are left as they are on update. `chips` is an array of `[text, tone]` pairs. Tones used by the mockup are `c-red`, `c-gray`, `c-sun`, `c-blue`, and `c-sage`.

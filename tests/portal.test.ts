@@ -82,6 +82,7 @@ import { clearSafetyHold, listSafetyHolds, recordDraftSafety } from "../src/lib/
 import { findSafetyKinds } from "../src/lib/safety-shared";
 import { buildMonthlyReport, draftMonthlyReport } from "../src/lib/report";
 import { getReferralPerk, listReferrals, perkLabel, recordReferral, REFERRAL_LAWYER_NOTE, setReferralPerk } from "../src/lib/referrals";
+import { dueHomeNotices, inQuietHours, pushEnabled, queueHomeNotice } from "../src/lib/home-screen";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -3660,6 +3661,101 @@ test("a referral is tracked with a placeholder perk, and nothing is paid", async
   assert.equal(packed.includes("paidOut"), false);
   assert.equal((await db.select().from(payments)).length, paymentsBefore);
   assert.equal((await listApprovalQueue(db, "all")).length, queueBefore);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("home screen notices wait through quiet hours, and web push stays off", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = (async () => {
+    fetchCalls += 1;
+    return new Response("unexpected", { status: 500 });
+  }) as typeof fetch;
+  delete process.env.PUSH_ENABLED;
+
+  try {
+    assert.equal(inQuietHours(new Date("2026-10-18T12:00:00.000Z")), false);
+    assert.equal(inQuietHours(new Date("2026-10-18T11:59:00.000Z")), true);
+    assert.equal(inQuietHours(new Date("2026-10-19T01:00:00.000Z")), true);
+    assert.equal(inQuietHours(new Date("2026-10-19T00:59:00.000Z")), false);
+    assert.equal(pushEnabled(), false);
+
+    const worker = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+    assert.equal(worker.includes("push"), true);
+    assert.equal(worker.includes("notificationclick"), true);
+    const manifest = readFileSync(new URL("../src/app/manifest.ts", import.meta.url), "utf8");
+    assert.equal(manifest.includes('display: "standalone"'), true);
+    assert.equal(manifest.includes("Momma Mari"), true);
+
+    const bad = await queueHomeNotice(db, {
+      email: mariclare.email,
+      kind: "deal",
+      title: "Nope",
+      body: "Nope",
+      now: new Date("2026-10-18T12:00:00.000Z"),
+    });
+    assert.equal(bad.ok, false);
+
+    const morningOff = await queueHomeNotice(db, {
+      email: mariclare.email,
+      kind: "approval",
+      title: "Email waiting",
+      body: "A brand email is waiting for Kamron.",
+      now: new Date("2026-10-18T12:00:00.000Z"),
+    });
+    assert.equal(morningOff.ok, true);
+    if (morningOff.ok) assert.equal(morningOff.status, "off");
+    assert.equal((await dueHomeNotices(db, mariclare.email)).length, 0);
+
+    process.env.PUSH_ENABLED = "true";
+    const night = await queueHomeNotice(db, {
+      email: mariclare.email,
+      kind: "mention",
+      title: "Mention",
+      body: "Someone mentioned you.",
+      now: new Date("2026-10-19T01:00:00.000Z"),
+    });
+    assert.equal(night.ok, true);
+    if (night.ok) assert.equal(night.status, "held");
+    assert.equal((await dueHomeNotices(db, mariclare.email)).some((row) => row.kind === "mention"), false);
+
+    const morning = await queueHomeNotice(db, {
+      email: mariclare.email,
+      kind: "reply",
+      title: "Reply",
+      body: "There is a reply.",
+      now: new Date("2026-10-18T12:00:00.000Z"),
+    });
+    assert.equal(morning.ok, true);
+    if (morning.ok) assert.equal(morning.status, "ready");
+    const due = await dueHomeNotices(db, mariclare.email);
+    assert.equal(due.some((row) => row.kind === "reply" && row.title === "Reply"), true);
+    assert.equal(due.some((row) => row.kind === "mention"), false);
+    const announcement = await queueHomeNotice(db, {
+      email: admin.email,
+      kind: "announcement",
+      title: "Hello",
+      body: "A note for the team.",
+      now: new Date("2026-10-18T12:00:00.000Z"),
+    });
+    assert.equal(announcement.ok, true);
+    assert.equal((await dueHomeNotices(db, mariclare.email)).some((row) => row.kind === "announcement"), false);
+    assert.equal(fetchCalls, 0);
+  } finally {
+    delete process.env.PUSH_ENABLED;
+    globalThis.fetch = originalFetch;
+  }
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");

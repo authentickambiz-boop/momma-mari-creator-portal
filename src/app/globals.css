@@ -18,6 +18,27 @@
 
 * { box-sizing: border-box; }
 
+.home-install, .home-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+}
+.home-bar {
+  justify-content: space-around;
+  background: var(--ink);
+}
+.home-bar a { color: #fff; font-weight: 750; text-decoration: none; }
+body:has(.home-install), body:has(.home-bar) { padding-bottom: 64px; }
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
