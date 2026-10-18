@@ -33,6 +33,7 @@ Checked against Webflow Cloud docs on October 17, 2026 ([bring your own app](htt
 - Product and posting. Kamron or a manager enters the carrier and tracking number. The creator sees it and taps I got it, which turns on the draft upload. After the brand approves the video, she pastes the live links and the manager confirms they match the brief. Kamron marks brand invoiced, brand paid into the Momma Mari account, creator payout pending, and creator paid. Nothing is charged or sent automatically. He sees the 20% commission. She sees when the brand paid, the 20% fee, and when her cut was sent. A manager sees no amounts.
 - Calendar. Draft and post due dates sit on a Calendar page. Three days ahead, the bot can leave a note in the portal or drop a reminder email into the approval queue. That email stays pending, from `authentickambiz@gmail.com`, until Kamron approves it. A creator can connect her calendar and download an `.ics` file. Nothing is emailed or added to an outside calendar on its own.
 - Brands. The Brands page groups each company with its contact, past deals, screening notes, and responses, including declines. Kamron sees the rate. A manager sees the same list for their creators, without amounts. A creator does not see this page.
+- Usage rights. A deal can have a start and end for the license. If it ends within 30 days, or it already ended, the Usage rights page flags it and suggests B-UA, B-UA90, B-UA12, or B-UAP. Those are names only. Nothing is charged.
 - Email copies and BoldSign. When an email is approved, and again when the bot marks it sent, the portal saves a PDF. With Drive connected, that file goes in a folder named 04 Emails. Otherwise the portal keeps it, and the approval still succeeds. BoldSign stays off unless `BOLDSIGN_ENABLED=true`. Signing stays on this site at no extra cost while it is off.
 - Members. A creator opens My profile and turns on only the fields she wants on the Members page. The profile stays hidden until she does. Handles, pay, email, and notes stay off unless she checks that field, and pay is never a profile field. She can hide the whole profile in one click. Kamron can hide or reset one field and she is told why.
 
@@ -313,6 +314,10 @@ curl -sS -X POST \
 ### Brands
 
 The Brands page is the contact list. Each card is one company. It shows the contact on the deal, any contact saved from an approved polite decline, every past deal, the screening log, and responses (interested, declined, no reply, negotiating). Kamron can add a response. He is the only one who sees rates. Managers see their creators' brands and no amounts. Creators do not get this page.
+
+### Usage rights
+
+Kamron or the assigned manager sets when a license starts and when it ends. An empty end date means perpetual and suggests B-UAP. A window of about 90 days suggests B-UA90, about a year suggests B-UA12, and a short window suggests B-UA. The page flags "Nearing expiry" inside 30 days and "Expired" after the end date. Nothing is charged.
 
 ### Email copies
 

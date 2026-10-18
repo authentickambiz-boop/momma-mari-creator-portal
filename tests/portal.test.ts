@@ -76,6 +76,7 @@ import { assertCanUpload, parseContentRange, validateChunk } from "../src/lib/up
 import type { Viewer } from "../src/lib/types";
 import { buildCalendarFeed, listCalendar, runDeliverableNudges, saveDeliverableDate, setCalendarConnected } from "../src/lib/calendar";
 import { addBrandCrmEntry, listBrandCrm } from "../src/lib/brand-crm";
+import { listUsageRights, saveUsageRights, suggestUsageRenewal, usageFlag } from "../src/lib/usage";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -3193,6 +3194,63 @@ test("the brand list keeps contacts, responses, and screening notes, and hides r
     primaryManagerId: null,
     backupManagerId: null,
   })).ok, true);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("usage rights flag a license nearing expiry and suggest a renewal sku", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  assert.equal(suggestUsageRenewal("2026-01-01", "2026-01-31").sku, "B-UA");
+  assert.equal(suggestUsageRenewal("2026-01-01", "2026-04-01").sku, "B-UA90");
+  assert.equal(suggestUsageRenewal("2026-01-01", "2027-01-01").sku, "B-UA12");
+  assert.equal(suggestUsageRenewal("2026-01-01", null).sku, "B-UAP");
+  assert.equal(usageFlag("2026-10-25", "2026-10-18"), "soon");
+  assert.equal(usageFlag("2026-10-01", "2026-10-18"), "expired");
+  assert.equal(usageFlag("2026-12-18", "2026-10-18"), null);
+  assert.equal(usageFlag(null, "2026-10-18"), null);
+
+  const created = await upsertDeal(db, {
+    id: "phase12-usage",
+    brand: "Phase12 Usage",
+    creatorId: "mariclare",
+    status: "active",
+    workflowStage: "draft_due",
+    visibleToCreator: true,
+  });
+  assert.equal(created.status, 201);
+  const blocked = await saveUsageRights(db, {
+    dealId: "phase12-usage",
+    startsOn: "2026-07-27",
+    endsOn: "2026-10-25",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+  });
+  assert.equal(blocked.ok, false);
+  if (!blocked.ok) assert.equal(blocked.error, "You can't change usage rights.");
+  const saved = await saveUsageRights(db, {
+    dealId: "phase12-usage",
+    startsOn: "2026-07-27",
+    endsOn: "2026-10-25",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(saved.ok, true);
+  const cards = await listUsageRights(db, mariclare, "2026-10-18");
+  const card = cards.find((item) => item.dealId === "phase12-usage");
+  assert.equal(card?.flag, "soon");
+  assert.equal(card?.renewalSku, "B-UA90");
+  assert.equal(JSON.stringify(card).includes("$"), false);
+  assert.equal(cards.some((item) => item.dealId === "kosbling"), false);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");

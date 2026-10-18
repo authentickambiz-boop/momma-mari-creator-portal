@@ -12,6 +12,7 @@ const TABS = [
   { id: "directory", href: "/directory", label: "Members" },
   { id: "profile", href: "/profile", label: "My profile" },
   { id: "brands", href: "/brands", label: "Brands" },
+  { id: "rights", href: "/rights", label: "Usage rights" },
   { id: "team", href: "/team", label: "Team" },
 ] as const;
 

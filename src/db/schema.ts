@@ -577,6 +577,15 @@ export const brandCrmEntries = sqliteTable("brand_crm_entries", {
   createdAt: text("created_at").notNull(),
 });
 
+export const usageRights = sqliteTable("usage_rights", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull().unique(),
+  startsOn: text("starts_on").notNull(),
+  endsOn: text("ends_on"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),
