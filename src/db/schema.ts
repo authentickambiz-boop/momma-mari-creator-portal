@@ -165,6 +165,55 @@ export const dealStageEvents = sqliteTable("deal_stage_events", {
   createdAt: text("created_at").notNull(),
 });
 
+export const approvalEmails = sqliteTable("approval_emails", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull(),
+  gate: text("gate").notNull(),
+  status: text("status").notNull(),
+  toEmail: text("to_email").notNull(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  attachmentNote: text("attachment_note"),
+  attachmentUrl: text("attachment_url"),
+  fromEmail: text("from_email").notNull(),
+  gmailThreadId: text("gmail_thread_id"),
+  gmailMessageId: text("gmail_message_id"),
+  sentAt: text("sent_at"),
+  brandContactName: text("brand_contact_name"),
+  brandContactEmail: text("brand_contact_email"),
+  brandContactCompany: text("brand_contact_company"),
+  suggestedCreatorId: text("suggested_creator_id"),
+  suggestedPlan: text("suggested_plan"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const approvalEvents = sqliteTable("approval_events", {
+  id: text("id").primaryKey(),
+  approvalId: text("approval_id").notNull(),
+  action: text("action").notNull(),
+  actorEmail: text("actor_email").notNull(),
+  actorRole: text("actor_role").notNull(),
+  subject: text("subject"),
+  body: text("body"),
+  note: text("note"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const brandContacts = sqliteTable("brand_contacts", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id"),
+  approvalId: text("approval_id").notNull().unique(),
+  company: text("company").notNull(),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  note: text("note"),
+  suggestedCreatorId: text("suggested_creator_id"),
+  suggestedPlan: text("suggested_plan"),
+  savedBy: text("saved_by").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),

@@ -3,6 +3,7 @@ import type { PortalDb } from "@/db";
 import { analyticsDaily, creators, deals, drafts, payments, revisions } from "@/db/schema";
 import { DEAL_STATUSES, DRAFT_STATUSES, type DealStatus, type DraftStatus } from "./types";
 import { normalizeEmail, nowIso, safeEqual } from "./format";
+import { createApprovalEmail, listSendableApprovals, markApprovalSent } from "./approvals";
 import { setDealStage } from "./deal-stage";
 import { findCreatorByEmail, findCreatorById } from "./queries";
 import { isDealStage, workflowStageForLegacy, workflowStageForVideoStep } from "./stages";
@@ -407,6 +408,55 @@ export async function upsertCreator(db: PortalDb, body: unknown) {
   }
   await db.insert(creators).values({ ...values, id: body.id, isSeed: false, createdAt: nowIso() });
   return { status: 201, body: { id: body.id, email, created: true } };
+}
+
+function contactField(body: Record<string, unknown>, key: "name" | "email" | "company") {
+  if (!isRecord(body.brandContact)) return null;
+  const value = body.brandContact[key];
+  return typeof value === "string" ? value : null;
+}
+
+export async function createApprovalDraft(db: PortalDb, body: unknown) {
+  if (!isRecord(body)) return { status: 400, body: { error: "Expected a JSON object." } };
+  if (typeof body.dealId !== "string" || typeof body.gate !== "string" || typeof body.to !== "string" || typeof body.subject !== "string" || typeof body.body !== "string") {
+    return { status: 400, body: { error: "dealId, gate, to, subject, and body are required." } };
+  }
+  const created = await createApprovalEmail(db, {
+    dealId: body.dealId,
+    gate: body.gate,
+    to: body.to,
+    subject: body.subject,
+    body: body.body,
+    attachmentNote: typeof body.attachmentNote === "string" ? body.attachmentNote : null,
+    attachmentUrl: typeof body.attachmentUrl === "string" ? body.attachmentUrl : null,
+    gmailThreadId: typeof body.gmailThreadId === "string" ? body.gmailThreadId : null,
+    from: typeof body.from === "string" ? body.from : null,
+    status: typeof body.status === "string" ? body.status : null,
+    brandContactName: contactField(body, "name"),
+    brandContactEmail: contactField(body, "email"),
+    brandContactCompany: contactField(body, "company"),
+    suggestedCreatorId: typeof body.suggestedCreatorId === "string" ? body.suggestedCreatorId : null,
+    suggestedPlan: typeof body.suggestedPlan === "string" ? body.suggestedPlan : null,
+  }, { email: "bot", role: "bot" });
+  if (!created.ok) return { status: created.status, body: { error: created.error } };
+  return { status: 201, body: { id: created.id, status: created.status, from: created.from, sendable: false } };
+}
+
+export async function listApprovedApprovals(db: PortalDb) {
+  const approvals = await listSendableApprovals(db);
+  return { status: 200, body: { approvals } };
+}
+
+export async function markApprovalDraftSent(db: PortalDb, approvalId: string, body: unknown) {
+  if (!isRecord(body) || typeof body.messageId !== "string") {
+    return { status: 400, body: { error: "messageId is required." } };
+  }
+  const sent = await markApprovalSent(db, approvalId, {
+    messageId: body.messageId,
+    threadId: typeof body.threadId === "string" ? body.threadId : null,
+  }, { email: "bot", role: "bot" });
+  if (!sent.ok) return { status: sent.status, body: { error: sent.error } };
+  return { status: 200, body: { id: sent.id, status: sent.status, messageId: sent.messageId } };
 }
 
 export async function setDealFolder(db: PortalDb, dealId: string, folderId: string) {
