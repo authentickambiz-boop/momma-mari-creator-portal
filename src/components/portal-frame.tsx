@@ -3,11 +3,14 @@ import { logoutAction } from "@/app/actions";
 import type { CreatorProfile, Viewer } from "@/lib/types";
 
 const TABS = [
-  { id: "deals", href: "/", label: "Brand deals" },
-  { id: "earnings", href: "/earnings", label: "Earnings & payouts" },
-  { id: "analytics", href: "/analytics", label: "Analytics" },
-  { id: "connect", href: "/connect", label: "Connect accounts" },
+  { id: "deals", href: "/", label: "Brand deals", adminOnly: false },
+  { id: "earnings", href: "/earnings", label: "Earnings & payouts", adminOnly: false },
+  { id: "analytics", href: "/analytics", label: "Analytics", adminOnly: false },
+  { id: "connect", href: "/connect", label: "Connect accounts", adminOnly: false },
+  { id: "approvals", href: "/approvals", label: "Approvals", adminOnly: true },
 ] as const;
+
+export type PortalTab = (typeof TABS)[number]["id"];
 
 export function PortalFrame({
   viewer,
@@ -18,7 +21,7 @@ export function PortalFrame({
   children,
 }: {
   viewer: Viewer;
-  tab: (typeof TABS)[number]["id"];
+  tab: PortalTab;
   creators: CreatorProfile[];
   viewedId: string | "all";
   hello: React.ReactNode;
@@ -61,7 +64,7 @@ export function PortalFrame({
           </div>
         ) : null}
         <nav className="tabs">
-          {TABS.map((item) => (
+          {TABS.filter((item) => viewer.role === "admin" || !item.adminOnly).map((item) => (
             <Link key={item.id} href={`${item.href}${query(viewedId)}`} className={item.id === tab ? "on" : ""}>
               {item.label}
             </Link>

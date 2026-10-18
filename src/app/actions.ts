@@ -3,7 +3,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
-import { canChangeDealStage, devLoginEnabled } from "@/lib/authz";
+import { reviewApproval } from "@/lib/approvals";
+import { canApproveEmail, canChangeDealStage, devLoginEnabled } from "@/lib/authz";
 import { currentViewer } from "@/lib/current-user";
 import { setDealStage } from "@/lib/deal-stage";
 import { isEmailSetup } from "@/lib/email-setup";
@@ -77,6 +78,26 @@ export async function dismissNotificationAction(formData: FormData) {
   const db = await getDb();
   await dismissNotification(db, String(formData.get("id") ?? ""));
   redirect("/");
+}
+
+export async function reviewApprovalAction(formData: FormData) {
+  const creator = String(formData.get("creator") ?? "");
+  const query = creator ? `?creator=${encodeURIComponent(creator)}` : "";
+  const back = `/approvals${query}`;
+  const viewer = await currentViewer();
+  if (!viewer || !canApproveEmail(viewer)) redirect("/login");
+  const db = await getDb();
+  const result = await reviewApproval(db, {
+    approvalId: String(formData.get("approvalId") ?? ""),
+    intent: String(formData.get("intent") ?? ""),
+    subject: String(formData.get("subject") ?? ""),
+    body: String(formData.get("body") ?? ""),
+    note: String(formData.get("note") ?? ""),
+    actorEmail: viewer.email,
+    actorRole: viewer.role,
+  });
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}approvalError=1`);
+  redirect(back);
 }
 
 export async function devLoginAction(formData: FormData) {

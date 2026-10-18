@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
 import { createDb, type PortalDb } from "../src/db/index";
 import { openDatabase } from "../src/db/local-d1";
-import { canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
-import { addFeedback, authorizeBot, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
+import { approvalListAllowed, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
+import { canApproveEmail, canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
+import { addFeedback, authorizeBot, createApprovalDraft, listApprovedApprovals, markApprovalDraftSent, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
 import { setDealStage } from "../src/lib/deal-stage";
 import { sideStages, trackStages } from "../src/lib/stages";
 import { creatorCutLabel, nextPayoutLabel, pipelineHeadline } from "../src/lib/format";
@@ -590,5 +591,189 @@ test("hosted creator email uses roster and public prices on @mommamari.com", asy
   assert.match(updated[0]?.message ?? "", /brands@mommamari.com/);
   assert.match(updated[0]?.message ?? "", /\$79 one-time setup \+ \$15\/month/);
   assert.match(updated[0]?.message ?? "", /Not charged yet/);
+});
+
+test("outgoing brand email stays pending until an admin approves it", async () => {
+  assert.equal(canApproveEmail(admin), true);
+  assert.equal(canApproveEmail(mariclare), false);
+  assert.equal(approvalListAllowed("pending").ok, false);
+  assert.equal(approvalListAllowed("approved").ok, true);
+  assert.equal(approvalListAllowed(null).ok, true);
+
+  const forced = await createApprovalDraft(db, {
+    dealId: "persona",
+    gate: "interest",
+    to: "hello@persona.example",
+    subject: "MariClare is interested",
+    body: "Hi, MariClare would like to move ahead.",
+    status: "approved",
+  });
+  assert.equal(forced.status, 403);
+
+  const wrongFrom = await createApprovalDraft(db, {
+    dealId: "persona",
+    gate: "interest",
+    to: "hello@persona.example",
+    subject: "MariClare is interested",
+    body: "Hi, MariClare would like to move ahead.",
+    from: "mmaclamroc@gmail.com",
+  });
+  assert.equal(wrongFrom.status, 400);
+
+  const missing = await createApprovalDraft(db, {
+    dealId: "not-a-deal",
+    gate: "video",
+    to: "hello@brand.example",
+    subject: "Draft",
+    body: "Here is the video.",
+  });
+  assert.equal(missing.status, 404);
+
+  const drafted = await createApprovalDraft(db, {
+    dealId: "persona",
+    gate: "interest",
+    to: "hello@persona.example",
+    subject: "MariClare is interested",
+    body: "Hi, MariClare would like to move ahead at $450 a post.",
+    attachmentNote: "Rate note from MariClare",
+  });
+  assert.equal(drafted.status, 201);
+  assert.ok("id" in drafted.body);
+  assert.equal(drafted.body.status, "pending");
+  assert.equal(drafted.body.from, "authentickambiz@gmail.com");
+  assert.equal(drafted.body.sendable, false);
+  const approvalId = drafted.body.id;
+
+  const waiting = await listApprovedApprovals(db);
+  assert.equal(waiting.body.approvals.some((row) => row.id === approvalId), false);
+  const tooSoon = await markApprovalDraftSent(db, approvalId, { messageId: "msg-1" });
+  assert.equal(tooSoon.status, 409);
+
+  const creatorTry = await reviewApproval(db, {
+    approvalId,
+    intent: "approve",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+  });
+  assert.equal(creatorTry.ok, false);
+
+  const edited = await reviewApproval(db, {
+    approvalId,
+    intent: "edit",
+    subject: "MariClare is interested",
+    body: "Hi, MariClare would like to move ahead at $500 a post.",
+    note: "Raised the rate.",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(edited.ok, true);
+  const stillWaiting = await listApprovedApprovals(db);
+  assert.equal(stillWaiting.body.approvals.some((row) => row.id === approvalId), false);
+
+  const approved = await reviewApproval(db, {
+    approvalId,
+    intent: "approve",
+    subject: "MariClare is interested",
+    body: "Hi, MariClare would like to move ahead at $500 a post.",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(approved.ok, true);
+  const ready = await listApprovedApprovals(db);
+  const sendable = ready.body.approvals.find((row) => row.id === approvalId);
+  assert.equal(sendable?.sendable, true);
+  assert.equal(sendable?.from, "authentickambiz@gmail.com");
+  assert.equal(sendable?.body, "Hi, MariClare would like to move ahead at $500 a post.");
+  assert.equal(sendable?.creatorName, "MariClare");
+  assert.equal(sendable?.brand, "Persona");
+
+  const sent = await markApprovalDraftSent(db, approvalId, { messageId: "gmail-msg-100" });
+  assert.equal(sent.status, 200);
+  const afterSend = await listApprovedApprovals(db);
+  assert.equal(afterSend.body.approvals.some((row) => row.id === approvalId), false);
+  const again = await markApprovalDraftSent(db, approvalId, { messageId: "gmail-msg-100" });
+  assert.equal(again.status, 409);
+
+  const queue = await listApprovalQueue(db, "mariclare");
+  const item = queue.find((row) => row.id === approvalId);
+  assert.equal(item?.status, "sent");
+  assert.deepEqual(item?.events.map((event) => event.action), ["created", "edited", "approved", "sent"]);
+  assert.equal(item?.events.find((event) => event.action === "approved")?.body, "Hi, MariClare would like to move ahead at $500 a post.");
+  assert.equal(item?.events.find((event) => event.action === "edited")?.note, "Raised the rate.");
+  assert.equal(await listApprovalQueue(db, "abby").then((rows) => rows.some((row) => row.id === approvalId)), false);
+
+  const held = await createApprovalDraft(db, {
+    dealId: "waterh",
+    gate: "video",
+    to: "team@waterh.example",
+    subject: "WaterH draft",
+    body: "The revised video is here.",
+    attachmentUrl: "https://drive.google.com/file/d/example",
+  });
+  assert.equal(held.status, 201);
+  assert.ok("id" in held.body && typeof held.body.id === "string");
+  const heldId = held.body.id;
+  const rejected = await reviewApproval(db, {
+    approvalId: heldId,
+    intent: "reject",
+    note: "Do not send this cut.",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(rejected.ok, true);
+  const rejectedSend = await markApprovalDraftSent(db, heldId, { messageId: "nope" });
+  assert.equal(rejectedSend.status, 409);
+
+  const sameCreator = await createApprovalDraft(db, {
+    dealId: "grail",
+    gate: "decline",
+    to: "hello@grail.example",
+    subject: "Passing for now",
+    body: "Thank you for thinking of MariClare. This one is not the right fit.",
+    brandContact: { name: "Grail Team", email: "hello@grail.example", company: "Grail" },
+    suggestedCreatorId: "mariclare",
+  });
+  assert.equal(sameCreator.status, 400);
+
+  const bareDecline = await createApprovalDraft(db, {
+    dealId: "halara",
+    gate: "decline",
+    to: "hello@halara.example",
+    subject: "Passing for now",
+    body: "Thank you for thinking of MariClare.",
+  });
+  assert.equal(bareDecline.status, 400);
+
+  const decline = await createApprovalDraft(db, {
+    dealId: "halara",
+    gate: "decline",
+    to: "hello@halara.example",
+    subject: "Passing for now",
+    body: "Thank you for thinking of MariClare. We hope to work together on a better fit.",
+    brandContact: { name: "Halara Team", email: "hello@halara.example", company: "Halara" },
+    suggestedCreatorId: "abby",
+    suggestedPlan: "Or a gifted post next season.",
+  });
+  assert.equal(decline.status, 201);
+  assert.ok("id" in decline.body && typeof decline.body.id === "string");
+  const declineId = decline.body.id;
+  const beforeContacts = await listBrandContacts(db);
+  const savedDecline = await reviewApproval(db, {
+    approvalId: declineId,
+    intent: "approve",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(savedDecline.ok, true);
+  const contacts = await listBrandContacts(db);
+  assert.equal(contacts.length, beforeContacts.length + 1);
+  assert.equal(contacts.at(-1)?.contactEmail, "hello@halara.example");
+  assert.equal(contacts.at(-1)?.company, "Halara");
+  assert.equal(contacts.at(-1)?.suggestedCreatorId, "abby");
+  assert.equal(contacts.at(-1)?.suggestedPlan, "Or a gifted post next season.");
+  assert.equal(contacts.at(-1)?.savedBy, admin.email);
+  const declineCard = (await listApprovalQueue(db, "all")).find((row) => row.id === declineId);
+  assert.equal(declineCard?.suggestedCreatorName, "Abby Theriot");
+  assert.equal(declineCard?.fromEmail, "authentickambiz@gmail.com");
 });
 });

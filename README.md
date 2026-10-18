@@ -126,6 +126,42 @@ Known deal statuses: `pitch`, `negotiating`, `active`, `delivered`, `paid`. You 
 
 Stage ids, in order: `offer_received`, `offer_shared`, `creator_interested`, `interest_sent`, `contract_received`, `contract_review`, `revisions_requested`, `revised_contract`, `approved_by_agency`, `awaiting_signature`, `signed_by_creator`, `signed_sent`, `waiting_for_product`, `product_received`, `draft_due`, `draft_submitted`, `manager_review`, `sent_to_brand`, `brand_revisions`, `brand_approved`, `scheduled_posted`, `payment_pending`, `paid`. Side exits: `creator_declined`, `brand_quiet`, `cancelled`, `on_hold`. A new deal with no `workflowStage` starts at the stage that matches its status (or `offer_received` when the status is `pitch`) and stays hidden unless `visibleToCreator` is true. Moving a deal to `offer_shared` turns it on for the creator. `offer_received` and `creator_declined` turn it off, unless that same request also sets `visibleToCreator`.
 
+### Approval queue
+
+Outgoing brand email is not sent from this API. `POST /api/bot/approvals` stores a pending draft. The bot cannot set `status` to anything but pending, and it cannot choose a From address. Every draft is from `authentickambiz@gmail.com`. An admin approves, edits, or rejects it in the portal. `GET /api/bot/approvals` returns only approved drafts (`?status=pending` is rejected). `POST /api/bot/approvals/:id/sent` with `{ "messageId": "..." }` marks one approved draft sent. Pending, rejected, and already-sent drafts return `409`.
+
+`gate` is `interest`, `revision`, `signed_contract`, `video`, or `decline`. A decline also needs a brand contact (`brandContact.name`, `email`, or `company`) and either `suggestedCreatorId` (a different creator on the roster) or `suggestedPlan`. Approving a decline saves that contact. The suggestion is for Kamron; it is not added to the email text.
+
+`email_awaiting_ok` on a video draft does not allow sending. The video email still has to be an approval with gate `video`.
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dealId": "persona",
+    "gate": "interest",
+    "to": "hello@persona.example",
+    "subject": "MariClare is interested",
+    "body": "Hi, MariClare would like to move ahead at the rate we discussed."
+  }' \
+  http://localhost:43123/api/bot/approvals
+```
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  http://localhost:43123/api/bot/approvals
+```
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"messageId":"REAL_GMAIL_MESSAGE_ID"}' \
+  http://localhost:43123/api/bot/approvals/APPROVAL_ID/sent
+```
+
 ```bash
 curl -sS -X PATCH \
   -H "Authorization: Bearer $BOT_API_TOKEN" \
