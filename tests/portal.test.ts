@@ -6,7 +6,7 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorNotifications, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags } from "../src/db/schema";
+import { communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorNotifications, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, payments } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
@@ -81,6 +81,7 @@ import { myMediaKit, publicMediaKit, saveMediaKit, zernioStatsEnabled } from "..
 import { clearSafetyHold, listSafetyHolds, recordDraftSafety } from "../src/lib/safety";
 import { findSafetyKinds } from "../src/lib/safety-shared";
 import { buildMonthlyReport, draftMonthlyReport } from "../src/lib/report";
+import { getReferralPerk, listReferrals, perkLabel, recordReferral, REFERRAL_LAWYER_NOTE, setReferralPerk } from "../src/lib/referrals";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -3575,6 +3576,90 @@ test("a monthly report is one page, and the email waits in the approval queue", 
   assert.equal(again.ok, false);
   if (!again.ok) assert.equal(again.error, "This month's report is already in the approval queue. Nothing was sent.");
   assert.equal((await listApprovalQueue(db, "all")).filter((row) => row.gate === "report").length, 1);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("a referral is tracked with a placeholder perk, and nothing is paid", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const paymentsBefore = (await db.select().from(payments)).length;
+  const queueBefore = (await listApprovalQueue(db, "all")).length;
+  delete process.env.REFERRAL_PERK_CENTS;
+  assert.equal(await getReferralPerk(db), null);
+  assert.equal(perkLabel(null), "Perk amount is not set.");
+  assert.equal(REFERRAL_LAWYER_NOTE.includes("Nothing is paid automatically."), true);
+
+  process.env.REFERRAL_PERK_CENTS = "2500";
+  assert.equal(await getReferralPerk(db), 2500);
+  const creatorPerk = await setReferralPerk(db, { amountCents: 5000, actorRole: "creator" });
+  assert.equal(creatorPerk.ok, false);
+  if (!creatorPerk.ok) assert.equal(creatorPerk.error, "Only Kamron can set the perk amount.");
+  const saved = await setReferralPerk(db, { amountCents: 5000, actorRole: "admin" });
+  assert.equal(saved.ok, true);
+  if (saved.ok) assert.equal(saved.label, "Placeholder perk: $50");
+  assert.equal(await getReferralPerk(db), 5000);
+  delete process.env.REFERRAL_PERK_CENTS;
+  assert.equal(await getReferralPerk(db), 5000);
+
+  const other = await recordReferral(db, {
+    referrerCreatorId: "mariclare",
+    referredName: "Nina Cole",
+    referredEmail: "nina@phase16.example",
+    actorEmail: abby.email,
+    actorRole: "creator",
+    actorCreatorId: "abby",
+  });
+  assert.equal(other.ok, false);
+  if (!other.ok) assert.equal(other.error, "You can only add a referral for yourself.");
+  const bad = await recordReferral(db, {
+    referrerCreatorId: "mariclare",
+    referredName: "Nina Cole",
+    referredEmail: "nina@example.invalid",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+    actorCreatorId: "mariclare",
+  });
+  assert.equal(bad.ok, false);
+  if (!bad.ok) assert.equal(bad.error, "That email can't be saved.");
+  const rileyLogin = await resolveLogin(db, "riley.manager@gmail.com");
+  assert.equal(rileyLogin.ok, true);
+  if (!rileyLogin.ok) return;
+  const manager = await recordReferral(db, {
+    referrerCreatorId: "mariclare",
+    referredName: "Nina Cole",
+    referredEmail: "nina@phase16.example",
+    actorEmail: rileyLogin.viewer.email,
+    actorRole: "manager",
+    actorCreatorId: null,
+  });
+  assert.equal(manager.ok, false);
+  if (!manager.ok) assert.equal(manager.error, "Referrals are for the creator and Kamron.");
+
+  const added = await recordReferral(db, {
+    referrerCreatorId: "mariclare",
+    referredName: "Nina Cole",
+    referredEmail: "nina@phase16.example",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+    actorCreatorId: "mariclare",
+  });
+  assert.equal(added.ok, true);
+  const listed = await listReferrals(db, "mariclare");
+  assert.equal(listed.some((row) => row.referredName === "Nina Cole" && row.referredEmail === "nina@phase16.example"), true);
+  const packed = JSON.stringify(listed);
+  assert.equal(packed.includes("creator_paid"), false);
+  assert.equal(packed.includes("paidOut"), false);
+  assert.equal((await db.select().from(payments)).length, paymentsBefore);
+  assert.equal((await listApprovalQueue(db, "all")).length, queueBefore);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");

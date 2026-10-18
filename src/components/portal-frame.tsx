@@ -16,6 +16,7 @@ const TABS = [
   { id: "brands", href: "/brands", label: "Brands" },
   { id: "rights", href: "/rights", label: "Usage rights" },
   { id: "safety", href: "/safety", label: "Safety" },
+  { id: "referrals", href: "/referrals", label: "Referrals" },
   { id: "team", href: "/team", label: "Team" },
 ] as const;
 
@@ -41,6 +42,7 @@ export function PortalFrame({
   const tabs = TABS.filter((item) => {
     if (item.id === "team") return viewer.role === "admin";
     if (item.id === "safety") return viewer.role === "admin" || viewer.role === "manager";
+    if (item.id === "referrals") return viewer.role !== "manager";
     if (item.id === "earnings") return viewer.role !== "manager";
     if (item.id === "report") return viewer.role !== "manager";
     if (item.id === "approvals") return viewer.role === "admin" || Boolean(viewer.permissions?.approveEmail);
