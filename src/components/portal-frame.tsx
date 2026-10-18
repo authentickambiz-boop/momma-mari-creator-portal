@@ -7,6 +7,7 @@ const TABS = [
   { id: "earnings", href: "/earnings", label: "Earnings & payouts" },
   { id: "analytics", href: "/analytics", label: "Analytics" },
   { id: "connect", href: "/connect", label: "Connect accounts" },
+  { id: "calendar", href: "/calendar", label: "Calendar" },
   { id: "approvals", href: "/approvals", label: "Approvals" },
   { id: "directory", href: "/directory", label: "Members" },
   { id: "profile", href: "/profile", label: "My profile" },
