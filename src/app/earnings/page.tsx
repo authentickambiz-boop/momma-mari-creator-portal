@@ -9,7 +9,25 @@ async function panelFor(db: Awaited<ReturnType<typeof loadPortal>>["db"], viewer
   const deals = (await listDealsForViewer(db, viewer, creator.id)).filter((deal) => viewer.role === "admin" || deal.visibleToCreator);
   const payments = await listPaymentsForDeals(db, deals.map((deal) => deal.id));
   const inbox = await listInbox(db, creator.id);
-  return <EarningsPanel creator={creator} deals={deals} payments={payments} inbox={inbox} />;
+  const owner = viewer.role === "admin";
+  const shownDeals = owner
+    ? deals
+    : deals.map((deal) => ({ ...deal, amountDisplay: null, pipelineCents: null, pipelineName: null, earningsChipText: null, earningsChipTone: null }));
+  const shownPayments = owner
+    ? payments
+    : payments.map((payment) => ({
+        ...payment,
+        amountOwedCents: null,
+        amountLabel: null,
+        dueDate: null,
+        dueLabel: null,
+        landedDate: null,
+        landedAmountCents: null,
+        creatorSplitPercent: null,
+        agencySplitPercent: null,
+        payoutApprovedOn: null,
+      }));
+  return <EarningsPanel creator={creator} deals={shownDeals} payments={shownPayments} inbox={inbox} audience={owner ? "owner" : "creator"} />;
 }
 
 export default async function EarningsPage({ searchParams }: { searchParams: Promise<{ creator?: string }> }) {

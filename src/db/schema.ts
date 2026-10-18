@@ -156,6 +156,7 @@ export const payments = sqliteTable("payments", {
   creatorPayoutCents: integer("creator_payout_cents"),
   payoutApprovedOn: text("payout_approved_on"),
   paidOutDate: text("paid_out_date"),
+  paymentStatus: text("payment_status"),
   isSeed: integer("is_seed", { mode: "boolean" }).notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -363,6 +364,29 @@ export const contractSignatures = sqliteTable("contract_signatures", {
 export const signatureFiles = sqliteTable("signature_files", {
   signatureId: text("signature_id").primaryKey(),
   bytesBase64: text("bytes_base64").notNull(),
+});
+
+export const shipments = sqliteTable("shipments", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull().unique(),
+  carrier: text("carrier").notNull(),
+  trackingNumber: text("tracking_number").notNull(),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  receivedAt: text("received_at"),
+});
+
+export const livePosts = sqliteTable("live_posts", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull(),
+  platform: text("platform").notNull(),
+  url: text("url").notNull(),
+  meetsBrief: integer("meets_brief", { mode: "boolean" }),
+  confirmedAt: text("confirmed_at"),
+  confirmedBy: text("confirmed_by"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
 export const sessions = sqliteTable("sessions", {

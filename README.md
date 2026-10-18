@@ -30,6 +30,7 @@ Checked against Webflow Cloud docs on October 17, 2026 ([bring your own app](htt
 - Contract versions. An admin uploads the brand's PDF or DOCX. Each file is kept (v1, v2, …) in a Contracts folder. A private checklist stays with Kamron. Asking the brand for changes queues an email from `authentickambiz@gmail.com`. Approving the contract is admin-only and tells the creator the file is ready to sign. She never sees the checklist notes.
 - Click-to-sign. After Kamron approves a PDF (or a DocuSign-marked PDF), the creator opens it on the sign page, agrees to sign electronically, and types or draws her signature. The portal stamps that signature on the PDF, adds a certificate page, and keeps every copy. A signed-contract email to the brand waits in the approval queue, from `authentickambiz@gmail.com`, until Kamron approves it. Have an attorney review this e-sign wording before you rely on it.
 - Managers. An owner assigns each creator to a manager. That manager screens offers, reviews videos, and approves brand email for those creators. Approving contracts and countersigning stay with the owner unless he turns those on. Every stage change and approval records who did it.
+- Product and posting. Kamron or a manager enters the carrier and tracking number. The creator sees it and taps I got it, which turns on the draft upload. After the brand approves the video, she pastes the live links and the manager confirms they match the brief. Kamron marks brand invoiced, brand paid into the Momma Mari account, creator payout pending, and creator paid. Nothing is charged or sent automatically. He sees the 20% commission. She sees only her payout amount and status. A manager sees no amounts.
 
 Server-side rules, covered by `npm test`:
 
@@ -268,6 +269,26 @@ That manager signs in with the same Google email. They see **My creators** and a
 Notices go to the primary manager. If that manager is missing or deactivated and a backup is active, the backup gets the notice and you get a copy. If nobody is assigned, you get it, the same as before.
 
 The bot lists stay the same shape and add the assigned primary manager (`manager` is `{ id, name, email }` or `null`). They still do not return a mailbox token.
+
+### Product, posts, and payment
+
+Kamron or the assigned manager opens the deal and enters the carrier and tracking number. The creator sees "On the way" and the tracking link, then taps **I got it**. That moves the deal to draft due and turns on the upload box.
+
+After the brand approves the video, she pastes the live TikTok, Instagram, Facebook, or YouTube link. The manager confirms it matches the brief. If the brand email is on the deal, that confirmation can also drop a "post link to brand" email into the approval queue. It stays pending, from `authentickambiz@gmail.com`, until someone approves it. Nothing is sent on its own.
+
+On Earnings, Kamron marks four steps, in order: brand invoiced, brand paid (into the Momma Mari account), creator payout pending, and creator paid. No money moves by itself. He sees Momma Mari's 20% commission. The creator sees her own payout amount and status. A manager does not see amounts.
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"dealId":"vev","carrier":"UPS","trackingNumber":"1Z999"}' \
+  http://localhost:43123/api/bot/shipments
+
+curl -sS \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  "http://localhost:43123/api/bot/posts"
+```
 
 ### Upsert a deal
 

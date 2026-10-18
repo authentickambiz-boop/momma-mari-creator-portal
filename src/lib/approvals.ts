@@ -14,6 +14,7 @@ export const APPROVAL_GATES = [
   { id: "signed_contract", label: "Signed contract" },
   { id: "video", label: "Video for the brand" },
   { id: "decline", label: "Polite decline" },
+  { id: "post_link", label: "Post link to brand" },
 ] as const;
 
 export type ApprovalGate = (typeof APPROVAL_GATES)[number]["id"];
@@ -94,8 +95,8 @@ export async function createApprovalEmail(
   actor: { email: string; role: string },
 ): Promise<Result<{ id: string; status: "pending"; from: string }>> {
   const creatorDraft = actor.role === "creator" && (input.gate === "interest" || input.gate === "decline");
-  const adminDraft = actor.role === "admin" && (input.gate === "video" || input.gate === "revision");
-  const managerDraft = actor.role === "manager" && (input.gate === "video" || input.gate === "revision");
+  const adminDraft = actor.role === "admin" && (input.gate === "video" || input.gate === "revision" || input.gate === "post_link");
+  const managerDraft = actor.role === "manager" && (input.gate === "video" || input.gate === "revision" || input.gate === "post_link");
   if (actor.role !== "bot" && !creatorDraft && !adminDraft && !managerDraft) {
     return { ok: false, status: 403, error: "Only the bot can draft an email. An admin approves it in the portal." };
   }
@@ -106,7 +107,7 @@ export async function createApprovalEmail(
     return { ok: false, status: 400, error: `Brand email has to go out from ${BRAND_EMAIL_SENDER}.` };
   }
   if (!isApprovalGate(input.gate)) {
-    return { ok: false, status: 400, error: "gate must be interest, revision, signed_contract, video, or decline." };
+    return { ok: false, status: 400, error: "gate must be interest, revision, signed_contract, video, decline, or post_link." };
   }
   const to = clean(input.to);
   const subject = clean(input.subject);
@@ -123,7 +124,7 @@ export async function createApprovalEmail(
       actorEmail: actor.email,
       actorRole: "manager",
       creatorId: deal.creatorId,
-      permission: input.gate === "video" ? "video" : "contract",
+      permission: input.gate === "video" ? "video" : input.gate === "post_link" ? "email" : "contract",
     });
     if (!allowed.ok) return allowed;
   }

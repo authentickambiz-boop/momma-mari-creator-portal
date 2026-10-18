@@ -71,6 +71,42 @@ export function joinAnd(items: string[]) {
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
+export const AGENCY_COMMISSION_PERCENT = 20;
+
+export function commissionLabel(amountCents: number | null) {
+  if (amountCents == null) return `${AGENCY_COMMISSION_PERCENT}%`;
+  const cut = Math.round((amountCents * AGENCY_COMMISSION_PERCENT) / 100);
+  return `${formatMoney(cut)} (${AGENCY_COMMISSION_PERCENT}%)`;
+}
+
+export function creatorPayoutAmount(splitPercent: number | null, amountCents: number | null, payoutCents: number | null) {
+  if (payoutCents != null) return formatMoney(payoutCents);
+  if (splitPercent == null || amountCents == null) return "Pending";
+  return formatMoney(Math.round((amountCents * splitPercent) / 100));
+}
+
+export function paymentStatusLabel(status: string | null, audience: "owner" | "creator") {
+  if (audience === "creator") {
+    if (status === "brand_invoiced") return "Brand invoiced";
+    if (status === "brand_paid") return "Brand paid Momma Mari";
+    if (status === "creator_payout_pending") return "Your payout is pending";
+    if (status === "creator_paid") return "Paid";
+    return "Not invoiced yet";
+  }
+  if (status === "brand_invoiced") return "Brand invoiced";
+  if (status === "brand_paid") return "Brand paid";
+  if (status === "creator_payout_pending") return "Payout pending";
+  if (status === "creator_paid") return "Paid";
+  return "Not invoiced yet";
+}
+
+export function paymentStatusTone(status: string | null) {
+  if (status === "brand_paid") return "c-blue";
+  if (status === "creator_payout_pending") return "c-sun";
+  if (status === "creator_paid") return "c-sage";
+  return "c-gray";
+}
+
 export function creatorCutLabel(splitPercent: number | null, amountCents: number | null) {
   if (splitPercent == null) return "Pending contract";
   if (amountCents == null) return `${splitPercent}%`;

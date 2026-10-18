@@ -32,6 +32,16 @@ export async function setDealStage(
     input.creatorId === deal.creatorId &&
     (deal.workflowStage === "approved_by_agency" || deal.workflowStage === "awaiting_signature") &&
     stage.id === "signed_by_creator";
+  const creatorGotProduct =
+    input.actorRole === "creator" &&
+    input.creatorId === deal.creatorId &&
+    ((deal.workflowStage === "waiting_for_product" && (stage.id === "product_received" || stage.id === "draft_due")) ||
+      (deal.workflowStage === "product_received" && stage.id === "draft_due"));
+  const creatorPosted =
+    input.actorRole === "creator" &&
+    input.creatorId === deal.creatorId &&
+    deal.workflowStage === "brand_approved" &&
+    stage.id === "scheduled_posted";
   let managerOk = false;
   if (input.actorRole === "manager") {
     const allowed = await assertStaffAccess(db, {
@@ -43,7 +53,7 @@ export async function setDealStage(
     if (!allowed.ok) return { ok: false as const, status: 403, error: "You can't move this deal." };
     managerOk = true;
   }
-  if (!managerOk && input.actorRole !== "admin" && input.actorRole !== "bot" && input.actorRole !== "system" && !creatorChoice && !creatorSign) {
+  if (!managerOk && input.actorRole !== "admin" && input.actorRole !== "bot" && input.actorRole !== "system" && !creatorChoice && !creatorSign && !creatorGotProduct && !creatorPosted) {
     return { ok: false as const, status: 403, error: "You can't move this deal." };
   }
   if (deal.workflowStage === stage.id) {

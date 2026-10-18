@@ -14,7 +14,8 @@ import { approveContract, listContracts, requestContractRevisions, saveChecklist
 import { listDraftReviews, listUnreadCreatorNotices, onDraftSubmitted, reviewDraft } from "../src/lib/video-review";
 import { setDealStage } from "../src/lib/deal-stage";
 import { sideStages, trackStages } from "../src/lib/stages";
-import { creatorCutLabel, nextPayoutLabel, pipelineHeadline } from "../src/lib/format";
+import { commissionLabel, creatorCutLabel, nextPayoutLabel, pipelineHeadline } from "../src/lib/format";
+import { confirmLivePost, confirmProductReceived, listLivePostsSince, listPaymentsSince, listShipmentsSince, markPayment, saveShipment, submitLivePosts } from "../src/lib/fulfillment";
 import {
   findCreatorById,
   getDealForViewer,
@@ -51,7 +52,7 @@ import {
   saveGmailConnection,
 } from "../src/lib/onboarding";
 import { hostedEmailPreview, STRIPE_CATALOG } from "../src/lib/email-setup";
-import { addManager, assignCreatorManagers, assignedCreatorIds, listManagerNotices, notifyStaff, setManagerActive, setManagerPermissions } from "../src/lib/managers";
+import { addManager, assignCreatorManagers, assignedCreatorIds, listManagerNotices, listManagers, needsYou, notifyStaff, setManagerActive, setManagerPermissions } from "../src/lib/managers";
 import { countersignContract, listSignatures, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "../src/lib/signing";
 import { createSession, readSignedSessionId } from "../src/lib/session";
 import { decryptToken } from "../src/lib/token-crypto";
@@ -2270,5 +2271,253 @@ test("an owner assigns a manager, and that manager only sees their creators", as
   assert.equal(kosblingAfter?.contact, null);
   assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
   assert.equal(kosblingAfter?.contracts.length, 0);
+});
+
+test("product tracking, live posts, and owner-only payment marks", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  const managers = await listManagers(db);
+  const rileyRow = managers.find((manager) => manager.email === "riley.manager@gmail.com");
+  assert.ok(rileyRow);
+  const casey = await addManager(db, { actorRole: "admin", name: "Casey", email: "casey.manager@gmail.com" });
+  assert.equal(casey.ok, true);
+  if (!casey.ok || !rileyRow) return;
+  const caseyViewer: Viewer = {
+    email: casey.email,
+    role: "manager",
+    creatorId: null,
+    name: "Casey",
+    managerId: casey.id,
+    permissions: casey.permissions,
+    assignedCreatorIds: [],
+  };
+
+  const created = await upsertDeal(db, {
+    id: "phase7-ship",
+    brand: "Phase7 Ship",
+    creatorId: "mariclare",
+    status: "negotiating",
+    workflowStage: "signed_sent",
+    visibleToCreator: true,
+    contact: "hello@phase7ship.example",
+    rateCents: 100000,
+  });
+  assert.equal(created.status, 201);
+
+  const creatorTracking = await saveShipment(db, {
+    dealId: "phase7-ship",
+    carrier: "UPS",
+    trackingNumber: "1ZCREATOR",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+  });
+  assert.equal(creatorTracking.ok, false);
+  if (!creatorTracking.ok) assert.equal(creatorTracking.status, 403);
+
+  const strangerTracking = await saveShipment(db, {
+    dealId: "phase7-ship",
+    carrier: "UPS",
+    trackingNumber: "1ZCASEY",
+    actorEmail: casey.email,
+    actorRole: "manager",
+  });
+  assert.equal(strangerTracking.ok, false);
+  if (!strangerTracking.ok) assert.equal(strangerTracking.error, "That creator isn't on your list.");
+
+  assert.equal((await assignCreatorManagers(db, {
+    actorRole: "admin",
+    creatorId: "mariclare",
+    primaryManagerId: rileyRow.id,
+    backupManagerId: null,
+  })).ok, true);
+  const riley: Viewer = {
+    email: rileyRow.email,
+    role: "manager",
+    creatorId: null,
+    name: rileyRow.name,
+    managerId: rileyRow.id,
+    permissions: rileyRow.permissions,
+    assignedCreatorIds: await assignedCreatorIds(db, rileyRow.id),
+  };
+
+  const tracked = await saveShipment(db, {
+    dealId: "phase7-ship",
+    carrier: "UPS",
+    trackingNumber: "1Z999",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(tracked.ok, true);
+  const shipped = await getDealForViewer(db, admin, "phase7-ship");
+  assert.equal(shipped?.workflowStage, "waiting_for_product");
+  assert.equal(shipped?.shipment?.carrier, "UPS");
+  assert.equal(shipped?.shipment?.trackingNumber, "1Z999");
+  assert.equal(shipped?.shipment?.statusLabel, "On the way");
+  const trackingEvent = shipped?.stageEvents?.find((event) => event.toStage === "waiting_for_product");
+  assert.equal(trackingEvent?.actorRole, "admin");
+  assert.equal(trackingEvent?.actorEmail, admin.email);
+
+  const managerTracked = await saveShipment(db, {
+    dealId: "phase7-ship",
+    carrier: "UPS",
+    trackingNumber: "1Z999",
+    actorEmail: riley.email,
+    actorRole: "manager",
+  });
+  assert.equal(managerTracked.ok, true);
+  const managerNotices = await listManagerNotices(db, rileyRow.id);
+  assert.equal(managerNotices.some((note) => note.message.includes("Phase7 Ship")), true);
+
+  const gotIt = await confirmProductReceived(db, {
+    dealId: "phase7-ship",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+    creatorId: "mariclare",
+  });
+  assert.equal(gotIt.ok, true);
+  const drafting = await getDealForViewer(db, mariclare, "phase7-ship");
+  assert.equal(drafting?.workflowStage, "draft_due");
+  assert.equal(drafting?.uploadEnabled, true);
+  assert.equal(drafting?.shipment?.statusLabel, "Received");
+  const creatorNotices = await listUnreadCreatorNotices(db, "mariclare");
+  assert.equal(creatorNotices.some((note) => note.message.includes("draft is due")), true);
+
+  const kosblingMid = await getDealForViewer(db, admin, "kosbling");
+  const blockedProduct = await confirmProductReceived(db, {
+    dealId: "kosbling",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+    creatorId: "mariclare",
+  });
+  assert.equal(blockedProduct.ok, false);
+  if (!blockedProduct.ok) assert.equal(blockedProduct.status, 409);
+  const kosblingStill = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingStill?.workflowStage, "draft_due");
+  assert.equal(kosblingStill?.stageEvents?.length, kosblingMid?.stageEvents?.length);
+
+  const tooEarly = await submitLivePosts(db, {
+    dealId: "phase7-ship",
+    links: [{ platform: "tiktok", url: "https://www.tiktok.com/@mariclare/video/1" }],
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+    creatorId: "mariclare",
+  });
+  assert.equal(tooEarly.ok, false);
+  if (!tooEarly.ok) assert.equal(tooEarly.status, 409);
+  assert.equal((await getDealForViewer(db, admin, "phase7-ship"))?.livePosts.length, 0);
+
+  assert.equal((await setDealStage(db, {
+    dealId: "phase7-ship",
+    toStage: "brand_approved",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  })).ok, true);
+  const posted = await submitLivePosts(db, {
+    dealId: "phase7-ship",
+    links: [{ platform: "tiktok", url: "https://www.tiktok.com/@mariclare/video/1" }],
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+    creatorId: "mariclare",
+  });
+  assert.equal(posted.ok, true);
+  const live = await getDealForViewer(db, admin, "phase7-ship");
+  assert.equal(live?.workflowStage, "scheduled_posted");
+  assert.equal(live?.stageEvents?.some((event) => event.toStage === "scheduled_posted" && event.actorRole === "creator" && event.actorEmail === mariclare.email), true);
+  assert.equal(live?.livePosts[0]?.url, "https://www.tiktok.com/@mariclare/video/1");
+  const waiting = await needsYou(db, riley);
+  assert.equal(waiting.some((item) => item.id === "post-phase7-ship"), true);
+
+  const confirmed = await confirmLivePost(db, {
+    postId: live?.livePosts[0]?.id ?? "",
+    meetsBrief: true,
+    queueEmail: true,
+    actorEmail: riley.email,
+    actorRole: "manager",
+  });
+  assert.equal(confirmed.ok, true);
+  const queue = await listApprovalQueue(db, "all");
+  const queued = queue.find((row) => row.dealId === "phase7-ship" && row.gate === "post_link");
+  assert.equal(queued?.status, "pending");
+  assert.equal(queued?.fromEmail, "authentickambiz@gmail.com");
+
+  const skipped = await markPayment(db, {
+    dealId: "phase7-ship",
+    paymentStatus: "brand_paid",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(skipped.ok, false);
+  if (!skipped.ok) assert.equal(skipped.status, 400);
+  const managerPay = await markPayment(db, {
+    dealId: "phase7-ship",
+    paymentStatus: "brand_invoiced",
+    actorEmail: riley.email,
+    actorRole: "manager",
+  });
+  assert.equal(managerPay.ok, false);
+  if (!managerPay.ok) assert.equal(managerPay.error, "Only an owner can update payment.");
+  const kosblingPay = await markPayment(db, {
+    dealId: "kosbling",
+    paymentStatus: "brand_invoiced",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(kosblingPay.ok, false);
+  if (!kosblingPay.ok) assert.equal(kosblingPay.status, 409);
+
+  for (const step of ["brand_invoiced", "brand_paid", "creator_payout_pending", "creator_paid"] as const) {
+    const marked = await markPayment(db, {
+      dealId: "phase7-ship",
+      paymentStatus: step,
+      actorEmail: admin.email,
+      actorRole: "admin",
+    });
+    assert.equal(marked.ok, true, step);
+  }
+  const ownerDeal = await getDealForViewer(db, admin, "phase7-ship");
+  assert.equal(ownerDeal?.workflowStage, "paid");
+  assert.equal(ownerDeal?.payment?.paymentStatus, "creator_paid");
+  const ownerCommission = commissionLabel(ownerDeal?.payment?.landedAmountCents ?? ownerDeal?.payment?.amountOwedCents ?? null);
+  assert.equal(ownerCommission.includes("20%"), true);
+  const creatorDeal = await getDealForViewer(db, mariclare, "phase7-ship");
+  assert.equal(creatorDeal?.payment?.paymentStatus, "creator_paid");
+  assert.equal(typeof creatorDeal?.payment?.creatorPayoutCents, "number");
+  assert.ok((creatorDeal?.payment?.creatorPayoutCents ?? 0) > 0);
+  assert.equal(JSON.stringify(creatorDeal).includes("20%"), false);
+  assert.equal(JSON.stringify(creatorDeal).includes("Commission"), false);
+  const managerDeal = await getDealForViewer(db, riley, "phase7-ship");
+  assert.equal(managerDeal?.amountDisplay, null);
+  assert.equal(managerDeal?.payment, null);
+  assert.equal(await getDealForViewer(db, caseyViewer, "phase7-ship"), null);
+
+  const botShipments = JSON.stringify(await listShipmentsSince(db, null));
+  const botPosts = JSON.stringify(await listLivePostsSince(db, null));
+  const botPayments = JSON.stringify(await listPaymentsSince(db, null));
+  assert.equal(botShipments.includes("phase7-ship"), true);
+  assert.equal(botShipments.includes("1Z999"), true);
+  assert.equal(botPosts.includes("https://www.tiktok.com/@mariclare/video/1"), true);
+  assert.equal(botPayments.includes("creator_paid"), true);
+  for (const packed of [botShipments, botPosts, botPayments]) {
+    assert.equal(packed.includes("gmailRefreshToken"), false);
+    assert.equal(packed.includes("refresh_token"), false);
+  }
+
+  assert.equal((await assignCreatorManagers(db, {
+    actorRole: "admin",
+    creatorId: "mariclare",
+    primaryManagerId: null,
+    backupManagerId: null,
+  })).ok, true);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
 });
 });

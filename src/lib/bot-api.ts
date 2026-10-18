@@ -5,6 +5,7 @@ import { DEAL_STATUSES, DRAFT_STATUSES, type DealStatus, type DraftStatus } from
 import { normalizeEmail, nowIso, safeEqual } from "./format";
 import { createApprovalEmail, listSendableApprovals, markApprovalSent } from "./approvals";
 import { setDealStage } from "./deal-stage";
+import { isPaymentStatus } from "./fulfillment";
 import { findCreatorByEmail, findCreatorById } from "./queries";
 import { isDealStage, workflowStageForLegacy, workflowStageForVideoStep } from "./stages";
 
@@ -289,6 +290,12 @@ export async function upsertPayment(db: PortalDb, body: unknown) {
     : typeof body.landedAmountCents === "number"
       ? body.landedAmountCents
       : current?.landedAmountCents ?? null;
+  if ("paymentStatus" in body && body.paymentStatus !== null && (typeof body.paymentStatus !== "string" || !isPaymentStatus(body.paymentStatus))) {
+    return { status: 400, body: { error: "paymentStatus must be brand_invoiced, brand_paid, creator_payout_pending, creator_paid, or null." } };
+  }
+  const paymentStatus = "paymentStatus" in body
+    ? (body.paymentStatus === null ? null : String(body.paymentStatus))
+    : current?.paymentStatus ?? null;
   const split = creator?.splitPercent ?? null;
   const basis = landedAmountCents ?? amountOwedCents;
   const creatorPayoutCents = split != null && basis != null ? Math.round((basis * split) / 100) : null;
@@ -315,14 +322,15 @@ export async function upsertPayment(db: PortalDb, body: unknown) {
       : typeof body.paidOutDate === "string"
         ? body.paidOutDate
         : current?.paidOutDate ?? null,
+    paymentStatus,
     updatedAt: timestamp,
   };
   if (current) {
     await db.update(payments).set(row).where(eq(payments.id, current.id));
-    return { status: 200, body: { id: current.id, creatorSplitPercent: split, creatorPayoutCents } };
+    return { status: 200, body: { id: current.id, creatorSplitPercent: split, creatorPayoutCents, paymentStatus } };
   }
   await db.insert(payments).values({ ...row, id, isSeed: false, createdAt: timestamp });
-  return { status: 201, body: { id, creatorSplitPercent: split, creatorPayoutCents } };
+  return { status: 201, body: { id, creatorSplitPercent: split, creatorPayoutCents, paymentStatus } };
 }
 
 export async function writeDailyAnalytics(db: PortalDb, body: unknown) {
