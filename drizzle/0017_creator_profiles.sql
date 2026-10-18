@@ -1,0 +1,40 @@
+-- Public creator profiles. This does not change any existing deal row. MariClare's KOSBLING deal is left exactly as it is.
+CREATE TABLE creator_profiles (
+  creator_id TEXT PRIMARY KEY,
+  profile_on INTEGER NOT NULL DEFAULT 0,
+  display_name TEXT,
+  display_name_on INTEGER NOT NULL DEFAULT 0,
+  avatar_on INTEGER NOT NULL DEFAULT 0,
+  bio TEXT,
+  bio_on INTEGER NOT NULL DEFAULT 0,
+  niches TEXT,
+  niches_on INTEGER NOT NULL DEFAULT 0,
+  handles TEXT,
+  handles_on INTEGER NOT NULL DEFAULT 0,
+  audience TEXT,
+  audience_on INTEGER NOT NULL DEFAULT 0,
+  formats TEXT,
+  formats_on INTEGER NOT NULL DEFAULT 0,
+  ask_me TEXT,
+  ask_me_on INTEGER NOT NULL DEFAULT 0,
+  collabs INTEGER NOT NULL DEFAULT 0,
+  collabs_on INTEGER NOT NULL DEFAULT 0,
+  state TEXT,
+  state_on INTEGER NOT NULL DEFAULT 0,
+  brands TEXT,
+  brands_on INTEGER NOT NULL DEFAULT 0,
+  child_name TEXT,
+  child_age TEXT,
+  family_on INTEGER NOT NULL DEFAULT 0,
+  joined_on INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE profile_admin_log (
+  id TEXT PRIMARY KEY,
+  creator_id TEXT NOT NULL,
+  field TEXT NOT NULL,
+  action TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  actor_name TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);

@@ -499,6 +499,47 @@ export const communityState = sqliteTable("community_state", {
   cursor: text("cursor").notNull(),
 });
 
+export const creatorProfiles = sqliteTable("creator_profiles", {
+  creatorId: text("creator_id").primaryKey(),
+  profileOn: integer("profile_on", { mode: "boolean" }).notNull().default(false),
+  displayName: text("display_name"),
+  displayNameOn: integer("display_name_on", { mode: "boolean" }).notNull().default(false),
+  avatarOn: integer("avatar_on", { mode: "boolean" }).notNull().default(false),
+  bio: text("bio"),
+  bioOn: integer("bio_on", { mode: "boolean" }).notNull().default(false),
+  niches: text("niches"),
+  nichesOn: integer("niches_on", { mode: "boolean" }).notNull().default(false),
+  handles: text("handles"),
+  handlesOn: integer("handles_on", { mode: "boolean" }).notNull().default(false),
+  audience: text("audience"),
+  audienceOn: integer("audience_on", { mode: "boolean" }).notNull().default(false),
+  formats: text("formats"),
+  formatsOn: integer("formats_on", { mode: "boolean" }).notNull().default(false),
+  askMe: text("ask_me"),
+  askMeOn: integer("ask_me_on", { mode: "boolean" }).notNull().default(false),
+  collabs: integer("collabs", { mode: "boolean" }).notNull().default(false),
+  collabsOn: integer("collabs_on", { mode: "boolean" }).notNull().default(false),
+  state: text("state"),
+  stateOn: integer("state_on", { mode: "boolean" }).notNull().default(false),
+  brands: text("brands"),
+  brandsOn: integer("brands_on", { mode: "boolean" }).notNull().default(false),
+  childName: text("child_name"),
+  childAge: text("child_age"),
+  familyOn: integer("family_on", { mode: "boolean" }).notNull().default(false),
+  joinedOn: integer("joined_on", { mode: "boolean" }).notNull().default(true),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const profileAdminLog = sqliteTable("profile_admin_log", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  field: text("field").notNull(),
+  action: text("action").notNull(),
+  reason: text("reason").notNull(),
+  actorName: text("actor_name").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),

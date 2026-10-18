@@ -32,6 +32,7 @@ Checked against Webflow Cloud docs on October 17, 2026 ([bring your own app](htt
 - Managers. An owner assigns each creator to a manager. That manager screens offers, reviews videos, and approves brand email for those creators. Approving contracts and countersigning stay with the owner unless he turns those on. Every stage change and approval records who did it.
 - Product and posting. Kamron or a manager enters the carrier and tracking number. The creator sees it and taps I got it, which turns on the draft upload. After the brand approves the video, she pastes the live links and the manager confirms they match the brief. Kamron marks brand invoiced, brand paid into the Momma Mari account, creator payout pending, and creator paid. Nothing is charged or sent automatically. He sees the 20% commission. She sees only her payout amount and status. A manager sees no amounts.
 - Email copies and BoldSign. When an email is approved, and again when the bot marks it sent, the portal saves a PDF. With Drive connected, that file goes in a folder named 04 Emails. Otherwise the portal keeps it, and the approval still succeeds. BoldSign stays off unless `BOLDSIGN_ENABLED=true`. Signing stays on this site at no extra cost while it is off.
+- Members. A creator opens My profile and turns on only the fields she wants on the Members page. The profile stays hidden until she does. Handles, pay, email, and notes stay off unless she checks that field, and pay is never a profile field. She can hide the whole profile in one click. Kamron can hide or reset one field and she is told why.
 
 Server-side rules, covered by `npm test`:
 
@@ -290,6 +291,10 @@ curl -sS \
   -H "Authorization: Bearer $BOT_API_TOKEN" \
   "http://localhost:43123/api/bot/posts"
 ```
+
+### Members
+
+Each creator has a profile that stays hidden until she turns it on. Every field is off except the month and year she joined. The directory shows only the fields she checked. It never shows pay, email, phone, or Kamron's notes. She can hide the whole profile in one click. Kamron can hide or reset one field, and she is told why. If she leaves the roster, the profile disappears.
 
 ### Email copies
 
