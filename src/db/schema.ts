@@ -50,6 +50,7 @@ export const deals = sqliteTable("deals", {
   nextStep: text("next_step"),
   botMessage: text("bot_message"),
   stage: integer("stage"),
+  workflowStage: text("workflow_stage"),
   uploadEnabled: integer("upload_enabled", { mode: "boolean" }).notNull(),
   uploadLabel: text("upload_label"),
   chipsJson: text("chips_json").notNull(),
@@ -150,6 +151,17 @@ export const analyticsPosts = sqliteTable("analytics_posts", {
   views: integer("views"),
   saves: integer("saves"),
   isExample: integer("is_example", { mode: "boolean" }).notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const dealStageEvents = sqliteTable("deal_stage_events", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull(),
+  fromStage: text("from_stage"),
+  toStage: text("to_stage").notNull(),
+  actorEmail: text("actor_email").notNull(),
+  actorRole: text("actor_role").notNull(),
+  note: text("note"),
   createdAt: text("created_at").notNull(),
 });
 

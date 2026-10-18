@@ -3,7 +3,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
-import { devLoginEnabled } from "@/lib/authz";
+import { canChangeDealStage, devLoginEnabled } from "@/lib/authz";
+import { currentViewer } from "@/lib/current-user";
+import { setDealStage } from "@/lib/deal-stage";
 import { resolveLogin } from "@/lib/queries";
 import { createSession, destroySession, sessionCookieName, sessionCookieOptions } from "@/lib/session";
 
@@ -13,6 +15,26 @@ export async function logoutAction() {
   await destroySession(db, jar.get(sessionCookieName())?.value);
   jar.delete(sessionCookieName());
   redirect("/login");
+}
+
+export async function changeDealStageAction(formData: FormData) {
+  const dealId = String(formData.get("dealId") ?? "");
+  const creator = String(formData.get("creator") ?? "");
+  const query = creator ? `?creator=${encodeURIComponent(creator)}` : "";
+  const back = `/deals/${dealId}${query}`;
+  const viewer = await currentViewer();
+  if (!viewer || !canChangeDealStage(viewer)) redirect("/login");
+  const db = await getDb();
+  const note = String(formData.get("note") ?? "").trim();
+  const result = await setDealStage(db, {
+    dealId,
+    toStage: String(formData.get("workflowStage") ?? ""),
+    actorEmail: viewer.email,
+    actorRole: "admin",
+    note,
+  });
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}stageError=1`);
+  redirect(back);
 }
 
 export async function devLoginAction(formData: FormData) {

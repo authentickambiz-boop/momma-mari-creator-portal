@@ -1,5 +1,6 @@
 import { DealBoard } from "@/components/deal-board";
 import { PortalFrame } from "@/components/portal-frame";
+import { canChangeDealStage } from "@/lib/authz";
 import { longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
@@ -9,7 +10,7 @@ export default async function DealPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ creator?: string }>;
+  searchParams: Promise<{ creator?: string; stageError?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const portal = await loadPortal(query.creator ?? null);
@@ -44,7 +45,15 @@ export default async function DealPage({
           <p className="note">If a brand is still in negotiation, Kamron hasn&apos;t turned it on for you yet.</p>
         </div>
       )}
-      <DealBoard deals={deals} selected={selected} showDetail={Boolean(selected)} listNote={portal.viewed?.listNote ?? null} creatorQuery={creatorQuery} />
+      <DealBoard
+        deals={deals}
+        selected={selected}
+        showDetail={Boolean(selected)}
+        listNote={portal.viewed?.listNote ?? null}
+        creatorQuery={creatorQuery}
+        canChangeStage={canChangeDealStage(portal.viewer)}
+        stageError={query.stageError === "1"}
+      />
     </PortalFrame>
   );
 }

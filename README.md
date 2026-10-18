@@ -120,7 +120,11 @@ curl -sS -X POST \
 
 ### Update a deal
 
-Known deal statuses: `pitch`, `negotiating`, `active`, `delivered`, `paid`. You can also set `visibleToCreator`, `nextStep`, `botMessage`, `stage` (number or null), `uploadEnabled`, `gmailThreadId`, and `kamronNotes`.
+Known deal statuses: `pitch`, `negotiating`, `active`, `delivered`, `paid`. You can also set `visibleToCreator`, `nextStep`, `botMessage`, `stage` (number or null), `workflowStage`, `stageNote`, `uploadEnabled`, `gmailThreadId`, and `kamronNotes`.
+
+`workflowStage` is the detailed stage id. Sending it records a stage-history row (actor `bot`) and moves the coarse `status` to that stage's bucket. A private `stageNote` is stored on that history row only. A status-only update does not move `workflowStage`. The old numeric `stage` is still the 5-step video bar (`0` draft due, `1` manager review, `2` brand revisions, `3` brand approved, `4` scheduled / posted) and, when sent as a number, also moves `workflowStage` to the matching stage. If the same request sends both a status and a stage, the explicit status wins.
+
+Stage ids, in order: `offer_received`, `offer_shared`, `creator_interested`, `interest_sent`, `contract_received`, `contract_review`, `revisions_requested`, `revised_contract`, `approved_by_agency`, `awaiting_signature`, `signed_by_creator`, `signed_sent`, `waiting_for_product`, `product_received`, `draft_due`, `draft_submitted`, `manager_review`, `sent_to_brand`, `brand_revisions`, `brand_approved`, `scheduled_posted`, `payment_pending`, `paid`. Side exits: `creator_declined`, `brand_quiet`, `cancelled`, `on_hold`. A new deal with no `workflowStage` starts at the stage that matches its status (or `offer_received` when the status is `pitch`) and stays hidden unless `visibleToCreator` is true. Moving a deal to `offer_shared` turns it on for the creator. `offer_received` and `creator_declined` turn it off, unless that same request also sets `visibleToCreator`.
 
 ```bash
 curl -sS -X PATCH \

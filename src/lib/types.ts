@@ -57,6 +57,17 @@ export type DealSummary = {
   pipelineCents: number | null;
   pipelineName: string | null;
   sortOrder: number;
+  workflowStage: string | null;
+};
+
+export type StageEventView = {
+  id: string;
+  fromStage: string | null;
+  toStage: string;
+  actorEmail: string;
+  actorRole: string;
+  note: string | null;
+  createdAt: string;
 };
 
 export type RevisionView = {
@@ -116,6 +127,7 @@ export type DealDetail = DealSummary & {
   kamronNotes: string | null;
   botMessage: string | null;
   stage: number | null;
+  stageEvents: StageEventView[] | null;
   uploadLabel: string | null;
   driveFolderId: string | null;
   revisions: RevisionView[];
