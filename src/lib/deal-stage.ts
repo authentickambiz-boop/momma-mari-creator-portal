@@ -6,16 +6,29 @@ import { creatorStageMessage, getDealStage, stageAdminLabel, type StageActorRole
 
 export async function setDealStage(
   db: PortalDb,
-  input: { dealId: string; toStage: string; actorEmail: string; actorRole: StageActorRole | string; note?: string | null },
+  input: {
+    dealId: string;
+    toStage: string;
+    actorEmail: string;
+    actorRole: StageActorRole | string;
+    note?: string | null;
+    creatorId?: string | null;
+  },
 ) {
-  if (input.actorRole !== "admin" && input.actorRole !== "bot" && input.actorRole !== "system") {
-    return { ok: false as const, status: 403, error: "You can't move this deal." };
-  }
   const stage = getDealStage(input.toStage);
   if (!stage) return { ok: false as const, status: 400, error: "That is not a deal stage." };
   const existing = await db.select().from(deals).where(eq(deals.id, input.dealId));
   const deal = existing[0];
   if (!deal) return { ok: false as const, status: 404, error: "Deal not found." };
+
+  const creatorChoice =
+    input.actorRole === "creator" &&
+    input.creatorId === deal.creatorId &&
+    deal.workflowStage === "offer_shared" &&
+    (stage.id === "creator_interested" || stage.id === "creator_declined");
+  if (input.actorRole !== "admin" && input.actorRole !== "bot" && input.actorRole !== "system" && !creatorChoice) {
+    return { ok: false as const, status: 403, error: "You can't move this deal." };
+  }
   if (deal.workflowStage === stage.id) {
     return { ok: true as const, changed: false, workflowStage: stage.id, status: deal.status };
   }

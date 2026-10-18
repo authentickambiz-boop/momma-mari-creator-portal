@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { changeDealStageAction } from "@/app/actions";
+import { changeDealStageAction, creatorInterestAction, releaseOfferAction } from "@/app/actions";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
 import { UploadBox } from "./upload-box";
@@ -30,6 +30,8 @@ export function DealBoard({
   creatorQuery,
   canChangeStage = false,
   stageError = false,
+  interestError = false,
+  releaseError = null,
 }: {
   deals: DealSummary[];
   selected: DealDetail | null;
@@ -38,6 +40,8 @@ export function DealBoard({
   creatorQuery: string;
   canChangeStage?: boolean;
   stageError?: boolean;
+  interestError?: boolean;
+  releaseError?: string | null;
 }) {
   return (
     <div className={showDetail ? "grid showdetail" : "grid"} id="dealGrid">
@@ -76,6 +80,8 @@ export function DealBoard({
             canChangeStage={canChangeStage}
             creatorQuery={creatorQuery}
             stageError={stageError}
+            interestError={interestError}
+            releaseError={releaseError}
           />
         ) : (
           <p className="note">Pick a deal to see the brief, the feedback, and where to upload.</p>
@@ -92,6 +98,8 @@ function DealDetailView({
   canChangeStage,
   creatorQuery,
   stageError,
+  interestError,
+  releaseError,
 }: {
   deal: DealDetail;
   backHref: string;
@@ -99,6 +107,8 @@ function DealDetailView({
   canChangeStage: boolean;
   creatorQuery: string;
   stageError: boolean;
+  interestError: boolean;
+  releaseError: string | null;
 }) {
   const creatorId = creatorQuery.startsWith("?creator=") ? creatorQuery.slice("?creator=".length) : "";
   const current = deal.workflowStage;
@@ -133,6 +143,55 @@ function DealDetailView({
           </div>
         </>
       ) : null}
+      {deal.canRespondToOffer ? (
+        <form action={creatorInterestAction} className="stage-form">
+          <input type="hidden" name="dealId" value={deal.id} />
+          <label>
+            Optional note
+            <input
+              type="text"
+              name="note"
+              placeholder="I'd want $500, or I can't post until November"
+              aria-label="Optional note"
+            />
+          </label>
+          <button className="btn" type="submit" name="decision" value="interested">I&apos;m interested</button>
+          <button className="btn ghost" type="submit" name="decision" value="declined">Not for me</button>
+          <p className="note">If you pass, put the reason in the note if you want. Kamron sees it. The brand only gets a polite note after he approves it, and your reason is not included unless he writes it in.</p>
+          {interestError ? <span className="note">That choice was not saved.</span> : null}
+        </form>
+      ) : null}
+      {deal.interest && !canChangeStage ? (
+        <p className="stage-note">
+          You said {deal.interest.decision === "interested" ? "you're interested" : "this isn't for you"}.
+          {deal.interest.note ? ` Note: ${deal.interest.note}` : ""}
+        </p>
+      ) : null}
+      {deal.canReleaseOffer ? (
+        <form action={releaseOfferAction} className="stage-form">
+          <input type="hidden" name="dealId" value={deal.id} />
+          {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+          <label>
+            Brand email
+            <input
+              type="email"
+              name="brandEmail"
+              required
+              defaultValue={deal.brandEmail ?? ""}
+              placeholder="hello@brand.com"
+              aria-label="Brand email"
+            />
+          </label>
+          <button className="btn" type="submit">Screened and released to creator</button>
+          {releaseError === "past" ? (
+            <span className="note">This deal is already past the offer. Nothing was changed.</span>
+          ) : releaseError ? (
+            <span className="note">Add the brand&apos;s email, then release the offer.</span>
+          ) : (
+            <p className="note">Until you release it, the creator does not see this offer.</p>
+          )}
+        </form>
+      ) : null}
       {canChangeStage ? (
         <form action={changeDealStageAction} className="stage-form">
           <input type="hidden" name="dealId" value={deal.id} />
@@ -156,6 +215,18 @@ function DealDetailView({
           <button className="btn" type="submit">Update stage</button>
           {stageError ? <span className="note">That stage was not saved.</span> : null}
         </form>
+      ) : null}
+      {canChangeStage && deal.offerReleased ? (
+        <p className="note">Screened and released to {deal.creatorName}.{deal.brandEmail ? ` Brand email: ${deal.brandEmail}.` : ""}</p>
+      ) : null}
+      {canChangeStage && deal.interest ? (
+        <div className="private-note">
+          <div className="sec-title">Creator&apos;s choice</div>
+          <p>
+            {deal.interest.decision === "interested" ? "I'm interested" : "Not for me"}
+            {deal.interest.note ? ` · ${deal.interest.note}` : ""}
+          </p>
+        </div>
       ) : null}
       {canChangeStage && deal.stageEvents && deal.stageEvents.length > 0 ? (
         <div className="private-note">

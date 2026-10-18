@@ -25,6 +25,7 @@ Checked against Webflow Cloud docs on October 17, 2026 ([bring your own app](htt
 - Seed data for MariClare (`mmaclamroc@gmail.com`): KOSBLING, VEV Gummies, WaterH, Persona, Sanvive, Halara, plus a Grail deal that stays hidden from her. `drizzle/0004_creator_profiles.sql` fills in Abby Theriot (`theofficialtheriots@gmail.com`) and AuthenticKam (`authentickambiz@gmail.com`).
 - Draft upload in 8 MB chunks. With Drive credentials, the portal opens a Google resumable session and forwards each chunk. The session URL stays on the server. The draft row stores the deal id, Drive file id, and the deal's Gmail thread id.
 - Bearer JSON API for the agency bot.
+- Creator interest. Kamron marks an offer "Screened and released to creator" before she can see it. She can say "I'm interested" or "Not for me". That moves the stage, tells Kamron, and drops a pending email into the approval queue. Nothing is sent until he approves it. The From address is `authentickambiz@gmail.com`.
 
 Server-side rules, covered by `npm test`:
 
@@ -168,6 +169,24 @@ curl -sS -X PATCH \
   -H "Content-Type: application/json" \
   -d '{"status":"active","visibleToCreator":true,"gmailThreadId":"REAL_THREAD_ID"}' \
   http://localhost:43123/api/bot/deals/persona
+```
+
+### Creator interest
+
+A creator only sees an offer after Kamron screens it. On the deal, he enters the brand email and clicks **Screened and released to creator**. That moves the deal to `offer_shared`, turns it on for her, and logs the screening. Unscreened offers stay hidden. Moving the stage menu to "Offer shared with creator" logs a screening too, when one is not already there.
+
+On that offer she sees **I'm interested** and **Not for me**, plus an optional note. She can only answer her own released offers, and only once.
+
+I'm interested moves the deal to `creator_interested`, writes stage history (her note stays on that history row), notifies Kamron, and drafts an interest email into the approval queue. The note is in the draft so Kamron can send the rate or the date she asked for. From is always `authentickambiz@gmail.com`. The draft stays pending until he approves it.
+
+Not for me asks for an optional reason, moves the deal to `creator_declined`, takes it off her list, and notifies Kamron. The reason is in his notice and in the stage history. The queued email is a polite no that tries to keep the relationship. It does not include her reason or a suggested creator. The draft is prefilled with the brand contact and a suggestion: another roster creator with a lower monthly goal when there is one, otherwise the next creator by name, plus another plan ("A gifted post or a smaller scope, if a full paid post doesn't fit."). Approving that decline saves the brand contact, the same way any other decline in the queue does. If Kamron rejects it, nothing is sent and the contact is not saved.
+
+`GET /api/bot/interest` returns those choices for Kash Bot (`?since=` is an ISO timestamp). It does not include mailbox tokens, and it does not send the email. Approved mail is still `GET /api/bot/approvals`.
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  "http://localhost:43123/api/bot/interest"
 ```
 
 ### Upsert a deal
