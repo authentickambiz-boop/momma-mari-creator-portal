@@ -4,6 +4,7 @@ import {
   analyticsDaily,
   analyticsPosts,
   creators,
+  dealStageEvents,
   deals,
   drafts,
   inboxItems,
@@ -75,6 +76,7 @@ function toSummary(row: typeof deals.$inferSelect, creatorName: string): DealSum
     pipelineCents: row.pipelineCents,
     pipelineName: row.pipelineName,
     sortOrder: row.sortOrder,
+    workflowStage: row.workflowStage,
   };
 }
 
@@ -194,10 +196,13 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
   const row = rows[0];
   if (!row || !canSeeDeal(viewer, row)) return null;
   const creator = await findCreatorById(db, row.creatorId);
-  const [revisionRows, draftRows, paymentRows] = await Promise.all([
+  const [revisionRows, draftRows, paymentRows, stageRows] = await Promise.all([
     db.select().from(revisions).where(eq(revisions.dealId, dealId)).orderBy(asc(revisions.sortOrder)),
     db.select().from(drafts).where(eq(drafts.dealId, dealId)).orderBy(asc(drafts.version)),
     db.select().from(payments).where(eq(payments.dealId, dealId)),
+    viewer.role === "admin"
+      ? db.select().from(dealStageEvents).where(eq(dealStageEvents.dealId, dealId)).orderBy(asc(dealStageEvents.createdAt))
+      : Promise.resolve([]),
   ]);
   const summary = toSummary(row, creator?.name ?? "Creator");
   return {
@@ -216,6 +221,17 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
     kamronNotes: viewer.role === "admin" ? row.kamronNotes : null,
     botMessage: row.botMessage,
     stage: row.stage,
+    stageEvents: viewer.role === "admin"
+      ? stageRows.map((event) => ({
+          id: event.id,
+          fromStage: event.fromStage,
+          toStage: event.toStage,
+          actorEmail: event.actorEmail,
+          actorRole: event.actorRole,
+          note: event.note,
+          createdAt: event.createdAt,
+        }))
+      : null,
     uploadLabel: row.uploadLabel,
     driveFolderId: row.driveFolderId,
     revisions: revisionRows.map(toRevision),

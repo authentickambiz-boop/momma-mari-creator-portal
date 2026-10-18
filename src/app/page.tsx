@@ -1,5 +1,6 @@
 import { DealBoard } from "@/components/deal-board";
 import { PortalFrame } from "@/components/portal-frame";
+import { canChangeDealStage } from "@/lib/authz";
 import { longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
@@ -39,6 +40,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         showDetail={false}
         listNote={portal.viewed?.listNote ?? null}
         creatorQuery={creatorQuery}
+        canChangeStage={canChangeDealStage(portal.viewer)}
       />
     </PortalFrame>
   );

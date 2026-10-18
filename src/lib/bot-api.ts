@@ -3,7 +3,9 @@ import type { PortalDb } from "@/db";
 import { analyticsDaily, creators, deals, drafts, payments, revisions } from "@/db/schema";
 import { DEAL_STATUSES, DRAFT_STATUSES, type DealStatus, type DraftStatus } from "./types";
 import { normalizeEmail, nowIso, safeEqual } from "./format";
+import { setDealStage } from "./deal-stage";
 import { findCreatorByEmail, findCreatorById } from "./queries";
+import { isDealStage, workflowStageForLegacy, workflowStageForVideoStep } from "./stages";
 
 export function authorizeBot(header: string | null) {
   const expected = process.env.BOT_API_TOKEN;
@@ -79,9 +81,37 @@ export async function updateDeal(db: PortalDb, dealId: string, body: unknown) {
   if (typeof body.uploadEnabled === "boolean") patch.uploadEnabled = body.uploadEnabled;
   if (typeof body.gmailThreadId === "string") patch.gmailThreadId = body.gmailThreadId;
   if (typeof body.kamronNotes === "string") patch.kamronNotes = body.kamronNotes;
+
+  const requestedStage = typeof body.workflowStage === "string"
+    ? body.workflowStage
+    : typeof body.stage === "number"
+      ? workflowStageForVideoStep(body.stage)
+      : null;
+  if (typeof body.workflowStage === "string" && !isDealStage(body.workflowStage)) {
+    return { status: 400, body: { error: "workflowStage is not a known deal stage." } };
+  }
+  if (requestedStage) {
+    const moved = await setDealStage(db, {
+      dealId,
+      toStage: requestedStage,
+      actorEmail: "bot",
+      actorRole: "bot",
+      note: typeof body.stageNote === "string" ? body.stageNote : null,
+    });
+    if (!moved.ok) return { status: moved.status, body: { error: moved.error } };
+  }
+
   await db.update(deals).set(patch).where(eq(deals.id, dealId));
   const updated = await db.select().from(deals).where(eq(deals.id, dealId));
-  return { status: 200, body: { id: dealId, status: updated[0]?.status, visibleToCreator: updated[0]?.visibleToCreator } };
+  return {
+    status: 200,
+    body: {
+      id: dealId,
+      status: updated[0]?.status,
+      visibleToCreator: updated[0]?.visibleToCreator,
+      workflowStage: updated[0]?.workflowStage,
+    },
+  };
 }
 
 export async function upsertDeal(db: PortalDb, body: unknown) {
@@ -159,8 +189,21 @@ export async function upsertDeal(db: PortalDb, body: unknown) {
   if (typeof body.uploadEnabled === "boolean") optional.uploadEnabled = body.uploadEnabled;
   if (typeof body.needsCreator === "boolean") optional.needsCreator = body.needsCreator;
   if (typeof body.stage === "number") optional.stage = body.stage;
+  if (typeof body.workflowStage === "string" && !isDealStage(body.workflowStage)) {
+    return { status: 400, body: { error: "workflowStage is not a known deal stage." } };
+  }
   if (existing[0]) {
     await db.update(deals).set({ ...base, ...optional }).where(eq(deals.id, body.id));
+    if (typeof body.workflowStage === "string") {
+      const moved = await setDealStage(db, {
+        dealId: body.id,
+        toStage: body.workflowStage,
+        actorEmail: "bot",
+        actorRole: "bot",
+      });
+      if (!moved.ok) return { status: moved.status, body: { error: moved.error } };
+      await reapplyExplicitDealFlags(db, body.id, optional);
+    }
     return { status: 200, body: { id: body.id, created: false } };
   }
   const maxSort = await db.select({ sortOrder: deals.sortOrder }).from(deals).orderBy(asc(deals.sortOrder));
@@ -181,7 +224,42 @@ export async function upsertDeal(db: PortalDb, body: unknown) {
     updatedAt: timestamp,
     ...optional,
   });
-  return { status: 201, body: { id: body.id, created: true, visibleToCreator: optional.visibleToCreator ?? false } };
+  const openingStage = typeof body.workflowStage === "string"
+    ? body.workflowStage
+    : workflowStageForLegacy(optional.status ?? "pitch", typeof optional.stage === "number" ? optional.stage : null);
+  const moved = await setDealStage(db, {
+    dealId: body.id,
+    toStage: openingStage,
+    actorEmail: "bot",
+    actorRole: "bot",
+  });
+  if (!moved.ok) return { status: moved.status, body: { error: moved.error } };
+  if (typeof body.workflowStage === "string") await reapplyExplicitDealFlags(db, body.id, optional);
+  else if (typeof optional.visibleToCreator === "boolean") {
+    await db.update(deals).set({ visibleToCreator: optional.visibleToCreator }).where(eq(deals.id, body.id));
+  }
+  const created = await db.select().from(deals).where(eq(deals.id, body.id));
+  return {
+    status: 201,
+    body: {
+      id: body.id,
+      created: true,
+      visibleToCreator: created[0]?.visibleToCreator ?? false,
+      workflowStage: created[0]?.workflowStage ?? moved.workflowStage,
+    },
+  };
+}
+
+async function reapplyExplicitDealFlags(
+  db: PortalDb,
+  dealId: string,
+  optional: Partial<typeof deals.$inferInsert>,
+) {
+  const followUp: Partial<typeof deals.$inferInsert> = {};
+  if (typeof optional.visibleToCreator === "boolean") followUp.visibleToCreator = optional.visibleToCreator;
+  if (typeof optional.status === "string") followUp.status = optional.status;
+  if (Object.keys(followUp).length === 0) return;
+  await db.update(deals).set(followUp).where(eq(deals.id, dealId));
 }
 
 export async function upsertPayment(db: PortalDb, body: unknown) {

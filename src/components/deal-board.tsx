@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { changeDealStageAction } from "@/app/actions";
+import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
 import { UploadBox } from "./upload-box";
 import type { DealDetail, DealSummary } from "@/lib/types";
@@ -26,12 +28,16 @@ export function DealBoard({
   showDetail,
   listNote,
   creatorQuery,
+  canChangeStage = false,
+  stageError = false,
 }: {
   deals: DealSummary[];
   selected: DealDetail | null;
   showDetail: boolean;
   listNote: string | null;
   creatorQuery: string;
+  canChangeStage?: boolean;
+  stageError?: boolean;
 }) {
   return (
     <div className={showDetail ? "grid showdetail" : "grid"} id="dealGrid">
@@ -51,6 +57,7 @@ export function DealBoard({
               </div>
               <div className="note">{creatorQuery.includes("all") ? `${deal.creatorName} · ` : ""}{deal.subtitle}</div>
               <Chips chips={deal.chips} />
+              {deal.workflowStage ? <div className="note">{stageShortLabel(deal.workflowStage)}</div> : null}
               {deal.nextStep ? <div className="next">→ {deal.nextStep}</div> : null}
             </Link>
           ))
@@ -61,13 +68,42 @@ export function DealBoard({
         ) : null}
       </div>
       <div className="detail card">
-        {selected ? <DealDetailView deal={selected} backHref={`/${creatorQuery}`} showOwner={creatorQuery.includes("all")} /> : <p className="note">Pick a deal to see the brief, the feedback, and where to upload.</p>}
+        {selected ? (
+          <DealDetailView
+            deal={selected}
+            backHref={`/${creatorQuery}`}
+            showOwner={creatorQuery.includes("all")}
+            canChangeStage={canChangeStage}
+            creatorQuery={creatorQuery}
+            stageError={stageError}
+          />
+        ) : (
+          <p className="note">Pick a deal to see the brief, the feedback, and where to upload.</p>
+        )}
       </div>
     </div>
   );
 }
 
-function DealDetailView({ deal, backHref, showOwner }: { deal: DealDetail; backHref: string; showOwner: boolean }) {
+function DealDetailView({
+  deal,
+  backHref,
+  showOwner,
+  canChangeStage,
+  creatorQuery,
+  stageError,
+}: {
+  deal: DealDetail;
+  backHref: string;
+  showOwner: boolean;
+  canChangeStage: boolean;
+  creatorQuery: string;
+  stageError: boolean;
+}) {
+  const creatorId = creatorQuery.startsWith("?creator=") ? creatorQuery.slice("?creator=".length) : "";
+  const current = deal.workflowStage;
+  const currentDef = trackStages().find((stage) => stage.id === current);
+  const onTrack = Boolean(currentDef);
   return (
     <>
       <Link href={backHref} className="btn ghost back">← All deals</Link>
@@ -75,7 +111,19 @@ function DealDetailView({ deal, backHref, showOwner }: { deal: DealDetail; backH
       <div className="sub">{deal.subtitle}{showOwner ? ` · ${deal.creatorName}` : ""}</div>
       <Chips chips={deal.chips} />
       {deal.isSeed ? <p className="note">Seed data from the Oct 17, 2026 mockup.</p> : null}
-      {deal.stage !== null ? (
+      {current ? (
+        <>
+          <div className="sec-title" style={{ marginTop: 14 }}>Where this deal is</div>
+          <p className="stage-note">{creatorStageMessage(current, deal.brand)}</p>
+          <div className="steps">
+            {trackStages().map((stage) => {
+              const state = !onTrack ? "" : stage.order! < currentDef!.order! ? "done" : stage.id === current ? "now" : "";
+              return <div key={stage.id} className={state}>{stage.order}. {stage.shortLabel}</div>;
+            })}
+          </div>
+          {!onTrack ? <p className="stage-note">Side step: {stageShortLabel(current)}. The main track is paused here.</p> : null}
+        </>
+      ) : deal.stage !== null ? (
         <>
           <div className="sec-title" style={{ marginTop: 14 }}>Where this deal is</div>
           <div className="steps">
@@ -84,6 +132,44 @@ function DealDetailView({ deal, backHref, showOwner }: { deal: DealDetail; backH
             ))}
           </div>
         </>
+      ) : null}
+      {canChangeStage ? (
+        <form action={changeDealStageAction} className="stage-form">
+          <input type="hidden" name="dealId" value={deal.id} />
+          {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+          <label>
+            Move this deal
+            <select name="workflowStage" defaultValue={current ?? "offer_received"}>
+              <optgroup label="Main track">
+                {trackStages().map((stage) => (
+                  <option key={stage.id} value={stage.id}>{stage.order}. {stage.adminLabel}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Passed or paused">
+                {sideStages().map((stage) => (
+                  <option key={stage.id} value={stage.id}>{stage.adminLabel}</option>
+                ))}
+              </optgroup>
+            </select>
+          </label>
+          <input type="text" name="note" placeholder="Note only you see" aria-label="Private note" />
+          <button className="btn" type="submit">Update stage</button>
+          {stageError ? <span className="note">That stage was not saved.</span> : null}
+        </form>
+      ) : null}
+      {canChangeStage && deal.stageEvents && deal.stageEvents.length > 0 ? (
+        <div className="private-note">
+          <div className="sec-title">Stage history</div>
+          <ul className="timeline">
+            {deal.stageEvents.map((event) => (
+              <li key={event.id}>
+                <div className="when">{event.createdAt.slice(0, 16).replace("T", " ")} · {event.actorEmail} ({event.actorRole})</div>
+                {stageAdminLabel(event.fromStage)} → {stageAdminLabel(event.toStage)}
+                {event.note ? ` · ${event.note}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
       {deal.botMessage ? (
         <div className="bot">

@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { before, describe, test } from "node:test";
 import { createDb, type PortalDb } from "../src/db/index";
 import { openDatabase } from "../src/db/local-d1";
-import { resolveViewedCreator } from "../src/lib/authz";
-import { addFeedback, authorizeBot, updateDeal, upsertCreator, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
+import { canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
+import { addFeedback, authorizeBot, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
+import { setDealStage } from "../src/lib/deal-stage";
+import { sideStages, trackStages } from "../src/lib/stages";
 import { creatorCutLabel, nextPayoutLabel, pipelineHeadline } from "../src/lib/format";
 import {
   findCreatorById,
@@ -198,6 +200,37 @@ test("the bot token is required and draft listing skips seed rows", async () => 
   assert.equal(withSeed[0]?.gmailThreadId, "seed-thread-waterh");
 });
 
+test("0006 maps existing deals onto the stage list without changing who can see them", async () => {
+  assert.equal(trackStages().length, 23);
+  assert.deepEqual(sideStages().map((stage) => stage.id), ["creator_declined", "brand_quiet", "cancelled", "on_hold"]);
+
+  const vev = await getDealForViewer(db, admin, "vev");
+  assert.equal(vev?.workflowStage, "draft_due");
+  assert.equal(vev?.status, "active");
+  assert.equal(vev?.stageEvents?.[0]?.id, "stage-migrate-vev");
+  assert.equal(vev?.stageEvents?.[0]?.actorRole, "system");
+  assert.equal(vev?.stageEvents?.[0]?.fromStage, null);
+  assert.match(vev?.stageEvents?.[0]?.note ?? "", /previous status/);
+
+  const waterh = await getDealForViewer(db, admin, "waterh");
+  assert.equal(waterh?.workflowStage, "brand_revisions");
+  const persona = await getDealForViewer(db, admin, "persona");
+  assert.equal(persona?.workflowStage, "contract_review");
+  assert.equal(persona?.status, "negotiating");
+  const grail = await getDealForViewer(db, admin, "grail");
+  assert.equal(grail?.workflowStage, "contract_review");
+  assert.equal(grail?.visibleToCreator, false);
+  const kosbling = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosbling?.workflowStage, "draft_due");
+  assert.equal(kosbling?.status, "active");
+
+  const creatorView = await getDealForViewer(db, mariclare, "vev");
+  assert.equal(creatorView?.stageEvents, null);
+  assert.equal(creatorView?.workflowStage, "draft_due");
+  const mari = await findCreatorById(db, "mariclare");
+  assert.equal(mari?.name, "MariClare");
+});
+
 test("the bot can post feedback, update status, set a split, and write real analytics", async () => {
   const feedback = await addFeedback(db, "vev", {
     summary: "Brand likes the hook. Please trim the first second.",
@@ -220,6 +253,10 @@ test("the bot can post feedback, update status, set a split, and write real anal
   assert.equal(missing.status, 404);
   const updated = await updateDeal(db, "persona", { status: "active", visibleToCreator: true });
   assert.equal(updated.status, 200);
+  if ("workflowStage" in updated.body) {
+    assert.equal(updated.body.workflowStage, "contract_review");
+    assert.equal(updated.body.status, "active");
+  }
 
   const payment = await upsertPayment(db, { dealId: "vev", creatorSplitPercent: 70, landedAmountCents: 120000, landedDate: "2026-10-20" });
   assert.equal(payment.status, 200);
@@ -254,5 +291,106 @@ test("replacing a placeholder email updates the allowlist", async () => {
   assert.equal(oldEmail.ok, false);
   assert.equal(newEmail.ok, true);
   if (newEmail.ok) assert.equal(newEmail.viewer.creatorId, "abby");
+});
+
+test("admins and the bot can move a deal's stage, and creators cannot", async () => {
+  assert.equal(canChangeDealStage(admin), true);
+  assert.equal(canChangeDealStage(mariclare), false);
+
+  const refused = await setDealStage(db, {
+    dealId: "waterh",
+    toStage: "brand_approved",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+  });
+  assert.equal(refused.ok, false);
+  if (!refused.ok) assert.equal(refused.status, 403);
+
+  const unknown = await updateDeal(db, "waterh", { workflowStage: "nope" });
+  assert.equal(unknown.status, 400);
+
+  const before = await getDealForViewer(db, admin, "waterh");
+  const beforeCount = before?.stageEvents?.length ?? 0;
+  const same = await setDealStage(db, {
+    dealId: "waterh",
+    toStage: "brand_revisions",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(same.ok, true);
+  if (same.ok) assert.equal(same.changed, false);
+  const still = await getDealForViewer(db, admin, "waterh");
+  assert.equal(still?.stageEvents?.length, beforeCount);
+
+  const stepped = await updateDeal(db, "waterh", { stage: 3 });
+  assert.equal(stepped.status, 200);
+  if ("workflowStage" in stepped.body) assert.equal(stepped.body.workflowStage, "brand_approved");
+  const approved = await getDealForViewer(db, admin, "waterh");
+  assert.equal(approved?.workflowStage, "brand_approved");
+  assert.equal(approved?.status, "active");
+  assert.equal(approved?.stage, 3);
+  assert.equal(approved?.stageEvents?.at(-1)?.actorRole, "bot");
+
+  const paid = await updateDeal(db, "sanvive", { workflowStage: "paid", stageNote: "Check cleared." });
+  assert.equal(paid.status, 200);
+  if ("status" in paid.body) assert.equal(paid.body.status, "paid");
+  const sanvive = await getDealForViewer(db, admin, "sanvive");
+  assert.equal(sanvive?.workflowStage, "paid");
+  assert.equal(sanvive?.stageEvents?.at(-1)?.note, "Check cleared.");
+  assert.equal(sanvive?.stageEvents?.at(-1)?.actorEmail, "bot");
+  const creatorSanvive = await getDealForViewer(db, mariclare, "sanvive");
+  assert.equal(creatorSanvive?.stageEvents, null);
+  assert.equal(creatorSanvive?.revisions.some((row) => row.summary.includes("Check cleared.")), false);
+  assert.match(creatorSanvive?.revisions.at(-1)?.summary ?? "", /Paid/);
+
+  const shared = await setDealStage(db, {
+    dealId: "grail",
+    toStage: "offer_shared",
+    actorEmail: admin.email,
+    actorRole: "admin",
+    note: "Screened after the call.",
+  });
+  assert.equal(shared.ok, true);
+  const shown = await getDealForViewer(db, mariclare, "grail");
+  assert.equal(shown?.visibleToCreator, true);
+  assert.equal(shown?.workflowStage, "offer_shared");
+  assert.equal(shown?.revisions.some((row) => row.summary.includes("Screened after the call.")), false);
+
+  const declined = await setDealStage(db, {
+    dealId: "grail",
+    toStage: "creator_declined",
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(declined.ok, true);
+  assert.equal(await getDealForViewer(db, mariclare, "grail"), null);
+  const hiddenAgain = await getDealForViewer(db, admin, "grail");
+  assert.equal(hiddenAgain?.workflowStage, "creator_declined");
+  assert.equal(hiddenAgain?.visibleToCreator, false);
+
+  const created = await upsertDeal(db, {
+    id: "newbrand",
+    creatorId: "mariclare",
+    brand: "New Brand",
+    status: "negotiating",
+  });
+  assert.equal(created.status, 201);
+  if ("workflowStage" in created.body) {
+    assert.equal(created.body.workflowStage, "contract_review");
+    assert.equal(created.body.visibleToCreator, false);
+  }
+  assert.equal(await getDealForViewer(db, mariclare, "newbrand"), null);
+
+  const shownBrand = await upsertDeal(db, {
+    id: "shownbrand",
+    creatorEmail: "mmaclamroc@gmail.com",
+    brand: "Shown Brand",
+    visibleToCreator: true,
+  });
+  assert.equal(shownBrand.status, 201);
+  if ("workflowStage" in shownBrand.body) {
+    assert.equal(shownBrand.body.workflowStage, "offer_received");
+    assert.equal(shownBrand.body.visibleToCreator, true);
+  }
 });
 });
