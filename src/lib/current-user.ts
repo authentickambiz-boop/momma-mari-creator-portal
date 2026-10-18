@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
-import { adminDisplayName } from "./authz";
+import { adminDisplayName, resolveViewedCreator } from "./authz";
+import { assignedCreatorIds, findManagerByEmail } from "./managers";
 import { findCreatorById, listCreators } from "./queries";
-import { resolveViewedCreator } from "./authz";
 import { readSession, sessionCookieName } from "./session";
 import type { Viewer } from "./types";
 
@@ -14,6 +14,20 @@ export async function currentViewer(): Promise<Viewer | null> {
   if (!session) return null;
   if (session.role === "admin") {
     return { email: session.email, role: "admin", creatorId: null, name: adminDisplayName(), initials: "K" };
+  }
+  if (session.role === "manager") {
+    const manager = await findManagerByEmail(db, session.email);
+    if (!manager || !manager.active) return null;
+    return {
+      email: manager.email,
+      role: "manager",
+      creatorId: null,
+      name: manager.name,
+      initials: manager.name.slice(0, 1).toUpperCase(),
+      managerId: manager.id,
+      permissions: manager.permissions,
+      assignedCreatorIds: await assignedCreatorIds(db, manager.id),
+    };
   }
   if (!session.creatorId) return null;
   const creator = await findCreatorById(db, session.creatorId);
@@ -36,7 +50,10 @@ export async function requireViewer() {
 export async function loadPortal(requested: string | null) {
   const viewer = await requireViewer();
   const db = await getDb();
-  const creators = await listCreators(db);
+  const everyone = await listCreators(db);
+  const creators = viewer.role === "manager"
+    ? everyone.filter((creator) => (viewer.assignedCreatorIds ?? []).includes(creator.id))
+    : everyone;
   const viewedId = resolveViewedCreator(
     viewer,
     requested,

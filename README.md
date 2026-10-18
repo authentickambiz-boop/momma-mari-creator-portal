@@ -19,7 +19,8 @@ Checked against Webflow Cloud docs on October 17, 2026 ([bring your own app](htt
 
 ## What runs today
 
-- Google sign-in (authorization code) with an allowlist. Admin emails come from `ADMIN_EMAILS`. Creator emails come from the `creators` table. A stranger is rejected. The same person is never both; admin is checked first.
+- Google sign-in (authorization code) with an allowlist. Admin emails in `ADMIN_EMAILS` are owners. Managers are added on the Team page and sign in with their own Google email. Creator emails come from the `creators` table. A stranger is rejected. An owner address is checked first, then a manager, then a creator.
+- Team. Kamron opens Team, adds a manager by the Google email they will use to sign in, and assigns each creator a primary manager and an optional backup. The manager sees My creators and a Needs you list, and only those creators. They do not see other creators, the Team page, earnings, or payout amounts. Owners still see everyone and can override any decision.
 - Sessions are an HMAC-signed httpOnly cookie, stored in the database and, on Webflow Cloud, also in KV.
 - Deal list and deal detail, earnings, analytics, and connect-accounts, laid out to match the approved October 17, 2026 mockup.
 - Seed data for MariClare (`mmaclamroc@gmail.com`): KOSBLING, VEV Gummies, WaterH, Persona, Sanvive, Halara, plus a Grail deal that stays hidden from her. `drizzle/0004_creator_profiles.sql` fills in Abby Theriot (`theofficialtheriots@gmail.com`) and AuthenticKam (`authentickambiz@gmail.com`).
@@ -28,6 +29,7 @@ Checked against Webflow Cloud docs on October 17, 2026 ([bring your own app](htt
 - Creator interest. Kamron marks an offer "Screened and released to creator" before she can see it. She can say "I'm interested" or "Not for me". That moves the stage, tells Kamron, and drops a pending email into the approval queue. Nothing is sent until he approves it. The From address is `authentickambiz@gmail.com`.
 - Contract versions. An admin uploads the brand's PDF or DOCX. Each file is kept (v1, v2, …) in a Contracts folder. A private checklist stays with Kamron. Asking the brand for changes queues an email from `authentickambiz@gmail.com`. Approving the contract is admin-only and tells the creator the file is ready to sign. She never sees the checklist notes.
 - Click-to-sign. After Kamron approves a PDF (or a DocuSign-marked PDF), the creator opens it on the sign page, agrees to sign electronically, and types or draws her signature. The portal stamps that signature on the PDF, adds a certificate page, and keeps every copy. A signed-contract email to the brand waits in the approval queue, from `authentickambiz@gmail.com`, until Kamron approves it. Have an attorney review this e-sign wording before you rely on it.
+- Managers. An owner assigns each creator to a manager. That manager screens offers, reviews videos, and approves brand email for those creators. Approving contracts and countersigning stay with the owner unless he turns those on. Every stage change and approval records who did it.
 
 Server-side rules, covered by `npm test`:
 
@@ -254,6 +256,18 @@ curl -sS \
   -H "Authorization: Bearer $BOT_API_TOKEN" \
   "http://localhost:43123/api/bot/signatures"
 ```
+
+### Owners and managers
+
+Kamron's address in `ADMIN_EMAILS` is an owner. He sees every creator, the Team page, earnings, and payout amounts, and he can override any decision.
+
+To add the first manager, sign in as Kamron and open **Team**. Enter the manager's name and the Google email they will use to sign in. Leave the defaults: approve brand emails on, approve videos on, approve contracts off, countersign off. Then assign a creator, such as MariClare, as that manager's primary. A backup is optional. You can move a creator to someone else at any time.
+
+That manager signs in with the same Google email. They see **My creators** and a **Needs you** list for the people you assigned. They can screen and release offers, approve those creators' brand emails, review videos, and move stages. They do not see other creators, the Team page, earnings, or payout amounts. Contract approval and countersigning stay with you until you turn those toggles on for that manager. Deactivate a manager from Team when they should no longer sign in.
+
+Notices go to the primary manager. If that manager is missing or deactivated and a backup is active, the backup gets the notice and you get a copy. If nobody is assigned, you get it, the same as before.
+
+The bot lists stay the same shape and add the assigned primary manager (`manager` is `{ id, name, email }` or `null`). They still do not return a mailbox token.
 
 ### Upsert a deal
 

@@ -27,6 +27,8 @@ export const creators = sqliteTable("creators", {
   emailSetup: text("email_setup"),
   hostedEmailAddress: text("hosted_email_address"),
   signerIsMinor: integer("signer_is_minor", { mode: "boolean" }).notNull().default(false),
+  primaryManagerId: text("primary_manager_id"),
+  backupManagerId: text("backup_manager_id"),
   isSeed: integer("is_seed", { mode: "boolean" }).notNull(),
   createdAt: text("created_at").notNull(),
 });
@@ -45,10 +47,24 @@ export const creatorOnboarding = sqliteTable("creator_onboarding", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const managers = sqliteTable("managers", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  canApproveEmail: integer("can_approve_email", { mode: "boolean" }).notNull().default(true),
+  canApproveVideo: integer("can_approve_video", { mode: "boolean" }).notNull().default(true),
+  canApproveContract: integer("can_approve_contract", { mode: "boolean" }).notNull().default(false),
+  canCountersign: integer("can_countersign", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull(),
+  deactivatedAt: text("deactivated_at"),
+});
+
 export const adminNotifications = sqliteTable("admin_notifications", {
   id: text("id").primaryKey(),
   kind: text("kind").notNull(),
   creatorId: text("creator_id"),
+  managerId: text("manager_id"),
   message: text("message").notNull(),
   createdAt: text("created_at").notNull(),
   readAt: text("read_at"),

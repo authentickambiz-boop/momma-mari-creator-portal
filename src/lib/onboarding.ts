@@ -9,6 +9,7 @@ import {
   type EmailSetup,
 } from "./email-setup";
 import { normalizeEmail, nowIso } from "./format";
+import { assignedManagersByCreator, notifyStaff } from "./managers";
 import { ONBOARDING_PLATFORMS, type OnboardingPlatform } from "./onboarding-fields";
 import { encryptToken } from "./token-crypto";
 
@@ -111,26 +112,13 @@ export async function saveEmailSetup(
     }
     hostedEmailAddress = address;
     const message = hostedEmailRequestMessage(address);
-    const existing = await db.select().from(adminNotifications).where(and(
-      eq(adminNotifications.creatorId, creatorId),
-      eq(adminNotifications.kind, HOSTED_EMAIL_KIND),
-      isNull(adminNotifications.readAt),
-    ));
-    if (existing[0]) {
-      if (existing[0].message !== message) {
-        await db.update(adminNotifications).set({ message }).where(eq(adminNotifications.id, existing[0].id));
-      }
-    } else {
-      await db.insert(adminNotifications).values({
-        id: crypto.randomUUID(),
-        kind: HOSTED_EMAIL_KIND,
-        creatorId,
-        message,
-        createdAt: nowIso(),
-        readAt: null,
-      });
-      notified = true;
-    }
+    const sent = await notifyStaff(db, {
+      kind: HOSTED_EMAIL_KIND,
+      creatorId,
+      message,
+      upsert: true,
+    });
+    notified = sent.notified;
   }
   await db.update(creators).set({
     emailSetup: choice,
@@ -198,15 +186,12 @@ export async function finishOnboarding(db: PortalDb, creatorId: string, input: O
     )))[0];
   let notified = false;
   if (!alreadyTold) {
-    await db.insert(adminNotifications).values({
-      id: crypto.randomUUID(),
+    const sent = await notifyStaff(db, {
       kind: "creator_ready",
       creatorId,
       message: CREATOR_READY_MESSAGE,
-      createdAt: timestamp,
-      readAt: null,
     });
-    notified = true;
+    notified = sent.notified;
   }
   return { ok: true as const, finishedAt: timestamp, notified };
 }
@@ -229,12 +214,14 @@ export type FinishedOnboarding = {
   platforms: string[];
   finishedAt: string;
   message: string;
+  manager: { id: string; name: string; email: string } | null;
 };
 
 export async function listFinishedOnboarding(db: PortalDb, since: string | null): Promise<FinishedOnboarding[]> {
-  const [profiles, people] = await Promise.all([
+  const [profiles, people, managerByCreator] = await Promise.all([
     db.select().from(creatorOnboarding),
     db.select().from(creators),
+    assignedManagersByCreator(db),
   ]);
   const byId = new Map(people.map((creator) => [creator.id, creator]));
   return profiles
@@ -262,6 +249,7 @@ export async function listFinishedOnboarding(db: PortalDb, since: string | null)
         platforms: JSON.parse(profile.platformsJson) as string[],
         finishedAt: profile.finishedAt ?? "",
         message: CREATOR_READY_MESSAGE,
+        manager: managerByCreator.get(profile.creatorId) ?? null,
       }];
     });
 }
@@ -269,8 +257,8 @@ export async function listFinishedOnboarding(db: PortalDb, since: string | null)
 async function unreadNotes(db: PortalDb, kind?: string) {
   const [notes, people] = await Promise.all([
     db.select().from(adminNotifications).where(kind
-      ? and(eq(adminNotifications.kind, kind), isNull(adminNotifications.readAt))
-      : isNull(adminNotifications.readAt),
+      ? and(eq(adminNotifications.kind, kind), isNull(adminNotifications.readAt), isNull(adminNotifications.managerId))
+      : and(isNull(adminNotifications.readAt), isNull(adminNotifications.managerId)),
     ).orderBy(asc(adminNotifications.createdAt)),
     db.select().from(creators),
   ]);
@@ -302,9 +290,16 @@ export async function listUnreadCreatorReady(db: PortalDb) {
   }));
 }
 
-export async function dismissNotification(db: PortalDb, id: string) {
+export async function dismissNotification(
+  db: PortalDb,
+  id: string,
+  actor?: { role: string; managerId?: string | null },
+) {
   const rows = await db.select().from(adminNotifications).where(eq(adminNotifications.id, id));
   if (!rows[0]) return { ok: false as const, status: 404, error: "Notification not found." };
+  if (actor?.role === "manager" && rows[0].managerId !== actor.managerId) {
+    return { ok: false as const, status: 403, error: "That notice isn't yours." };
+  }
   await db.update(adminNotifications).set({ readAt: nowIso() }).where(eq(adminNotifications.id, id));
   return { ok: true as const };
 }

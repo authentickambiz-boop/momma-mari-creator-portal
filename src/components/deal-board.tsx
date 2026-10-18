@@ -30,6 +30,11 @@ export function DealBoard({
   listNote,
   creatorQuery,
   canChangeStage = false,
+  canApproveVideo = false,
+  canReviewContract = false,
+  canCountersign = false,
+  isOwner = false,
+  canSign = false,
   stageError = false,
   interestError = false,
   releaseError = null,
@@ -42,6 +47,11 @@ export function DealBoard({
   listNote: string | null;
   creatorQuery: string;
   canChangeStage?: boolean;
+  canApproveVideo?: boolean;
+  canReviewContract?: boolean;
+  canCountersign?: boolean;
+  isOwner?: boolean;
+  canSign?: boolean;
   stageError?: boolean;
   interestError?: boolean;
   releaseError?: string | null;
@@ -83,6 +93,11 @@ export function DealBoard({
             backHref={`/${creatorQuery}`}
             showOwner={creatorQuery.includes("all")}
             canChangeStage={canChangeStage}
+            canApproveVideo={canApproveVideo}
+            canReviewContract={canReviewContract}
+            canCountersign={canCountersign}
+            isOwner={isOwner}
+            canSign={canSign}
             creatorQuery={creatorQuery}
             stageError={stageError}
             interestError={interestError}
@@ -103,6 +118,11 @@ function DealDetailView({
   backHref,
   showOwner,
   canChangeStage,
+  canApproveVideo,
+  canReviewContract,
+  canCountersign,
+  isOwner,
+  canSign,
   creatorQuery,
   stageError,
   interestError,
@@ -114,6 +134,11 @@ function DealDetailView({
   backHref: string;
   showOwner: boolean;
   canChangeStage: boolean;
+  canApproveVideo: boolean;
+  canReviewContract: boolean;
+  canCountersign: boolean;
+  isOwner: boolean;
+  canSign: boolean;
   creatorQuery: string;
   stageError: boolean;
   interestError: boolean;
@@ -299,7 +324,10 @@ function DealDetailView({
       </div>
       <ContractSection
         deal={deal}
-        canChangeStage={canChangeStage}
+        canReviewContract={canReviewContract}
+        canCountersign={canCountersign}
+        isOwner={isOwner}
+        canSign={canSign}
         creatorId={creatorId}
         contractError={contractError}
       />
@@ -320,7 +348,7 @@ function DealDetailView({
       </div>
       {deal.kamronNotes ? (
         <div className="private-note">
-          <div className="sec-title">Only Kamron sees this</div>
+          <div className="sec-title">{isOwner ? "Only Kamron sees this" : "Private note"}</div>
           {deal.kamronNotes}
         </div>
       ) : null}
@@ -343,7 +371,7 @@ function DealDetailView({
                 {draft.review?.decision === "approved" ? (
                   <div className="note">Approved by your manager, sending to {deal.brand}.</div>
                 ) : null}
-                {canChangeStage && !draft.isSeed && draft.status === "new" && !draft.review ? (
+                {canApproveVideo && !draft.isSeed && draft.status === "new" && !draft.review ? (
                   <form action={reviewDraftAction} className="stage-form">
                     <input type="hidden" name="dealId" value={deal.id} />
                     <input type="hidden" name="draftId" value={draft.id} />
@@ -381,26 +409,33 @@ function DealDetailView({
 
 function ContractSection({
   deal,
-  canChangeStage,
+  canReviewContract,
+  canCountersign,
+  isOwner,
+  canSign,
   creatorId,
   contractError,
 }: {
   deal: DealDetail;
-  canChangeStage: boolean;
+  canReviewContract: boolean;
+  canCountersign: boolean;
+  isOwner: boolean;
+  canSign: boolean;
   creatorId: string;
   contractError: string | null;
 }) {
   const open = contractStageOpen(deal.workflowStage);
-  if (canChangeStage && !open && deal.contracts.length === 0) return null;
-  if (!canChangeStage && deal.contracts.length === 0) return null;
+  if (canReviewContract && !open && deal.contracts.length === 0) return null;
+  if (!canReviewContract && deal.contracts.length === 0) return null;
   return (
     <div className="box" id="contract">
       <div className="sec-title">Contract</div>
-      {canChangeStage ? (
+      {canReviewContract ? (
         <>
           <p className="note">
             Upload the brand&apos;s contract. Each file is kept as the next version in the Contracts folder. Nothing is overwritten.
           </p>
+          {isOwner ? (
           <form action={setSignerMinorAction} className="stage-form">
             <input type="hidden" name="dealId" value={deal.id} />
             <input type="hidden" name="creatorId" value={deal.creatorId} />
@@ -410,6 +445,7 @@ function ContractSection({
             </label>
             <button className="btn ghost" type="submit">Save signer</button>
           </form>
+          ) : null}
           {deal.signerIsMinor ? (
             <p className="note">A parent or guardian has to sign. Kamron is flagged when they do.</p>
           ) : null}
@@ -459,7 +495,7 @@ function ContractSection({
                 {contract.driveFileUrl ? <> · <a href={contract.driveFileUrl}>Drive file</a></> : null}
               </div>
               <div className="private-note">
-                <div className="sec-title">Only Kamron sees this</div>
+                <div className="sec-title">{isOwner ? "Only Kamron sees this" : "Checklist"}</div>
                 {(contract.checks ?? CONTRACT_CHECKS.map((item) => ({ ...item, item: item.id, status: "unchecked", note: null }))).map((check) => (
                   <div key={check.item} className="contract-item">
                     <b>{check.label}</b>
@@ -501,7 +537,7 @@ function ContractSection({
                 )}
               </div>
             </form>
-            {copies.filter((row) => row.status !== "void" || canChangeStage).map((row) => (
+            {copies.filter((row) => row.status !== "void" || canReviewContract).map((row) => (
               <p key={row.id} className="note">
                 {row.status === "requested" ? "Waiting for a signature" : row.status === "pending_countersign" ? "Waiting for Momma Mari to countersign" : row.status === "void" ? "Replaced" : "Signed"}
                 {row.signerName ? ` · ${row.signerName}` : ""}
@@ -510,7 +546,7 @@ function ContractSection({
                 {row.signedFilename ? <> · <a href={`/api/deals/${deal.id}/signatures/${row.id}/file`}>{row.signedFilename}</a></> : null}
               </p>
             ))}
-            {waiting ? <p><Link href={`/deals/${deal.id}/sign?contract=${contract.id}${signQuery}`}>Countersign</Link></p> : null}
+            {waiting && canCountersign ? <p><Link href={`/deals/${deal.id}/sign?contract=${contract.id}${signQuery}`}>Countersign</Link></p> : null}
             {signWindow && contract.status === "approved" && !filed ? (
               <form action={uploadBrandSignedCopyAction} className="stage-form">
                 <input type="hidden" name="dealId" value={deal.id} />
@@ -540,7 +576,7 @@ function ContractSection({
                 v{contract.version} · {contract.filename} · {contract.signingLabel}
                 {contract.driveFileUrl ? <> · <a href={contract.driveFileUrl}>Open contract</a></> : null}
                 {contract.countersign ? <div className="note">Momma Mari will countersign.</div> : null}
-                {signWindow && requested && signable ? (
+                {signWindow && requested && signable && canSign ? (
                   <div><Link href={`/deals/${deal.id}/sign?contract=${contract.id}`}>Sign this contract</Link></div>
                 ) : null}
                 {copies.map((row) => (

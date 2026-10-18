@@ -13,9 +13,10 @@ export default async function ApprovalsPage({
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
   if (!canApproveEmail(portal.viewer)) redirect("/");
-  const items = await listApprovalQueue(portal.db, portal.viewedId);
+  const limitTo = portal.viewer.role === "manager" ? portal.viewer.assignedCreatorIds ?? [] : undefined;
+  const items = await listApprovalQueue(portal.db, portal.viewedId, limitTo);
   const waiting = items.filter((item) => item.status === "pending").length;
-  const creatorQuery = portal.viewer.role === "admin" ? portal.viewedId : "";
+  const creatorQuery = portal.viewer.role === "admin" || portal.viewer.role === "manager" ? portal.viewedId : "";
   return (
     <PortalFrame
       viewer={portal.viewer}

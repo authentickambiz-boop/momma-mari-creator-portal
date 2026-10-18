@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { chooseEmailSetupAction } from "@/app/actions";
 import { EmailSetupForm } from "@/components/email-setup-form";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
@@ -23,6 +24,7 @@ export default async function OnboardingPage({
 }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
+  if (portal.viewer.role === "manager") redirect("/");
   const creator = portal.viewed;
   const connection = creator ? await gmailConnectionState(portal.db, creator.id) : null;
   const profile = creator ? await onboardingForCreator(portal.db, creator.id) : null;

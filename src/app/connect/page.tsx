@@ -37,6 +37,7 @@ export default async function ConnectPage({ searchParams }: { searchParams: Prom
               gmailEmail={connections[index]?.gmailEmail ?? null}
               emailSetup={setups[index]?.choice ?? null}
               hostedEmailAddress={setups[index]?.hostedEmailAddress ?? null}
+              showBilling={portal.viewer.role !== "manager"}
             />
           </section>
         ))}

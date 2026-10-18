@@ -4,7 +4,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { reviewApproval } from "@/lib/approvals";
-import { canApproveEmail, canChangeDealStage, devLoginEnabled } from "@/lib/authz";
+import { canApproveContract, canApproveEmail, canApproveVideo, canChangeDealStage, canCountersign, devLoginEnabled } from "@/lib/authz";
+import { addManager, assignCreatorManagers, setManagerActive, setManagerPermissions } from "@/lib/managers";
 import { currentViewer } from "@/lib/current-user";
 import { logOfferScreening, recordCreatorInterest, releaseOffer } from "@/lib/creator-interest";
 import { approveContract, requestContractRevisions, saveChecklist, saveContract, setSigningFormat } from "@/lib/contracts";
@@ -38,7 +39,7 @@ export async function changeDealStageAction(formData: FormData) {
     dealId,
     toStage: String(formData.get("workflowStage") ?? ""),
     actorEmail: viewer.email,
-    actorRole: "admin",
+    actorRole: viewer.role,
     note,
   });
   if (!result.ok) redirect(`${back}${query ? "&" : "?"}stageError=1`);
@@ -54,12 +55,12 @@ export async function releaseOfferAction(formData: FormData) {
   const query = creator ? `?creator=${encodeURIComponent(creator)}` : "";
   const back = `/deals/${dealId}${query}`;
   const viewer = await currentViewer();
-  if (!viewer || viewer.role !== "admin") redirect("/login");
+  if (!viewer || !canChangeDealStage(viewer)) redirect("/login");
   const db = await getDb();
   const result = await releaseOffer(db, {
     dealId,
     actorEmail: viewer.email,
-    actorRole: "admin",
+    actorRole: viewer.role,
     brandEmail: String(formData.get("brandEmail") ?? ""),
     note: String(formData.get("note") ?? ""),
   });
@@ -95,7 +96,7 @@ export async function reviewDraftAction(formData: FormData) {
   const query = creator ? `?creator=${encodeURIComponent(creator)}` : "";
   const back = `/deals/${dealId}${query}`;
   const viewer = await currentViewer();
-  if (!viewer || viewer.role !== "admin") redirect("/login");
+  if (!viewer || !canApproveVideo(viewer)) redirect("/login");
   const db = await getDb();
   const result = await reviewDraft(db, {
     draftId: String(formData.get("draftId") ?? ""),
@@ -103,7 +104,7 @@ export async function reviewDraftAction(formData: FormData) {
     note: String(formData.get("note") ?? ""),
     brandEmail: String(formData.get("brandEmail") ?? ""),
     actorEmail: viewer.email,
-    actorRole: "admin",
+    actorRole: viewer.role,
   });
   if (!result.ok) {
     const code = result.status === 400 && result.error.includes("brand email") ? "email" : result.status === 400 ? "note" : "1";
@@ -131,7 +132,7 @@ export async function uploadContractAction(formData: FormData) {
   const creator = String(formData.get("creator") ?? "");
   const { query, back } = contractBack(dealId, creator);
   const viewer = await currentViewer();
-  if (!viewer || viewer.role !== "admin") redirect("/login");
+  if (!viewer || !canApproveContract(viewer)) redirect("/login");
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     redirect(`${back}${query ? "&" : "?"}contractError=type`);
@@ -145,7 +146,7 @@ export async function uploadContractAction(formData: FormData) {
     docusign: formData.get("docusign") === "1",
     countersign: formData.get("countersign") === "1",
     actorEmail: viewer.email,
-    actorRole: "admin",
+    actorRole: viewer.role,
   });
   if (!result.ok) redirect(`${back}${query ? "&" : "?"}contractError=${contractErrorCode(result.error)}`);
   redirect(back);
@@ -157,7 +158,7 @@ export async function contractReviewAction(formData: FormData) {
   const creator = String(formData.get("creator") ?? "");
   const { query, back } = contractBack(dealId, creator);
   const viewer = await currentViewer();
-  if (!viewer || viewer.role !== "admin") redirect("/login");
+  if (!viewer || !canApproveContract(viewer)) redirect("/login");
   const intent = String(formData.get("intent") ?? "save");
   const checks = CONTRACT_CHECKS.map((item) => ({
     item: item.id,
@@ -178,7 +179,7 @@ export async function contractReviewAction(formData: FormData) {
   }
 
   if (signingFormat) {
-    const format = await setSigningFormat(db, { contractId, signingFormat, actorRole: "admin" });
+    const format = await setSigningFormat(db, { contractId, signingFormat, actorRole: viewer.role, actorEmail: viewer.email });
     if (!format.ok) redirect(`${back}${query ? "&" : "?"}contractError=${contractErrorCode(format.error)}`);
   }
 
@@ -187,7 +188,7 @@ export async function contractReviewAction(formData: FormData) {
     checks,
     countersign,
     actorEmail: viewer.email,
-    actorRole: "admin",
+    actorRole: viewer.role,
     moveStage: intent !== "approve",
   });
   if (!saved.ok) redirect(`${back}${query ? "&" : "?"}contractError=${contractErrorCode(saved.error)}`);
@@ -198,7 +199,7 @@ export async function contractReviewAction(formData: FormData) {
       changes,
       brandEmail: String(formData.get("brandEmail") ?? ""),
       actorEmail: viewer.email,
-      actorRole: "admin",
+      actorRole: viewer.role,
     });
     if (!result.ok) redirect(`${back}${query ? "&" : "?"}contractError=${contractErrorCode(result.error)}`);
   }
@@ -207,7 +208,7 @@ export async function contractReviewAction(formData: FormData) {
     const result = await approveContract(db, {
       contractId,
       actorEmail: viewer.email,
-      actorRole: "admin",
+      actorRole: viewer.role,
     });
     if (!result.ok) redirect(`${back}${query ? "&" : "?"}contractError=${contractErrorCode(result.error)}`);
   }
@@ -276,13 +277,13 @@ export async function countersignContractAction(formData: FormData) {
   const contractId = String(formData.get("contractId") ?? "");
   const creator = String(formData.get("creator") ?? "");
   const viewer = await currentViewer();
-  if (!viewer || viewer.role !== "admin") redirect("/login");
+  if (!viewer || !canCountersign(viewer)) redirect("/login");
   const db = await getDb();
   const audit = await clientAudit();
   const result = await countersignContract(db, {
     contractId,
     actorEmail: viewer.email,
-    actorRole: "admin",
+    actorRole: viewer.role,
     legalName: String(formData.get("legalName") ?? ""),
     signatureKind: String(formData.get("signatureKind") ?? ""),
     signaturePng: String(formData.get("signaturePng") ?? ""),
@@ -302,7 +303,7 @@ export async function uploadBrandSignedCopyAction(formData: FormData) {
   const creator = String(formData.get("creator") ?? "");
   const { query, back } = contractBack(dealId, creator);
   const viewer = await currentViewer();
-  if (!viewer || viewer.role !== "admin") redirect("/login");
+  if (!viewer || !canApproveContract(viewer)) redirect("/login");
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     redirect(`${back}${query ? "&" : "?"}contractError=upload`);
@@ -312,7 +313,7 @@ export async function uploadBrandSignedCopyAction(formData: FormData) {
   const result = await uploadBrandSignedCopy(db, {
     contractId,
     actorEmail: viewer.email,
-    actorRole: "admin",
+    actorRole: viewer.role,
     filename: file.name,
     bytes: new Uint8Array(await file.arrayBuffer()),
     ip: audit.ip,
@@ -380,9 +381,12 @@ export async function finishOnboardingAction(formData: FormData) {
 
 export async function dismissNotificationAction(formData: FormData) {
   const viewer = await currentViewer();
-  if (!viewer || viewer.role !== "admin") redirect("/login");
+  if (!viewer || (viewer.role !== "admin" && viewer.role !== "manager")) redirect("/login");
   const db = await getDb();
-  await dismissNotification(db, String(formData.get("id") ?? ""));
+  await dismissNotification(db, String(formData.get("id") ?? ""), {
+    role: viewer.role,
+    managerId: viewer.managerId,
+  });
   redirect("/");
 }
 
@@ -404,6 +408,70 @@ export async function reviewApprovalAction(formData: FormData) {
   });
   if (!result.ok) redirect(`${back}${query ? "&" : "?"}approvalError=1`);
   redirect(back);
+}
+
+export async function addManagerAction(formData: FormData) {
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "admin") redirect("/login");
+  const db = await getDb();
+  const result = await addManager(db, {
+    actorRole: "admin",
+    name: String(formData.get("name") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    permissions: {
+      approveEmail: formData.get("approveEmail") === "1",
+      approveVideo: formData.get("approveVideo") === "1",
+      approveContract: formData.get("approveContract") === "1",
+      countersign: formData.get("countersign") === "1",
+    },
+  });
+  if (!result.ok) redirect("/team?teamError=1");
+  redirect("/team");
+}
+
+export async function setManagerActiveAction(formData: FormData) {
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "admin") redirect("/login");
+  const db = await getDb();
+  await setManagerActive(db, {
+    actorRole: "admin",
+    managerId: String(formData.get("managerId") ?? ""),
+    active: formData.get("active") === "1",
+  });
+  redirect("/team");
+}
+
+export async function setManagerPermissionsAction(formData: FormData) {
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "admin") redirect("/login");
+  const db = await getDb();
+  await setManagerPermissions(db, {
+    actorRole: "admin",
+    managerId: String(formData.get("managerId") ?? ""),
+    permissions: {
+      approveEmail: formData.get("approveEmail") === "1",
+      approveVideo: formData.get("approveVideo") === "1",
+      approveContract: formData.get("approveContract") === "1",
+      countersign: formData.get("countersign") === "1",
+    },
+  });
+  redirect("/team");
+}
+
+export async function assignManagersAction(formData: FormData) {
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "admin") redirect("/login");
+  const db = await getDb();
+  const primary = String(formData.get("primaryManagerId") ?? "");
+  const backup = String(formData.get("backupManagerId") ?? "");
+  const result = await assignCreatorManagers(db, {
+    actorRole: "admin",
+    creatorId: String(formData.get("creatorId") ?? ""),
+    primaryManagerId: primary || null,
+    backupManagerId: backup || null,
+  });
+  if (!result.ok) redirect("/team?teamError=1");
+  redirect("/team");
 }
 
 export async function devLoginAction(formData: FormData) {

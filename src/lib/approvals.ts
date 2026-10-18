@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { approvalEmails, approvalEvents, brandContacts, creators, deals } from "@/db/schema";
 import { EMAIL_APPROVER_ROLES } from "./authz";
+import { assertStaffAccess } from "./managers";
 import { normalizeEmail, nowIso } from "./format";
 
 /** Brand and recruiting mail goes out from this mailbox only. */
@@ -94,7 +95,8 @@ export async function createApprovalEmail(
 ): Promise<Result<{ id: string; status: "pending"; from: string }>> {
   const creatorDraft = actor.role === "creator" && (input.gate === "interest" || input.gate === "decline");
   const adminDraft = actor.role === "admin" && (input.gate === "video" || input.gate === "revision");
-  if (actor.role !== "bot" && !creatorDraft && !adminDraft) {
+  const managerDraft = actor.role === "manager" && (input.gate === "video" || input.gate === "revision");
+  if (actor.role !== "bot" && !creatorDraft && !adminDraft && !managerDraft) {
     return { ok: false, status: 403, error: "Only the bot can draft an email. An admin approves it in the portal." };
   }
   if (input.status && input.status !== "pending") {
@@ -116,6 +118,15 @@ export async function createApprovalEmail(
   const dealRows = await db.select().from(deals).where(eq(deals.id, input.dealId));
   const deal = dealRows[0];
   if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+  if (actor.role === "manager") {
+    const allowed = await assertStaffAccess(db, {
+      actorEmail: actor.email,
+      actorRole: "manager",
+      creatorId: deal.creatorId,
+      permission: input.gate === "video" ? "video" : "contract",
+    });
+    if (!allowed.ok) return allowed;
+  }
 
   let brandContactName: string | null = null;
   let brandContactEmail: string | null = null;
@@ -204,13 +215,27 @@ export async function reviewApproval(
     actorRole: string;
   },
 ): Promise<Result<{ id: string; status: ApprovalStatus }>> {
-  const denied = approverOrReject(input.actorRole);
-  if (denied) return denied;
+  if (input.actorRole !== "manager") {
+    const denied = approverOrReject(input.actorRole);
+    if (denied) return denied;
+  }
   if (input.intent !== "edit" && input.intent !== "approve" && input.intent !== "reject") {
     return { ok: false, status: 400, error: "intent must be edit, approve, or reject." };
   }
   const row = await loadApproval(db, input.approvalId);
   if (!row) return { ok: false, status: 404, error: "Email not found." };
+  if (input.actorRole === "manager") {
+    const dealRows = await db.select().from(deals).where(eq(deals.id, row.dealId));
+    const deal = dealRows[0];
+    if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+    const allowed = await assertStaffAccess(db, {
+      actorEmail: input.actorEmail,
+      actorRole: "manager",
+      creatorId: deal.creatorId,
+      permission: "email",
+    });
+    if (!allowed.ok) return allowed;
+  }
   if (row.status === "sent") return { ok: false, status: 409, error: "This email was already sent." };
 
   const timestamp = nowIso();
@@ -437,7 +462,7 @@ export type ApprovalQueueItem = {
 
 const STATUS_ORDER = ["pending", "approved", "rejected", "sent"];
 
-export async function listApprovalQueue(db: PortalDb, creatorId: string | "all"): Promise<ApprovalQueueItem[]> {
+export async function listApprovalQueue(db: PortalDb, creatorId: string | "all", limitTo?: string[]): Promise<ApprovalQueueItem[]> {
   const [emailRows, eventRows, dealRows, creatorRows] = await Promise.all([
     db.select().from(approvalEmails),
     db.select().from(approvalEvents).orderBy(asc(approvalEvents.createdAt)),
@@ -456,6 +481,7 @@ export async function listApprovalQueue(db: PortalDb, creatorId: string | "all")
     .flatMap((row) => {
       const deal = dealById.get(row.dealId);
       if (!deal) return [];
+      if (limitTo && !limitTo.includes(deal.creatorId)) return [];
       if (creatorId !== "all" && deal.creatorId !== creatorId) return [];
       const suggested = row.suggestedCreatorId ? creatorById.get(row.suggestedCreatorId) : null;
       return [{

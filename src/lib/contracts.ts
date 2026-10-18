@@ -19,6 +19,7 @@ import {
 } from "./contract-shared";
 import { firstEmail } from "./creator-interest";
 import { setDealStage } from "./deal-stage";
+import { assertStaffAccess, assignedManagersByCreator, staffHistoryRole } from "./managers";
 import { driveConfigured, prepareContractsFolder, uploadDriveFile } from "./drive";
 import { nowIso } from "./format";
 
@@ -30,6 +31,7 @@ export type ContractListRow = {
   brand: string;
   creatorId: string;
   creatorName: string;
+  manager: { id: string; name: string; email: string } | null;
   version: number;
   filename: string;
   mimeType: string;
@@ -98,11 +100,20 @@ export async function saveContract(
     actorRole: string;
   },
 ): Promise<Result<{ id: string; version: number; signingFormat: SigningFormat; sha256: string | null; workflowStage: string | null }>> {
-  if (input.actorRole !== "admin" && input.actorRole !== "bot") {
+  if (input.actorRole !== "admin" && input.actorRole !== "bot" && input.actorRole !== "manager") {
     return { ok: false, status: 403, error: "You can't upload a contract." };
   }
   const deal = await loadDeal(db, input.dealId);
   if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+  if (input.actorRole === "manager") {
+    const allowed = await assertStaffAccess(db, {
+      actorEmail: input.actorEmail,
+      actorRole: "manager",
+      creatorId: deal.creatorId,
+      permission: "contract",
+    });
+    if (!allowed.ok) return allowed;
+  }
   let closed = blocked(deal.workflowStage);
   if (closed && deal.workflowStage === "signed_by_creator") {
     const waiting = await db
@@ -202,7 +213,7 @@ export async function saveContract(
     dealId: deal.id,
     toStage,
     actorEmail: input.actorEmail,
-    actorRole: input.actorRole === "bot" ? "bot" : "admin",
+    actorRole: staffHistoryRole(input.actorRole),
     note: `Contract v${version} uploaded.`,
   });
   if (!moved.ok) return { ok: false, status: moved.status, error: moved.error };
@@ -220,13 +231,22 @@ export async function saveChecklist(
     moveStage?: boolean;
   },
 ): Promise<Result<{ workflowStage: string | null }>> {
-  if (input.actorRole !== "admin") {
+  if (input.actorRole !== "admin" && input.actorRole !== "manager") {
     return { ok: false, status: 403, error: "Only an admin can review a contract." };
   }
   const contract = await loadContract(db, input.contractId);
   if (!contract) return { ok: false, status: 404, error: "Contract not found." };
   const deal = await loadDeal(db, contract.dealId);
   if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+  if (input.actorRole === "manager") {
+    const allowed = await assertStaffAccess(db, {
+      actorEmail: input.actorEmail,
+      actorRole: "manager",
+      creatorId: deal.creatorId,
+      permission: "contract",
+    });
+    if (!allowed.ok) return allowed;
+  }
   const closed = blocked(deal.workflowStage);
   if (closed) return closed;
   for (const check of input.checks) {
@@ -255,7 +275,7 @@ export async function saveChecklist(
       dealId: deal.id,
       toStage: "contract_review",
       actorEmail: input.actorEmail,
-      actorRole: "admin",
+      actorRole: staffHistoryRole(input.actorRole),
       note: "Checklist updated.",
     });
     if (!moved.ok) return { ok: false, status: moved.status, error: moved.error };
@@ -295,13 +315,22 @@ export async function requestContractRevisions(
     actorRole: string;
   },
 ): Promise<Result<{ approvalId: string; workflowStage: string | null }>> {
-  if (input.actorRole !== "admin") {
+  if (input.actorRole !== "admin" && input.actorRole !== "manager") {
     return { ok: false, status: 403, error: "Only an admin can request contract changes." };
   }
   const contract = await loadContract(db, input.contractId);
   if (!contract) return { ok: false, status: 404, error: "Contract not found." };
   const deal = await loadDeal(db, contract.dealId);
   if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+  if (input.actorRole === "manager") {
+    const allowed = await assertStaffAccess(db, {
+      actorEmail: input.actorEmail,
+      actorRole: "manager",
+      creatorId: deal.creatorId,
+      permission: "contract",
+    });
+    if (!allowed.ok) return allowed;
+  }
   const closed = blocked(deal.workflowStage);
   if (closed) return closed;
 
@@ -327,7 +356,7 @@ export async function requestContractRevisions(
       subject: `A few changes on the ${deal.brand} contract`,
       body: revisionBody({ creatorName, brand: deal.brand, issues, changes }),
     },
-    { email: input.actorEmail, role: "admin" },
+    { email: input.actorEmail, role: input.actorRole },
   );
   if (!drafted.ok) return { ok: false, status: drafted.status, error: drafted.error };
 
@@ -339,7 +368,7 @@ export async function requestContractRevisions(
     dealId: deal.id,
     toStage: "revisions_requested",
     actorEmail: input.actorEmail,
-    actorRole: "admin",
+    actorRole: staffHistoryRole(input.actorRole),
     note: "Asked the brand for contract changes.",
   });
   if (!moved.ok) return { ok: false, status: moved.status, error: moved.error };
@@ -348,9 +377,9 @@ export async function requestContractRevisions(
 
 export async function setSigningFormat(
   db: PortalDb,
-  input: { contractId: string; signingFormat: string; actorRole: string },
+  input: { contractId: string; signingFormat: string; actorRole: string; actorEmail?: string },
 ): Promise<Result<{ signingFormat: SigningFormat }>> {
-  if (input.actorRole !== "admin") {
+  if (input.actorRole !== "admin" && input.actorRole !== "manager") {
     return { ok: false, status: 403, error: APPROVE_FORBIDDEN };
   }
   if (!isSigningFormat(input.signingFormat)) {
@@ -360,6 +389,15 @@ export async function setSigningFormat(
   if (!contract) return { ok: false, status: 404, error: "Contract not found." };
   const deal = await loadDeal(db, contract.dealId);
   if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+  if (input.actorRole === "manager") {
+    const allowed = await assertStaffAccess(db, {
+      actorEmail: input.actorEmail ?? "",
+      actorRole: "manager",
+      creatorId: deal.creatorId,
+      permission: "contract",
+    });
+    if (!allowed.ok) return allowed;
+  }
   const closed = blocked(deal.workflowStage);
   if (closed) return closed;
   await db.update(contracts).set({ signingFormat: input.signingFormat }).where(eq(contracts.id, contract.id));
@@ -370,13 +408,22 @@ export async function approveContract(
   db: PortalDb,
   input: { contractId: string; actorEmail: string; actorRole: string },
 ): Promise<Result<{ workflowStage: string | null }>> {
-  if (input.actorRole !== "admin") {
+  if (input.actorRole !== "admin" && input.actorRole !== "manager") {
     return { ok: false, status: 403, error: APPROVE_FORBIDDEN };
   }
   const contract = await loadContract(db, input.contractId);
   if (!contract) return { ok: false, status: 404, error: "Contract not found." };
   const deal = await loadDeal(db, contract.dealId);
   if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+  if (input.actorRole === "manager") {
+    const allowed = await assertStaffAccess(db, {
+      actorEmail: input.actorEmail,
+      actorRole: "manager",
+      creatorId: deal.creatorId,
+      permission: "contract",
+    });
+    if (!allowed.ok) return allowed;
+  }
   const closed = blocked(deal.workflowStage);
   if (closed) return closed;
   if (contract.signingFormat === "needs_review") {
@@ -391,7 +438,7 @@ export async function approveContract(
     dealId: deal.id,
     toStage: "approved_by_agency",
     actorEmail: input.actorEmail,
-    actorRole: "admin",
+    actorRole: staffHistoryRole(input.actorRole),
     note: `Contract v${contract.version} approved.`,
   });
   if (!moved.ok) return { ok: false, status: moved.status, error: moved.error };
@@ -427,6 +474,7 @@ export async function listContracts(db: PortalDb, since: string | null): Promise
   const dealRows = await db.select().from(deals);
   const creatorRows = await db.select({ id: creators.id, name: creators.name }).from(creators);
   const checkRows = await db.select().from(contractChecks).orderBy(asc(contractChecks.createdAt));
+  const managerByCreator = await assignedManagersByCreator(db);
   const dealById = new Map(dealRows.map((deal) => [deal.id, deal]));
   const creatorById = new Map(creatorRows.map((creator) => [creator.id, creator.name]));
   return rows.map((row) => {
@@ -437,6 +485,7 @@ export async function listContracts(db: PortalDb, since: string | null): Promise
       brand: deal?.brand ?? "",
       creatorId: deal?.creatorId ?? "",
       creatorName: deal ? creatorById.get(deal.creatorId) ?? "Creator" : "Creator",
+      manager: deal ? managerByCreator.get(deal.creatorId) ?? null : null,
       version: row.version,
       filename: row.filename,
       mimeType: row.mimeType,

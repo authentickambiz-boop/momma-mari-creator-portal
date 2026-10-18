@@ -5,6 +5,7 @@ import { createApprovalEmail } from "./approvals";
 import { firstEmail } from "./creator-interest";
 import { setDealStage } from "./deal-stage";
 import { nowIso } from "./format";
+import { assertStaffAccess, assignedManagersByCreator, staffHistoryRole } from "./managers";
 
 const WAITING_FOR_DRAFT = new Set(["draft_due", "product_received", "brand_revisions", "manager_review"]);
 
@@ -19,6 +20,7 @@ export type DraftReviewRow = {
   brand: string;
   creatorId: string;
   creatorName: string;
+  manager: { id: string; name: string; email: string } | null;
   version: number;
   filename: string | null;
   decision: string;
@@ -123,7 +125,7 @@ export async function reviewDraft(
     actorRole: string;
   },
 ): Promise<Result<{ decision: DraftReviewDecision; approvalId: string | null; workflowStage: string }>> {
-  if (input.actorRole !== "admin") {
+  if (input.actorRole !== "admin" && input.actorRole !== "manager") {
     return { ok: false, status: 403, error: "You can't approve your own video." };
   }
   if (!isDecision(input.decision)) {
@@ -141,6 +143,15 @@ export async function reviewDraft(
   const dealRows = await db.select().from(deals).where(eq(deals.id, draft.dealId));
   const deal = dealRows[0];
   if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+  if (input.actorRole === "manager") {
+    const allowed = await assertStaffAccess(db, {
+      actorEmail: input.actorEmail,
+      actorRole: "manager",
+      creatorId: deal.creatorId,
+      permission: "video",
+    });
+    if (!allowed.ok) return allowed;
+  }
   const creatorRows = await db.select().from(creators).where(eq(creators.id, deal.creatorId));
   const creator = creatorRows[0];
   const creatorName = creator?.name ?? "Creator";
@@ -158,7 +169,7 @@ export async function reviewDraft(
     dealId: deal.id,
     toStage: input.decision === "approved" ? "manager_review" : "draft_due",
     actorEmail: input.actorEmail,
-    actorRole: "admin",
+    actorRole: staffHistoryRole(input.actorRole),
     note: note ?? (input.decision === "approved" ? "Approved to send to the brand." : null),
   });
   if (!moved.ok) return { ok: false, status: moved.status, error: moved.error };
@@ -192,7 +203,7 @@ export async function reviewDraft(
       body: email.body,
       attachmentUrl: email.attachmentUrl,
       attachmentNote: email.attachmentNote,
-    }, { email: input.actorEmail, role: "admin" });
+    }, { email: input.actorEmail, role: input.actorRole });
     if (!drafted.ok) return { ok: false, status: drafted.status, error: drafted.error };
     approvalId = drafted.id;
   }
@@ -230,7 +241,7 @@ export async function listDraftReviews(db: PortalDb, since: string | null): Prom
 }
 
 async function shapeReviews(db: PortalDb, reviewRows: Array<typeof draftReviews.$inferSelect>): Promise<DraftReviewRow[]> {
-  const [draftRows, dealRows, creatorRows] = await Promise.all([
+  const [draftRows, dealRows, creatorRows, managerByCreator] = await Promise.all([
     db.select({
       id: drafts.id,
       version: drafts.version,
@@ -241,6 +252,7 @@ async function shapeReviews(db: PortalDb, reviewRows: Array<typeof draftReviews.
     }).from(drafts),
     db.select({ id: deals.id, brand: deals.brand, creatorId: deals.creatorId, workflowStage: deals.workflowStage }).from(deals),
     db.select({ id: creators.id, name: creators.name }).from(creators),
+    assignedManagersByCreator(db),
   ]);
   const draftById = new Map(draftRows.map((row) => [row.id, row]));
   const dealById = new Map(dealRows.map((row) => [row.id, row]));
@@ -256,6 +268,7 @@ async function shapeReviews(db: PortalDb, reviewRows: Array<typeof draftReviews.
       brand: deal.brand,
       creatorId: deal.creatorId,
       creatorName: nameById.get(deal.creatorId) ?? "Creator",
+      manager: managerByCreator.get(deal.creatorId) ?? null,
       version: draft.version,
       filename: draft.filename,
       decision: row.decision,
