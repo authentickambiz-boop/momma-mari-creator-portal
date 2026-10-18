@@ -40,7 +40,7 @@ import {
   saveEmailSetup,
   saveGmailConnection,
 } from "../src/lib/onboarding";
-import { STRIPE_CATALOG } from "../src/lib/email-setup";
+import { hostedEmailPreview, STRIPE_CATALOG } from "../src/lib/email-setup";
 import { createSession, readSignedSessionId } from "../src/lib/session";
 import { decryptToken } from "../src/lib/token-crypto";
 import { assertCanUpload, parseContentRange, validateChunk } from "../src/lib/uploads";
@@ -522,8 +522,12 @@ test("gmail connect is separate from sign-in and onboarding notifies Kamron", as
   assert.equal((await listUnreadCreatorReady(db)).length, 0);
 });
 
-test("hosted creator email is a paid add-on request with a placeholder price", async () => {
-  const missing = await saveEmailSetup(db, "abby", "hosted", "not-an-email");
+test("hosted creator email uses roster and public prices on @mommamari.com", async () => {
+  assert.equal(hostedEmailPreview("Abby"), "abby@mommamari.com");
+  assert.equal(hostedEmailPreview("Deals@AbbyBrand.com"), "deals@mommamari.com");
+  assert.equal(hostedEmailPreview("abby theriot"), "abby.theriot@mommamari.com");
+  assert.equal(hostedEmailPreview("@@@"), null);
+  const missing = await saveEmailSetup(db, "abby", "hosted", "@@@");
   assert.equal(missing.ok, false);
   const blocked = await finishOnboarding(db, "abby", {
     botName: "Abby Bot",
@@ -538,19 +542,21 @@ test("hosted creator email is a paid add-on request with a placeholder price", a
   assert.equal(requested.ok, true);
   if (requested.ok) {
     assert.equal(requested.notified, true);
-    assert.equal(requested.hostedEmailAddress, "deals@abbybrand.com");
+    assert.equal(requested.hostedEmailAddress, "deals@mommamari.com");
   }
-  const again = await saveEmailSetup(db, "abby", "hosted", "deals@abbybrand.com");
+  const again = await saveEmailSetup(db, "abby", "hosted", "deals");
   assert.equal(again.ok, true);
   if (again.ok) assert.equal(again.notified, false);
 
   const setup = await emailSetupFor(db, "abby");
   assert.equal(setup.choice, "hosted");
-  assert.equal(setup.hostedEmailAddress, "deals@abbybrand.com");
-  const message = hostedEmailRequestMessage("deals@abbybrand.com");
-  assert.equal(message, "Hosted email requested: deals@abbybrand.com. Paid add-on: hosted creator email. Price: placeholder.");
+  assert.equal(setup.hostedEmailAddress, "deals@mommamari.com");
+  const message = hostedEmailRequestMessage("deals@mommamari.com");
+  assert.equal(message, "Hosted email requested: deals@mommamari.com. Paid add-on: hosted creator email. Roster: $79 one-time setup + $15/month. Public: $99 one-time setup + $19/month. Not charged yet.");
   assert.equal(STRIPE_CATALOG.hostedCreatorEmail.name, "hosted creator email");
-  assert.equal(STRIPE_CATALOG.hostedCreatorEmail.priceLabel, "placeholder");
+  assert.equal(STRIPE_CATALOG.hostedCreatorEmail.roster.priceLabel, "$79 one-time setup + $15/month");
+  assert.equal(STRIPE_CATALOG.hostedCreatorEmail.public.priceLabel, "$99 one-time setup + $19/month");
+  assert.equal(STRIPE_CATALOG.hostedCreatorEmail.charged, false);
 
   const notices = await listUnreadNotices(db);
   const hers = notices.filter((note) => note.creatorId === "abby" && note.kind === "hosted_email");
@@ -568,16 +574,21 @@ test("hosted creator email is a paid add-on request with a placeholder price", a
   assert.equal(done.ok, true);
   const profile = (await listFinishedOnboarding(db, null)).find((row) => row.creatorId === "abby");
   assert.equal(profile?.emailSetup, "hosted");
-  assert.equal(profile?.hostedEmailAddress, "deals@abbybrand.com");
+  assert.equal(profile?.hostedEmailAddress, "deals@mommamari.com");
   assert.equal(profile?.gmailConnected, false);
-  assert.deepEqual(profile?.hostedEmailAddOn, { name: "hosted creator email", priceLabel: "placeholder" });
+  assert.equal(profile?.hostedEmailAddOn?.charged, false);
+  assert.equal(profile?.hostedEmailAddOn?.priceLabel, "$79 one-time setup + $15/month");
+  assert.equal(profile?.hostedEmailAddOn?.publicPriceLabel, "$99 one-time setup + $19/month");
+  assert.equal(JSON.stringify(profile).includes("placeholder"), false);
   assert.equal(JSON.stringify(profile).includes("v1:"), false);
 
-  const changed = await saveEmailSetup(db, "abby", "hosted", "brands@abbybrand.com");
+  const changed = await saveEmailSetup(db, "abby", "hosted", "brands");
   assert.equal(changed.ok, true);
   if (changed.ok) assert.equal(changed.notified, false);
   const updated = (await listUnreadNotices(db)).filter((note) => note.creatorId === "abby" && note.kind === "hosted_email");
   assert.equal(updated.length, 1);
-  assert.match(updated[0]?.message ?? "", /brands@abbybrand.com/);
+  assert.match(updated[0]?.message ?? "", /brands@mommamari.com/);
+  assert.match(updated[0]?.message ?? "", /\$79 one-time setup \+ \$15\/month/);
+  assert.match(updated[0]?.message ?? "", /Not charged yet/);
 });
 });

@@ -2,10 +2,10 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { adminNotifications, creatorOnboarding, creators } from "@/db/schema";
 import {
-  STRIPE_CATALOG,
+  hostedEmailAddOn,
+  hostedEmailPreview,
   hostedEmailRequestMessage,
   isEmailSetup,
-  looksLikeEmail,
   type EmailSetup,
 } from "./email-setup";
 import { normalizeEmail, nowIso } from "./format";
@@ -15,7 +15,7 @@ import { encryptToken } from "./token-crypto";
 export const CREATOR_READY_MESSAGE = "New creator ready for bot";
 export const HOSTED_EMAIL_KIND = "hosted_email";
 export { ONBOARDING_PLATFORMS, onboardingPlatformLabel } from "./onboarding-fields";
-export { STRIPE_CATALOG, emailSetupLabel, hostedEmailRequestMessage } from "./email-setup";
+export { emailSetupLabel, hostedEmailAddOn, hostedEmailPreview, hostedEmailRequestMessage } from "./email-setup";
 
 function clean(value: string | null | undefined) {
   const trimmed = value?.trim() ?? "";
@@ -105,9 +105,9 @@ export async function saveEmailSetup(
   let hostedEmailAddress = creator[0].hostedEmailAddress;
   let notified = false;
   if (choice === "hosted") {
-    const address = normalizeEmail(hostedAddress ?? "");
-    if (!looksLikeEmail(address)) {
-      return { ok: false as const, status: 400, error: "Enter the address you want Momma Mari to host." };
+    const address = hostedEmailPreview(hostedAddress ?? "");
+    if (!address) {
+      return { ok: false as const, status: 400, error: "Enter the name you want before @mommamari.com." };
     }
     hostedEmailAddress = address;
     const message = hostedEmailRequestMessage(address);
@@ -219,7 +219,7 @@ export type FinishedOnboarding = {
   gmailConnected: boolean;
   emailSetup: EmailSetup | null;
   hostedEmailAddress: string | null;
-  hostedEmailAddOn: { name: string; priceLabel: string } | null;
+  hostedEmailAddOn: ReturnType<typeof hostedEmailAddOn> | null;
   botName: string;
   niche: string;
   kidsAges: string | null;
@@ -252,7 +252,7 @@ export async function listFinishedOnboarding(db: PortalDb, since: string | null)
         gmailConnected: Boolean(creator.gmailRefreshToken),
         emailSetup: isEmailSetup(creator.emailSetup) ? creator.emailSetup : null,
         hostedEmailAddress: creator.emailSetup === "hosted" ? creator.hostedEmailAddress : null,
-        hostedEmailAddOn: creator.emailSetup === "hosted" ? { ...STRIPE_CATALOG.hostedCreatorEmail } : null,
+        hostedEmailAddOn: creator.emailSetup === "hosted" ? hostedEmailAddOn() : null,
         botName: profile.botName ?? "",
         niche: profile.niche ?? "",
         kidsAges: profile.kidsAges,

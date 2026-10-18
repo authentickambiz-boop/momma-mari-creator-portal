@@ -1,13 +1,14 @@
 import { chooseEmailSetupAction } from "@/app/actions";
+import { HostedAddressField } from "@/components/hosted-address-field";
 import { STRIPE_CATALOG } from "@/lib/email-setup";
 
 export function EmailSetupForm({ error }: { error: boolean }) {
-  const addOn = STRIPE_CATALOG.hostedCreatorEmail;
+  const offer = STRIPE_CATALOG.hostedCreatorEmail;
   return (
     <form action={chooseEmailSetupAction} className="card wizard">
       <h2>How should brand email work?</h2>
       <p className="note">Pick one. You can change it before you finish.</p>
-      {error ? <p className="private-note">For a hosted email, enter the address you want, like brands@yourname.com.</p> : null}
+      {error ? <p className="private-note">Enter the name you want before @mommamari.com, like abby.</p> : null}
       <label className="choice recommended">
         <span className="choice-head">
           <input type="radio" name="emailSetup" value="business" required />
@@ -34,9 +35,9 @@ export function EmailSetupForm({ error }: { error: boolean }) {
           <b>Ask Momma Mari to host a business email</b>
         </span>
         <span className="note">
-          We set up and look after the address. This is a paid add-on, {addOn.name}. The price is a {addOn.priceLabel}.
+          Momma Mari owns @mommamari.com and the mailbox. This is a paid add-on, {offer.name}. You&apos;re on the roster, so yours is {offer.roster.priceLabel}. The public price is {offer.public.priceLabel}. Nothing is charged from this page.
         </span>
-        <input name="hostedEmail" placeholder="brands@yourname.com" aria-label="Preferred address" />
+        <HostedAddressField />
       </label>
       <button className="btn" type="submit">Continue</button>
     </form>

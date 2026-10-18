@@ -79,8 +79,9 @@ export default async function OnboardingPage({
         <div className="card">
           <h2>Hosted business email</h2>
           <p>
-            Requested address: {setup?.hostedEmailAddress}. This is a paid add-on, {addOn.name}. The price is a {addOn.priceLabel}.
-            Kamron sets up the mailbox. Nothing is connected from Google for this choice.
+            Your address will be {setup?.hostedEmailAddress}. Momma Mari owns @mommamari.com and the mailbox.
+            You&apos;re on the roster, so the price is {addOn.roster.priceLabel}. The public price is {addOn.public.priceLabel}.
+            Nothing is charged from this page. Kamron sets up the mailbox.
           </p>
         </div>
       ) : null}
@@ -101,7 +102,7 @@ export default async function OnboardingPage({
             {connection?.gmailEmail
               ? `Email connected as ${connection.gmailEmail}`
               : choice === "hosted"
-                ? `Hosted address requested: ${setup?.hostedEmailAddress}`
+                ? `Your address will be ${setup?.hostedEmailAddress}. Roster price: ${addOn.roster.priceLabel}. Nothing is charged from this page.`
                 : "Email not connected yet"}
           </p>
           <ul>

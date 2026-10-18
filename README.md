@@ -209,7 +209,7 @@ curl -sS \
   "http://localhost:43123/api/bot/onboarding?since=2026-10-01T00:00:00.000Z"
 ```
 
-Each profile includes `creatorId`, `name`, `email`, `gmailEmail`, `gmailConnected`, `emailSetup` (`business`, `personal`, or `hosted`), `hostedEmailAddress`, `hostedEmailAddOn` (only for a hosted request: name `hosted creator email`, price `placeholder`), `botName`, `niche`, `kidsAges`, `contentStyle`, `rates`, `favoriteBrands`, `platforms`, `finishedAt`, and `message` (`New creator ready for bot`). The refresh token is never included.
+Each profile includes `creatorId`, `name`, `email`, `gmailEmail`, `gmailConnected`, `emailSetup` (`business`, `personal`, or `hosted`), `hostedEmailAddress` (always `name@mommamari.com` when hosted), `hostedEmailAddOn` (only for a hosted request: name `hosted creator email`, roster price `$79 one-time setup + $15/month`, public price `$99 one-time setup + $19/month`, `charged: false`), `botName`, `niche`, `kidsAges`, `contentStyle`, `rates`, `favoriteBrands`, `platforms`, `finishedAt`, and `message` (`New creator ready for bot`). The refresh token is never included.
 
 ### Upsert a creator
 
@@ -274,7 +274,7 @@ Sign-in stays on `openid email profile`. **Connect your email** is a second Goog
 4. A creator signs in and opens **Set up your bot**. She picks one email option:
    - **Recommended:** create a new Gmail used only for brand deals, then connect it. The page lists short steps for making that account.
    - **Personal email:** connect the inbox she already uses. The page says we only process brand-related mail, which the bot sorts and labels.
-   - **Hosted email:** ask Momma Mari to host a business address. She enters the address she wants. Kamron gets a notice marked as the paid add-on `hosted creator email`. The price in the Stripe catalog is the placeholder `placeholder` until a real Stripe price is set. She can finish her profile without connecting Google.
+   - **Hosted email:** ask Momma Mari to host a business address on `@mommamari.com`. She types a name and sees a preview such as `abby@mommamari.com`. Momma Mari owns the domain and the mailbox. Roster creators are `$79 one-time setup + $15/month`. The public price is `$99 one-time setup + $19/month`. The portal does not charge anyone; Stripe is not connected yet. She can finish her profile without connecting Google.
 5. Connecting a new or personal Gmail uses **Connect your email**. Finishing the profile writes **New creator ready for bot** on Kamron's home page. Kash Bot reads finished profiles, including `emailSetup`, from `GET /api/bot/onboarding` and creates the bot manually after Kamron says OK.
 
 ## Google Drive

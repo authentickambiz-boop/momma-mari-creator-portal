@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { STRIPE_CATALOG } from "@/lib/email-setup";
 import { publicBasePath } from "@/lib/format";
 import type { CreatorProfile } from "@/lib/types";
 
@@ -82,7 +83,7 @@ export function ConnectPanel({
         <p className="note" style={{ marginTop: 10 }}>We only process brand-related mail. Your bot sorts those threads and labels them.</p>
       ) : null}
       {emailSetup === "hosted" && hostedEmailAddress ? (
-        <p className="note" style={{ marginTop: 10 }}>Requested address: {hostedEmailAddress}. Paid add-on: hosted creator email. Price: placeholder.</p>
+        <p className="note" style={{ marginTop: 10 }}>Your address will be {hostedEmailAddress}. Roster price: {STRIPE_CATALOG.hostedCreatorEmail.roster.priceLabel}. Nothing is charged from this page.</p>
       ) : null}
       {canConnectEmail ? (
         <p className="note" style={{ marginTop: 10 }}>
