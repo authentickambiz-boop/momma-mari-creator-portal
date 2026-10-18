@@ -6,6 +6,7 @@ import { resolveViewedCreator } from "../src/lib/authz";
 import { addFeedback, authorizeBot, updateDeal, upsertCreator, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
 import { creatorCutLabel, nextPayoutLabel, pipelineHeadline } from "../src/lib/format";
 import {
+  findCreatorById,
   getDealForViewer,
   listDealsForViewer,
   listDraftsSince,
@@ -31,7 +32,7 @@ const mariclare: Viewer = {
   name: "MariClare",
 };
 const abby: Viewer = {
-  email: "abby.theriot@example.com",
+  email: "theofficialtheriots@gmail.com",
   role: "creator",
   creatorId: "abby",
   name: "Abby Theriot",
@@ -64,8 +65,36 @@ test("allowlist accepts the admin and seeded creators, and rejects everyone else
     assert.equal(creator.viewer.role, "creator");
   }
 
-  const placeholder = await resolveLogin(db, "abby.theriot@example.com");
-  assert.equal(placeholder.ok, true);
+  // Reserved .invalid addresses never open a session.
+  const reserved = await resolveLogin(db, "someone@example.invalid");
+  assert.equal(reserved.ok, false);
+  const abbyLogin = await resolveLogin(db, "theofficialtheriots@gmail.com");
+  assert.equal(abbyLogin.ok, true);
+  if (abbyLogin.ok) assert.equal(abbyLogin.viewer.creatorId, "abby");
+  const retiredSeed = await resolveLogin(db, "abby.theriot@example.com");
+  assert.equal(retiredSeed.ok, false);
+});
+
+test("0004 fills in the Abby and AuthenticKam profiles without inventing splits", async () => {
+  const kam = await findCreatorById(db, "authentickam");
+  assert.ok(kam);
+  assert.equal(kam?.email, "authentickambiz@gmail.com");
+  assert.equal(kam?.handles, "@authentickam");
+  assert.equal(kam?.kidsAges, "5");
+  assert.equal(kam?.monthlyGoalCents, 500000);
+  assert.equal(kam?.splitPercent, null);
+  assert.equal(kam?.isSeed, false);
+
+  const abbyRow = await findCreatorById(db, "abby");
+  assert.ok(abbyRow);
+  assert.equal(abbyRow?.email, "theofficialtheriots@gmail.com");
+  assert.equal(abbyRow?.handles, "@theofficialtheriots");
+  assert.equal(abbyRow?.monthlyGoalCents, 500000);
+  assert.equal(abbyRow?.splitPercent, null);
+
+  const mari = await findCreatorById(db, "mariclare");
+  assert.equal(mari?.name, "MariClare");
+  assert.equal(mari?.email, "mmaclamroc@gmail.com");
 });
 
 test("a creator only receives her own visible deals", async () => {
@@ -220,7 +249,7 @@ test("replacing a placeholder email updates the allowlist", async () => {
     email: "abby.real@gmail.com",
   });
   assert.equal(result.status, 200);
-  const oldEmail = await resolveLogin(db, "abby.theriot@example.com");
+  const oldEmail = await resolveLogin(db, "theofficialtheriots@gmail.com");
   const newEmail = await resolveLogin(db, "abby.real@gmail.com");
   assert.equal(oldEmail.ok, false);
   assert.equal(newEmail.ok, true);

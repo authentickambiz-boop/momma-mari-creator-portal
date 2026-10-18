@@ -145,6 +145,8 @@ export async function findCreatorById(db: PortalDb, id: string) {
 export async function resolveLogin(db: PortalDb, email: string) {
   const normalized = normalizeEmail(email);
   if (!normalized || !normalized.includes("@")) return { ok: false as const, reason: "not_allowed" as const };
+  // Placeholder creator emails use the reserved .invalid TLD and must never open a session.
+  if (normalized.endsWith(".invalid")) return { ok: false as const, reason: "not_allowed" as const };
   if (adminEmails().includes(normalized)) {
     return {
       ok: true as const,

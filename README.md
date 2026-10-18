@@ -22,7 +22,7 @@ Checked against Webflow Cloud docs on October 17, 2026 ([bring your own app](htt
 - Google sign-in (authorization code) with an allowlist. Admin emails come from `ADMIN_EMAILS`. Creator emails come from the `creators` table. A stranger is rejected. The same person is never both; admin is checked first.
 - Sessions are an HMAC-signed httpOnly cookie, stored in the database and, on Webflow Cloud, also in KV.
 - Deal list and deal detail, earnings, analytics, and connect-accounts, laid out to match the approved October 17, 2026 mockup.
-- Seed data for MariClare (`mmaclamroc@gmail.com`): KOSBLING, VEV Gummies, WaterH, Persona, Sanvive, Halara, plus a Grail deal that stays hidden from her. Abby Theriot and AuthenticKam are empty placeholder creators.
+- Seed data for MariClare (`mmaclamroc@gmail.com`): KOSBLING, VEV Gummies, WaterH, Persona, Sanvive, Halara, plus a Grail deal that stays hidden from her. `drizzle/0004_creator_profiles.sql` fills in Abby Theriot (`theofficialtheriots@gmail.com`) and AuthenticKam (`authentickambiz@gmail.com`).
 - Draft upload in 8 MB chunks. With Drive credentials, the portal opens a Google resumable session and forwards each chunk. The session URL stays on the server. The draft row stores the deal id, Drive file id, and the deal's Gmail thread id.
 - Bearer JSON API for the agency bot.
 
@@ -39,7 +39,6 @@ Server-side rules, covered by `npm test`:
 - **Drive** until a refresh token or a service account is set. The upload still records a draft on the deal and says, in the page, that the video itself was not stored. It does not pretend the file reached Drive.
 - **Zernio connect buttons** until `PUT /api/bot/creators` sets a URL. Until then the button explains that the bot will add the link.
 - **Analytics** are seed rows labeled EXAMPLE. The first real daily row from the bot replaces that chart for that creator.
-- **Abby Theriot** (`abby.theriot@example.com`) and **AuthenticKam** (`authentickam@example.com`) are placeholders. Replace the emails with the real Gmail addresses before those creators sign in.
 - **Gmail thread ids** on seed deals are `seed-thread-*`. The bot should write the real thread id with `PATCH /api/bot/deals/:id`. The portal does not read a mailbox.
 - No bank details, no payout sending, and no 15-minute worker. The bot calls the API on its own schedule. New deals from the bot stay hidden until `visibleToCreator` is set true.
 
@@ -197,6 +196,8 @@ curl -sS -X POST \
 ```
 
 ### Upsert a creator
+
+`resolveLogin` refuses any `.invalid` address, so a reserved placeholder can never open a session. Abby Theriot's sign-in is `theofficialtheriots@gmail.com` (`drizzle/0004_creator_profiles.sql`). Use this endpoint to replace a sign-in email.
 
 Use this for a real sign-in email, the split, a Drive folder id, and the Zernio connect links. Emails are stored lowercase. A connect URL turns that platform's button into a real link.
 
