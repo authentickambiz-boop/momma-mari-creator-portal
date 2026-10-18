@@ -389,6 +389,25 @@ export const livePosts = sqliteTable("live_posts", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const emailCopies = sqliteTable("email_copies", {
+  id: text("id").primaryKey(),
+  approvalId: text("approval_id").notNull(),
+  dealId: text("deal_id").notNull(),
+  kind: text("kind").notNull(),
+  filename: text("filename").notNull(),
+  sha256: text("sha256").notNull(),
+  driveFileId: text("drive_file_id"),
+  driveFileUrl: text("drive_file_url"),
+  driveFolderId: text("drive_folder_id"),
+  stored: text("stored").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const emailCopyFiles = sqliteTable("email_copy_files", {
+  copyId: text("copy_id").primaryKey(),
+  bytesBase64: text("bytes_base64").notNull(),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),

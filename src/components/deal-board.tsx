@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { changeDealStageAction, confirmLivePostAction, confirmProductAction, contractReviewAction, creatorInterestAction, markPaymentAction, releaseOfferAction, reviewDraftAction, saveShipmentAction, setSignerMinorAction, submitLivePostsAction, uploadBrandSignedCopyAction, uploadContractAction } from "@/app/actions";
+import { boldSignEnabled } from "@/lib/boldsign";
 import { CONTRACT_CHECKS, contractStageOpen, contractStatusLabel } from "@/lib/contract-shared";
 import { commissionLabel, creatorPayoutAmount, paymentStatusLabel, paymentStatusTone } from "@/lib/format";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
@@ -614,6 +615,13 @@ function ContractSection({
           <p className="note">
             Upload the brand&apos;s contract. Each file is kept as the next version in the Contracts folder. Nothing is overwritten.
           </p>
+          {isOwner ? (
+            <p className="note">
+              {boldSignEnabled()
+                ? "BoldSign is on for this portal."
+                : "BoldSign is off. Creators sign on this site, at no extra cost."}
+            </p>
+          ) : null}
           {isOwner ? (
           <form action={setSignerMinorAction} className="stage-form">
             <input type="hidden" name="dealId" value={deal.id} />

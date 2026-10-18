@@ -54,6 +54,21 @@ function ApprovalCard({ item, creatorQuery }: { item: ApprovalQueueItem; creator
       </div>
       <p className="note">{item.creatorName} · {item.brand}</p>
       <p className="note">From {item.fromEmail} · To {item.toEmail}</p>
+      {item.copies.length > 0 ? (
+        <div className="private-note">
+          <div className="sec-title">Saved copy</div>
+          {item.copies.map((copy) => (
+            <p key={copy.id}>
+              {copy.kind === "sent" ? "Sent copy" : "Approved copy"}
+              {" · "}
+              <a href={`/api/deals/${item.dealId}/emails/${copy.id}/file`}>Copy kept in the portal</a>
+              {copy.stored === "drive" && copy.driveFileUrl ? (
+                <> · <a href={copy.driveFileUrl}>Open in Drive</a> (04 Emails)</>
+              ) : null}
+            </p>
+          ))}
+        </div>
+      ) : null}
       {item.attachmentNote || item.attachmentUrl ? (
         <p className="note">
           Attachment: {item.attachmentNote ?? "File"}

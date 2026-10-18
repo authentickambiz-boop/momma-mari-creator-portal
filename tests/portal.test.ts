@@ -4,9 +4,10 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { contracts as contractTable, creators, signatureFiles } from "../src/db/schema";
+import { contracts as contractTable, creators, emailCopies, emailCopyFiles, signatureFiles } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
+import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
 import { canApproveEmail, canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
 import { addFeedback, authorizeBot, createApprovalDraft, listApprovedApprovals, markApprovalDraftSent, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
 import { listCreatorInterest, listOfferScreenings, recordCreatorInterest, releaseOffer } from "../src/lib/creator-interest";
@@ -2511,6 +2512,109 @@ test("product tracking, live posts, and owner-only payment marks", async () => {
     backupManagerId: null,
   })).ok, true);
 
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("approved and sent emails are kept as PDFs, and BoldSign stays off", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = (async () => {
+    fetchCalls += 1;
+    return new Response("unexpected", { status: 500 });
+  }) as typeof fetch;
+
+  try {
+    const created = await upsertDeal(db, {
+      id: "phase8-mail",
+      brand: "Phase8 Mail",
+      creatorId: "mariclare",
+      status: "negotiating",
+      workflowStage: "draft_due",
+      visibleToCreator: true,
+    });
+    assert.equal(created.status, 201);
+
+    const drafted = await createApprovalEmail(db, {
+      dealId: "phase8-mail",
+      gate: "interest",
+      to: "hello@phase8mail.example",
+      subject: "Phase8 saved copy",
+      body: "Thanks for the offer. We will follow up.",
+    }, { email: "bot", role: "bot" });
+    assert.equal(drafted.ok, true);
+    if (!drafted.ok) return;
+
+    const approved = await reviewApproval(db, {
+      approvalId: drafted.id,
+      intent: "approve",
+      actorEmail: admin.email,
+      actorRole: "admin",
+    });
+    assert.equal(approved.ok, true);
+
+    const card = (await listApprovalQueue(db, "all")).find((row) => row.id === drafted.id);
+    assert.equal(card?.copies.length, 1);
+    assert.equal(card?.copies[0]?.kind, "approved");
+    assert.equal(card?.copies[0]?.stored, "portal");
+    assert.equal(card?.copies[0]?.driveFileUrl, null);
+    assert.equal(card?.copies[0]?.filename.includes("approved"), true);
+
+    const copyId = card?.copies[0]?.id ?? "";
+    const fileRows = await db.select().from(emailCopyFiles).where(eq(emailCopyFiles.copyId, copyId));
+    const bytes = Buffer.from(fileRows[0]?.bytesBase64 ?? "", "base64");
+    assert.equal(bytes.subarray(0, 4).toString(), "%PDF");
+    const copyRows = await db.select().from(emailCopies).where(eq(emailCopies.id, copyId));
+    assert.equal(copyRows[0]?.filename, "interest-approved-phase8-saved-copy.pdf");
+    assert.equal(copyRows[0]?.sha256, createHash("sha256").update(bytes).digest("hex"));
+    assert.equal(copyRows[0]?.driveFileId, null);
+
+    const sent = await markApprovalDraftSent(db, drafted.id, { messageId: "phase8-msg-1" });
+    assert.equal(sent.status, 200);
+    const after = (await listApprovalQueue(db, "all")).find((row) => row.id === drafted.id);
+    assert.equal(after?.status, "sent");
+    assert.equal(after?.copies.length, 2);
+    assert.equal(after?.copies.some((copy) => copy.kind === "sent"), true);
+
+    assert.equal(boldSignEnabled(), false);
+    const off = await sendContractWithBoldSign({
+      title: "Phase8",
+      signerName: "MariClare",
+      signerEmail: "mmaclamroc@gmail.com",
+    });
+    assert.equal(off.ok, false);
+    if (!off.ok) assert.equal(off.status, 403);
+
+    process.env.BOLDSIGN_ENABLED = "true";
+    delete process.env.BOLDSIGN_API_KEY;
+    assert.equal(boldSignEnabled(), true);
+    const missing = await sendContractWithBoldSign({
+      title: "Phase8",
+      signerName: "MariClare",
+      signerEmail: "mmaclamroc@gmail.com",
+    });
+    assert.equal(missing.ok, false);
+    if (!missing.ok) {
+      assert.equal(missing.status, 400);
+      assert.equal(missing.error, "BoldSign is on, but the API key is missing. Nothing was sent.");
+    }
+    assert.equal(fetchCalls, 0);
+  } finally {
+    delete process.env.BOLDSIGN_ENABLED;
+    delete process.env.BOLDSIGN_API_KEY;
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(boldSignEnabled(), false);
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
   assert.equal(kosblingAfter?.visibleToCreator, true);
