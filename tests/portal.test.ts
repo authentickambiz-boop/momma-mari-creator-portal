@@ -25,7 +25,7 @@ import {
 import { hideMyProfile, listPublicProfiles, moderateProfileField, saveMyProfile } from "../src/lib/profiles";
 import { canApproveEmail, canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
 import { addFeedback, authorizeBot, createApprovalDraft, listApprovedApprovals, markApprovalDraftSent, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
-import { listCreatorInterest, listOfferScreenings, recordCreatorInterest, releaseOffer } from "../src/lib/creator-interest";
+import { listCreatorInterest, listOfferScreenings, recordCreatorInterest, releaseOffer, logOfferScreening } from "../src/lib/creator-interest";
 import { approveContract, listContracts, requestContractRevisions, saveChecklist, saveContract, setSigningFormat } from "../src/lib/contracts";
 import { listDraftReviews, listUnreadCreatorNotices, onDraftSubmitted, reviewDraft } from "../src/lib/video-review";
 import { setDealStage } from "../src/lib/deal-stage";
@@ -75,6 +75,7 @@ import { decryptToken } from "../src/lib/token-crypto";
 import { assertCanUpload, parseContentRange, validateChunk } from "../src/lib/uploads";
 import type { Viewer } from "../src/lib/types";
 import { buildCalendarFeed, listCalendar, runDeliverableNudges, saveDeliverableDate, setCalendarConnected } from "../src/lib/calendar";
+import { addBrandCrmEntry, listBrandCrm } from "../src/lib/brand-crm";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -3083,6 +3084,115 @@ test("due dates remind three days ahead in the portal or the approval queue, and
   assert.equal(packed.includes("@"), false);
   assert.equal(packed.includes("kosbling"), false);
   assert.equal((await listCalendar(db, admin)).some((item) => item.dealId === "kosbling"), false);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("the brand list keeps contacts, responses, and screening notes, and hides rates from managers", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  const created = await upsertDeal(db, {
+    id: "phase11-soap",
+    brand: "Phase11 Soap",
+    creatorId: "mariclare",
+    status: "negotiating",
+    workflowStage: "offer_shared",
+    visibleToCreator: true,
+    contact: "Ada <ada@phase11.example>",
+    rateCents: 150000,
+    amountDisplay: "$1,500",
+  });
+  assert.equal(created.status, 201);
+  await logOfferScreening(db, { dealId: "phase11-soap", actorEmail: admin.email, note: "Screened Phase11 Soap." });
+
+  const managerWrite = await addBrandCrmEntry(db, {
+    brand: "Phase11 Soap",
+    kind: "response",
+    response: "no_reply",
+    note: "Waiting.",
+    actorRole: "manager",
+    actorName: "Riley",
+  });
+  assert.equal(managerWrite.ok, false);
+  if (!managerWrite.ok) assert.equal(managerWrite.error, "Only an owner can update the brand list.");
+
+  const added = await addBrandCrmEntry(db, {
+    brand: "Phase11 Soap",
+    kind: "response",
+    response: "no_reply",
+    note: "No reply yet.",
+    actorRole: "admin",
+    actorName: "Kamron",
+  });
+  assert.equal(added.ok, true);
+
+  const ownerList = await listBrandCrm(db, admin);
+  assert.equal(ownerList.ok, true);
+  if (!ownerList.ok) return;
+  const ownerCard = ownerList.brands.find((card) => card.brand === "Phase11 Soap");
+  assert.equal(ownerCard?.deals[0]?.rateCents, 150000);
+  assert.equal(ownerCard?.deals[0]?.amountDisplay, "$1,500");
+  assert.equal(ownerCard?.contacts.some((contact) => contact.email === "ada@phase11.example"), true);
+  assert.equal(ownerCard?.screenings.some((row) => row.note === "Screened Phase11 Soap."), true);
+  assert.equal(ownerCard?.responses.some((row) => row.decision === "no_reply"), true);
+
+  const hidden = await listBrandCrm(db, {
+    email: "riley.manager@gmail.com",
+    role: "manager",
+    creatorId: null,
+    name: "Riley",
+    assignedCreatorIds: [],
+  });
+  assert.equal(hidden.ok, true);
+  if (!hidden.ok) return;
+  assert.equal(hidden.brands.some((card) => card.brand === "Phase11 Soap"), false);
+
+  const managers = await listManagers(db);
+  const riley = managers.find((manager) => manager.email === "riley.manager@gmail.com");
+  assert.ok(riley);
+  assert.equal((await assignCreatorManagers(db, {
+    actorRole: "admin",
+    creatorId: "mariclare",
+    primaryManagerId: riley?.id ?? null,
+    backupManagerId: null,
+  })).ok, true);
+  const managerList = await listBrandCrm(db, {
+    email: "riley.manager@gmail.com",
+    role: "manager",
+    creatorId: null,
+    name: "Riley",
+    managerId: riley?.id,
+    assignedCreatorIds: ["mariclare"],
+  });
+  assert.equal(managerList.ok, true);
+  if (!managerList.ok) return;
+  const managerCard = managerList.brands.find((card) => card.brand === "Phase11 Soap");
+  assert.ok(managerCard);
+  assert.equal(managerCard?.deals[0]?.rateCents, null);
+  assert.equal(managerCard?.deals[0]?.amountDisplay, null);
+  assert.equal(JSON.stringify(managerCard).includes("150000"), false);
+  assert.equal(JSON.stringify(managerCard).includes("$1,500"), false);
+  assert.equal(managerCard?.screenings.some((row) => row.note === "Screened Phase11 Soap."), true);
+
+  const creatorList = await listBrandCrm(db, mariclare);
+  assert.equal(creatorList.ok, false);
+  if (!creatorList.ok) assert.equal(creatorList.error, "The brand list is for the team.");
+
+  assert.equal((await assignCreatorManagers(db, {
+    actorRole: "admin",
+    creatorId: "mariclare",
+    primaryManagerId: null,
+    backupManagerId: null,
+  })).ok, true);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
