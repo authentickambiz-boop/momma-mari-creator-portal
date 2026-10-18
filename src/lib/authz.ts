@@ -23,6 +23,16 @@ export function canChangeDealStage(viewer: Viewer) {
   return (STAGE_APPROVER_ROLES as readonly string[]).includes(viewer.role);
 }
 
+/** Who may approve, edit, or reject an outgoing brand email. Today every admin
+ *  is an approver, and admins are the addresses in ADMIN_EMAILS. Add an email
+ *  there to add an approver. Later phases can add a narrower role to this list
+ *  without opening the queue to creators or to the bot. */
+export const EMAIL_APPROVER_ROLES = ["admin"] as const;
+
+export function canApproveEmail(viewer: Viewer) {
+  return (EMAIL_APPROVER_ROLES as readonly string[]).includes(viewer.role);
+}
+
 export function canSeeDeal(viewer: Viewer, deal: { creatorId: string; visibleToCreator: boolean }) {
   if (viewer.role === "admin") return true;
   return viewer.creatorId === deal.creatorId && deal.visibleToCreator;
