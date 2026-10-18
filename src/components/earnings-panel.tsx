@@ -1,5 +1,5 @@
 import { Chips } from "./portal-frame";
-import { commissionLabel, creatorCutLabel, creatorPayoutAmount, formatMoney, monthName, nextPayoutLabel, paidOutCents, paymentStatusLabel, paymentStatusTone, pipelineHeadline } from "@/lib/format";
+import { commissionLabel, creatorCutLabel, creatorPayoutTracker, formatMoney, monthName, nextPayoutLabel, paidOutCents, paymentStatusLabel, paymentStatusTone, pipelineHeadline } from "@/lib/format";
 import type { CreatorProfile, DealSummary, InboxItem, PaymentView } from "@/lib/types";
 
 export function EarningsPanel({
@@ -55,7 +55,9 @@ export function EarningsPanel({
                 {owner ? <th>When the brand pays</th> : null}
                 {owner ? <th>Landed in Momma Mari account</th> : null}
                 {owner ? <th>Creator payout</th> : <th>Your payout</th>}
-                {owner ? <th>Commission</th> : null}
+                {owner ? <th>Commission</th> : <th>Momma Mari fee</th>}
+                {owner ? null : <th>Brand paid</th>}
+                {owner ? null : <th>Your cut sent</th>}
                 <th>Status</th>
               </tr>
             </thead>
@@ -63,6 +65,7 @@ export function EarningsPanel({
               {visible.map((deal) => {
                 const payment = paymentByDeal.get(deal.id);
                 const basis = payment?.landedAmountCents ?? payment?.amountOwedCents ?? null;
+                const tracker = creatorPayoutTracker(payment ?? null);
                 const status = payment?.paymentStatus
                   ? <span className={`chip ${paymentStatusTone(payment.paymentStatus)}`}>{paymentStatusLabel(payment.paymentStatus, audience)}</span>
                   : deal.earningsChipText
@@ -75,9 +78,11 @@ export function EarningsPanel({
                     {owner ? <td className={payment?.dueLabel?.startsWith("TBD") ? "tbd" : undefined}>{payment?.dueLabel ?? "TBD"}</td> : null}
                     {owner ? <td>{payment?.landedDate ? `${payment.landedDate}${payment.landedAmountCents != null ? ` · ${formatMoney(payment.landedAmountCents)}` : ""}` : "Not yet"}</td> : null}
                     <td className={!owner && payment?.creatorPayoutCents == null ? "tbd" : creator.splitPercent == null ? "tbd" : undefined}>
-                      {owner ? creatorCutLabel(creator.splitPercent, basis) : creatorPayoutAmount(creator.splitPercent, null, payment?.creatorPayoutCents ?? null)}
+                      {owner ? creatorCutLabel(creator.splitPercent, basis) : tracker.payoutLabel}
                     </td>
-                    {owner ? <td>{commissionLabel(basis)}</td> : null}
+                    <td>{owner ? commissionLabel(basis) : tracker.feeLabel}</td>
+                    {owner ? null : <td>{tracker.brandPaidOn ?? "Not yet"}</td>}
+                    {owner ? null : <td>{tracker.cutSentOn ?? "Not yet"}</td>}
                     <td>{status}</td>
                   </tr>
                 );
@@ -92,7 +97,7 @@ export function EarningsPanel({
               : `The contract split is ${creator.splitPercent}%. Momma Mari's commission is 20% of the brand amount. Payouts still wait until you mark creator paid.`}
           </p>
         ) : (
-          <p className="note">Your payout amount and status only. Kamron marks each step. Nothing is sent automatically.</p>
+          <p className="note">You see when the brand paid, the 20% Momma Mari fee, and when your cut was sent. Kamron marks each step. Nothing is sent automatically.</p>
         )}
       </div>
       {inbox.length > 0 ? (

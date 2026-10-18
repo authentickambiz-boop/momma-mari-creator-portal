@@ -85,6 +85,26 @@ export function creatorPayoutAmount(splitPercent: number | null, amountCents: nu
   return formatMoney(Math.round((amountCents * splitPercent) / 100));
 }
 
+/** What a creator is allowed to see on the payout tracker. The 20% fee is
+ *  calculated here. Marking a step still happens only when an owner asks. */
+export function creatorPayoutTracker(payment: {
+  landedDate?: string | null;
+  landedAmountCents?: number | null;
+  amountOwedCents?: number | null;
+  paidOutDate?: string | null;
+  creatorPayoutCents?: number | null;
+  paymentStatus?: string | null;
+} | null) {
+  const basis = payment?.landedAmountCents ?? payment?.amountOwedCents ?? null;
+  return {
+    brandPaidOn: payment?.landedDate ?? null,
+    feeLabel: commissionLabel(basis),
+    cutSentOn: payment?.paidOutDate ?? null,
+    payoutLabel: creatorPayoutAmount(null, null, payment?.creatorPayoutCents ?? null),
+    statusLabel: paymentStatusLabel(payment?.paymentStatus ?? null, "creator"),
+  };
+}
+
 export function paymentStatusLabel(status: string | null, audience: "owner" | "creator") {
   if (audience === "creator") {
     if (status === "brand_invoiced") return "Brand invoiced";

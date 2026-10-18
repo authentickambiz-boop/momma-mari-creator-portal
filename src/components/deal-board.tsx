@@ -2,7 +2,7 @@ import Link from "next/link";
 import { changeDealStageAction, confirmLivePostAction, confirmProductAction, contractReviewAction, creatorInterestAction, markPaymentAction, releaseOfferAction, reviewDraftAction, saveShipmentAction, setSignerMinorAction, submitLivePostsAction, uploadBrandSignedCopyAction, uploadContractAction } from "@/app/actions";
 import { boldSignEnabled } from "@/lib/boldsign";
 import { CONTRACT_CHECKS, contractStageOpen, contractStatusLabel } from "@/lib/contract-shared";
-import { commissionLabel, creatorPayoutAmount, paymentStatusLabel, paymentStatusTone } from "@/lib/format";
+import { commissionLabel, creatorPayoutTracker, paymentStatusLabel, paymentStatusTone } from "@/lib/format";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
 import { UploadBox } from "./upload-box";
@@ -466,6 +466,7 @@ function ProductAndPosts({
     creator_paid: "Creator paid",
   };
   const basis = deal.payment?.landedAmountCents ?? deal.payment?.amountOwedCents ?? null;
+  const tracker = creatorPayoutTracker(deal.payment ?? null);
   return (
     <div className="box" id="product">
       <div className="sec-title">Product</div>
@@ -577,11 +578,14 @@ function ProductAndPosts({
         </>
       ) : null}
       {!isOwner && !canChangeStage && deal.payment ? (
-        <p>
-          Your payout: {creatorPayoutAmount(null, null, deal.payment.creatorPayoutCents)}
-          {" · "}
-          {paymentStatusLabel(deal.payment.paymentStatus, "creator")}
-        </p>
+        <>
+          <div className="sec-title" style={{ marginTop: 14 }}>Your payout</div>
+          <p>Your payout: {tracker.payoutLabel} · {tracker.statusLabel}</p>
+          <p>Momma Mari fee: {tracker.feeLabel}</p>
+          <p>Brand paid: {tracker.brandPaidOn ?? "Not yet"}</p>
+          <p>Your cut sent: {tracker.cutSentOn ?? "Not yet"}</p>
+          <p className="note">Kamron marks each step. Nothing is sent from here.</p>
+        </>
       ) : null}
     </div>
   );
