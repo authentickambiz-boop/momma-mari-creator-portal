@@ -1,8 +1,10 @@
+import { dismissNotificationAction } from "@/app/actions";
 import { DealBoard } from "@/components/deal-board";
 import { PortalFrame } from "@/components/portal-frame";
 import { canChangeDealStage } from "@/lib/authz";
 import { longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
+import { listUnreadCreatorReady } from "@/lib/onboarding";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string }> }) {
@@ -15,6 +17,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const visible = deals.filter((deal) => deal.visibleToCreator && deal.status !== "paid");
   const need = deals.filter((deal) => deal.visibleToCreator && deal.needsCreator);
   const hidden = deals.filter((deal) => !deal.visibleToCreator);
+  const notices = portal.viewer.role === "admin" ? await listUnreadCreatorReady(portal.db) : [];
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -34,6 +37,16 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
       }
     >
+      {notices.map((notice) => (
+        <div className="admin-banner" key={notice.id}>
+          <b>{notice.message}</b>
+          {" "}· {notice.creatorName}
+          <form action={dismissNotificationAction} style={{ display: "inline", marginLeft: 10 }}>
+            <input type="hidden" name="id" value={notice.id} />
+            <button className="btn ghost" type="submit">Dismiss</button>
+          </form>
+        </div>
+      ))}
       <DealBoard
         deals={deals}
         selected={selected}

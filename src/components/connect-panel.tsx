@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { publicBasePath } from "@/lib/format";
 import type { CreatorProfile } from "@/lib/types";
 
 const PLATFORMS = [
@@ -10,7 +11,17 @@ const PLATFORMS = [
   { key: "youtube", label: "YouTube", note: "Optional", mark: "YT", color: "#FF0000", ghost: true },
 ] as const;
 
-export function ConnectPanel({ creator }: { creator: CreatorProfile }) {
+export function ConnectPanel({
+  creator,
+  canConnectEmail,
+  emailConnected,
+  gmailEmail,
+}: {
+  creator: CreatorProfile;
+  canConnectEmail: boolean;
+  emailConnected: boolean;
+  gmailEmail: string | null;
+}) {
   const [note, setNote] = useState<string | null>(null);
   return (
     <div className="card">
@@ -49,12 +60,23 @@ export function ConnectPanel({ creator }: { creator: CreatorProfile }) {
         <div className="pf">
           <div className="ic" style={{ background: "#EA4335" }}>@</div>
           <div>
-            <b>Email ({creator.email})</b>
-            <div className="note">Lets your bot track brand threads</div>
+            <b>Email {gmailEmail ? `(${gmailEmail})` : `(${creator.email})`}</b>
+            <div className="note">Separate from sign-in. Lets your bot read brand threads and draft replies.</div>
           </div>
         </div>
-        {creator.accounts.email.status === "connected" ? <span className="chip c-sage">Connected</span> : <span className="chip c-gray">Not connected</span>}
+        {emailConnected ? <span className="chip c-sage">Connected</span> : canConnectEmail ? (
+          <a className="btn" href={`${publicBasePath()}/api/auth/gmail`}>Connect your email</a>
+        ) : (
+          <span className="chip c-gray">Not connected</span>
+        )}
       </div>
+      {canConnectEmail ? (
+        <p className="note" style={{ marginTop: 10 }}>
+          <a href={`${publicBasePath()}/onboarding`}>Set up your bot</a> after your email is connected.
+        </p>
+      ) : !emailConnected ? (
+        <p className="note" style={{ marginTop: 10 }}>{creator.name} connects her email from her own sign-in.</p>
+      ) : null}
       {note ? <p className="note" style={{ marginTop: 10 }}>{note}</p> : null}
       {creator.isSeed && creator.id !== "mariclare" ? (
         <p className="note">This creator&apos;s sign-in email is placeholder seed data until Kamron replaces it.</p>
