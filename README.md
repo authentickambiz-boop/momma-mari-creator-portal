@@ -344,6 +344,10 @@ Before a draft can go to a brand, the portal checks the file name, the caption, 
 
 The Report page is one page for a month: her cut that was sent, the deals that moved, and follower and view numbers that were entered by hand. Kamron can draft that page into an email. It lands in the approval queue, from `authentickambiz@gmail.com`, and stays pending. Nothing is sent on its own. A second draft for the same creator and month is refused.
 
+### Referrals
+
+The Referrals page lists people a creator referred. The perk amount is a placeholder Kamron can type in, or set with `REFERRAL_PERK_CENTS` until he saves one. Leave that empty. Nothing is paid automatically. Have a lawyer review the perk before anyone is paid.
+
 ### Upsert a deal
 
 `id`, `brand`, and either `creatorEmail` or `creatorId` are required. A new deal is hidden from the creator unless you pass `"visibleToCreator": true`. Omitted text fields are left as they are on update. `chips` is an array of `[text, tone]` pairs. Tones used by the mockup are `c-red`, `c-gray`, `c-sun`, `c-blue`, and `c-sage`.

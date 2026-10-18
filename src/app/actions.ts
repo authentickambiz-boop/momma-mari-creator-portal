@@ -13,6 +13,7 @@ import { countersignContract, setSignerIsMinor, signContract, uploadBrandSignedC
 import { CONTRACT_CHECKS } from "@/lib/contract-shared";
 import { clearSafetyHold } from "@/lib/safety";
 import { draftMonthlyReport } from "@/lib/report";
+import { recordReferral, setReferralPerk } from "@/lib/referrals";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
 import { confirmLivePost, confirmProductReceived, markPayment, saveShipment, submitLivePosts } from "@/lib/fulfillment";
@@ -42,6 +43,45 @@ export async function draftReportAction(formData: FormData) {
     redirect(`${back}&reportError=${code}`);
   }
   redirect(`${back}&drafted=1`);
+}
+
+function referralBack(creatorId: string) {
+  return creatorId ? `/referrals?creator=${encodeURIComponent(creatorId)}` : "/referrals";
+}
+
+export async function setReferralPerkAction(formData: FormData) {
+  const viewer = await currentViewer();
+  const creatorId = String(formData.get("creatorId") ?? "");
+  const back = referralBack(creatorId);
+  if (!viewer) redirect("/login");
+  const raw = String(formData.get("dollars") ?? "").trim();
+  const amountCents = raw === "" ? null : Math.round(Number(raw) * 100);
+  const db = await getDb();
+  const result = await setReferralPerk(db, {
+    amountCents: raw !== "" && !Number.isFinite(amountCents) ? Number.NaN : amountCents,
+    actorRole: viewer.role,
+  });
+  const join = back.includes("?") ? "&" : "?";
+  if (!result.ok) redirect(`${back}${join}referralError=perk`);
+  redirect(`${back}${join}saved=1`);
+}
+
+export async function recordReferralAction(formData: FormData) {
+  const viewer = await currentViewer();
+  const creatorId = String(formData.get("creatorId") ?? "") || viewer?.creatorId || "";
+  const back = referralBack(creatorId);
+  if (!viewer) redirect("/login");
+  const db = await getDb();
+  const result = await recordReferral(db, {
+    referrerCreatorId: creatorId,
+    referredName: String(formData.get("name") ?? ""),
+    referredEmail: String(formData.get("email") ?? ""),
+    actorEmail: viewer.email,
+    actorRole: viewer.role,
+    actorCreatorId: viewer.creatorId,
+  });
+  if (!result.ok) redirect(`${back}${back.includes("?") ? "&" : "?"}referralError=1`);
+  redirect(`${back}${back.includes("?") ? "&" : "?"}saved=1`);
 }
 
 export async function logoutAction() {

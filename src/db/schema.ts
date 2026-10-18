@@ -626,6 +626,21 @@ export const draftSafetyFlags = sqliteTable(
   (table) => [uniqueIndex("draft_safety_flags_draft_kind").on(table.draftId, table.kind)],
 );
 
+export const referralSettings = sqliteTable("referral_settings", {
+  id: text("id").primaryKey(),
+  perkCents: integer("perk_cents"),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const referrals = sqliteTable("referrals", {
+  id: text("id").primaryKey(),
+  referrerCreatorId: text("referrer_creator_id").notNull(),
+  referredName: text("referred_name").notNull(),
+  referredEmail: text("referred_email").notNull(),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),
