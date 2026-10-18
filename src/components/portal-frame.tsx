@@ -8,6 +8,7 @@ const TABS = [
   { id: "analytics", href: "/analytics", label: "Analytics" },
   { id: "connect", href: "/connect", label: "Connect accounts" },
   { id: "calendar", href: "/calendar", label: "Calendar" },
+  { id: "kit", href: "/media-kit", label: "Media kit" },
   { id: "approvals", href: "/approvals", label: "Approvals" },
   { id: "directory", href: "/directory", label: "Members" },
   { id: "profile", href: "/profile", label: "My profile" },
@@ -41,6 +42,7 @@ export function PortalFrame({
     if (item.id === "approvals") return viewer.role === "admin" || Boolean(viewer.permissions?.approveEmail);
     if (item.id === "profile") return viewer.role === "creator";
     if (item.id === "brands") return viewer.role === "admin" || viewer.role === "manager";
+    if (item.id === "kit") return viewer.role === "creator";
     return true;
   });
   return (
