@@ -26,6 +26,7 @@ export const creators = sqliteTable("creators", {
   gmailConnectedAt: text("gmail_connected_at"),
   emailSetup: text("email_setup"),
   hostedEmailAddress: text("hosted_email_address"),
+  signerIsMinor: integer("signer_is_minor", { mode: "boolean" }).notNull().default(false),
   isSeed: integer("is_seed", { mode: "boolean" }).notNull(),
   createdAt: text("created_at").notNull(),
 });
@@ -310,6 +311,42 @@ export const contractChecks = sqliteTable("contract_checks", {
   status: text("status").notNull(),
   note: text("note"),
   createdAt: text("created_at").notNull(),
+});
+
+export const contractFiles = sqliteTable("contract_files", {
+  contractId: text("contract_id").primaryKey(),
+  bytesBase64: text("bytes_base64").notNull(),
+});
+
+export const contractSignatures = sqliteTable("contract_signatures", {
+  id: text("id").primaryKey(),
+  contractId: text("contract_id").notNull(),
+  dealId: text("deal_id").notNull(),
+  version: integer("version").notNull(),
+  role: text("role").notNull(),
+  status: text("status").notNull(),
+  signerName: text("signer_name"),
+  signerEmail: text("signer_email"),
+  signedAt: text("signed_at"),
+  ip: text("ip"),
+  userAgent: text("user_agent"),
+  documentSha256: text("document_sha256"),
+  signatureKind: text("signature_kind"),
+  consentEsign: integer("consent_esign", { mode: "boolean" }),
+  consentRead: integer("consent_read", { mode: "boolean" }),
+  guardian: integer("guardian", { mode: "boolean" }).notNull(),
+  signedSha256: text("signed_sha256"),
+  signedFilename: text("signed_filename"),
+  driveFileId: text("drive_file_id"),
+  driveFileUrl: text("drive_file_url"),
+  approvalId: text("approval_id"),
+  voidedAt: text("voided_at"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const signatureFiles = sqliteTable("signature_files", {
+  signatureId: text("signature_id").primaryKey(),
+  bytesBase64: text("bytes_base64").notNull(),
 });
 
 export const sessions = sqliteTable("sessions", {

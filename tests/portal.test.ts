@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { before, describe, test } from "node:test";
+import { eq } from "drizzle-orm";
+import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
+import { contracts as contractTable, creators, signatureFiles } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { canApproveEmail, canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
@@ -47,6 +51,7 @@ import {
   saveGmailConnection,
 } from "../src/lib/onboarding";
 import { hostedEmailPreview, STRIPE_CATALOG } from "../src/lib/email-setup";
+import { countersignContract, listSignatures, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "../src/lib/signing";
 import { createSession, readSignedSessionId } from "../src/lib/session";
 import { decryptToken } from "../src/lib/token-crypto";
 import { assertCanUpload, parseContentRange, validateChunk } from "../src/lib/uploads";
@@ -1485,6 +1490,464 @@ test("an admin keeps every contract version, and the creator only sees the appro
   assert.equal(JSON.stringify(listed).includes("refresh_token"), false);
   const later = await listContracts(db, "2999-01-01T00:00:00.000Z");
   assert.equal(later.some((row) => row.dealId === "phase5-contract"), false);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingBefore?.drafts.length);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+});
+
+test("a creator signs her own approved PDF once, and a new version voids the request", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingSignaturesBefore = (await listSignatures(db, null)).filter((row) => row.dealId === "kosbling");
+
+  async function onePagePdf() {
+    const doc = await PDFDocument.create();
+    const page = doc.addPage([420, 560]);
+    page.drawText("Momma Mari contract", { x: 50, y: 500, size: 16 });
+    return new Uint8Array(await doc.save());
+  }
+  function sha256(bytes: Uint8Array) {
+    return createHash("sha256").update(bytes).digest("hex");
+  }
+  const signAs = {
+    actorRole: "creator" as const,
+    creatorId: "mariclare",
+    legalName: "Mari Clare Maclamroc",
+    signatureKind: "typed",
+    consentEsign: true,
+    consentRead: true,
+    guardianConfirm: false,
+    ip: "203.0.113.8",
+    userAgent: "PortalTest/6",
+  };
+
+  await db.insert(contractTable).values({
+    id: "kosbling-sign-probe",
+    dealId: "kosbling",
+    version: 1,
+    filename: "probe.pdf",
+    mimeType: "application/pdf",
+    sizeBytes: 8,
+    sha256: null,
+    driveFileId: null,
+    driveFileUrl: null,
+    driveFolderId: null,
+    source: "upload",
+    signingFormat: "pdf",
+    countersign: false,
+    status: "approved",
+    uploadedBy: "test",
+    approvalId: null,
+    createdAt: "2026-10-18T00:00:00.000Z",
+  });
+  const kosblingSign = await signContract(db, {
+    ...signAs,
+    contractId: "kosbling-sign-probe",
+    actorEmail: mariclare.email,
+  });
+  assert.equal(kosblingSign.ok, false);
+  if (!kosblingSign.ok) {
+    assert.equal(kosblingSign.status, 409);
+    assert.equal(kosblingSign.error, "This deal is already past signing. Nothing was changed.");
+  }
+  const kosblingUpload = await uploadBrandSignedCopy(db, {
+    contractId: "kosbling-sign-probe",
+    actorEmail: admin.email,
+    actorRole: "admin",
+    filename: "probe-signed.pdf",
+    bytes: await onePagePdf(),
+    ip: "203.0.113.8",
+    userAgent: "PortalTest/6",
+  });
+  assert.equal(kosblingUpload.ok, false);
+  if (!kosblingUpload.ok) assert.equal(kosblingUpload.status, 409);
+  assert.equal((await listSignatures(db, null)).filter((row) => row.dealId === "kosbling").length, kosblingSignaturesBefore.length);
+  await db.delete(contractTable).where(eq(contractTable.id, "kosbling-sign-probe"));
+
+  const pdf = await onePagePdf();
+  const created = await upsertDeal(db, {
+    id: "phase6-sign",
+    brand: "Phase6 Sign",
+    creatorId: "mariclare",
+    status: "negotiating",
+    workflowStage: "creator_interested",
+    visibleToCreator: true,
+    amountDisplay: "$500",
+    contact: "hello@phase6sign.example",
+  });
+  assert.equal(created.status, 201);
+  const saved = await saveContract(db, {
+    dealId: "phase6-sign",
+    filename: "phase6.pdf",
+    mimeType: "application/pdf",
+    bytes: pdf,
+    docusign: true,
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(saved.ok, true);
+  if (!saved.ok) return;
+  const tooSoon = await signContract(db, { ...signAs, contractId: saved.id, actorEmail: mariclare.email });
+  assert.equal(tooSoon.ok, false);
+  if (!tooSoon.ok) {
+    assert.equal(tooSoon.status, 409);
+    assert.equal(tooSoon.error, "This deal isn't ready to sign. Nothing was changed.");
+  }
+  const approved = await approveContract(db, { contractId: saved.id, actorEmail: admin.email, actorRole: "admin" });
+  assert.equal(approved.ok, true);
+  const ready = await getDealForViewer(db, admin, "phase6-sign");
+  assert.equal(ready?.workflowStage, "approved_by_agency");
+  assert.equal(ready?.signatures.some((row) => row.contractId === saved.id && row.status === "requested"), true);
+
+  const marked = await setSigningFormat(db, { contractId: saved.id, signingFormat: "needs_review", actorRole: "admin" });
+  assert.equal(marked.ok, true);
+  const blockedFormat = await signContract(db, { ...signAs, contractId: saved.id, actorEmail: mariclare.email });
+  assert.equal(blockedFormat.ok, false);
+  if (!blockedFormat.ok) assert.equal(blockedFormat.status, 400);
+  await setSigningFormat(db, { contractId: saved.id, signingFormat: "docusign", actorRole: "admin" });
+
+  const otherCreator = await signContract(db, {
+    ...signAs,
+    contractId: saved.id,
+    actorEmail: abby.email,
+    creatorId: "abby",
+  });
+  assert.equal(otherCreator.ok, false);
+  if (!otherCreator.ok) {
+    assert.equal(otherCreator.status, 403);
+    assert.equal(otherCreator.error, "You can only sign your own contract.");
+  }
+  const missingBoxes = await signContract(db, {
+    ...signAs,
+    contractId: saved.id,
+    actorEmail: mariclare.email,
+    consentEsign: false,
+  });
+  assert.equal(missingBoxes.ok, false);
+  if (!missingBoxes.ok) assert.equal(missingBoxes.status, 400);
+  const shortName = await signContract(db, {
+    ...signAs,
+    contractId: saved.id,
+    actorEmail: mariclare.email,
+    legalName: "Mari",
+  });
+  assert.equal(shortName.ok, false);
+  if (!shortName.ok) assert.equal(shortName.status, 400);
+
+  const contentGuard = await signContract(db, { ...signAs, contractId: saved.id, actorEmail: mariclare.email });
+  assert.equal(contentGuard.ok, false);
+  if (!contentGuard.ok) {
+    assert.equal(contentGuard.status, 400);
+    assert.equal(contentGuard.error, "Confirm you are the parent or guardian for any minor in this content.");
+  }
+  const signed = await signContract(db, {
+    ...signAs,
+    contractId: saved.id,
+    actorEmail: mariclare.email,
+    guardianConfirm: true,
+  });
+  assert.equal(signed.ok, true, signed.ok ? "" : `${signed.status} ${signed.error}`);
+  if (!signed.ok) return;
+  assert.equal(signed.status, "final");
+  assert.equal(signed.workflowStage, "signed_by_creator");
+  const afterSign = await getDealForViewer(db, admin, "phase6-sign");
+  const audit = afterSign?.signatures.find((row) => row.id === signed.signatureId);
+  assert.equal(audit?.signerName, "Mari Clare Maclamroc");
+  assert.equal(audit?.signerEmail, mariclare.email);
+  assert.equal(audit?.ip, "203.0.113.8");
+  assert.equal(audit?.userAgent, "PortalTest/6");
+  assert.match(audit?.signedAt ?? "", /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  assert.equal(audit?.documentSha256, sha256(pdf));
+  assert.match(audit?.signedSha256 ?? "", /^[a-f0-9]{64}$/);
+  assert.notEqual(audit?.signedSha256, audit?.documentSha256);
+  const stored = await db.select().from(signatureFiles).where(eq(signatureFiles.signatureId, signed.signatureId));
+  const signedBytes = new Uint8Array(Buffer.from(stored[0]?.bytesBase64 ?? "", "base64"));
+  assert.equal(Buffer.from(signedBytes.subarray(0, 5)).toString(), "%PDF-");
+  assert.equal(sha256(signedBytes), audit?.signedSha256);
+  const signedDoc = await PDFDocument.load(signedBytes);
+  const originalDoc = await PDFDocument.load(pdf);
+  assert.equal(signedDoc.getPageCount(), originalDoc.getPageCount() + 1);
+  assert.equal(afterSign?.workflowStage, "signed_by_creator");
+  assert.equal(afterSign?.stageEvents?.some((event) => event.toStage === "signed_by_creator" && event.actorRole === "creator"), true);
+  const brandEmail = (await listApprovalQueue(db, "all")).find((row) => row.dealId === "phase6-sign" && row.gate === "signed_contract");
+  assert.equal(brandEmail?.status, "pending");
+  assert.equal(brandEmail?.fromEmail, "authentickambiz@gmail.com");
+  assert.equal(brandEmail?.toEmail, "hello@phase6sign.example");
+  assert.match(brandEmail?.body ?? "", /Contracts folder|Drive link:/);
+  const waiting = await listApprovedApprovals(db);
+  assert.equal(waiting.body.approvals.some((row) => row.id === brandEmail?.id), false);
+  const creatorView = await getDealForViewer(db, mariclare, "phase6-sign");
+  assert.equal(creatorView?.contracts.every((row) => row.checks === null), true);
+  assert.equal(creatorView?.signatures.find((row) => row.id === signed.signatureId)?.ip, null);
+  assert.equal(creatorView?.signatures.find((row) => row.id === signed.signatureId)?.signerEmail, null);
+  assert.equal(creatorView?.signatures.find((row) => row.id === signed.signatureId)?.userAgent, null);
+  assert.equal(creatorView?.signatures.find((row) => row.id === signed.signatureId)?.documentSha256, null);
+  assert.equal(JSON.stringify(creatorView).includes("203.0.113.8"), false);
+  assert.equal(JSON.stringify(creatorView).includes("PortalTest/6"), false);
+
+  const again = await signContract(db, { ...signAs, contractId: saved.id, actorEmail: mariclare.email });
+  assert.equal(again.ok, false);
+  if (!again.ok) {
+    assert.equal(again.status, 409);
+    assert.equal(again.error, "This version is already signed.");
+  }
+
+  const counterDeal = await upsertDeal(db, {
+    id: "phase6-counter",
+    brand: "Phase6 Counter",
+    creatorId: "mariclare",
+    status: "negotiating",
+    workflowStage: "creator_interested",
+    visibleToCreator: true,
+    amountDisplay: "$500",
+    contact: "hello@phase6counter.example",
+  });
+  assert.equal(counterDeal.status, 201);
+  const counterPdf = await onePagePdf();
+  const counterV1 = await saveContract(db, {
+    dealId: "phase6-counter",
+    filename: "counter-v1.pdf",
+    mimeType: "application/pdf",
+    bytes: counterPdf,
+    countersign: true,
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(counterV1.ok, true);
+  if (!counterV1.ok) return;
+  assert.equal((await approveContract(db, { contractId: counterV1.id, actorEmail: admin.email, actorRole: "admin" })).ok, true);
+  const counterV2 = await saveContract(db, {
+    dealId: "phase6-counter",
+    filename: "counter-v2.pdf",
+    mimeType: "application/pdf",
+    bytes: await onePagePdf(),
+    countersign: true,
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(counterV2.ok, true);
+  if (!counterV2.ok) return;
+  const replaced = await signContract(db, { ...signAs, contractId: counterV1.id, actorEmail: mariclare.email });
+  assert.equal(replaced.ok, false);
+  if (!replaced.ok) {
+    assert.equal(replaced.status, 409);
+    assert.equal(replaced.error, "This version was replaced. Sign the newest contract.");
+  }
+  const creatorReplaced = await getDealForViewer(db, mariclare, "phase6-counter");
+  assert.equal(creatorReplaced?.signatures.some((row) => row.status === "void"), false);
+  const adminReplaced = await getDealForViewer(db, admin, "phase6-counter");
+  assert.equal(adminReplaced?.signatures.some((row) => row.contractId === counterV1.id && row.status === "void"), true);
+  assert.equal((await approveContract(db, { contractId: counterV2.id, actorEmail: admin.email, actorRole: "admin" })).ok, true);
+  const creatorSigned = await signContract(db, {
+    ...signAs,
+    contractId: counterV2.id,
+    actorEmail: mariclare.email,
+    guardianConfirm: true,
+  });
+  assert.equal(creatorSigned.ok, true, creatorSigned.ok ? "" : `${creatorSigned.status} ${creatorSigned.error}`);
+  if (!creatorSigned.ok) return;
+  assert.equal(creatorSigned.status, "pending_countersign");
+  assert.equal((await listApprovalQueue(db, "all")).some((row) => row.dealId === "phase6-counter" && row.gate === "signed_contract"), false);
+  const countersigned = await countersignContract(db, {
+    contractId: counterV2.id,
+    actorEmail: admin.email,
+    actorRole: "admin",
+    legalName: "Kamron Santo",
+    signatureKind: "typed",
+    consentEsign: true,
+    consentRead: true,
+    ip: "203.0.113.9",
+    userAgent: "PortalTest/6-admin",
+  });
+  assert.equal(countersigned.ok, true);
+  if (!countersigned.ok) return;
+  const creatorCopy = await db.select().from(signatureFiles).where(eq(signatureFiles.signatureId, creatorSigned.signatureId));
+  const counterCopy = await db.select().from(signatureFiles).where(eq(signatureFiles.signatureId, countersigned.signatureId));
+  assert.equal(creatorCopy.length, 1);
+  assert.equal(counterCopy.length, 1);
+  assert.notEqual(creatorCopy[0]?.bytesBase64, counterCopy[0]?.bytesBase64);
+  const counterEmail = (await listApprovalQueue(db, "all")).find((row) => row.dealId === "phase6-counter" && row.gate === "signed_contract");
+  assert.equal(counterEmail?.status, "pending");
+  assert.equal(counterEmail?.fromEmail, "authentickambiz@gmail.com");
+  const counterDealAfter = await getDealForViewer(db, admin, "phase6-counter");
+  assert.equal(counterDealAfter?.workflowStage, "signed_by_creator");
+  assert.equal(counterDealAfter?.signatures.find((row) => row.id === creatorSigned.signatureId)?.status, "final");
+  assert.equal(counterDealAfter?.stageEvents?.some((event) => (event.note ?? "").includes("Momma Mari countersigned contract v2")), true);
+  assert.equal(counterDealAfter?.revisions.some((row) => row.summary === "Momma Mari countersigned the contract."), true);
+
+  const contentRow = (await getDealForViewer(db, admin, "phase6-sign"))?.signatures.find((row) => row.id === signed.signatureId);
+  assert.equal(contentRow?.role, "creator");
+  assert.equal(contentRow?.guardian, false);
+  const savedAges = (await db.select().from(creators).where(eq(creators.id, "mariclare")))[0]?.kidsAges ?? null;
+  await db.update(creators).set({ kidsAges: null }).where(eq(creators.id, "mariclare"));
+  const adultDeal = await upsertDeal(db, {
+    id: "phase6-adult",
+    brand: "Phase6 Adult",
+    creatorId: "mariclare",
+    status: "negotiating",
+    workflowStage: "creator_interested",
+    visibleToCreator: true,
+    amountDisplay: "$500",
+    contact: "hello@phase6adult.example",
+  });
+  assert.equal(adultDeal.status, 201);
+  const adultFile = await saveContract(db, {
+    dealId: "phase6-adult",
+    filename: "adult.pdf",
+    mimeType: "application/pdf",
+    bytes: await onePagePdf(),
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(adultFile.ok, true);
+  if (!adultFile.ok) return;
+  assert.equal((await approveContract(db, { contractId: adultFile.id, actorEmail: admin.email, actorRole: "admin" })).ok, true);
+  const adultSigned = await signContract(db, { ...signAs, contractId: adultFile.id, actorEmail: mariclare.email, guardianConfirm: false });
+  assert.equal(adultSigned.ok, true, adultSigned.ok ? "" : `${adultSigned.status} ${adultSigned.error}`);
+  await db.update(creators).set({ kidsAges: savedAges }).where(eq(creators.id, "mariclare"));
+
+  const minorFlag = await setSignerIsMinor(db, { creatorId: "mariclare", minor: true, actorRole: "admin" });
+  assert.equal(minorFlag.ok, true);
+  const minorDeal = await upsertDeal(db, {
+    id: "phase6-minor",
+    brand: "Phase6 Minor",
+    creatorId: "mariclare",
+    status: "negotiating",
+    workflowStage: "creator_interested",
+    visibleToCreator: true,
+    amountDisplay: "$500",
+    contact: "hello@phase6minor.example",
+  });
+  assert.equal(minorDeal.status, 201);
+  const minorFile = await saveContract(db, {
+    dealId: "phase6-minor",
+    filename: "minor.pdf",
+    mimeType: "application/pdf",
+    bytes: await onePagePdf(),
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(minorFile.ok, true);
+  if (!minorFile.ok) return;
+  assert.equal((await approveContract(db, { contractId: minorFile.id, actorEmail: admin.email, actorRole: "admin" })).ok, true);
+  const minorBlocked = await signContract(db, { ...signAs, contractId: minorFile.id, actorEmail: mariclare.email, guardianConfirm: false });
+  assert.equal(minorBlocked.ok, false);
+  if (!minorBlocked.ok) {
+    assert.equal(minorBlocked.status, 400);
+    assert.equal(minorBlocked.error, "A parent or guardian has to sign this contract.");
+  }
+  const minorSigned = await signContract(db, {
+    ...signAs,
+    contractId: minorFile.id,
+    actorEmail: mariclare.email,
+    legalName: "Parent Maclamroc",
+    guardianConfirm: true,
+  });
+  assert.equal(minorSigned.ok, true);
+  if (minorSigned.ok) {
+    const minorRow = (await getDealForViewer(db, admin, "phase6-minor"))?.signatures.find((row) => row.id === minorSigned.signatureId);
+    assert.equal(minorRow?.role, "guardian");
+    assert.equal(minorRow?.guardian, true);
+  }
+  const notices = await listUnreadNotices(db);
+  assert.equal(notices.some((notice) => notice.kind === "minor_signature" && notice.message.includes("Phase6 Minor") && notice.message.includes("parent or guardian")), true);
+  assert.equal((await setSignerIsMinor(db, { creatorId: "mariclare", minor: false, actorRole: "admin" })).ok, true);
+
+  const drawnDeal = await upsertDeal(db, {
+    id: "phase6-drawn",
+    brand: "Phase6 Drawn",
+    creatorId: "mariclare",
+    status: "negotiating",
+    workflowStage: "creator_interested",
+    visibleToCreator: true,
+    amountDisplay: "$500",
+    contact: "hello@phase6drawn.example",
+  });
+  assert.equal(drawnDeal.status, 201);
+  const drawnFile = await saveContract(db, {
+    dealId: "phase6-drawn",
+    filename: "drawn.pdf",
+    mimeType: "application/pdf",
+    bytes: await onePagePdf(),
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(drawnFile.ok, true);
+  if (!drawnFile.ok) return;
+  assert.equal((await approveContract(db, { contractId: drawnFile.id, actorEmail: admin.email, actorRole: "admin" })).ok, true);
+  const drawn = await signContract(db, {
+    ...signAs,
+    contractId: drawnFile.id,
+    actorEmail: mariclare.email,
+    guardianConfirm: true,
+    signatureKind: "drawn",
+    signaturePng: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  });
+  assert.equal(drawn.ok, true);
+  if (drawn.ok) {
+    const drawnRow = (await getDealForViewer(db, admin, "phase6-drawn"))?.signatures.find((row) => row.id === drawn.signatureId);
+    assert.equal(drawnRow?.status, "final");
+  }
+
+  const brandDeal = await upsertDeal(db, {
+    id: "phase6-brand",
+    brand: "Phase6 Brand",
+    creatorId: "mariclare",
+    status: "negotiating",
+    workflowStage: "creator_interested",
+    visibleToCreator: true,
+    amountDisplay: "$500",
+    contact: "hello@phase6brand.example",
+  });
+  assert.equal(brandDeal.status, 201);
+  const brandFile = await saveContract(db, {
+    dealId: "phase6-brand",
+    filename: "brand.pdf",
+    mimeType: "application/pdf",
+    bytes: await onePagePdf(),
+    countersign: true,
+    actorEmail: admin.email,
+    actorRole: "admin",
+  });
+  assert.equal(brandFile.ok, true);
+  if (!brandFile.ok) return;
+  assert.equal((await approveContract(db, { contractId: brandFile.id, actorEmail: admin.email, actorRole: "admin" })).ok, true);
+  const brandPdf = await onePagePdf();
+  const uploaded = await uploadBrandSignedCopy(db, {
+    contractId: brandFile.id,
+    actorEmail: admin.email,
+    actorRole: "admin",
+    filename: "brand-completed.pdf",
+    bytes: brandPdf,
+    ip: "203.0.113.10",
+    userAgent: "PortalTest/6-upload",
+  });
+  assert.equal(uploaded.ok, true);
+  if (!uploaded.ok) return;
+  const uploadedRow = await db.select().from(signatureFiles).where(eq(signatureFiles.signatureId, uploaded.signatureId));
+  const uploadedBytes = Buffer.from(uploadedRow[0]?.bytesBase64 ?? "", "base64");
+  assert.equal(Buffer.compare(uploadedBytes, Buffer.from(brandPdf)), 0);
+  const brandView = await getDealForViewer(db, admin, "phase6-brand");
+  assert.equal(brandView?.workflowStage, "signed_by_creator");
+  assert.equal(brandView?.signatures.find((row) => row.id === uploaded.signatureId)?.status, "final");
+  assert.equal(brandView?.signatures.some((row) => row.contractId === brandFile.id && row.status === "requested"), false);
+  const skipped = await signContract(db, { ...signAs, contractId: brandFile.id, actorEmail: mariclare.email });
+  assert.equal(skipped.ok, false);
+  if (!skipped.ok) assert.equal(skipped.status, 409);
+  const brandMail = (await listApprovalQueue(db, "all")).find((row) => row.dealId === "phase6-brand" && row.gate === "signed_contract");
+  assert.equal(brandMail?.status, "pending");
+  assert.equal(brandMail?.fromEmail, "authentickambiz@gmail.com");
+
+  const listed = await listSignatures(db, null);
+  assert.equal(JSON.stringify(listed).includes("gmailRefreshToken"), false);
+  assert.equal(JSON.stringify(listed).includes("refresh_token"), false);
+  assert.equal(listed.some((row) => row.dealId === "phase6-sign" && row.status === "final"), true);
+  const later = await listSignatures(db, "2999-01-01T00:00:00.000Z");
+  assert.equal(later.length, 0);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");

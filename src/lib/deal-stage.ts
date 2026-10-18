@@ -26,7 +26,12 @@ export async function setDealStage(
     input.creatorId === deal.creatorId &&
     deal.workflowStage === "offer_shared" &&
     (stage.id === "creator_interested" || stage.id === "creator_declined");
-  if (input.actorRole !== "admin" && input.actorRole !== "bot" && input.actorRole !== "system" && !creatorChoice) {
+  const creatorSign =
+    input.actorRole === "creator" &&
+    input.creatorId === deal.creatorId &&
+    (deal.workflowStage === "approved_by_agency" || deal.workflowStage === "awaiting_signature") &&
+    stage.id === "signed_by_creator";
+  if (input.actorRole !== "admin" && input.actorRole !== "bot" && input.actorRole !== "system" && !creatorChoice && !creatorSign) {
     return { ok: false as const, status: 403, error: "You can't move this deal." };
   }
   if (deal.workflowStage === stage.id) {

@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { reviewApproval } from "@/lib/approvals";
@@ -8,6 +8,7 @@ import { canApproveEmail, canChangeDealStage, devLoginEnabled } from "@/lib/auth
 import { currentViewer } from "@/lib/current-user";
 import { logOfferScreening, recordCreatorInterest, releaseOffer } from "@/lib/creator-interest";
 import { approveContract, requestContractRevisions, saveChecklist, saveContract, setSigningFormat } from "@/lib/contracts";
+import { countersignContract, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "@/lib/signing";
 import { CONTRACT_CHECKS } from "@/lib/contract-shared";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
@@ -210,6 +211,129 @@ export async function contractReviewAction(formData: FormData) {
     });
     if (!result.ok) redirect(`${back}${query ? "&" : "?"}contractError=${contractErrorCode(result.error)}`);
   }
+  redirect(back);
+}
+
+async function clientAudit() {
+  const headerList = await headers();
+  const forwarded = headerList.get("x-forwarded-for");
+  const ip = forwarded?.split(",")[0]?.trim() || headerList.get("x-real-ip") || "unknown";
+  return { ip, userAgent: headerList.get("user-agent") || "unknown" };
+}
+
+function signBack(dealId: string, contractId: string, creator: string) {
+  const creatorQuery = creator ? `&creator=${encodeURIComponent(creator)}` : "";
+  return `/deals/${dealId}/sign?contract=${encodeURIComponent(contractId)}${creatorQuery}`;
+}
+
+function signErrorCode(error: string) {
+  if (error.includes("both boxes")) return "boxes";
+  if (error.includes("full legal name")) return "name";
+  if (error.includes("parent or guardian has to sign")) return "guardian";
+  if (error.includes("minor in this content")) return "content";
+  if (error.includes("Draw your signature")) return "draw";
+  if (error.includes("isn't a PDF")) return "pdf";
+  if (error.includes("doesn't match")) return "mismatch";
+  if (error.includes("signed contract can be queued")) return "signemail";
+  if (error.includes("brand email")) return "email";
+  if (error.includes("was replaced")) return "replaced";
+  if (error.includes("already signed")) return "signed";
+  if (error.includes("already past signing")) return "past";
+  if (error.includes("isn't ready to sign")) return "ready";
+  if (error.includes("only sign your own")) return "own";
+  if (error.includes("needs review")) return "review";
+  if (error.includes("completed signed PDF")) return "upload";
+  return "1";
+}
+
+export async function signContractAction(formData: FormData) {
+  const dealId = String(formData.get("dealId") ?? "");
+  const contractId = String(formData.get("contractId") ?? "");
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "creator" || !viewer.creatorId) redirect("/login");
+  const db = await getDb();
+  const audit = await clientAudit();
+  const result = await signContract(db, {
+    contractId,
+    actorEmail: viewer.email,
+    actorRole: "creator",
+    creatorId: viewer.creatorId,
+    legalName: String(formData.get("legalName") ?? ""),
+    signatureKind: String(formData.get("signatureKind") ?? ""),
+    signaturePng: String(formData.get("signaturePng") ?? ""),
+    consentEsign: formData.get("consentEsign") === "1",
+    consentRead: formData.get("consentRead") === "1",
+    guardianConfirm: formData.get("guardianConfirm") === "1",
+    ip: audit.ip,
+    userAgent: audit.userAgent,
+  });
+  if (!result.ok) redirect(`${signBack(dealId, contractId, "")}&signError=${signErrorCode(result.error)}`);
+  redirect(`/deals/${dealId}?signed=1`);
+}
+
+export async function countersignContractAction(formData: FormData) {
+  const dealId = String(formData.get("dealId") ?? "");
+  const contractId = String(formData.get("contractId") ?? "");
+  const creator = String(formData.get("creator") ?? "");
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "admin") redirect("/login");
+  const db = await getDb();
+  const audit = await clientAudit();
+  const result = await countersignContract(db, {
+    contractId,
+    actorEmail: viewer.email,
+    actorRole: "admin",
+    legalName: String(formData.get("legalName") ?? ""),
+    signatureKind: String(formData.get("signatureKind") ?? ""),
+    signaturePng: String(formData.get("signaturePng") ?? ""),
+    consentEsign: formData.get("consentEsign") === "1",
+    consentRead: formData.get("consentRead") === "1",
+    ip: audit.ip,
+    userAgent: audit.userAgent,
+  });
+  if (!result.ok) redirect(`${signBack(dealId, contractId, creator)}&signError=${signErrorCode(result.error)}`);
+  const { back } = contractBack(dealId, creator);
+  redirect(back);
+}
+
+export async function uploadBrandSignedCopyAction(formData: FormData) {
+  const dealId = String(formData.get("dealId") ?? "");
+  const contractId = String(formData.get("contractId") ?? "");
+  const creator = String(formData.get("creator") ?? "");
+  const { query, back } = contractBack(dealId, creator);
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "admin") redirect("/login");
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`${back}${query ? "&" : "?"}contractError=upload`);
+  }
+  const db = await getDb();
+  const audit = await clientAudit();
+  const result = await uploadBrandSignedCopy(db, {
+    contractId,
+    actorEmail: viewer.email,
+    actorRole: "admin",
+    filename: file.name,
+    bytes: new Uint8Array(await file.arrayBuffer()),
+    ip: audit.ip,
+    userAgent: audit.userAgent,
+  });
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}contractError=${signErrorCode(result.error)}`);
+  redirect(back);
+}
+
+export async function setSignerMinorAction(formData: FormData) {
+  const dealId = String(formData.get("dealId") ?? "");
+  const creator = String(formData.get("creator") ?? "");
+  const { back } = contractBack(dealId, creator);
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "admin") redirect("/login");
+  const db = await getDb();
+  await setSignerIsMinor(db, {
+    creatorId: String(formData.get("creatorId") ?? ""),
+    minor: formData.get("minor") === "1",
+    actorRole: "admin",
+  });
   redirect(back);
 }
 

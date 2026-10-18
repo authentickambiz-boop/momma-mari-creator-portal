@@ -1,6 +1,6 @@
-import { and, asc, eq, gt } from "drizzle-orm";
+import { and, asc, eq, gt, inArray } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { contractChecks, contracts, creatorNotifications, creators, deals } from "@/db/schema";
+import { contractChecks, contractFiles, contractSignatures, contracts, creatorNotifications, creators, deals } from "@/db/schema";
 import { createApprovalEmail } from "./approvals";
 import {
   APPROVE_FORBIDDEN,
@@ -103,7 +103,14 @@ export async function saveContract(
   }
   const deal = await loadDeal(db, input.dealId);
   if (!deal) return { ok: false, status: 404, error: "Deal not found." };
-  const closed = blocked(deal.workflowStage);
+  let closed = blocked(deal.workflowStage);
+  if (closed && deal.workflowStage === "signed_by_creator") {
+    const waiting = await db
+      .select({ id: contractSignatures.id })
+      .from(contractSignatures)
+      .where(and(eq(contractSignatures.dealId, deal.id), eq(contractSignatures.status, "pending_countersign")));
+    if (waiting.length > 0) closed = null;
+  }
   if (closed) return closed;
 
   const filename = basename(input.filename);
@@ -182,6 +189,13 @@ export async function saveContract(
       createdAt: timestamp,
     })),
   );
+  if (bytes && bytes.byteLength > 0 && bytes.byteLength <= 1_000_000) {
+    await db.insert(contractFiles).values({ contractId: id, bytesBase64: Buffer.from(bytes).toString("base64") });
+  }
+  await db
+    .update(contractSignatures)
+    .set({ status: "void", voidedAt: timestamp })
+    .where(and(eq(contractSignatures.dealId, deal.id), inArray(contractSignatures.status, ["requested", "pending_countersign"])));
 
   const toStage = version === 1 ? "contract_received" : "revised_contract";
   const moved = await setDealStage(db, {
@@ -390,6 +404,18 @@ export async function approveContract(
     createdAt: nowIso(),
     readAt: null,
   });
+  if (contract.signingFormat === "pdf" || contract.signingFormat === "docusign") {
+    await db.insert(contractSignatures).values({
+      id: crypto.randomUUID(),
+      contractId: contract.id,
+      dealId: deal.id,
+      version: contract.version,
+      role: "creator",
+      status: "requested",
+      guardian: false,
+      createdAt: nowIso(),
+    });
+  }
   return { ok: true, workflowStage: moved.workflowStage };
 }
 

@@ -5,6 +5,7 @@ import {
   analyticsPosts,
   creators,
   contractChecks,
+  contractSignatures,
   contracts,
   dealStageEvents,
   deals,
@@ -50,6 +51,7 @@ function toCreator(row: typeof creators.$inferSelect): CreatorProfile {
     driveFolderId: row.driveFolderId,
     initials: row.initials,
     listNote: row.listNote,
+    signerIsMinor: row.signerIsMinor,
     isSeed: row.isSeed,
     accounts: {
       tiktok: { status: row.tiktokStatus, connectUrl: row.tiktokConnectUrl },
@@ -197,6 +199,28 @@ export async function listDealsForViewer(db: PortalDb, viewer: Viewer, creatorId
     .map((row) => toSummary(row, names.get(row.creatorId) ?? "Creator"));
 }
 
+async function signaturesForViewer(db: PortalDb, role: Viewer["role"], dealId: string) {
+  const rows = await db.select().from(contractSignatures).where(eq(contractSignatures.dealId, dealId)).orderBy(asc(contractSignatures.createdAt));
+  const visible = role === "admin" ? rows : rows.filter((row) => row.status !== "void");
+  return visible.map((row) => ({
+    id: row.id,
+    contractId: row.contractId,
+    version: row.version,
+    role: row.role,
+    status: row.status,
+    signerName: row.signerName,
+    signerEmail: role === "admin" ? row.signerEmail : null,
+    signedAt: row.signedAt,
+    documentSha256: role === "admin" ? row.documentSha256 : null,
+    signedSha256: role === "admin" ? row.signedSha256 : null,
+    signedFilename: row.signedFilename,
+    driveFileUrl: row.driveFileUrl,
+    guardian: row.guardian,
+    ip: role === "admin" ? row.ip : null,
+    userAgent: role === "admin" ? row.userAgent : null,
+  }));
+}
+
 async function contractsForViewer(db: PortalDb, role: Viewer["role"], dealId: string) {
   const contractRows = await db.select().from(contracts).where(eq(contracts.dealId, dealId)).orderBy(asc(contracts.version));
   const visible = role === "admin" ? contractRows : contractRows.filter((row) => row.status === "approved");
@@ -290,6 +314,8 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
     offerReleased: interestState.offerReleased,
     brandEmail,
     contracts: await contractsForViewer(db, viewer.role, dealId),
+    signatures: await signaturesForViewer(db, viewer.role, dealId),
+    signerIsMinor: Boolean(creator?.signerIsMinor),
     canRespondToOffer:
       viewer.role === "creator" &&
       viewer.creatorId === row.creatorId &&

@@ -26,6 +26,7 @@ export type CreatorProfile = {
   driveFolderId: string | null;
   initials: string;
   listNote: string | null;
+  signerIsMinor: boolean;
   isSeed: boolean;
   accounts: {
     tiktok: AccountLink;
@@ -146,6 +147,24 @@ export type ContractView = {
   checks: ContractCheckView[] | null;
 };
 
+export type SignatureView = {
+  id: string;
+  contractId: string;
+  version: number;
+  role: string;
+  status: string;
+  signerName: string | null;
+  signerEmail: string | null;
+  signedAt: string | null;
+  documentSha256: string | null;
+  signedSha256: string | null;
+  signedFilename: string | null;
+  driveFileUrl: string | null;
+  guardian: boolean;
+  ip: string | null;
+  userAgent: string | null;
+};
+
 export type DealDetail = DealSummary & {
   contact: string | null;
   gmailThreadId: string | null;
@@ -173,6 +192,8 @@ export type DealDetail = DealSummary & {
   canRespondToOffer: boolean;
   canReleaseOffer: boolean;
   contracts: ContractView[];
+  signatures: SignatureView[];
+  signerIsMinor: boolean;
 };
 
 export type InboxItem = {
