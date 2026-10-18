@@ -408,6 +408,97 @@ export const emailCopyFiles = sqliteTable("email_copy_files", {
   bytesBase64: text("bytes_base64").notNull(),
 });
 
+export const communityChannels = sqliteTable("community_channels", {
+  id: text("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  kind: text("kind").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const communityMembers = sqliteTable("community_members", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  creatorId: text("creator_id"),
+  displayName: text("display_name").notNull(),
+  role: text("role").notNull(),
+  status: text("status").notNull(),
+  mutedUntil: text("muted_until"),
+  guidelinesAt: text("guidelines_at"),
+  lastSeenAt: text("last_seen_at"),
+  lastPostAt: text("last_post_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const communityMessages = sqliteTable("community_messages", {
+  id: text("id").primaryKey(),
+  channelId: text("channel_id").notNull(),
+  authorMemberId: text("author_member_id").notNull(),
+  authorName: text("author_name").notNull(),
+  body: text("body"),
+  photoId: text("photo_id"),
+  pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+  held: integer("held", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull(),
+  deletedAt: text("deleted_at"),
+});
+
+export const communityReactions = sqliteTable("community_reactions", {
+  id: text("id").primaryKey(),
+  messageId: text("message_id").notNull(),
+  memberId: text("member_id").notNull(),
+  emoji: text("emoji").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const communityReports = sqliteTable("community_reports", {
+  id: text("id").primaryKey(),
+  messageId: text("message_id").notNull(),
+  reporterMemberId: text("reporter_member_id").notNull(),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+  resolvedAt: text("resolved_at"),
+  resolvedBy: text("resolved_by"),
+});
+
+export const communityAudit = sqliteTable("community_audit", {
+  id: text("id").primaryKey(),
+  actorName: text("actor_name").notNull(),
+  action: text("action").notNull(),
+  targetName: text("target_name"),
+  messageId: text("message_id"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const communityPhotos = sqliteTable("community_photos", {
+  id: text("id").primaryKey(),
+  sha256: text("sha256").notNull(),
+  contentType: text("content_type").notNull(),
+  bytesBase64: text("bytes_base64"),
+  r2Key: text("r2_key"),
+  held: integer("held", { mode: "boolean" }).notNull(),
+  approved: integer("approved", { mode: "boolean" }),
+  createdAt: text("created_at").notNull(),
+});
+
+export const communityFilterHits = sqliteTable("community_filter_hits", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const communitySettings = sqliteTable("community_settings", {
+  id: text("id").primaryKey(),
+  readOnly: integer("read_only", { mode: "boolean" }).notNull(),
+  slowSeconds: integer("slow_seconds").notNull(),
+});
+
+export const communityState = sqliteTable("community_state", {
+  id: text("id").primaryKey(),
+  cursor: text("cursor").notNull(),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),

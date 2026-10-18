@@ -297,6 +297,12 @@ Approving an email saves a PDF of the From, To, subject, and body. When the bot 
 
 BoldSign is off unless you set `BOLDSIGN_ENABLED=true` and `BOLDSIGN_API_KEY`. Leave both empty. Creators sign on this site, and nothing is charged. The Approvals page says so.
 
+### Community chat
+
+The chat sits on the right side of every portal page. Announcements are for the owner. Everyone and wins are for the roster. Every creator on the roster can use it. A manager can delete, mute, and handle reports. Only the owner can remove a member or change roles.
+
+Photos are resized in the browser. The server strips EXIF and keeps the file private. A link expires after two minutes. If the photo shows a child's face, it waits for Kamron. Nothing in the chat is emailed on its own.
+
 ### Upsert a deal
 
 `id`, `brand`, and either `creatorEmail` or `creatorId` are required. A new deal is hidden from the creator unless you pass `"visibleToCreator": true`. Omitted text fields are left as they are on update. `chips` is an array of `[text, tone]` pairs. Tones used by the mockup are `c-red`, `c-gray`, `c-sun`, `c-blue`, and `c-sage`.

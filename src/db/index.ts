@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/d1";
-import type { D1Database, KVNamespace } from "@cloudflare/workers-types";
+import type { D1Database, KVNamespace, R2Bucket } from "@cloudflare/workers-types";
 import * as schema from "./schema";
 
 export function createDb(database: D1Database) {
@@ -25,4 +25,12 @@ export async function getKv(): Promise<KVNamespace | null> {
   const { getCloudflareContext } = await import("@opennextjs/cloudflare");
   const context = await getCloudflareContext({ async: true });
   return (context.env.SESSIONS as KVNamespace | undefined) ?? null;
+}
+
+export async function getCommunityBucket(): Promise<R2Bucket | null> {
+  const onWorkers = typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
+  if (!onWorkers) return null;
+  const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+  const context = await getCloudflareContext({ async: true });
+  return (context.env.COMMUNITY_PHOTOS as R2Bucket | undefined) ?? null;
 }

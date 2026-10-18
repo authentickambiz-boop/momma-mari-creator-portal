@@ -1,13 +1,27 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import path from "node:path";
 import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { contracts as contractTable, creators, emailCopies, emailCopyFiles, signatureFiles } from "../src/db/schema";
+import { communityMembers, communityPhotos, communitySettings, contracts as contractTable, creators, emailCopies, emailCopyFiles, signatureFiles } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
+import {
+  listCommunity,
+  listFilterHitKinds,
+  moderateCommunity,
+  openCommunityPhoto,
+  photoLinkValid,
+  postCommunityMessage,
+  acceptCommunityGuidelines,
+  saveCommunityPhoto,
+  setCommunityQueryTap,
+  stripJpegMetadata,
+} from "../src/lib/community";
 import { canApproveEmail, canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
 import { addFeedback, authorizeBot, createApprovalDraft, listApprovedApprovals, markApprovalDraftSent, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
 import { listCreatorInterest, listOfferScreenings, recordCreatorInterest, releaseOffer } from "../src/lib/creator-interest";
@@ -2615,6 +2629,155 @@ test("approved and sent emails are kept as PDFs, and BoldSign stays off", async 
   }
 
   assert.equal(boldSignEnabled(), false);
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("community chat stays on the roster and off deal data", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const touched = new Set<string>();
+  setCommunityQueryTap((table) => touched.add(table));
+
+  const bannedWord = /\b(deals|payments|drafts|earnings)\b/;
+  function walk(dir: string, files: string[]) {
+    for (const name of readdirSync(dir)) {
+      const full = path.join(dir, name);
+      if (statSync(full).isDirectory()) walk(full, files);
+      else if (name.endsWith(".ts") || name.endsWith(".tsx")) files.push(full);
+    }
+  }
+  const files: string[] = [];
+  walk(path.join(process.cwd(), "src/app/api/community"), files);
+  for (const extra of ["src/lib/community.ts", "src/lib/community-auth.ts", "src/lib/community-http.ts", "src/lib/community-shared.ts", "src/components/community-panel.tsx"]) {
+    files.push(path.join(process.cwd(), extra));
+  }
+  for (const file of files) assert.equal(bannedWord.test(readFileSync(file, "utf8")), false, file);
+
+  const stranger = await postCommunityMessage(db, { email: "nobody@gmail.com", name: "Nobody", role: "creator", creatorId: null }, { channelId: "everyone", body: "hello" });
+  assert.equal(stranger.ok, false);
+  if (!stranger.ok) assert.equal(stranger.status, 403);
+  const bot = await postCommunityMessage(db, { email: "bot@local", name: "Bot", role: "bot" }, { channelId: "everyone", body: "hello" });
+  assert.equal(bot.ok, false);
+
+  const created = await upsertCreator(db, { id: "community-guest", name: "Guest Creator", email: "guest.creator@gmail.com", initials: "GC" });
+  assert.equal(created.status, 201);
+  const guest = { email: "guest.creator@gmail.com", name: "Guest Creator", role: "creator", creatorId: "community-guest" };
+  const abbyRow = await findCreatorById(db, "abby");
+  const abbyActor = { email: abbyRow?.email ?? "", name: abbyRow?.name ?? "Abby", role: "creator", creatorId: "abby" };
+  const mariActor = { email: mariclare.email, name: mariclare.name, role: "creator", creatorId: "mariclare" };
+  const adminActor = { email: admin.email, name: admin.name, role: "admin", creatorId: null };
+  const rileyActor = { email: "riley.manager@gmail.com", name: "Riley", role: "manager", creatorId: null };
+
+  assert.equal((await acceptCommunityGuidelines(db, guest)).ok, true);
+  assert.equal((await acceptCommunityGuidelines(db, abbyActor)).ok, true);
+  assert.equal((await acceptCommunityGuidelines(db, mariActor)).ok, true);
+  assert.equal((await acceptCommunityGuidelines(db, adminActor)).ok, true);
+  assert.equal((await acceptCommunityGuidelines(db, rileyActor)).ok, true);
+
+  const abbyPost = await postCommunityMessage(db, abbyActor, { channelId: "everyone", body: "Abby is on the roster." });
+  assert.equal(abbyPost.ok, true);
+  const listed = await listCommunity(db, abbyActor, null);
+  assert.equal(listed.ok, true);
+  if (listed.ok && !listed.unchanged) {
+    const packed = JSON.stringify(listed);
+    assert.equal(/full access|full_access|\bCore\b/i.test(packed), false);
+    assert.equal(listed.me.communityRole, "member");
+  }
+
+  const announce = await postCommunityMessage(db, mariActor, { channelId: "announcements", body: "Not allowed" });
+  assert.equal(announce.ok, false);
+  if (!announce.ok) assert.equal(announce.status, 403);
+  const adminAnnounce = await postCommunityMessage(db, adminActor, { channelId: "announcements", body: "Welcome" });
+  assert.equal(adminAnnounce.ok, true);
+
+  const privateTry = await postCommunityMessage(db, mariActor, { channelId: "everyone", body: "Call 555-123-4567" });
+  assert.equal(privateTry.ok, false);
+  if (!privateTry.ok) assert.equal(privateTry.error, "This looks private. Post anyway?");
+  const hits = await listFilterHitKinds(db);
+  assert.equal(hits.includes("phone"), true);
+  assert.equal(hits.some((kind) => kind.includes("555")), false);
+  const postedAnyway = await postCommunityMessage(db, mariActor, { channelId: "everyone", body: "Call 555-123-4567", acknowledgePrivate: true });
+  assert.equal(postedAnyway.ok, true);
+
+  const guestPost = await postCommunityMessage(db, guest, { channelId: "wins", body: "A win" });
+  assert.equal(guestPost.ok, true);
+  if (!guestPost.ok) return;
+  const moderatorRemove = await moderateCommunity(db, rileyActor, { action: "remove", messageId: guestPost.id });
+  assert.equal(moderatorRemove.ok, false);
+  if (!moderatorRemove.ok) assert.equal(moderatorRemove.status, 403);
+  const moderatorDelete = await moderateCommunity(db, rileyActor, { action: "delete", messageId: guestPost.id });
+  assert.equal(moderatorDelete.ok, true);
+  const guestAgain = await postCommunityMessage(db, guest, { channelId: "wins", body: "Still here" });
+  assert.equal(guestAgain.ok, true);
+  if (!guestAgain.ok) return;
+  assert.equal((await moderateCommunity(db, adminActor, { action: "remove", messageId: guestAgain.id })).ok, true);
+  const removed = await postCommunityMessage(db, guest, { channelId: "everyone", body: "nope" });
+  assert.equal(removed.ok, false);
+  if (!removed.ok) assert.equal(removed.status, 403);
+  const afterRemove = await listCommunity(db, adminActor, null);
+  assert.equal(afterRemove.ok, true);
+  if (afterRemove.ok && !afterRemove.unchanged) {
+    assert.equal(afterRemove.messages.some((message) => message.body === "Still here" && message.authorName === "former member"), true);
+  }
+
+  const muted = await moderateCommunity(db, adminActor, { action: "mute", memberId: (await db.select().from(communityMembers).where(eq(communityMembers.email, mariclare.email)))[0]?.id });
+  assert.equal(muted.ok, true);
+  const mutedPost = await postCommunityMessage(db, mariActor, { channelId: "everyone", body: "muted" });
+  assert.equal(mutedPost.ok, false);
+  if (!mutedPost.ok) assert.equal(mutedPost.status, 403);
+  await db.update(communityMembers).set({ mutedUntil: null }).where(eq(communityMembers.email, mariclare.email));
+
+  const exif = new TextEncoder().encode("SECRET_EXIF_GPS");
+  const segment = new Uint8Array(4 + exif.length);
+  segment[0] = 0xff;
+  segment[1] = 0xe1;
+  const length = 2 + exif.length;
+  segment[2] = length >> 8;
+  segment[3] = length & 0xff;
+  segment.set(exif, 4);
+  const tail = Uint8Array.from([0xff, 0xda, 0x00, 0x02, 0x00, 0xff, 0xd9]);
+  const jpeg = new Uint8Array(2 + segment.length + tail.length);
+  jpeg[0] = 0xff;
+  jpeg[1] = 0xd8;
+  jpeg.set(segment, 2);
+  jpeg.set(tail, 2 + segment.length);
+  assert.equal(Buffer.from(stripJpegMetadata(jpeg)).toString("latin1").includes("SECRET_EXIF_GPS"), false);
+
+  const saved = await saveCommunityPhoto(db, adminActor, { bytes: jpeg, contentType: "image/jpeg", childFace: true });
+  assert.equal(saved.ok, true);
+  if (!saved.ok) return;
+  const stored = await db.select().from(communityPhotos).where(eq(communityPhotos.id, saved.id));
+  const storedBytes = Buffer.from(stored[0]?.bytesBase64 ?? "", "base64");
+  assert.equal(storedBytes.toString("latin1").includes("SECRET_EXIF_GPS"), false);
+  const link = await openCommunityPhoto(db, adminActor, { id: saved.id, exp: "1", sig: "nope" });
+  assert.equal(link.ok, false);
+  assert.equal(await photoLinkValid(saved.id, "1", "nope"), false);
+  const heldPost = await postCommunityMessage(db, adminActor, { channelId: "everyone", photoId: saved.id, body: "photo" });
+  assert.equal(heldPost.ok, true);
+  const creatorView = await listCommunity(db, mariActor, null);
+  if (creatorView.ok && !creatorView.unchanged) {
+    assert.equal(creatorView.messages.some((message) => message.body === "photo"), false);
+  }
+  const ownerView = await listCommunity(db, adminActor, null);
+  if (ownerView.ok && !ownerView.unchanged) {
+    assert.equal(ownerView.messages.some((message) => message.body === "photo" && message.held), true);
+    assert.equal(ownerView.held.length > 0, true);
+  }
+
+  assert.equal((await moderateCommunity(db, adminActor, { action: "read_only", readOnly: false })).ok, true);
+  assert.equal((await moderateCommunity(db, adminActor, { action: "slow", slowSeconds: 0 })).ok, true);
+  await db.update(communitySettings).set({ readOnly: false, slowSeconds: 0 }).where(eq(communitySettings.id, "default"));
+  setCommunityQueryTap(null);
+  for (const table of touched) assert.equal(["deals", "payments", "drafts", "earnings"].includes(table), false, table);
+
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
   assert.equal(kosblingAfter?.visibleToCreator, true);
