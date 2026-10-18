@@ -2,6 +2,7 @@ import { ApprovalsQueue } from "@/components/approvals-queue";
 import { PortalFrame } from "@/components/portal-frame";
 import { listApprovalQueue } from "@/lib/approvals";
 import { canApproveEmail } from "@/lib/authz";
+import { boldSignEnabled } from "@/lib/boldsign";
 import { loadPortal } from "@/lib/current-user";
 import { redirect } from "next/navigation";
 
@@ -30,6 +31,10 @@ export default async function ApprovalsPage({
             <p>
               {waiting === 0 ? "No emails are waiting." : `${waiting} ${waiting === 1 ? "email is" : "emails are"} waiting for your OK.`}
               {" "}Nothing goes to a brand until you approve it. Mail is sent from authentickambiz@gmail.com.
+              {" "}
+              {boldSignEnabled()
+                ? "BoldSign is on for this portal."
+                : "BoldSign is off. Creators sign on this site, at no extra cost."}
             </p>
           </div>
         </div>

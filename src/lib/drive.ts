@@ -192,6 +192,15 @@ export async function prepareDriveFolder(
   return folderId;
 }
 
+/** Brand folder, then an Emails subfolder. The subfolder id is not written onto the deal. */
+export async function prepareEmailsFolder(
+  db: PortalDb,
+  deal: { id: string; brand: string; driveFolderId: string | null; creatorFolderId: string | null },
+) {
+  const brandFolderId = await prepareDriveFolder(db, deal);
+  return ensureDealFolder({ parentId: brandFolderId, name: "04 Emails", existingId: null });
+}
+
 /** Brand folder, then a Contracts subfolder. The subfolder id is not written onto the deal. */
 export async function prepareContractsFolder(
   db: PortalDb,

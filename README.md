@@ -31,6 +31,7 @@ Checked against Webflow Cloud docs on October 17, 2026 ([bring your own app](htt
 - Click-to-sign. After Kamron approves a PDF (or a DocuSign-marked PDF), the creator opens it on the sign page, agrees to sign electronically, and types or draws her signature. The portal stamps that signature on the PDF, adds a certificate page, and keeps every copy. A signed-contract email to the brand waits in the approval queue, from `authentickambiz@gmail.com`, until Kamron approves it. Have an attorney review this e-sign wording before you rely on it.
 - Managers. An owner assigns each creator to a manager. That manager screens offers, reviews videos, and approves brand email for those creators. Approving contracts and countersigning stay with the owner unless he turns those on. Every stage change and approval records who did it.
 - Product and posting. Kamron or a manager enters the carrier and tracking number. The creator sees it and taps I got it, which turns on the draft upload. After the brand approves the video, she pastes the live links and the manager confirms they match the brief. Kamron marks brand invoiced, brand paid into the Momma Mari account, creator payout pending, and creator paid. Nothing is charged or sent automatically. He sees the 20% commission. She sees only her payout amount and status. A manager sees no amounts.
+- Email copies and BoldSign. When an email is approved, and again when the bot marks it sent, the portal saves a PDF. With Drive connected, that file goes in a folder named 04 Emails. Otherwise the portal keeps it, and the approval still succeeds. BoldSign stays off unless `BOLDSIGN_ENABLED=true`. Signing stays on this site at no extra cost while it is off.
 
 Server-side rules, covered by `npm test`:
 
@@ -289,6 +290,12 @@ curl -sS \
   -H "Authorization: Bearer $BOT_API_TOKEN" \
   "http://localhost:43123/api/bot/posts"
 ```
+
+### Email copies
+
+Approving an email saves a PDF of the From, To, subject, and body. When the bot marks that email sent, a second PDF is saved. On the Approvals page each one says "Copy kept in the portal". If Drive is connected, the same file is also uploaded into the brand folder's `04 Emails` subfolder. A Drive problem does not undo the approval.
+
+BoldSign is off unless you set `BOLDSIGN_ENABLED=true` and `BOLDSIGN_API_KEY`. Leave both empty. Creators sign on this site, and nothing is charged. The Approvals page says so.
 
 ### Upsert a deal
 

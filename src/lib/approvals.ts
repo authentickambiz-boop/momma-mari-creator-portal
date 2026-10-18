@@ -1,7 +1,8 @@
 import { asc, eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { approvalEmails, approvalEvents, brandContacts, creators, deals } from "@/db/schema";
+import { approvalEmails, approvalEvents, brandContacts, creators, deals, emailCopies } from "@/db/schema";
 import { EMAIL_APPROVER_ROLES } from "./authz";
+import { archiveApprovalCopy } from "./email-archive";
 import { assertStaffAccess } from "./managers";
 import { normalizeEmail, nowIso } from "./format";
 
@@ -292,6 +293,7 @@ export async function reviewApproval(
     createdAt: timestamp,
   });
   if (row.gate === "decline") await saveBrandContact(db, { ...row, subject, body }, input.actorEmail, timestamp);
+  await archiveApprovalCopy(db, { ...row, subject, body }, "approved");
   return { ok: true, id: row.id, status: "approved" };
 }
 
@@ -354,6 +356,7 @@ export async function markApprovalSent(
     note: messageId,
     createdAt: timestamp,
   });
+  await archiveApprovalCopy(db, row, "sent");
   return { ok: true, id: row.id, status: "sent", messageId };
 }
 
@@ -459,16 +462,25 @@ export type ApprovalQueueItem = {
     note: string | null;
     createdAt: string;
   }[];
+  copies: {
+    id: string;
+    kind: string;
+    filename: string;
+    stored: string;
+    driveFileUrl: string | null;
+    createdAt: string;
+  }[];
 };
 
 const STATUS_ORDER = ["pending", "approved", "rejected", "sent"];
 
 export async function listApprovalQueue(db: PortalDb, creatorId: string | "all", limitTo?: string[]): Promise<ApprovalQueueItem[]> {
-  const [emailRows, eventRows, dealRows, creatorRows] = await Promise.all([
+  const [emailRows, eventRows, dealRows, creatorRows, copyRows] = await Promise.all([
     db.select().from(approvalEmails),
     db.select().from(approvalEvents).orderBy(asc(approvalEvents.createdAt)),
     db.select().from(deals),
     db.select().from(creators),
+    db.select().from(emailCopies).orderBy(asc(emailCopies.createdAt)),
   ]);
   const dealById = new Map(dealRows.map((deal) => [deal.id, deal]));
   const creatorById = new Map(creatorRows.map((creator) => [creator.id, creator]));
@@ -477,6 +489,12 @@ export async function listApprovalQueue(db: PortalDb, creatorId: string | "all",
     const list = eventsByApproval.get(event.approvalId) ?? [];
     list.push(event);
     eventsByApproval.set(event.approvalId, list);
+  }
+  const copiesByApproval = new Map<string, typeof copyRows>();
+  for (const copy of copyRows) {
+    const list = copiesByApproval.get(copy.approvalId) ?? [];
+    list.push(copy);
+    copiesByApproval.set(copy.approvalId, list);
   }
   return emailRows
     .flatMap((row) => {
@@ -521,6 +539,14 @@ export async function listApprovalQueue(db: PortalDb, creatorId: string | "all",
           body: event.body,
           note: event.note,
           createdAt: event.createdAt,
+        })),
+        copies: (copiesByApproval.get(row.id) ?? []).map((copy) => ({
+          id: copy.id,
+          kind: copy.kind,
+          filename: copy.filename,
+          stored: copy.stored,
+          driveFileUrl: copy.driveFileUrl,
+          createdAt: copy.createdAt,
         })),
       }];
     })
