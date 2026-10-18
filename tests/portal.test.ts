@@ -32,7 +32,7 @@ const mariclare: Viewer = {
   name: "MariClare",
 };
 const abby: Viewer = {
-  email: "abby.pending-signin@momma-mari.invalid",
+  email: "theofficialtheriots@gmail.com",
   role: "creator",
   creatorId: "abby",
   name: "Abby Theriot",
@@ -65,14 +65,17 @@ test("allowlist accepts the admin and seeded creators, and rejects everyone else
     assert.equal(creator.viewer.role, "creator");
   }
 
-  // Abby's sign-in email is not confirmed; her placeholder must not open a session.
-  const placeholder = await resolveLogin(db, "abby.pending-signin@momma-mari.invalid");
-  assert.equal(placeholder.ok, false);
+  // Reserved .invalid addresses never open a session.
+  const reserved = await resolveLogin(db, "someone@example.invalid");
+  assert.equal(reserved.ok, false);
+  const abbyLogin = await resolveLogin(db, "theofficialtheriots@gmail.com");
+  assert.equal(abbyLogin.ok, true);
+  if (abbyLogin.ok) assert.equal(abbyLogin.viewer.creatorId, "abby");
   const retiredSeed = await resolveLogin(db, "abby.theriot@example.com");
   assert.equal(retiredSeed.ok, false);
 });
 
-test("0003 fills in the Abby and AuthenticKam profiles without inventing splits", async () => {
+test("0004 fills in the Abby and AuthenticKam profiles without inventing splits", async () => {
   const kam = await findCreatorById(db, "authentickam");
   assert.ok(kam);
   assert.equal(kam?.email, "authentickambiz@gmail.com");
@@ -84,7 +87,7 @@ test("0003 fills in the Abby and AuthenticKam profiles without inventing splits"
 
   const abbyRow = await findCreatorById(db, "abby");
   assert.ok(abbyRow);
-  assert.ok(abbyRow?.email.endsWith(".invalid"));
+  assert.equal(abbyRow?.email, "theofficialtheriots@gmail.com");
   assert.equal(abbyRow?.handles, "@theofficialtheriots");
   assert.equal(abbyRow?.monthlyGoalCents, 500000);
   assert.equal(abbyRow?.splitPercent, null);
@@ -246,7 +249,7 @@ test("replacing a placeholder email updates the allowlist", async () => {
     email: "abby.real@gmail.com",
   });
   assert.equal(result.status, 200);
-  const oldEmail = await resolveLogin(db, "abby.pending-signin@momma-mari.invalid");
+  const oldEmail = await resolveLogin(db, "theofficialtheriots@gmail.com");
   const newEmail = await resolveLogin(db, "abby.real@gmail.com");
   assert.equal(oldEmail.ok, false);
   assert.equal(newEmail.ok, true);

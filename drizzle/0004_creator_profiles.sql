@@ -1,5 +1,5 @@
 -- Fill in the two placeholder creators with what Momma Mari actually knows (Oct 17, 2026).
--- Applied once on databases that already ran 0000-0002. Does not touch MariClare, deals, or payments.
+-- Applied once on databases that already ran 0000-0003. Does not touch MariClare, deals, or payments.
 --
 -- Revenue splits stay NULL until the contracts are uploaded. Drive folders stay NULL
 -- (uploads fall back to GOOGLE_DRIVE_ROOT_FOLDER_ID until each creator gets a folder).
@@ -24,12 +24,9 @@ SET
 WHERE id = 'authentickam';
 
 -- Abby Theriot: parent creator, daughter about 4-5.
--- Her portal sign-in email is NOT confirmed yet. The placeholder below uses the reserved
--- .invalid TLD (RFC 2606), so no Google account can ever have it, and resolveLogin also refuses
--- any *.invalid address. Replace it with PUT /api/bot/creators (or a follow-up migration) once Kamron confirms.
 UPDATE creators
 SET
-  email = 'abby.pending-signin@momma-mari.invalid',
+  email = 'theofficialtheriots@gmail.com',
   handles = '@theofficialtheriots',
   kids_ages = 'Daughter, about 4-5',
   monthly_goal_cents = 500000,
