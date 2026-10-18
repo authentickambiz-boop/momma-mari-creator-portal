@@ -16,5 +16,11 @@
       "binding": "SESSIONS",
       "id": "local"
     }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "COMMUNITY_PHOTOS",
+      "bucket_name": "community-photos"
+    }
   ]
 }
