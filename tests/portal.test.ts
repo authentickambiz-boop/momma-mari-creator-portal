@@ -30,7 +30,8 @@ import { approveContract, listContracts, requestContractRevisions, saveChecklist
 import { listDraftReviews, listUnreadCreatorNotices, onDraftSubmitted, reviewDraft } from "../src/lib/video-review";
 import { setDealStage } from "../src/lib/deal-stage";
 import { sideStages, trackStages } from "../src/lib/stages";
-import { commissionLabel, creatorCutLabel, creatorPayoutTracker, nextPayoutLabel, pipelineHeadline } from "../src/lib/format";
+import { agencyTimeZone, commissionLabel, creatorCutLabel, creatorPayoutTracker, feeAndPayout, nextPayoutLabel, pipelineHeadline, withBasePath } from "../src/lib/format";
+import { requestClientIp } from "../src/lib/request-ip";
 import { confirmLivePost, confirmProductReceived, listLivePostsSince, listPaymentsSince, listShipmentsSince, markPayment, saveShipment, submitLivePosts } from "../src/lib/fulfillment";
 import {
   findCreatorById,
@@ -324,9 +325,9 @@ test("the bot can post feedback, update status, set a split, and write real anal
 
   const payment = await upsertPayment(db, { dealId: "vev", creatorSplitPercent: 70, landedAmountCents: 120000, landedDate: "2026-10-20" });
   assert.equal(payment.status, 200);
-  if ("creatorPayoutCents" in payment.body) assert.equal(payment.body.creatorPayoutCents, 84000);
+  if ("creatorPayoutCents" in payment.body) assert.equal(payment.body.creatorPayoutCents, 96000);
   const after = await getDealForViewer(db, mariclare, "vev");
-  assert.equal(after?.payment?.creatorSplitPercent, 70);
+  assert.equal(after?.payment?.creatorSplitPercent, 80);
 
   const analytics = await writeDailyAnalytics(db, {
     creatorEmail: "mmaclamroc@gmail.com",
@@ -3516,7 +3517,7 @@ test("a monthly report is one page, and the email waits in the approval queue", 
   assert.equal(built.ok, true);
   if (!built.ok) return;
   const soap = built.report.earnings.dealsPaid.find((row) => row.brand === "Phase15 Soap");
-  assert.equal(soap?.payoutLabel, "$700");
+  assert.equal(soap?.payoutLabel, "$800");
   assert.ok(built.report.earnings.paidCents >= 70000);
   assert.equal(built.report.deals.some((row) => row.brand === "Phase15 Soap"), true);
   assert.equal(built.report.growth.followers, 1100);
@@ -3563,7 +3564,7 @@ test("a monthly report is one page, and the email waits in the approval queue", 
   assert.equal(queued?.fromEmail, "authentickambiz@gmail.com");
   assert.equal(queued?.toEmail, "mmaclamroc@gmail.com");
   assert.equal(queued?.body.includes("Phase15 Soap"), true);
-  assert.equal(queued?.body.includes("$700"), true);
+  assert.equal(queued?.body.includes("$800"), true);
   assert.equal(queued?.body.includes("Nothing has been sent."), true);
   assert.equal((queued?.body ?? "").includes("Commission"), false);
   assert.equal((queued?.body ?? "").includes("20%"), false);
@@ -3765,5 +3766,113 @@ test("home screen notices wait through quiet hours, and web push stays off", asy
   assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
   assert.equal(kosblingAfter?.contracts.length, 0);
   assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("client fetches and plain links go through the base path", () => {
+  const previous = process.env.NEXT_PUBLIC_BASE_PATH;
+  process.env.NEXT_PUBLIC_BASE_PATH = "/portal";
+  try {
+    assert.equal(withBasePath("/api/community/events"), "/portal/api/community/events");
+    assert.equal(withBasePath("/"), "/portal/");
+  } finally {
+    if (previous == null) delete process.env.NEXT_PUBLIC_BASE_PATH;
+    else process.env.NEXT_PUBLIC_BASE_PATH = previous;
+  }
+
+  const misses: string[] = [];
+  function walk(dir: string) {
+    for (const name of readdirSync(dir)) {
+      const full = path.join(dir, name);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (name.endsWith(".ts") || name.endsWith(".tsx")) scan(full);
+    }
+  }
+  function scan(file: string) {
+    const lines = readFileSync(file, "utf8").split("\n");
+    const literal = /(`(?:\\`|[^`])*`|"(?:\\"|[^"])*"|'(?:\\'|[^'])*')/g;
+    lines.forEach((line, index) => {
+      if (line.includes("<Link")) return;
+      literal.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = literal.exec(line))) {
+        const body = match[1].slice(1, -1);
+        if (!body.startsWith("/")) continue;
+        const before = line.slice(0, match.index);
+        if (/withBasePath\(\s*$/.test(before) || /publicBasePath\(\s*$/.test(before)) continue;
+        if (/(?:fetch|href|src|register)\s*(?:=|\()\s*$/.test(before)) {
+          misses.push(`${path.relative(process.cwd(), file)}:${index + 1}: ${line.trim()}`);
+        }
+      }
+    });
+  }
+  walk(path.join(process.cwd(), "src"));
+  assert.deepEqual(misses, []);
+});
+
+test("creator payout is the brand payment minus the 20% fee", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  const even = feeAndPayout(100000);
+  assert.equal(even.feeCents, 20000);
+  assert.equal(even.payoutCents, 80000);
+  assert.equal((even.feeCents ?? 0) + (even.payoutCents ?? 0), 100000);
+  const odd = feeAndPayout(101);
+  assert.equal((odd.feeCents ?? 0) + (odd.payoutCents ?? 0), 101);
+
+  const created = await upsertDeal(db, {
+    id: "review-payout",
+    brand: "Review Payout",
+    creatorId: "mariclare",
+    status: "active",
+    workflowStage: "paid",
+    visibleToCreator: true,
+  });
+  assert.equal(created.status, 201);
+  const payment = await upsertPayment(db, {
+    dealId: "review-payout",
+    creatorSplitPercent: 70,
+    amountOwedCents: 100000,
+    landedAmountCents: 100000,
+  });
+  assert.equal(payment.status, 201);
+  if ("creatorPayoutCents" in payment.body && "creatorSplitPercent" in payment.body) {
+    assert.equal(payment.body.creatorPayoutCents, 80000);
+    assert.equal(payment.body.creatorSplitPercent, 80);
+    assert.equal(20000 + payment.body.creatorPayoutCents, 100000);
+  }
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("the default timezone is Eastern", () => {
+  const previous = process.env.AGENCY_TIMEZONE;
+  delete process.env.AGENCY_TIMEZONE;
+  try {
+    assert.equal(agencyTimeZone(), "America/New_York");
+  } finally {
+    if (previous == null) delete process.env.AGENCY_TIMEZONE;
+    else process.env.AGENCY_TIMEZONE = previous;
+  }
+});
+
+test("the signature audit prefers Cloudflare's connecting IP", () => {
+  const headers = (values: Record<string, string>) => ({
+    get(name: string) {
+      return values[name.toLowerCase()] ?? null;
+    },
+  });
+  assert.equal(requestClientIp(headers({ "cf-connecting-ip": "1.2.3.4", "x-forwarded-for": "9.9.9.9, 8.8.8.8" })), "1.2.3.4");
+  assert.equal(requestClientIp(headers({ "x-forwarded-for": "9.9.9.9, 8.8.8.8" })), "8.8.8.8");
+  assert.equal(requestClientIp(headers({ "x-real-ip": "7.7.7.7" })), "7.7.7.7");
+  assert.equal(requestClientIp(headers({})), "unknown");
 });
 });

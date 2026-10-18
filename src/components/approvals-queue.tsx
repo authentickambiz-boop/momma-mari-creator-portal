@@ -1,5 +1,6 @@
 import { reviewApprovalAction } from "@/app/actions";
 import type { ApprovalQueueItem } from "@/lib/approvals";
+import { withBasePath } from "@/lib/format";
 
 const ACTION_LABEL: Record<string, string> = {
   created: "Drafted",
@@ -61,7 +62,7 @@ function ApprovalCard({ item, creatorQuery }: { item: ApprovalQueueItem; creator
             <p key={copy.id}>
               {copy.kind === "sent" ? "Sent copy" : "Approved copy"}
               {" · "}
-              <a href={`/api/deals/${item.dealId}/emails/${copy.id}/file`}>Copy kept in the portal</a>
+              <a href={withBasePath(`/api/deals/${item.dealId}/emails/${copy.id}/file`)}>Copy kept in the portal</a>
               {copy.stored === "drive" && copy.driveFileUrl ? (
                 <> · <a href={copy.driveFileUrl}>Open in Drive</a> (04 Emails)</>
               ) : null}

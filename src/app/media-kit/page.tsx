@@ -1,6 +1,7 @@
 import { saveMediaKitAction } from "@/app/media-kit-actions";
 import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
+import { withBasePath } from "@/lib/format";
 import { myMediaKit, zernioStatsEnabled } from "@/lib/media-kit";
 
 export default async function MediaKitPage({ searchParams }: { searchParams: Promise<{ saved?: string; kitError?: string; slug?: string }> }) {
@@ -18,7 +19,7 @@ export default async function MediaKitPage({ searchParams }: { searchParams: Pro
   return (
     <PortalFrame viewer={portal.viewer} tab="kit" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>Media kit</h1><p>Stats are typed in by hand. {zernio ? "Zernio stats are on for this portal." : "Zernio is off, so nothing is pulled in."}</p></div>}>
       {params.saved ? <p className="note">Saved.</p> : null}
-      {kit?.published && kit.slug ? <p className="note">Share <a href={`/kit/${kit.slug}`}>/kit/{kit.slug}</a></p> : null}
+      {kit?.published && kit.slug ? <p className="note">Share <a href={withBasePath(`/kit/${kit.slug}`)}>{withBasePath(`/kit/${kit.slug}`)}</a></p> : null}
       {params.kitError ? <p className="private-note">{params.kitError}</p> : null}
       <form action={saveMediaKitAction} className="card stack">
         <input type="hidden" name="creatorId" value={portal.viewer.creatorId} />

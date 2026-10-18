@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { publicBasePath } from "@/lib/format";
+import { publicBasePath, withBasePath } from "@/lib/format";
 
 type InstallPrompt = Event & { prompt: () => Promise<void> };
 
@@ -22,7 +22,7 @@ export function HomeScreen() {
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register(`${base}/sw.js`).catch(() => undefined);
+      navigator.serviceWorker.register(withBasePath("/sw.js"), { scope: withBasePath("/") }).catch(() => undefined);
     }
     return () => {
       media.removeEventListener("change", sync);

@@ -21,6 +21,7 @@ import { isEmailSetup } from "@/lib/email-setup";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
 import { resolveLogin } from "@/lib/queries";
 import { createSession, destroySession, sessionCookieName, sessionCookieOptions } from "@/lib/session";
+import { requestClientIp } from "@/lib/request-ip";
 
 export async function draftReportAction(formData: FormData) {
   const viewer = await currentViewer();
@@ -307,9 +308,7 @@ export async function contractReviewAction(formData: FormData) {
 
 async function clientAudit() {
   const headerList = await headers();
-  const forwarded = headerList.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() || headerList.get("x-real-ip") || "unknown";
-  return { ip, userAgent: headerList.get("user-agent") || "unknown" };
+  return { ip: requestClientIp(headerList), userAgent: headerList.get("user-agent") || "unknown" };
 }
 
 function signBack(dealId: string, contractId: string, creator: string) {

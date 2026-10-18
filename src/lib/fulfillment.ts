@@ -1,9 +1,9 @@
 import { and, asc, eq, gt } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { creatorNotifications, creators, dealStageEvents, deals, livePosts, offerScreenings, payments, revisions, shipments } from "@/db/schema";
+import { creatorNotifications, dealStageEvents, deals, livePosts, offerScreenings, payments, revisions, shipments } from "@/db/schema";
 import { createApprovalEmail, BRAND_EMAIL_SENDER } from "./approvals";
 import { setDealStage } from "./deal-stage";
-import { AGENCY_COMMISSION_PERCENT, commissionLabel, nowIso } from "./format";
+import { AGENCY_COMMISSION_PERCENT, CREATOR_PAYOUT_PERCENT, commissionLabel, feeAndPayout, nowIso } from "./format";
 import { firstEmail } from "./creator-interest";
 import { assertStaffAccess, assignedManagersByCreator, notifyStaff, staffHistoryRole } from "./managers";
 import { getDealStage } from "./stages";
@@ -464,8 +464,6 @@ export async function markPayment(
     return { ok: false, status: 400, error: SKIP_MESSAGE[requested as Exclude<PaymentStatus, "brand_invoiced">] };
   }
 
-  const people = await db.select({ splitPercent: creators.splitPercent }).from(creators).where(eq(creators.id, deal.creatorId));
-  const creator = people[0];
   const timestamp = nowIso();
   const date = today();
   const amountOwedCents = current?.amountOwedCents ?? deal.rateCents ?? null;
@@ -480,9 +478,8 @@ export async function markPayment(
   if (requested === "creator_payout_pending") payoutApprovedOn = date;
   if (requested === "creator_paid") paidOutDate = date;
   const basis = landedAmountCents ?? amountOwedCents;
-  const split = creator?.splitPercent ?? current?.creatorSplitPercent ?? null;
-  const creatorPayoutCents = split != null && basis != null ? Math.round((basis * split) / 100) : current?.creatorPayoutCents ?? null;
-  const agencySplitPercent = split == null ? current?.agencySplitPercent ?? null : 100 - split;
+  const share = feeAndPayout(basis);
+  const creatorPayoutCents = share.payoutCents ?? current?.creatorPayoutCents ?? null;
   const row = {
     dealId: deal.id,
     amountOwedCents,
@@ -491,8 +488,8 @@ export async function markPayment(
     dueLabel: current?.dueLabel ?? null,
     landedDate,
     landedAmountCents,
-    creatorSplitPercent: split,
-    agencySplitPercent,
+    creatorSplitPercent: CREATOR_PAYOUT_PERCENT,
+    agencySplitPercent: AGENCY_COMMISSION_PERCENT,
     creatorPayoutCents,
     payoutApprovedOn,
     paidOutDate,
@@ -616,6 +613,7 @@ export async function listPaymentsSince(db: PortalDb, since: string | null) {
   return rows.map((row) => {
     const deal = context.deals.get(row.dealId);
     const basis = row.landedAmountCents ?? row.amountOwedCents;
+    const share = feeAndPayout(basis);
     return {
       id: row.id,
       dealId: row.dealId,
@@ -624,9 +622,9 @@ export async function listPaymentsSince(db: PortalDb, since: string | null) {
       paymentStatus: row.paymentStatus,
       amountOwedCents: row.amountOwedCents,
       landedAmountCents: row.landedAmountCents,
-      creatorPayoutCents: row.creatorPayoutCents,
+      creatorPayoutCents: share.payoutCents ?? row.creatorPayoutCents,
       commissionPercent: AGENCY_COMMISSION_PERCENT,
-      commissionCents: basis == null ? null : Math.round((basis * AGENCY_COMMISSION_PERCENT) / 100),
+      commissionCents: share.feeCents,
       commissionLabel: commissionLabel(basis),
       payoutApprovedOn: row.payoutApprovedOn,
       paidOutDate: row.paidOutDate,

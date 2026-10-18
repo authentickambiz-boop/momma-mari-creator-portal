@@ -1,5 +1,5 @@
 export function agencyTimeZone() {
-  return process.env.AGENCY_TIMEZONE || "America/Chicago";
+  return process.env.AGENCY_TIMEZONE || "America/New_York";
 }
 
 export function formatMoney(cents: number) {
@@ -72,6 +72,14 @@ export function joinAnd(items: string[]) {
 }
 
 export const AGENCY_COMMISSION_PERCENT = 20;
+export const CREATOR_PAYOUT_PERCENT = 100 - AGENCY_COMMISSION_PERCENT;
+
+/** Fee is 20% of the brand amount. The creator's cut is whatever is left, so the two always add up. */
+export function feeAndPayout(amountCents: number | null) {
+  if (amountCents == null) return { feeCents: null, payoutCents: null };
+  const feeCents = Math.round((amountCents * AGENCY_COMMISSION_PERCENT) / 100);
+  return { feeCents, payoutCents: amountCents - feeCents };
+}
 
 export function commissionLabel(amountCents: number | null) {
   if (amountCents == null) return `${AGENCY_COMMISSION_PERCENT}%`;
@@ -96,11 +104,15 @@ export function creatorPayoutTracker(payment: {
   paymentStatus?: string | null;
 } | null) {
   const basis = payment?.landedAmountCents ?? payment?.amountOwedCents ?? null;
+  const share = feeAndPayout(basis);
+  const payoutLabel = share.payoutCents != null
+    ? formatMoney(share.payoutCents)
+    : creatorPayoutAmount(null, null, payment?.creatorPayoutCents ?? null);
   return {
     brandPaidOn: payment?.landedDate ?? null,
     feeLabel: commissionLabel(basis),
     cutSentOn: payment?.paidOutDate ?? null,
-    payoutLabel: creatorPayoutAmount(null, null, payment?.creatorPayoutCents ?? null),
+    payoutLabel,
     statusLabel: paymentStatusLabel(payment?.paymentStatus ?? null, "creator"),
   };
 }
@@ -184,6 +196,12 @@ export function publicBasePath() {
   const value = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
   if (!value || value === "/") return "";
   return value.replace(/\/$/, "");
+}
+
+/** Prefix a root-relative path with the Webflow mount (/portal in production). */
+export function withBasePath(path: string) {
+  const suffix = path.startsWith("/") ? path : `/${path}`;
+  return `${publicBasePath()}${suffix}`;
 }
 
 export function appBaseUrl() {

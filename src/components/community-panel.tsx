@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { COMMUNITY_EMOJIS, COMMUNITY_GUIDELINES, privateKinds } from "@/lib/community-shared";
+import { withBasePath } from "@/lib/format";
 
 type Message = {
   id: string;
@@ -95,7 +96,7 @@ export function CommunityPanel() {
     async function tick() {
       if (stopped) return;
       try {
-        const response = await fetch(`/api/community/events?after=${encodeURIComponent(cursor.current)}`, { cache: "no-store" });
+        const response = await fetch(withBasePath(`/api/community/events?after=${encodeURIComponent(cursor.current)}`), { cache: "no-store" });
         if (response.status === 401 || response.status === 403) {
           setHidden(true);
           return;
@@ -167,7 +168,7 @@ export function CommunityPanel() {
 
   async function refresh() {
     cursor.current = "";
-    const response = await fetch("/api/community/events?after=", { cache: "no-store" });
+    const response = await fetch(withBasePath("/api/community/events?after="), { cache: "no-store" });
     if (response.ok) {
       const data = await response.json() as Snapshot;
       cursor.current = data.cursor;
@@ -176,7 +177,7 @@ export function CommunityPanel() {
   }
 
   async function agree() {
-    const response = await fetch("/api/community/guidelines", { method: "POST" });
+    const response = await fetch(withBasePath("/api/community/guidelines"), { method: "POST" });
     if (response.ok) await refresh();
   }
 
@@ -194,7 +195,7 @@ export function CommunityPanel() {
         setNotice("Does this show a child's face?");
         return;
       }
-      const uploaded = await fetch("/api/community/photos", {
+      const uploaded = await fetch(withBasePath("/api/community/photos"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bytesBase64: photo.base64, contentType: "image/jpeg", childFace: photo.childFace }),
@@ -206,7 +207,7 @@ export function CommunityPanel() {
       }
       photoId = payload.id;
     }
-    const response = await fetch("/api/community/messages", {
+    const response = await fetch(withBasePath("/api/community/messages"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ channelId: channel.id, body: draft, photoId, acknowledgePrivate: acknowledgePrivate || pendingPrivate }),
@@ -225,7 +226,7 @@ export function CommunityPanel() {
   }
 
   async function act(action: string, extra: Record<string, string | number | boolean | null> = {}) {
-    await fetch("/api/community/moderation", {
+    await fetch(withBasePath("/api/community/moderation"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, ...extra }),
@@ -308,7 +309,7 @@ export function CommunityPanel() {
                     {COMMUNITY_EMOJIS.map((emoji) => {
                       const found = message.reactions.find((reaction) => reaction.emoji === emoji);
                       return (
-                        <button key={emoji} type="button" onClick={() => fetch("/api/community/reactions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId: message.id, emoji }) }).then(refresh)}>
+                        <button key={emoji} type="button" onClick={() => fetch(withBasePath("/api/community/reactions"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId: message.id, emoji }) }).then(refresh)}>
                           {emoji} {found?.count ?? ""}
                         </button>
                       );
@@ -320,7 +321,7 @@ export function CommunityPanel() {
                       {role === "admin" ? <button type="button" onClick={() => act(message.pinned ? "unpin" : "pin", { messageId: message.id })}>Pin</button> : null}
                       {staff ? <button type="button" onClick={() => act("mute", { messageId: message.id })}>Mute 24h</button> : null}
                       {role === "admin" ? <button type="button" onClick={() => act("remove", { messageId: message.id })}>Remove member</button> : null}
-                      {!message.mine ? <button type="button" onClick={() => fetch("/api/community/reports", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId: message.id }) }).then(() => { setMenuId(null); void refresh(); })}>Report</button> : null}
+                      {!message.mine ? <button type="button" onClick={() => fetch(withBasePath("/api/community/reports"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId: message.id }) }).then(() => { setMenuId(null); void refresh(); })}>Report</button> : null}
                     </div>
                   ) : null}
                 </article>

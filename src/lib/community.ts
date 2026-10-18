@@ -16,7 +16,7 @@ import {
   managers,
 } from "@/db/schema";
 import { COMMUNITY_EMOJIS, privateKinds } from "./community-shared";
-import { normalizeEmail, nowIso } from "./format";
+import { normalizeEmail, nowIso, withBasePath } from "./format";
 
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
@@ -100,7 +100,7 @@ export function stripJpegMetadata(bytes: Uint8Array) {
 export async function signPhotoUrl(id: string, now = Date.now()) {
   const exp = Math.floor(now / 1000) + PHOTO_TTL_SECONDS;
   const sig = await hmac(`${id}.${exp}`);
-  return `/api/community/photos/${id}?exp=${exp}&sig=${sig}`;
+  return withBasePath(`/api/community/photos/${id}?exp=${exp}&sig=${sig}`);
 }
 
 export async function photoLinkValid(id: string, exp: string | null, sig: string | null, now = Date.now()) {
