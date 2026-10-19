@@ -16,7 +16,7 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Before merge
 
 1. Read `docs/overnight-log.md` for the open pull requests.
-2. Merge `#41` first if you want creator connect/disconnect and needs-reconnect. It is the only branch with migration `0036`.
+2. `#41` is already on `main` (`da74005`), including migration `0036`.
 3. Merge `#42` so a dead Gmail inbox is acknowledged and Pub/Sub stops retrying it.
 4. Merge `#43` while Stripe is still off. Confirm Webflow env still has `STRIPE_ENABLED` empty.
 5. Merge `#44` for `/services`, `/roster`, and `/inquire`.
