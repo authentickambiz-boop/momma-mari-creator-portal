@@ -36,6 +36,13 @@ export type QuestionnaireAnswers = {
   formats: string[];
   frequency: string;
   rates: Record<string, string>;
+  minVideo: string;
+  typicalRate: string;
+  maxSponsored: string;
+  willDo: string[];
+  wontDo: string[];
+  acceptGifted: string;
+  acceptCommissionOnly: string;
   brands: string[];
   blocked: string[];
   kidAges: string[];
@@ -58,6 +65,13 @@ const EMPTY: QuestionnaireAnswers = {
   formats: [],
   frequency: "",
   rates: {},
+  minVideo: "",
+  typicalRate: "",
+  maxSponsored: "",
+  willDo: [],
+  wontDo: [],
+  acceptGifted: "",
+  acceptCommissionOnly: "",
   brands: [],
   blocked: [],
   kidAges: [],
@@ -139,6 +153,7 @@ export async function saveQuestionnaireStep(
   if (input.pause) {
     await writeState(db, viewer.creatorId, step.id, answers, { paused: true });
     await prefillFromAnswers(db, viewer.creatorId, answers);
+    await storeRateAnswers(db, viewer.creatorId, step.id, input.skip, answers);
     return { ok: true as const, next: "home" as const };
   }
   if (input.skip && !step.optional) return { ok: false as const, error: "This step is required." };
@@ -153,7 +168,14 @@ export async function saveQuestionnaireStep(
   const following = nextStep(step.id);
   await writeState(db, viewer.creatorId, following === "done" ? "bot" : following, answers, { finished: following === "done" });
   await prefillFromAnswers(db, viewer.creatorId, answers);
+  await storeRateAnswers(db, viewer.creatorId, step.id, input.skip, answers);
   return { ok: true as const, next: following };
+}
+
+async function storeRateAnswers(db: PortalDb, creatorId: string, step: string, skip: boolean, answers: QuestionnaireAnswers) {
+  if (step !== "rates" || skip) return;
+  const { applyQuestionnaireRates } = await import("./deal-rules");
+  await applyQuestionnaireRates(db, creatorId, answers);
 }
 
 async function prefillFromAnswers(db: PortalDb, creatorId: string, answers: QuestionnaireAnswers) {
@@ -285,7 +307,9 @@ export function stepProblem(step: QuestionStepId, answers: QuestionnaireAnswers)
   if (step === "audience" && !answers.audienceSize.trim()) return "Choose an audience size.";
   if (step === "formats" && answers.formats.length === 0) return "Pick at least one format.";
   if (step === "frequency" && !answers.frequency.trim()) return "Choose how often you post.";
-  if (step === "rates" && !Object.values(answers.rates).some((value) => value.trim())) return "Add at least one rate.";
+  if (step === "rates" && !Object.values(answers.rates).some((value) => value.trim()) && !answers.minVideo.trim() && !answers.typicalRate.trim()) {
+    return "Add at least one rate.";
+  }
   if (step === "brands" && answers.brands.length === 0) return "Add a brand you have worked with.";
   if (step === "availability" && (!answers.availability.trim() || !answers.turnaround.trim())) return "Add your availability and turnaround.";
   if (step === "shipping" && !answers.shipping.trim()) return "Choose a shipping region.";
@@ -314,6 +338,13 @@ function applyPatch(current: QuestionnaireAnswers, patch: Partial<QuestionnaireA
   if (patch.rates) {
     for (const [key, value] of Object.entries(patch.rates)) answers.rates[key] = value.trim();
   }
+  if (patch.willDo) answers.willDo = tags(patch.willDo);
+  if (patch.wontDo) answers.wontDo = tags(patch.wontDo);
+  if (patch.minVideo !== undefined) answers.minVideo = patch.minVideo.trim();
+  if (patch.typicalRate !== undefined) answers.typicalRate = patch.typicalRate.trim();
+  if (patch.maxSponsored !== undefined) answers.maxSponsored = patch.maxSponsored.trim();
+  if (patch.acceptGifted !== undefined) answers.acceptGifted = patch.acceptGifted.trim();
+  if (patch.acceptCommissionOnly !== undefined) answers.acceptCommissionOnly = patch.acceptCommissionOnly.trim();
   if (patch.audienceSize !== undefined) answers.audienceSize = patch.audienceSize.trim();
   if (patch.audienceAge !== undefined) answers.audienceAge = patch.audienceAge.trim();
   if (patch.genderSplit !== undefined) answers.genderSplit = patch.genderSplit.trim();

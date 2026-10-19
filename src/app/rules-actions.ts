@@ -39,6 +39,10 @@ export async function saveDealRulesAction(formData: FormData) {
     usageMinDays: Number(formData.get("usageDays") ?? "") || null,
     kidsOnCamera: kids === "yes" || kids === "no" || kids === "limits" ? kids : "",
     kidsLimits: String(formData.get("kidsLimits") ?? "").trim(),
+    typicalRateCents: dollarsToCents(String(formData.get("typicalRate") ?? "")),
+    acceptedCategories: formData.getAll("acceptedCategories").map((value) => String(value)),
+    acceptGifted: formData.get("acceptGifted") === "yes",
+    acceptCommissionOnly: formData.get("acceptCommissionOnly") === "yes",
   };
   const result = await saveDealRules(db, viewer, creatorId, rules);
   const back = `/rules?creator=${encodeURIComponent(creatorId)}`;

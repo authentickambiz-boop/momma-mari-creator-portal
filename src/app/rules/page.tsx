@@ -58,22 +58,40 @@ export default async function RulesPage({ searchParams }: { searchParams: Promis
                 <label>{item.label} target<input name={`target-${item.id}`} defaultValue={dollars(rules.targetRates[item.id])} inputMode="decimal" disabled={!edit} /></label>
               </div>
             ))}
-            <label>Minimum deal she'll consider<input name="minDeal" defaultValue={dollars(rules.minDealCents ?? undefined)} inputMode="decimal" disabled={!edit} /></label>
+            <label>Minimum per video<input name="minDeal" defaultValue={dollars(rules.minDealCents ?? undefined)} inputMode="decimal" disabled={!edit} /></label>
+            <label>Typical rate<input name="typicalRate" defaultValue={dollars(rules.typicalRateCents ?? undefined)} inputMode="decimal" disabled={!edit} /></label>
+            <p className="note">Minimums stay on this page. Brands and other creators never see them.</p>
           </>
         ) : (
           <p className="note">Dollar amounts stay with the owner unless your pricing toggle is on.</p>
         )}
         {edit ? (
           <>
-            <TagPicker name="blockedCategories" label="Categories she won't work with" options={NICHE_CATALOG} selected={rules.blockedCategories} />
+            <TagPicker name="acceptedCategories" label="Categories she will do" options={NICHE_CATALOG} selected={rules.acceptedCategories ?? []} />
+            <TagPicker name="blockedCategories" label="Categories she won't do" options={NICHE_CATALOG} selected={rules.blockedCategories} />
             <TagPicker name="blockedBrands" label="Brands she won't work with" options={BRAND_OPTIONS} selected={rules.blockedBrands} />
           </>
         ) : (
           <>
-            <p>Won't work with: {rules.blockedCategories.concat(rules.blockedBrands).join(", ") || "None listed"}</p>
+            <p>Will do: {(rules.acceptedCategories ?? []).join(", ") || "Not listed"}</p>
+            <p>Won't do: {rules.blockedCategories.concat(rules.blockedBrands).join(", ") || "None listed"}</p>
           </>
         )}
-        <label>Max deals per month<input name="maxDeals" defaultValue={rules.maxDealsPerMonth ?? ""} inputMode="numeric" disabled={!edit} /></label>
+        <label>Max sponsored posts per month<input name="maxDeals" defaultValue={rules.maxDealsPerMonth ?? ""} inputMode="numeric" disabled={!edit} /></label>
+        <label>
+          Gifted deals
+          <select name="acceptGifted" defaultValue={rules.acceptGifted ? "yes" : "no"} disabled={!edit}>
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </label>
+        <label>
+          Commission-only deals
+          <select name="acceptCommissionOnly" defaultValue={rules.acceptCommissionOnly ? "yes" : "no"} disabled={!edit}>
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </label>
         <label>Turnaround<input name="turnaround" defaultValue={rules.turnaround} disabled={!edit} /></label>
         <label>Longest exclusivity, in days<input name="exclusivityDays" defaultValue={rules.exclusivityMaxDays ?? ""} inputMode="numeric" disabled={!edit} /></label>
         <label>Usage she expects to be paid for, in days<input name="usageDays" defaultValue={rules.usageMinDays ?? ""} inputMode="numeric" disabled={!edit} /></label>

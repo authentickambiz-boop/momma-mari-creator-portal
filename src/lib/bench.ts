@@ -132,7 +132,7 @@ export async function promoteBench(db: PortalDb, viewer: Viewer, benchId: string
 
 export async function leftoverCampaigns(db: PortalDb) {
   const campaigns = await listCampaigns(db, {});
-  const open = campaigns.filter((campaign) => campaign.status === "open");
+  const open = campaigns.filter((campaign) => campaign.status === "open" && campaign.kind !== "offer");
   const leftover = [];
   for (const campaign of open) {
     const ranked = await rankRoster(db, campaign);
