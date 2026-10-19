@@ -18,10 +18,13 @@ import {
   photoLinkValid,
   postCommunityMessage,
   acceptCommunityGuidelines,
+  PHOTOS_OFF,
   saveCommunityPhoto,
+  setCommunityPhotoStoreForTests,
   setCommunityQueryTap,
   stripJpegMetadata,
 } from "../src/lib/community";
+import { communityFailure } from "../src/lib/community-http";
 import { hideMyProfile, listPublicProfiles, moderateProfileField, saveMyProfile } from "../src/lib/profiles";
 import { canApproveEmail, canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
 import { addFeedback, authorizeBot, createApprovalDraft, listApprovedApprovals, markApprovalDraftSent, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
@@ -84,7 +87,7 @@ import { clearSafetyHold, listSafetyHolds, recordDraftSafety } from "../src/lib/
 import { findSafetyKinds } from "../src/lib/safety-shared";
 import { buildMonthlyReport, draftMonthlyReport } from "../src/lib/report";
 import { getReferralPerk, listReferrals, perkLabel, recordReferral, REFERRAL_LAWYER_NOTE, setReferralPerk } from "../src/lib/referrals";
-import { dueHomeNotices, inQuietHours, pushEnabled, queueHomeNotice } from "../src/lib/home-screen";
+import { dueHomeNotices, homeScreenOffer, inQuietHours, isIosHomeScreen, pushEnabled, queueHomeNotice } from "../src/lib/home-screen";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -2763,12 +2766,27 @@ test("community chat stays on the roster and off deal data", async () => {
   jpeg.set(tail, 2 + segment.length);
   assert.equal(Buffer.from(stripJpegMetadata(jpeg)).toString("latin1").includes("SECRET_EXIF_GPS"), false);
 
+  const photoBytes = new Map<string, Uint8Array>();
+  setCommunityPhotoStoreForTests({
+    async put(key, value) {
+      const copy = new Uint8Array(value.byteLength);
+      copy.set(value);
+      photoBytes.set(key, copy);
+    },
+    async get(key) {
+      const bytes = photoBytes.get(key);
+      if (!bytes) return null;
+      return { async arrayBuffer() { return bytes.slice().buffer; } };
+    },
+  });
   const saved = await saveCommunityPhoto(db, adminActor, { bytes: jpeg, contentType: "image/jpeg", childFace: true });
   assert.equal(saved.ok, true);
   if (!saved.ok) return;
   const stored = await db.select().from(communityPhotos).where(eq(communityPhotos.id, saved.id));
-  const storedBytes = Buffer.from(stored[0]?.bytesBase64 ?? "", "base64");
-  assert.equal(storedBytes.toString("latin1").includes("SECRET_EXIF_GPS"), false);
+  assert.equal(stored[0]?.bytesBase64, null);
+  const kept = photoBytes.get(stored[0]?.r2Key ?? "");
+  assert.equal(Buffer.from(kept ?? new Uint8Array()).toString("latin1").includes("SECRET_EXIF_GPS"), false);
+  setCommunityPhotoStoreForTests(undefined);
   const link = await openCommunityPhoto(db, adminActor, { id: saved.id, exp: "1", sig: "nope" });
   assert.equal(link.ok, false);
   assert.equal(await photoLinkValid(saved.id, "1", "nope"), false);
@@ -3924,6 +3942,57 @@ test("the creator menu, home cards, and billing stay on her own sign-in", async 
   assert.equal(other?.emailNotices, true);
   assert.equal(other?.usage.used, 0);
   assert.equal(await readOwnAccount(db, admin), null);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("chat still posts when photo storage is missing, and the home screen button follows the device", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const actor = { email: admin.email, name: admin.name, role: "admin" as const, creatorId: null };
+  setCommunityPhotoStoreForTests(null);
+  try {
+    const blocked = await saveCommunityPhoto(db, actor, {
+      bytes: Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]),
+      contentType: "image/jpeg",
+      childFace: false,
+    });
+    assert.equal(blocked.ok, false);
+    if (!blocked.ok) assert.equal(blocked.error, PHOTOS_OFF);
+    const posted = await postCommunityMessage(db, actor, { channelId: "everyone", body: "Text still works without photos." });
+    assert.equal(posted.ok, true);
+    const listed = await listCommunity(db, actor, null);
+    assert.equal(listed.ok, true);
+    if (listed.ok && !listed.unchanged) {
+      assert.equal(listed.photosEnabled, false);
+      assert.equal(listed.messages.some((message) => message.body === "Text still works without photos."), true);
+    }
+    const missing = communityFailure(new Error("D1_ERROR: no such table: community_messages"));
+    assert.equal(missing.status, 503);
+    const body = await missing.json() as { error?: string };
+    assert.equal(body.error, "Community chat isn't set up on this database yet.");
+
+    assert.equal(homeScreenOffer({ installed: true, ios: true, canPrompt: true }), "installed");
+    assert.equal(homeScreenOffer({ installed: false, ios: true, canPrompt: false }), "ios");
+    assert.equal(homeScreenOffer({ installed: false, ios: false, canPrompt: true }), "install");
+    assert.equal(homeScreenOffer({ installed: false, ios: false, canPrompt: false }), "waiting");
+    assert.equal(isIosHomeScreen("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"), true);
+    assert.equal(isIosHomeScreen("Mozilla/5.0 (Linux; Android 14; Pixel 8)"), false);
+    const screen = readFileSync(new URL("../src/components/home-screen.tsx", import.meta.url), "utf8");
+    assert.equal(screen.includes("beforeinstallprompt"), true);
+    assert.equal(screen.includes("Add to Home Screen"), true);
+    assert.equal(screen.includes("tap Share, then Add to Home Screen"), true);
+  } finally {
+    setCommunityPhotoStoreForTests(undefined);
+  }
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");

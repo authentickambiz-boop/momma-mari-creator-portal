@@ -20,17 +20,25 @@ export async function resolveD1(): Promise<D1Database> {
 }
 
 export async function getKv(): Promise<KVNamespace | null> {
-  const onWorkers = typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
-  if (!onWorkers) return null;
-  const { getCloudflareContext } = await import("@opennextjs/cloudflare");
-  const context = await getCloudflareContext({ async: true });
-  return (context.env.SESSIONS as KVNamespace | undefined) ?? null;
+  try {
+    const onWorkers = typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
+    if (!onWorkers) return null;
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+    const context = await getCloudflareContext({ async: true });
+    return (context.env.SESSIONS as KVNamespace | undefined) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getCommunityBucket(): Promise<R2Bucket | null> {
-  const onWorkers = typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
-  if (!onWorkers) return null;
-  const { getCloudflareContext } = await import("@opennextjs/cloudflare");
-  const context = await getCloudflareContext({ async: true });
-  return (context.env.COMMUNITY_PHOTOS as R2Bucket | undefined) ?? null;
+  try {
+    const onWorkers = typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
+    if (!onWorkers) return null;
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+    const context = await getCloudflareContext({ async: true });
+    return (context.env.COMMUNITY_PHOTOS as R2Bucket | undefined) ?? null;
+  } catch {
+    return null;
+  }
 }

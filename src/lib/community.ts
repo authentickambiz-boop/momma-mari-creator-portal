@@ -35,6 +35,28 @@ type Member = typeof communityMembers.$inferSelect;
 
 let queryTap: ((table: string) => void) | null = null;
 
+export const PHOTOS_OFF = "Photos are off until photo storage is connected.";
+
+export type CommunityPhotoStore = {
+  put(key: string, value: Uint8Array, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  get(key: string): Promise<{ arrayBuffer(): Promise<ArrayBuffer> } | null>;
+};
+
+let photoStoreOverride: { value: CommunityPhotoStore | null } | undefined;
+
+export function setCommunityPhotoStoreForTests(store: CommunityPhotoStore | null | undefined) {
+  photoStoreOverride = store === undefined ? undefined : { value: store };
+}
+
+async function photoStore(): Promise<CommunityPhotoStore | null> {
+  if (photoStoreOverride) return photoStoreOverride.value;
+  try {
+    return await getCommunityBucket();
+  } catch {
+    return null;
+  }
+}
+
 export function setCommunityQueryTap(tap: ((table: string) => void) | null) {
   queryTap = tap;
 }
@@ -124,16 +146,24 @@ async function bumpCursor(db: PortalDb) {
   const cursor = String(Date.now());
   touch("community_state");
   await db.update(communityState).set({ cursor }).where(eq(communityState.id, "last"));
-  const kv = await getKv();
-  if (kv) await kv.put("community:last", cursor);
+  try {
+    const kv = await getKv();
+    if (kv) await kv.put("community:last", cursor);
+  } catch {
+    // Text chat stays on D1 when the KV binding is missing.
+  }
   return cursor;
 }
 
 async function currentCursor(db: PortalDb) {
-  const kv = await getKv();
-  if (kv) {
-    const stored = await kv.get("community:last");
-    if (stored) return stored;
+  try {
+    const kv = await getKv();
+    if (kv) {
+      const stored = await kv.get("community:last");
+      if (stored) return stored;
+    }
+  } catch {
+    // Fall through to the database cursor.
   }
   touch("community_state");
   const rows = await db.select().from(communityState).where(eq(communityState.id, "last"));
@@ -268,14 +298,15 @@ export async function saveCommunityPhoto(
   const stripped = input.contentType === "image/jpeg" ? stripJpegMetadata(input.bytes) : input.bytes;
   const id = crypto.randomUUID();
   const held = Boolean(input.childFace);
-  let r2Key: string | null = null;
-  let bytesBase64: string | null = Buffer.from(stripped).toString("base64");
-  const bucket = await getCommunityBucket();
-  if (bucket) {
-    r2Key = `community/${id}`;
+  const bucket = await photoStore();
+  if (!bucket) return { ok: false, status: 503, error: PHOTOS_OFF };
+  const r2Key = `community/${id}`;
+  try {
     await bucket.put(r2Key, stripped, { httpMetadata: { contentType: input.contentType } });
-    bytesBase64 = null;
+  } catch {
+    return { ok: false, status: 503, error: PHOTOS_OFF };
   }
+  const bytesBase64: string | null = null;
   touch("community_photos");
   await db.insert(communityPhotos).values({
     id,
@@ -309,11 +340,16 @@ export async function openCommunityPhoto(
     return { ok: false, status: 404, error: "Photo not found." };
   }
   if (photo.r2Key) {
-    const bucket = await getCommunityBucket();
-    const object = bucket ? await bucket.get(photo.r2Key) : null;
-    if (!object) return { ok: false, status: 404, error: "Photo not found." };
-    const bytes = new Uint8Array(await object.arrayBuffer());
-    return { ok: true, bytes, contentType: photo.contentType };
+    const bucket = await photoStore();
+    if (!bucket) return { ok: false, status: 404, error: "Photo not found." };
+    try {
+      const object = await bucket.get(photo.r2Key);
+      if (!object) return { ok: false, status: 404, error: "Photo not found." };
+      const bytes = new Uint8Array(await object.arrayBuffer());
+      return { ok: true, bytes, contentType: photo.contentType };
+    } catch {
+      return { ok: false, status: 404, error: "Photo not found." };
+    }
   }
   if (!photo.bytesBase64) return { ok: false, status: 404, error: "Photo not found." };
   return { ok: true, bytes: Buffer.from(photo.bytesBase64, "base64"), contentType: photo.contentType };
@@ -601,7 +637,12 @@ export async function listCommunity(db: PortalDb, actor: CommunityActor, after: 
   touch("community_reactions");
   const reactions = await db.select().from(communityReactions);
   touch("community_photos");
-  const photos = await db.select().from(communityPhotos);
+  const photos = await db.select({
+    id: communityPhotos.id,
+    held: communityPhotos.held,
+    approved: communityPhotos.approved,
+  }).from(communityPhotos);
+  const photosEnabled = Boolean(await photoStore());
   const visible = messages
     .filter((message) => !message.deletedAt && message.createdAt >= yearAgo)
     .filter((message) => !message.held || access.communityRole === "admin")
@@ -682,6 +723,7 @@ export async function listCommunity(db: PortalDb, actor: CommunityActor, after: 
     audit: auditRows,
     settings: { readOnly: settings.readOnly, slowSeconds: settings.slowSeconds },
     held: heldPhotos,
+    photosEnabled,
   });
 }
 
