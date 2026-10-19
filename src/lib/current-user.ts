@@ -5,7 +5,22 @@ import { adminDisplayName, resolveViewedCreator } from "./authz";
 import { assignedCreatorIds, findManagerByEmail } from "./managers";
 import { findCreatorById, listCreators } from "./queries";
 import { readSession, sessionCookieName } from "./session";
-import type { Viewer } from "./types";
+import type { CreatorProfile, Viewer } from "./types";
+
+/** Managers see connection status only. Links, tokens, and passwords stay with the owner. */
+export function hideAccountCredentials(creator: CreatorProfile): CreatorProfile {
+  const blank = (status: string) => ({ status, connectUrl: null });
+  return {
+    ...creator,
+    accounts: {
+      tiktok: blank(creator.accounts.tiktok.status),
+      instagram: blank(creator.accounts.instagram.status),
+      facebook: blank(creator.accounts.facebook.status),
+      youtube: blank(creator.accounts.youtube.status),
+      email: blank(creator.accounts.email.status),
+    },
+  };
+}
 
 export async function currentViewer(): Promise<Viewer | null> {
   const jar = await cookies();
@@ -51,9 +66,10 @@ export async function loadPortal(requested: string | null) {
   const viewer = await requireViewer();
   const db = await getDb();
   const everyone = await listCreators(db);
-  const creators = viewer.role === "manager"
+  const assigned = viewer.role === "manager"
     ? everyone.filter((creator) => (viewer.assignedCreatorIds ?? []).includes(creator.id))
     : everyone;
+  const creators = viewer.role === "manager" ? assigned.map(hideAccountCredentials) : assigned;
   const viewedId = resolveViewedCreator(
     viewer,
     requested,

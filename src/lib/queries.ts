@@ -422,7 +422,9 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
       row.rateCents != null &&
       !row.rateConfirmedAt,
     agreedRateLabel: row.rateReady && row.rateCents != null && !managerView ? formatMoney(row.rateCents) : null,
-    brandReplyDraft: staff ? (await db.select().from(brandReplyDrafts).where(eq(brandReplyDrafts.dealId, dealId)))[0]?.body ?? null : null,
+    brandReplyDraft: viewer.role === "admin"
+      ? (await db.select().from(brandReplyDrafts).where(eq(brandReplyDrafts.dealId, dealId)))[0]?.body ?? null
+      : null,
     reviewStatus: staff ? row.reviewStatus : null,
   };
 }

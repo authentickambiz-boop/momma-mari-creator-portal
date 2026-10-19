@@ -98,6 +98,8 @@ Content-Type: application/json
 
 A missing or wrong token returns `401`. If `BOT_API_TOKEN` is unset, every bot route returns `503`.
 
+Scoped bot tokens are separate. Kamron creates them on Access, and each one is stored only as a hash. `POST /api/bot/act` accepts the master token or a scoped token. A scoped token can negotiate, review contracts, do outreach, draft replies, or approve deals only at the level granted on that page. Draft-only and act-with-approval wait for Kamron. The other bot routes still require the master token. Managers never receive creator account credentials.
+
 Examples below use the local server. On the live site, change the host to `https://mommamari.com/portal` (the mount path is already in that origin; do not add `/portal` twice).
 
 ### List drafts since a timestamp
