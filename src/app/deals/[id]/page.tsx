@@ -1,11 +1,12 @@
 import { dismissCreatorNoticeAction } from "@/app/actions";
+import { setCategoryOverrideAction } from "@/app/rules-actions";
 import { DealBoard } from "@/components/deal-board";
 import { PortalFrame } from "@/components/portal-frame";
 import { dealPowers } from "@/lib/authz";
 import { formatMoney, longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
-import { screeningForDeal } from "@/lib/deal-rules";
+import { categoryOverrideFor, screeningForDeal } from "@/lib/deal-rules";
 import { listUnreadCreatorNotices } from "@/lib/video-review";
 
 export default async function DealPage({
@@ -28,6 +29,7 @@ export default async function DealPage({
   const need = deals.filter((deal) => deal.visibleToCreator && deal.needsCreator);
   const hidden = deals.filter((deal) => !deal.visibleToCreator);
   const screening = selected ? await screeningForDeal(portal.db, portal.viewer, selected.id) : null;
+  const categoryOverride = selected && portal.viewer.role === "admin" ? await categoryOverrideFor(portal.db, selected.id) : false;
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -77,7 +79,18 @@ export default async function DealPage({
           {screening.counterCents != null ? <p>Suggested counter {formatMoney(screening.counterCents)}</p> : null}
           {screening.feeCents != null ? <p>Commission {formatMoney(screening.feeCents)} (20%)</p> : null}
           {screening.profitWarn ? <p className="private-note">This deal is under the agency profit floor.</p> : null}
+          {screening.categoryWarn ? <p className="private-note">This override lets a gambling, crypto, or investment-advice sponsor through. Have a lawyer review it before anyone is contacted.</p> : null}
           <ul>{screening.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+          {portal.viewer.role === "admin" && selected ? (
+            <form action={setCategoryOverrideAction} className="stack">
+              <input type="hidden" name="dealId" value={selected.id} />
+              <label className="check">
+                <input type="checkbox" name="override" value="1" defaultChecked={categoryOverride} />
+                Override the gambling, crypto, and investment-advice block for this deal
+              </label>
+              <button className="btn ghost" type="submit">Save override</button>
+            </form>
+          ) : null}
         </div>
       ) : null}
       <DealBoard

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { creators, mediaKits } from "@/db/schema";
 import { nowIso } from "./format";
+import { PLATFORM_METRICS, type PlatformStat } from "./platforms";
 
 type Result<T> = { ok: true } & T | { ok: false; status: number; error: string };
 
@@ -13,6 +14,7 @@ export type MediaKitView = {
   avgViews: number | null;
   engagement: string | null;
   niches: string[];
+  platforms: PlatformStat[];
 };
 
 export function zernioStatsEnabled() {
@@ -29,6 +31,24 @@ function nichesOf(value: string | null) {
   return value.split(",").map((item) => item.trim()).filter(Boolean).slice(0, 8);
 }
 
+export function parsePlatformStats(value: string | null | undefined): PlatformStat[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const row = item as { platform?: unknown; metric?: unknown; value?: unknown };
+      if (typeof row.platform !== "string" || typeof row.metric !== "string" || typeof row.value !== "string") return [];
+      const known = PLATFORM_METRICS.some((metric) => metric.platform === row.platform && metric.metric === row.metric);
+      if (!known || !row.value.trim()) return [];
+      return [{ platform: row.platform, metric: row.metric, value: row.value.trim().slice(0, 40) }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 function toView(row: typeof mediaKits.$inferSelect): MediaKitView | null {
   if (!row.published || !row.displayName) return null;
   return {
@@ -39,6 +59,7 @@ function toView(row: typeof mediaKits.$inferSelect): MediaKitView | null {
     avgViews: row.avgViews,
     engagement: row.engagement,
     niches: nichesOf(row.niches),
+    platforms: parsePlatformStats(row.platformsJson),
   };
 }
 
@@ -67,6 +88,7 @@ export async function saveMediaKit(
     avgViews: string;
     engagement: string;
     niches: string;
+    platforms?: PlatformStat[];
   },
 ): Promise<Result<{ slug: string }>> {
   if (actor.role !== "creator" || actor.creatorId !== input.creatorId) {
@@ -95,6 +117,7 @@ export async function saveMediaKit(
     avgViews,
     engagement: input.engagement.trim().slice(0, 20) || null,
     niches: nichesOf(input.niches).join(", ") || null,
+    platformsJson: input.platforms ? JSON.stringify(parsePlatformStats(JSON.stringify(input.platforms))) : existing[0]?.platformsJson ?? null,
     updatedAt: nowIso(),
   };
   if (existing[0]) await db.update(mediaKits).set(values).where(eq(mediaKits.creatorId, creator.id));
