@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { PortalDb } from "@/db";
 import { creators, rankReports } from "@/db/schema";
-import { compositeScore, inputsFor, latestRanks, rankHistory, rankSettings, tierFor } from "./creator-rank";
+import { compositeScore, latestRanks, rankHistory, rankSettings, scoringInputs, tierFor } from "./creator-rank";
 import { listPods, podCollabs } from "./pods";
 import type { Viewer } from "./types";
 
@@ -50,7 +50,7 @@ export async function buildReportBody(
     const creatorId = input.subjectId ?? "";
     const name = nameOf.get(creatorId) ?? "Creator";
     const settings = await rankSettings(db);
-    const inputs = await inputsFor(db, creatorId);
+    const inputs = await scoringInputs(db, creatorId);
     const scored = compositeScore(inputs, settings.weights);
     const saved = ranks.get(creatorId);
     const score = saved?.score ?? scored.score;

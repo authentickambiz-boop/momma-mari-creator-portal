@@ -6,7 +6,7 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { adminNotifications, approvalEmails, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creatorProfiles, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, payments } from "../src/db/schema";
+import { adminNotifications, analyticsSnapshots, approvalEmails, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creatorProfiles, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, payments } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
@@ -95,7 +95,8 @@ import { matchOffer, needsQuestionnaire, questionnaireFor, saveQuestionnaireStep
 import { tagChoices } from "../src/lib/tag-picker";
 import { deliverableKind, prefillDealRules, presentScreening, quotedAskCents, rulesFor, saveDealRules, savePricingFloor, screenOffer, setCategoryOverride, type DealRules } from "../src/lib/deal-rules";
 import { allocateCampaign, addProspect, campaignById, canSeeCommission, convertProspect, listCampaigns, markOpenOutside, ownerDashboard, presentRoster, projectedCommission, queueOutsideOffer, rankRoster, rosterHasAFit, saveCampaign } from "../src/lib/campaigns";
-import { compositeScore, defaultWeights, emptyInputs, leaderboard, refreshRanks, saveRankInputs, saveRankSettings, tierFor } from "../src/lib/creator-rank";
+import { analyticsBoard, importAnalyticsSnapshots, parseDisplayedCount, saveOwnerSnapshot, writeAnalyticsSnapshots } from "../src/lib/analytics-snapshots";
+import { compositeScore, defaultWeights, emptyInputs, inputsFor, leaderboard, refreshRanks, saveRankInputs, saveRankSettings, scoringInputs, tierFor } from "../src/lib/creator-rank";
 import { addCollab, collabLift, pairCollab, podById, savePod, suggestPods } from "../src/lib/pods";
 import { createRankReport, reportPdf, sharedReport } from "../src/lib/rank-reports";
 import { addReinvestment, reinvestmentSummary } from "../src/lib/reinvestment";
@@ -4754,6 +4755,117 @@ test("chat still posts when photo storage is missing, and the home screen button
   } finally {
     setCommunityPhotoStoreForTests(undefined);
   }
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("July snapshots fill analytics, stay off other creators, and feed rank scores", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  const file = JSON.parse(readFileSync(path.join(process.cwd(), "data/analytics-snapshots.json"), "utf8"));
+  assert.equal(file.capturedOn, "2026-10-19");
+  assert.equal(file.source, "July");
+  const abbyIg = file.creators.find((creator: { creatorId: string }) => creator.creatorId === "abby").snapshots.find((row: { platform: string }) => row.platform === "Instagram");
+  assert.equal(abbyIg.metrics.saves, null);
+  assert.equal(Object.hasOwn(abbyIg.metrics, "comments"), false);
+  assert.equal(Object.hasOwn(abbyIg.metrics, "avgStoryViews"), false);
+  const twitch = file.creators.find((creator: { creatorId: string }) => creator.creatorId === "mariclare").snapshots.find((row: { platform: string }) => row.platform === "Twitch");
+  assert.deepEqual(twitch.metrics, { followers: "462" });
+  assert.equal(twitch.period, "Past 90d");
+  const tiktok = file.creators.find((creator: { creatorId: string }) => creator.creatorId === "mariclare").snapshots.find((row: { platform: string }) => row.platform === "TikTok");
+  assert.equal(tiktok.period, undefined);
+  assert.equal(tiktok.metrics.followers, "2.3m");
+  assert.equal(parseDisplayedCount("326k"), 326000);
+  assert.equal(parseDisplayedCount("2,643,404"), 2643404);
+  assert.equal(parseDisplayedCount(null), null);
+
+  const owner = await analyticsBoard(db, admin);
+  assert.equal(owner.showRevenue, true);
+  const filled = owner.creators.filter((creator) => creator.platforms.length).map((creator) => creator.creatorId).sort();
+  assert.deepEqual(filled, ["abby", "authentickam", "mariclare"]);
+  const mari = owner.creators.find((creator) => creator.creatorId === "mariclare");
+  assert.equal(mari?.totalAudience, "2,643,404");
+  assert.equal(mari?.platforms.find((row) => row.platform === "Instagram")?.period, "Past 30d");
+  assert.equal(mari?.platforms.find((row) => row.platform === "Instagram")?.metrics.followers, "326k");
+  assert.equal(mari?.platforms.find((row) => row.platform === "TikTok")?.period, null);
+  assert.equal(mari?.platforms.find((row) => row.platform === "TikTok")?.change, null);
+  const abbyCard = owner.creators.find((creator) => creator.creatorId === "abby");
+  assert.equal(abbyCard?.platforms.find((row) => row.platform === "Instagram")?.metrics.saves, null);
+  assert.equal(JSON.stringify(abbyCard?.platforms.find((row) => row.platform === "Instagram")?.metrics).includes('"-1"'), false);
+  assert.equal(JSON.stringify(abbyCard?.platforms.find((row) => row.platform === "Instagram")?.metrics).includes('"saves":-1'), false);
+
+  const hers = await analyticsBoard(db, mariclare);
+  assert.equal(hers.showRevenue, false);
+  assert.deepEqual(hers.creators.map((creator) => creator.creatorId), ["mariclare"]);
+  assert.equal(JSON.stringify(hers).includes("178k"), false);
+  assert.equal(JSON.stringify(hers).includes("$"), false);
+  assert.equal(Object.hasOwn(hers.creators[0].platforms[0], "revenueCents"), false);
+
+  const made = await addManager(db, { actorRole: "admin", name: "Avery Lane", email: "avery.lane@gmail.com" });
+  assert.equal(made.ok, true);
+  if (!made.ok) return;
+  assert.equal((await assignCreatorManagers(db, { actorRole: "admin", creatorId: "abby", primaryManagerId: made.id, backupManagerId: null })).ok, true);
+  const manager: Viewer = {
+    role: "manager",
+    email: "avery.lane@gmail.com",
+    name: "Avery Lane",
+    creatorId: null,
+    managerId: made.id,
+    permissions: { approveEmail: false, approveVideo: false, approveContract: false, countersign: false, canPriceDeals: false },
+  };
+  const assigned = await analyticsBoard(db, manager);
+  assert.deepEqual(assigned.creators.map((creator) => creator.creatorId), ["abby"]);
+  assert.equal(JSON.stringify(assigned).includes("2.3m"), false);
+  assert.equal(assigned.showRevenue, false);
+
+  assert.equal((await saveOwnerSnapshot(db, mariclare, { creatorId: "abby", platform: "Facebook", capturedOn: "2026-10-19", metrics: { followers: "29.8k" }, revenueCents: 25000 })).ok, false);
+  assert.equal((await saveOwnerSnapshot(db, admin, { creatorId: "abby", platform: "Facebook", capturedOn: "2026-10-19", metrics: { followers: "29.8k" }, revenueCents: 25000, merge: true })).ok, true);
+  const priced = await analyticsBoard(db, {
+    ...manager,
+    permissions: { approveEmail: false, approveVideo: false, approveContract: false, countersign: false, canPriceDeals: true },
+  });
+  assert.equal(priced.creators[0].platforms.find((row) => row.platform === "Facebook")?.revenueCents, 25000);
+  const hidden = await analyticsBoard(db, manager);
+  assert.equal(Object.hasOwn(hidden.creators[0].platforms.find((row) => row.platform === "Facebook") ?? {}, "revenueCents"), false);
+  assert.equal(hidden.creators[0].platforms.find((row) => row.platform === "Instagram")?.metrics.followers, "1,728");
+
+  const manual = await inputsFor(db, "mariclare");
+  const scored = await scoringInputs(db, "mariclare");
+  assert.equal(scored.followers, 2643404);
+  assert.equal(scored.engagement, 5.2);
+  assert.equal(scored.averageViews, 88498);
+  assert.equal(scored.audienceGrowth, manual.audienceGrowth);
+  assert.equal(scored.completion, manual.completion);
+
+  assert.equal(authorizeBot("Bearer wrong-token").ok, false);
+  const posted = await writeAnalyticsSnapshots(db, {
+    creatorId: "mariclare",
+    platform: "Podcast",
+    capturedOn: "2026-10-19",
+    metrics: { followers: "12" },
+  });
+  assert.equal(posted.status, 200);
+  assert.equal((await writeAnalyticsSnapshots(db, { creatorId: "missing", platform: "TikTok", capturedOn: "2026-10-19", metrics: { followers: "1" } })).status, 404);
+
+  const brought = await importAnalyticsSnapshots(db, file);
+  assert.equal(brought.ok, true);
+  if (brought.ok) assert.equal(brought.saved, 11);
+  const again = await importAnalyticsSnapshots(db, file);
+  assert.equal(again.ok, true);
+  const mariFollowers = (await db.select().from(analyticsSnapshots)).find((row) => row.id === "snap-mariclare-instagram-2026-10-19-past30d");
+  assert.match(mariFollowers?.metricsJson ?? "", /326k/);
+  const saves = (await db.select().from(analyticsSnapshots)).find((row) => row.id === "snap-abby-instagram-2026-10-19-past30d");
+  assert.match(saves?.metricsJson ?? "", /"saves":null/);
+  assert.equal((saves?.metricsJson ?? "").includes("-1"), false);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");

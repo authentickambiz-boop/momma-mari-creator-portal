@@ -1,0 +1,230 @@
+{
+  "capturedOn": "2026-10-19",
+  "source": "July",
+  "creators": [
+    {
+      "creatorId": "mariclare",
+      "name": "MariClare MacLamroc",
+      "location": "North Carolina, USA",
+      "totalAudience": "2,643,404",
+      "largestPlatform": "TikTok",
+      "snapshots": [
+        {
+          "platform": "Instagram",
+          "handle": "@_mariclaremaclamroc_",
+          "period": "Past 30d",
+          "benchmark": "Above average performance",
+          "metrics": {
+            "engagement": "3.57%",
+            "similarCreators": "1.75%",
+            "followers": "326k",
+            "views": "3m",
+            "reach": "1.2m",
+            "likes": "94.8k",
+            "comments": "802",
+            "shares": "2,832",
+            "saves": "5,769",
+            "totalInteractions": "108k",
+            "avgStoryViews": "8,533"
+          },
+          "audience": {
+            "gender": ["Female 79%", "Male 21%"],
+            "age": ["13-17 12.3%", "18-24 40.5%", "25-34 31.0%", "35-44 10.1%", "45+ 6.2%"],
+            "country": ["USA 52.4%", "India 10.2%", "UK 5.0%", "Canada 3.2%", "Other 29.2%"],
+            "city": ["New York NY 9.2%", "Delhi 4.0%", "Semnan 3.9%", "Philadelphia PA 3.7%", "Other 79.2%"]
+          }
+        },
+        {
+          "platform": "TikTok",
+          "handle": "@_mariclaremaclamroc_",
+          "updated": "updated 3 hours ago",
+          "benchmark": "Above average performance",
+          "metrics": {
+            "engagement": "6.76%",
+            "similarCreators": "1.35%",
+            "followers": "2.3m",
+            "avgLikes": "16.3k",
+            "avgComments": "115",
+            "avgViews": "245k",
+            "avgShares": "107"
+          },
+          "audience": {
+            "gender": ["Female 86%", "Male 14%"],
+            "age": ["13-17 10.2%", "18-24 69.6%", "25-34 17.6%", "35-44 2.0%", "45+ 0.7%"],
+            "country": ["USA 63.4%", "Canada 6.2%", "UK 5.4%", "Philippines 5.0%", "Other 20.0%"]
+          },
+          "clips": ["24K likes/208K views", "31.5K/409K", "1,658/38.8K", "3,974/…"]
+        },
+        {
+          "platform": "YouTube",
+          "channelName": "MariClare X Scarlett",
+          "updated": "updated 8 hours ago",
+          "benchmark": "Above average performance",
+          "metrics": {
+            "engagement": "5.19%",
+            "similarCreators": "2%",
+            "subscribers": "9,630",
+            "totalViews": "1m",
+            "longForm": { "avgViews": "9,695", "avgLikes": "493", "avgComments": "10" },
+            "shorts": { "avgViews": "10.8k", "avgLikes": "610" }
+          },
+          "audience": {
+            "gender": ["Female 90%", "Male 10%"],
+            "age": ["13-17 18.9%", "18-24 24.9%", "25-34 35.2%", "35-44 13.1%", "45+ 7.9%"],
+            "country": ["USA 51.4%", "India 9.1%", "Poland 5.0%", "UK 4.9%", "Other 29.7%"]
+          }
+        },
+        {
+          "platform": "Twitch",
+          "channelName": "MariClareMacLamroc",
+          "period": "Past 90d",
+          "updated": "updated a day ago",
+          "metrics": { "followers": "462" }
+        }
+      ]
+    },
+    {
+      "creatorId": "authentickam",
+      "name": "Authentickam",
+      "location": "North Carolina, USA",
+      "totalAudience": "193,956",
+      "largestPlatform": "TikTok",
+      "snapshots": [
+        {
+          "platform": "Instagram",
+          "handle": "@authentickam",
+          "period": "Past 30d",
+          "updated": "updated 10 hours ago",
+          "metrics": {
+            "followers": "15.8k",
+            "engagement": "1.57%",
+            "views": "21.7k",
+            "reach": "6,189",
+            "likes": "298",
+            "comments": "10",
+            "shares": "2",
+            "saves": "15",
+            "totalInteractions": "342",
+            "avgPostLikes": "91",
+            "avgPostComments": "4",
+            "avgStoryViews": "731"
+          },
+          "audience": {
+            "gender": ["Female 85%", "Male 15%"],
+            "age": ["13-17 9.4%", "18-24 47.7%", "25-34 29.3%", "35-44 9.0%", "45+ 4.6%"],
+            "country": ["USA 75.0%", "UK 4.9%", "Canada 4.3%", "Australia 2.6%", "Other 13.2%"],
+            "city": ["New York NY 8.9%", "Charlotte NC 5.2%", "Houston TX 4.7%", "Philadelphia PA 4.6%", "Other 76.6%"]
+          }
+        },
+        {
+          "platform": "TikTok",
+          "handle": "@authentickam",
+          "updated": "updated a few seconds ago",
+          "metrics": {
+            "followers": "178k",
+            "avgLikes": "3,731",
+            "engagement": "6.46%",
+            "avgComments": "34",
+            "avgViews": "58.6k",
+            "avgShares": "18"
+          },
+          "audience": {
+            "gender": ["Female 88%", "Male 12%"],
+            "age": ["13-17 10.5%", "18-24 70.2%", "25-34 15.5%", "35-44 2.6%", "45+ 1.2%"],
+            "country": ["USA 71.9%", "Canada 10.5%", "UK 4.6%", "Australia 4.1%", "Other 8.8%"]
+          }
+        },
+        {
+          "platform": "YouTube",
+          "channelName": "AuthenticKam",
+          "updated": "updated 10 hours ago",
+          "benchmark": "Above average performance",
+          "metrics": {
+            "engagement": "4.91%",
+            "similarCreators": "2%",
+            "subscribers": "653",
+            "totalViews": "6,419",
+            "longForm": { "avgViews": "133", "avgLikes": "5", "avgComments": "2" },
+            "shorts": { "avgViews": "769", "avgLikes": "7" }
+          },
+          "audience": {
+            "gender": ["Female 60%", "Male 40%"],
+            "age": ["13-17 14.9%", "18-24 3.3%", "25-34 36.0%", "35-44 31.9%", "45+ 13.9%"],
+            "country": ["USA 95.6%", "UK 2.5%", "Australia 1.1%", "Philippines 0.8%", "Other 0.0%"]
+          }
+        },
+        {
+          "platform": "Facebook",
+          "updated": "updated 10 hours ago",
+          "metrics": { "followers": "2", "pageLikes": "2" }
+        }
+      ]
+    },
+    {
+      "creatorId": "abby",
+      "name": "Abby Theriot",
+      "location": "Lifestyle",
+      "totalAudience": "110,371",
+      "largestPlatform": "TikTok",
+      "snapshots": [
+        {
+          "platform": "Instagram",
+          "handle": "@theofficialtheriots",
+          "period": "Past 30d",
+          "updated": "updated 10 hours ago",
+          "metrics": {
+            "followers": "1,728",
+            "engagement": "1.57%",
+            "views": "3,429",
+            "reach": "411",
+            "likes": "53",
+            "shares": "1",
+            "saves": null,
+            "totalInteractions": "54",
+            "avgPostLikes": "26"
+          },
+          "audience": {
+            "gender": ["Female 76%", "Male 24%"],
+            "age": ["13-17 2.3%", "18-24 32.4%", "25-34 38.2%", "35-44 15.8%", "45+ 11.3%"],
+            "country": ["USA 78.4%", "UK 4.2%", "Canada 3.0%", "Australia 1.8%", "Other 12.6%"],
+            "city": ["Oklahoma City OK 5.7%", "Houston TX 5.3%", "Cordell OK 4.3%", "Guthrie OK 4.3%", "Other 80.4%"]
+          }
+        },
+        {
+          "platform": "TikTok",
+          "updated": "updated a few seconds ago",
+          "metrics": {
+            "followers": "78.8k",
+            "avgLikes": "385",
+            "engagement": "6.39%",
+            "avgComments": "11",
+            "avgViews": "6,237",
+            "avgShares": "3"
+          },
+          "audience": {
+            "gender": ["Female 85%", "Male 15%"],
+            "age": ["13-17 10.4%", "18-24 57.4%", "25-34 21.5%", "35-44 6.9%", "45+ 3.8%"],
+            "country": ["USA 87.8%", "Nigeria 5.5%", "Canada 3.0%", "UK 1.6%", "Other 2.1%"]
+          }
+        },
+        {
+          "platform": "Facebook",
+          "updated": "updated 10 hours ago",
+          "metrics": {
+            "followers": "29.8k",
+            "engagement": "0.04%",
+            "pageLikes": "29.8k",
+            "avgLikes": "8",
+            "avgReactions": "10",
+            "avgShares": "1",
+            "avgComments": "1",
+            "impressions": "68.7k"
+          },
+          "audience": {
+            "country": ["USA 83.6%", "Canada 4.8%", "UK 3.8%", "Australia 2.2%", "Other 5.7%"]
+          }
+        }
+      ]
+    }
+  ]
+}
