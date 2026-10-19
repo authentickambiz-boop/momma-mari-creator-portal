@@ -109,6 +109,7 @@ import {
   listInboxEvents,
   parseSince,
   renewGmailWatches,
+  renewMailboxWatch,
   verifyPubSubOidc,
   type GmailHistoryMessage,
 } from "../src/lib/gmail-push";
@@ -5607,6 +5608,146 @@ test("owner review, rate confirm, upload deadline, and reply drafts leave creato
   const kosblingReject = await rejectDealReview(db, { dealId: "kosbling", actorEmail: admin.email, actorRole: "admin" });
   assert.equal(kosblingReject.ok, false);
   if (!kosblingReject.ok) assert.equal(kosblingReject.status, 409);
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("gmail watch returns Google's error and leaves secrets out", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const previous = {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    topic: process.env.GMAIL_WATCH_TOPIC,
+    fetch: globalThis.fetch,
+  };
+  const clientSecret = "client-secret-DO-NOT-LEAK";
+  const refreshToken = "1//secret-refresh-token-not-for-storage";
+  const accessToken = "ya29.ACCESS-SECRET";
+  process.env.GOOGLE_CLIENT_ID = "  test-client.apps.googleusercontent.com  ";
+  process.env.GOOGLE_CLIENT_SECRET = `"${clientSecret}"`;
+  process.env.GMAIL_WATCH_TOPIC = "projects/momma-mari-portal/topics/gmail-push";
+
+  const restore = () => {
+    globalThis.fetch = previous.fetch;
+    if (previous.clientId == null) delete process.env.GOOGLE_CLIENT_ID;
+    else process.env.GOOGLE_CLIENT_ID = previous.clientId;
+    if (previous.clientSecret == null) delete process.env.GOOGLE_CLIENT_SECRET;
+    else process.env.GOOGLE_CLIENT_SECRET = previous.clientSecret;
+    if (previous.topic == null) delete process.env.GMAIL_WATCH_TOPIC;
+    else process.env.GMAIL_WATCH_TOPIC = previous.topic;
+  };
+
+  try {
+    globalThis.fetch = async (input) => {
+      assert.equal(String(input), "https://oauth2.googleapis.com/token");
+      return new Response(JSON.stringify({
+        error: "invalid_grant",
+        error_description: "Token has been expired or revoked.",
+        refresh_token: refreshToken,
+        client_secret: clientSecret,
+      }), { status: 400 });
+    };
+    await assert.rejects(() => renewMailboxWatch(refreshToken), (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /Gmail token refresh failed \(400\): invalid_grant: Token has been expired or revoked\./);
+      assert.equal(error.message.includes(refreshToken), false);
+      assert.equal(error.message.includes(clientSecret), false);
+      assert.equal(error.message.includes("1//"), false);
+      return true;
+    });
+
+    let watchBody = "";
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      if (url === "https://oauth2.googleapis.com/token") {
+        const sent = String(init?.body ?? "");
+        assert.equal(sent.includes("test-client.apps.googleusercontent.com"), true);
+        assert.equal(sent.includes(`client_secret=${encodeURIComponent(clientSecret)}`), true);
+        assert.equal(sent.startsWith("client_secret=") || sent.includes("client_secret="), true);
+        assert.equal(sent.includes('"'), false);
+        return new Response(JSON.stringify({ access_token: accessToken }), { status: 200 });
+      }
+      assert.equal(url, "https://gmail.googleapis.com/gmail/v1/users/me/watch");
+      watchBody = String(init?.body ?? "");
+      return new Response(JSON.stringify({
+        error: {
+          code: 400,
+          message: `Error sending test message to Cloud PubSub projects/momma-mari-portal/topics/gmail-push : User not authorized to perform this action. Bearer ${accessToken}`,
+          errors: [{ message: "User not authorized to perform this action.", reason: "forbidden" }],
+          status: "PERMISSION_DENIED",
+        },
+      }), { status: 400 });
+    };
+    await assert.rejects(() => renewMailboxWatch(refreshToken), (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /Gmail watch failed \(400\): Error sending test message to Cloud PubSub/);
+      assert.match(error.message, /User not authorized to perform this action/);
+      assert.equal(error.message.includes(accessToken), false);
+      assert.equal(error.message.includes("ya29."), false);
+      assert.equal(error.message.includes(clientSecret), false);
+      assert.equal(error.message.includes(refreshToken), false);
+      assert.equal(error.message.includes("Bearer"), false);
+      return true;
+    });
+    const sentWatch = JSON.parse(watchBody) as { topicName?: string; labelIds?: string[]; labelFilterBehavior?: string };
+    assert.equal(sentWatch.topicName, "projects/momma-mari-portal/topics/gmail-push");
+    assert.deepEqual(sentWatch.labelIds, ["INBOX", "SENT"]);
+    assert.equal(sentWatch.labelFilterBehavior, "include");
+
+    process.env.GMAIL_WATCH_TOPIC = "\"projects/momma-mari-portal/topics/gmail-push\"";
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      if (url === "https://oauth2.googleapis.com/token") {
+        return new Response(JSON.stringify({ access_token: accessToken }), { status: 200 });
+      }
+      const body = JSON.parse(String(init?.body ?? "")) as { topicName?: string };
+      assert.equal(body.topicName, "projects/momma-mari-portal/topics/gmail-push");
+      return new Response(JSON.stringify({ historyId: "42", expiration: "1893456000000" }), { status: 200 });
+    };
+    const watched = await renewMailboxWatch(refreshToken);
+    assert.equal(watched.historyId, "42");
+    assert.equal(watched.expiration, "1893456000000");
+
+    process.env.GMAIL_WATCH_TOPIC = clientSecret;
+    let called = 0;
+    globalThis.fetch = async () => {
+      called += 1;
+      return new Response("no");
+    };
+    await assert.rejects(() => renewMailboxWatch(refreshToken), (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /GMAIL_WATCH_TOPIC is not a Pub\/Sub topic name/);
+      assert.equal(error.message.includes(clientSecret), false);
+      return true;
+    });
+    assert.equal(called, 0);
+
+    process.env.GMAIL_WATCH_TOPIC = "projects/momma-mari-portal/topics/gmail-push";
+    const leaked = await renewGmailWatches(db, async () => {
+      throw new Error(`Error sending test message to Cloud PubSub. token ${refreshToken}`);
+    });
+    const row = leaked.find((item) => item.mailbox === "mmaclamroc@gmail.com");
+    assert.equal(row?.ok, false);
+    assert.match(row?.error ?? "", /Error sending test message to Cloud PubSub/);
+    assert.equal(row?.error?.includes(refreshToken), false);
+    assert.equal(row?.error?.includes("1//"), false);
+    assert.equal(row?.error?.includes("Watch was not renewed."), false);
+    const missingTopic = await renewGmailWatches(db, async () => {
+      throw new Error("GMAIL_WATCH_TOPIC is not set.");
+    });
+    assert.equal(missingTopic.find((item) => item.mailbox === "mmaclamroc@gmail.com")?.error, "GMAIL_WATCH_TOPIC is not set.");
+  } finally {
+    restore();
+  }
+
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
   assert.equal(kosblingAfter?.visibleToCreator, true);
