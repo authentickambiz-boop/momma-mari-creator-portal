@@ -16,3 +16,17 @@ export async function communityContext() {
   const db = await getDb();
   return { actor, db };
 }
+
+export function communityFailure(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (/no such table:\s*community_/i.test(message)) {
+    return communityJson({ error: "Community chat isn't set up on this database yet." }, 503);
+  }
+  return communityJson({ error: "Chat is unavailable." }, 503);
+}
+
+export function guardCommunity(handler: () => Promise<Response | undefined>) {
+  return handler()
+    .catch((error: unknown) => communityFailure(error))
+    .then((response) => response ?? communityFailure(new Error("Chat is unavailable.")));
+}

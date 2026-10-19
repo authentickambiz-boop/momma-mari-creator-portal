@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { logoutAction } from "@/app/actions";
+import { AccountMenu } from "@/components/account-menu";
+import { accountMenuItems, isMenuTab } from "@/lib/creator-home";
 import type { CreatorProfile, Viewer } from "@/lib/types";
 
 const TABS = [
@@ -24,6 +25,9 @@ const TABS = [
   { id: "rights", href: "/rights", label: "Usage rights" },
   { id: "safety", href: "/safety", label: "Safety" },
   { id: "referrals", href: "/referrals", label: "Referrals" },
+  { id: "support", href: "/support", label: "Support" },
+  { id: "settings", href: "/settings", label: "Settings" },
+  { id: "billing", href: "/billing", label: "Billing and usage" },
   { id: "team", href: "/team", label: "Team" },
 ] as const;
 
@@ -47,21 +51,22 @@ export function PortalFrame({
   const staff = viewer.role === "admin" || viewer.role === "manager";
   const query = (id: string) => (staff ? `?creator=${id}` : "");
   const tabs = TABS.filter((item) => {
+    if (isMenuTab(item.id)) return false;
     if (item.id === "team") return viewer.role === "admin";
     if (item.id === "safety") return viewer.role === "admin" || viewer.role === "manager";
-    if (item.id === "referrals") return viewer.role !== "manager";
     if (item.id === "earnings") return viewer.role !== "manager";
     if (item.id === "report") return viewer.role !== "manager";
     if (item.id === "approvals") return viewer.role === "admin" || Boolean(viewer.permissions?.approveEmail);
-    if (item.id === "profile") return viewer.role === "creator";
     if (item.id === "brands") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "rules") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "campaigns") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "prospects" || item.id === "dashboard" || item.id === "ranking" || item.id === "reports") return viewer.role === "admin";
     if (item.id === "pods") return true;
     if (item.id === "kit") return viewer.role === "creator";
+    if (item.id === "connect") return viewer.role !== "creator";
     return true;
   });
+  const menu = accountMenuItems(viewer.role);
   return (
     <>
       <div className="demo-bar">
@@ -77,10 +82,7 @@ export function PortalFrame({
         </Link>
         <div className="me">
           <span className="who">Signed in as {viewer.name}</span>
-          <form action={logoutAction}>
-            <button className="signout" type="submit">Sign out</button>
-          </form>
-          <div className="avatar">{viewer.initials || viewer.name.slice(0, 1)}</div>
+          <AccountMenu initials={viewer.initials || viewer.name.slice(0, 1)} items={menu} />
         </div>
       </header>
       <div className="wrap">
