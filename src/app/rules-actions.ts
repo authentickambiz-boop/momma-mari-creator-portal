@@ -8,6 +8,7 @@ import {
   dollarsToCents,
   saveDealRules,
   savePricingFloor,
+  setCategoryOverride,
   type DealRules,
   type DeliverableId,
 } from "@/lib/deal-rules";
@@ -43,6 +44,17 @@ export async function saveDealRulesAction(formData: FormData) {
   const back = `/rules?creator=${encodeURIComponent(creatorId)}`;
   if (!result.ok) redirect(`${back}&rulesError=${encodeURIComponent(result.error)}`);
   redirect(`${back}&saved=1`);
+}
+
+export async function setCategoryOverrideAction(formData: FormData) {
+  const viewer = await currentViewer();
+  if (!viewer) redirect("/login");
+  const dealId = String(formData.get("dealId") ?? "");
+  const db = await getDb();
+  const result = await setCategoryOverride(db, viewer, dealId, formData.get("override") === "1");
+  const back = `/deals/${encodeURIComponent(dealId)}`;
+  if (!result.ok) redirect(`${back}?rulesError=${encodeURIComponent(result.error)}`);
+  redirect(`${back}?saved=1`);
 }
 
 export async function savePricingFloorAction(formData: FormData) {

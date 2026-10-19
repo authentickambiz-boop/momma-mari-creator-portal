@@ -258,7 +258,26 @@ export const FREQUENCY_OPTIONS = ["Daily", "A few times a week", "Weekly", "A fe
 export const TURNAROUND_OPTIONS = ["2–3 days", "About a week", "2 weeks", "About a month"] as const;
 export const SHIPPING_OPTIONS = ["United States", "Canada", "United Kingdom", "No product shipping"] as const;
 export const CAMERA_OPTIONS = ["Yes", "No", "With limits"] as const;
-export const RATE_FIELDS = ["TikTok", "Reel", "Story", "Photo"] as const;
+export const RATE_FIELDS = [
+  "TikTok",
+  "Reel",
+  "Story",
+  "Photo",
+  "Stream segment",
+  "Viewer-hour",
+  "YouTube integration",
+  "Dedicated YouTube video",
+  "Podcast pre-roll",
+  "Podcast mid-roll",
+  "Host-read",
+  "LinkedIn post",
+  "X post",
+  "Facebook post",
+  "Pinterest pin",
+  "Snapchat story",
+  "Newsletter placement",
+  "Blog post",
+] as const;
 
 export function stepProblem(step: QuestionStepId, answers: QuestionnaireAnswers) {
   if (step === "niches" && answers.niches.length === 0) return "Pick at least one niche.";

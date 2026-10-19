@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { creatorDealRules, deals, pricingSettings } from "@/db/schema";
+import { creatorDealRules, dealCategoryOverrides, deals, pricingSettings } from "@/db/schema";
 import { feeAndPayout, formatMoney, nowIso } from "./format";
 import { assignedCreatorIds } from "./managers";
 import { questionnaireFor } from "./questionnaire";
@@ -14,6 +14,20 @@ export const DELIVERABLES = [
   { id: "ugc", label: "UGC" },
   { id: "live", label: "LIVE" },
   { id: "bundle", label: "Bundle" },
+  { id: "stream", label: "Stream segment" },
+  { id: "viewer_hour", label: "Viewer-hour" },
+  { id: "youtube_integration", label: "YouTube integration" },
+  { id: "youtube_dedicated", label: "Dedicated YouTube video" },
+  { id: "podcast_pre", label: "Podcast pre-roll" },
+  { id: "podcast_mid", label: "Podcast mid-roll" },
+  { id: "podcast_host", label: "Host-read spot" },
+  { id: "linkedin", label: "LinkedIn post" },
+  { id: "x_post", label: "X post" },
+  { id: "facebook", label: "Facebook post" },
+  { id: "pinterest", label: "Pinterest pin" },
+  { id: "snapchat", label: "Snapchat story" },
+  { id: "newsletter", label: "Newsletter placement" },
+  { id: "blog", label: "Blog post" },
 ] as const;
 
 export type DeliverableId = (typeof DELIVERABLES)[number]["id"];
@@ -49,6 +63,9 @@ export type OfferTerms = {
   exclusivityDays?: number | null;
   rush?: boolean;
   kidsOnCamera?: boolean;
+  hours?: number | null;
+  viewers?: number | null;
+  downloads?: number | null;
 };
 
 export type Screening = {
@@ -61,6 +78,7 @@ export type Screening = {
   feeCents: number | null;
   profitWarn: boolean;
   minProfitCents: number;
+  categoryWarn: boolean;
 };
 
 const EMPTY: DealRules = {
@@ -88,12 +106,52 @@ export function dollarsToCents(value: string) {
 export function deliverableKind(text: string): DeliverableId | null {
   const value = text.toLowerCase();
   if (value.includes("bundle")) return "bundle";
+  if (value.includes("viewer-hour") || value.includes("viewer hour")) return "viewer_hour";
+  if (value.includes("stream")) return "stream";
+  if (value.includes("pre-roll") || value.includes("preroll")) return "podcast_pre";
+  if (value.includes("mid-roll") || value.includes("midroll")) return "podcast_mid";
+  if (value.includes("host-read") || value.includes("host read")) return "podcast_host";
+  if (value.includes("podcast")) return "podcast_host";
+  if (value.includes("dedicated")) return "youtube_dedicated";
+  if (value.includes("integration")) return "youtube_integration";
+  if (value.includes("linkedin")) return "linkedin";
+  if (value.includes("newsletter")) return "newsletter";
+  if (value.includes("snapchat") || value.includes("snap ")) return "snapchat";
+  if (value.includes("pinterest")) return "pinterest";
+  if (value.includes("facebook")) return "facebook";
+  if (value.includes("blog")) return "blog";
   if (value.includes("tiktok")) return "tiktok";
   if (value.includes("reel")) return "reel";
   if (value.includes("story") || value.includes("stories")) return "story";
   if (value.includes("ugc")) return "ugc";
+  if (value.includes("youtube")) return "youtube_integration";
+  if (value.includes("x post") || value.includes("twitter") || value.includes("tweet")) return "x_post";
   if (value.includes("live")) return "live";
   return null;
+}
+
+const CPM_KINDS = new Set<DeliverableId>(["podcast_pre", "podcast_mid", "podcast_host"]);
+
+export function quotedAskCents(
+  kind: DeliverableId,
+  unitRateCents: number,
+  qty: { hours?: number | null; viewers?: number | null; downloads?: number | null },
+) {
+  if (unitRateCents <= 0) return 0;
+  if (kind === "viewer_hour" && qty.viewers && qty.hours) return Math.round(unitRateCents * qty.viewers * qty.hours);
+  if (kind === "stream" && qty.hours) return Math.round(unitRateCents * qty.hours);
+  if (CPM_KINDS.has(kind) && qty.downloads) return Math.round((unitRateCents * qty.downloads) / 1000);
+  return unitRateCents;
+}
+
+export const RESTRICTED_SPONSORS = [
+  { id: "gambling", label: "Gambling", pattern: /\bgambl|\bcasino\b|\bsportsbook\b|\bstake\b|\broobet\b|\bslots\b/i },
+  { id: "crypto", label: "Crypto", pattern: /\bcrypto\b|\bbitcoin\b|\bnft\b/i },
+  { id: "investment", label: "Investment advice", pattern: /investment advice|investing advice|stock tips|\bforex\b/i },
+] as const;
+
+export function restrictedSponsor(text: string) {
+  return RESTRICTED_SPONSORS.find((item) => item.pattern.test(text)) ?? null;
 }
 
 export function kindsIn(texts: string[]) {
@@ -120,6 +178,7 @@ export function screenOffer(input: {
   openDeals: number;
   addons?: { id: string; cents: number }[];
   minProfitCents?: number;
+  categoryOverride?: boolean;
 }): Screening {
   const rules = input.rules;
   const offer = input.offer;
@@ -132,7 +191,12 @@ export function screenOffer(input: {
   const reasons: string[] = [];
   const moneyReasons: string[] = [];
   let verdict: Screening["verdict"] = "meets";
-  if (blockedBrand) {
+  const restricted = restrictedSponsor(haystack);
+  const categoryWarn = Boolean(restricted && input.categoryOverride);
+  if (restricted && !input.categoryOverride) {
+    verdict = "blocked";
+    reasons.push(`${restricted.label} sponsors are blocked unless the owner overrides this deal.`);
+  } else if (blockedBrand) {
     verdict = "blocked";
     reasons.push("This brand is on her no list.");
   } else if (blockedCategory) {
@@ -142,7 +206,10 @@ export function screenOffer(input: {
     verdict = "blocked";
     reasons.push("This offer needs kids on camera, and her rule is no.");
   } else {
-    const floor = rateFor(rules.minRates, kinds);
+    if (categoryWarn && restricted) {
+      reasons.push(`Owner override: ${restricted.label} is allowed on this deal. Have a lawyer review it before anyone is contacted.`);
+    }
+    const floor = kinds.length === 1 ? quotedAskCents(kinds[0], rateFor(rules.minRates, kinds), offer) : rateFor(rules.minRates, kinds);
     if (rules.minDealCents != null && offer.amountCents != null && offer.amountCents < rules.minDealCents) {
       verdict = "below";
       moneyReasons.push(`The offer is under her ${formatMoney(rules.minDealCents)} minimum.`);
@@ -176,10 +243,11 @@ export function screenOffer(input: {
       return false;
     })
     .reduce((sum, item) => sum + item.cents, 0);
-  const target = rateFor(rules.targetRates, kinds);
-  const base = Math.max(target, input.bestPastCents ?? 0, rateFor(rules.minRates, kinds));
+  const target = kinds.length === 1 ? quotedAskCents(kinds[0], rateFor(rules.targetRates, kinds), offer) : rateFor(rules.targetRates, kinds);
+  const minimum = kinds.length === 1 ? quotedAskCents(kinds[0], rateFor(rules.minRates, kinds), offer) : rateFor(rules.minRates, kinds);
+  const base = Math.max(target, input.bestPastCents ?? 0, minimum);
   const suggestedAskCents = base + addonCents;
-  const counterCents = verdict === "below" ? Math.max(suggestedAskCents, rules.minDealCents ?? 0, rateFor(rules.minRates, kinds)) : null;
+  const counterCents = verdict === "below" ? Math.max(suggestedAskCents, rules.minDealCents ?? 0, minimum) : null;
   const basis = offer.amountCents ?? suggestedAskCents;
   const feeCents = feeAndPayout(basis).feeCents;
   const minProfitCents = input.minProfitCents ?? DEFAULT_MIN_PROFIT_CENTS;
@@ -203,6 +271,7 @@ export function screenOffer(input: {
     feeCents,
     profitWarn,
     minProfitCents,
+    categoryWarn,
   };
 }
 
@@ -224,6 +293,7 @@ export function presentScreening(viewer: Pick<Viewer, "role" | "permissions">, f
     feeCents: owner ? full.feeCents : null,
     profitWarn: owner ? full.profitWarn : false,
     minProfitCents: owner ? full.minProfitCents : null,
+    categoryWarn: full.categoryWarn,
   };
 }
 
@@ -322,6 +392,22 @@ export async function rulesFor(db: PortalDb, creatorId: string) {
   return (await savedRules(db, creatorId)) ?? prefillDealRules(db, creatorId);
 }
 
+export async function categoryOverrideFor(db: PortalDb, dealId: string) {
+  const rows = await db.select().from(dealCategoryOverrides).where(eq(dealCategoryOverrides.dealId, dealId));
+  return Boolean(rows[0]?.overridden);
+}
+
+export async function setCategoryOverride(db: PortalDb, viewer: Viewer, dealId: string, overridden: boolean) {
+  if (viewer.role !== "admin") return { ok: false as const, error: "Only an owner can override a sponsor category." };
+  const deal = await db.select().from(deals).where(eq(deals.id, dealId));
+  if (!deal[0]) return { ok: false as const, error: "That deal is not on the list." };
+  const values = { dealId, overridden, updatedAt: nowIso() };
+  const existing = await db.select().from(dealCategoryOverrides).where(eq(dealCategoryOverrides.dealId, dealId));
+  if (existing[0]) await db.update(dealCategoryOverrides).set(values).where(eq(dealCategoryOverrides.dealId, dealId));
+  else await db.insert(dealCategoryOverrides).values(values);
+  return { ok: true as const };
+}
+
 export async function saveDealRules(db: PortalDb, viewer: Viewer, creatorId: string, rules: DealRules) {
   if (!(await canViewRules(db, viewer, creatorId)) || !canEditRules(viewer)) {
     return { ok: false as const, error: "You can't edit these deal rules." };
@@ -388,6 +474,7 @@ export async function screeningForDeal(db: PortalDb, viewer: Viewer, dealId: str
       rush: /rush|asap/i.test(`${deal.subtitle ?? ""} ${usage}`),
       kidsOnCamera: /kid|child/i.test(`${deal.subtitle ?? ""} ${deliverables.join(" ")}`),
     },
+    categoryOverride: await categoryOverrideFor(db, deal.id),
     bestPastCents: await bestPastCents(db, deal.creatorId, kinds),
     nicheHit,
     openDeals,

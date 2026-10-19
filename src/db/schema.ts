@@ -609,6 +609,13 @@ export const mediaKits = sqliteTable("media_kits", {
   avgViews: integer("avg_views"),
   engagement: text("engagement"),
   niches: text("niches"),
+  platformsJson: text("platforms_json"),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const dealCategoryOverrides = sqliteTable("deal_category_overrides", {
+  dealId: text("deal_id").primaryKey(),
+  overridden: integer("overridden", { mode: "boolean" }).notNull(),
   updatedAt: text("updated_at").notNull(),
 });
 
@@ -837,6 +844,32 @@ export const reinvestmentEntries = sqliteTable("reinvestment_entries", {
   category: text("category").notNull(),
   amountCents: integer("amount_cents").notNull(),
   note: text("note"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const benchCreators = sqliteTable("bench_creators", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  slug: text("slug").notNull().unique(),
+  nichesJson: text("niches_json").notNull(),
+  platformsJson: text("platforms_json").notNull(),
+  portfolioJson: text("portfolio_json").notNull(),
+  score: integer("score"),
+  status: text("status").notNull(),
+  creatorId: text("creator_id"),
+  createdAt: text("created_at").notNull(),
+  promotedAt: text("promoted_at"),
+});
+
+export const benchOffers = sqliteTable("bench_offers", {
+  id: text("id").primaryKey(),
+  campaignId: text("campaign_id").notNull(),
+  benchId: text("bench_id").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  status: text("status").notNull(),
+  approvalId: text("approval_id"),
+  feeCents: integer("fee_cents"),
   createdAt: text("created_at").notNull(),
 });
 

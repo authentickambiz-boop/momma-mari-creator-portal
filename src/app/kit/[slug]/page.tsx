@@ -19,6 +19,11 @@ export default async function PublicKitPage({ params }: { params: Promise<{ slug
         {kit.engagement ? <li>Engagement: {kit.engagement}</li> : null}
       </ul>
       {kit.niches.length > 0 ? <p>{kit.niches.join(" · ")}</p> : null}
+      {kit.platforms.length > 0 ? (
+        <ul>
+          {kit.platforms.map((item) => <li key={`${item.platform}-${item.metric}`}>{item.platform}: {item.metric} {item.value}</li>)}
+        </ul>
+      ) : null}
       <p className="note">Stats were entered by hand. This page does not show pay or contact details.</p>
     </main>
   );

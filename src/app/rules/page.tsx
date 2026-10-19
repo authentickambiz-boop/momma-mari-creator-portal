@@ -51,6 +51,7 @@ export default async function RulesPage({ searchParams }: { searchParams: Promis
         {priced ? (
           <>
             <div className="sec-title">Rates</div>
+            <p className="note">Floors cover every platform, and the agency commission stays a flat 20%. Gambling, crypto, and investment-advice sponsors are blocked unless you override that one deal.</p>
             {DELIVERABLES.map((item) => (
               <div key={item.id} className="stage-form">
                 <label>{item.label} minimum<input name={`min-${item.id}`} defaultValue={dollars(rules.minRates[item.id])} inputMode="decimal" disabled={!edit} /></label>

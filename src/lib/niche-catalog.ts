@@ -23,6 +23,13 @@ const GROUPS = [
   ["green", "low tox", "plastic free", "cloth alternatives", "nontoxic home", "clean swaps"],
   ["auto", "minivan", "car organization", "road trips", "car seats installed"],
   ["photo", "iphone photos", "family photos", "reels tips", "storytelling", "voiceover"],
+  ["gaming", "twitch", "youtube live", "kick", "esports", "cozy games", "minecraft", "speedrun", "stream highlights"],
+  ["finance", "credit", "taxes", "small business finance", "money diary", "debt payoff"],
+  ["podcast", "interview show", "solo show", "video podcast", "host read"],
+  ["b2b", "linkedin", "founder", "saas", "speaking", "educator"],
+  ["music", "comedy", "live shows", "original songs"],
+  ["travel", "tourism", "itinerary", "city guide"],
+  ["ugc", "product demo", "unboxing", "voiceover ads"],
 ];
 
 const EXTRA = [
@@ -45,8 +52,10 @@ const EXTRA = [
 
 export const NICHE_CATALOG: readonly string[] = [...new Set([...GROUPS.flat(), ...EXTRA])].sort((a, b) => a.localeCompare(b));
 
-export const FORMAT_OPTIONS = ["TikTok", "Reels", "Stories", "YouTube", "Photo", "Blog", "UGC", "Live"] as const;
-export const PLATFORM_OPTIONS = ["TikTok", "Instagram", "Facebook", "YouTube", "Pinterest"] as const;
+export const FORMAT_OPTIONS = ["TikTok", "Reels", "Stories", "YouTube", "Photo", "Blog", "UGC", "Live", "Stream", "Podcast", "Newsletter", "LinkedIn"] as const;
+export const PLATFORM_OPTIONS = [
+  "TikTok", "Instagram", "YouTube", "Twitch", "Podcast", "LinkedIn", "X", "Facebook", "Pinterest", "Snapchat", "Newsletter", "Blog",
+] as const;
 export const LANGUAGE_OPTIONS = ["English", "Spanish", "French", "Portuguese", "Mandarin", "Korean", "Arabic", "Hindi", "ASL"] as const;
 export const LOCATION_OPTIONS = [
   "United States", "California", "Texas", "Florida", "New York", "North Carolina", "Georgia", "Ohio", "Illinois", "Pennsylvania",

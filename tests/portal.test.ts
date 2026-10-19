@@ -84,10 +84,12 @@ import { findSafetyKinds } from "../src/lib/safety-shared";
 import { buildMonthlyReport, draftMonthlyReport } from "../src/lib/report";
 import { getReferralPerk, listReferrals, perkLabel, recordReferral, REFERRAL_LAWYER_NOTE, setReferralPerk } from "../src/lib/referrals";
 import { dueHomeNotices, inQuietHours, pushEnabled, queueHomeNotice } from "../src/lib/home-screen";
-import { NICHE_CATALOG } from "../src/lib/niche-catalog";
+import { NICHE_CATALOG, PLATFORM_OPTIONS } from "../src/lib/niche-catalog";
+import { MEDIA_KIT_CATALOG } from "../src/lib/platforms";
+import { approveBenchOffer, benchPromotionSuggested, joinBench, listBench, promoteBench, publicBenchPortfolio, queueBenchOffer, recordBenchPaid, setBenchScore } from "../src/lib/bench";
 import { matchOffer, needsQuestionnaire, questionnaireFor, saveQuestionnaireStep, type QuestionnaireAnswers } from "../src/lib/questionnaire";
 import { tagChoices } from "../src/lib/tag-picker";
-import { prefillDealRules, presentScreening, rulesFor, saveDealRules, savePricingFloor, screenOffer, type DealRules } from "../src/lib/deal-rules";
+import { deliverableKind, prefillDealRules, presentScreening, quotedAskCents, rulesFor, saveDealRules, savePricingFloor, screenOffer, setCategoryOverride, type DealRules } from "../src/lib/deal-rules";
 import { allocateCampaign, addProspect, campaignById, canSeeCommission, convertProspect, listCampaigns, markOpenOutside, ownerDashboard, presentRoster, projectedCommission, queueOutsideOffer, rankRoster, rosterHasAFit, saveCampaign } from "../src/lib/campaigns";
 import { compositeScore, defaultWeights, emptyInputs, leaderboard, refreshRanks, saveRankInputs, saveRankSettings, tierFor } from "../src/lib/creator-rank";
 import { addCollab, collabLift, pairCollab, podById, savePod, suggestPods } from "../src/lib/pods";
@@ -4440,6 +4442,190 @@ test("owner ranks drive campaign priority, pods stay private, and reinvestment i
   }
   assert.equal((await db.select().from(payments)).length, paymentsBefore);
   assert.equal((await db.select().from(approvalEmails)).filter((row) => row.status === "sent").length, sentBefore);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("platform floors, the sponsor block, and the free bench", async () => {
+  const paymentsBefore = (await db.select().from(payments)).length;
+  const sentBefore = (await db.select().from(approvalEmails)).filter((row) => row.status === "sent").length;
+  const approvalsBefore = (await db.select().from(approvalEmails)).length;
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length;
+
+  assert.equal(deliverableKind("1 TikTok"), "tiktok");
+  assert.equal(deliverableKind("Stream segment"), "stream");
+  assert.equal(deliverableKind("Viewer-hour"), "viewer_hour");
+  assert.equal(deliverableKind("Dedicated YouTube video"), "youtube_dedicated");
+  assert.equal(deliverableKind("Podcast pre-roll"), "podcast_pre");
+  assert.equal(deliverableKind("Host-read"), "podcast_host");
+  assert.equal(deliverableKind("LinkedIn post"), "linkedin");
+  assert.equal(deliverableKind("Newsletter placement"), "newsletter");
+  assert.equal(quotedAskCents("viewer_hour", 100, { viewers: 50, hours: 2 }), 10000);
+  assert.equal(quotedAskCents("stream", 5000, { hours: 3 }), 15000);
+  assert.equal(quotedAskCents("podcast_host", 2500, { downloads: 10000 }), 25000);
+  assert.equal(feeAndPayout(100000).feeCents, 20000);
+  assert.equal(NICHE_CATALOG.includes("gaming") && NICHE_CATALOG.includes("podcast") && NICHE_CATALOG.includes("ugc"), true);
+  assert.equal(PLATFORM_OPTIONS.includes("Twitch") && PLATFORM_OPTIONS.includes("LinkedIn") && PLATFORM_OPTIONS.includes("Newsletter"), true);
+  assert.deepEqual(MEDIA_KIT_CATALOG.map((item) => item.priceLabel), ["$179", "$99", "$229"]);
+
+  const openRules: DealRules = {
+    minRates: { tiktok: 50000, podcast_host: 2500, viewer_hour: 80 },
+    targetRates: { podcast_host: 2500, viewer_hour: 80 },
+    minDealCents: null,
+    blockedCategories: [],
+    blockedBrands: [],
+    maxDealsPerMonth: null,
+    turnaround: "",
+    exclusivityMaxDays: null,
+    usageMinDays: null,
+    kidsOnCamera: "",
+    kidsLimits: "",
+  };
+  const slots = screenOffer({
+    rules: openRules,
+    offer: { brand: "Lucky Slots", amountCents: 90000, deliverables: ["1 TikTok"] },
+    bestPastCents: null,
+    nicheHit: false,
+    openDeals: 0,
+  });
+  assert.equal(slots.verdict, "blocked");
+  assert.match(slots.reasons.join(" "), /Gambling/);
+  const allowed = screenOffer({
+    rules: openRules,
+    offer: { brand: "Lucky Slots", amountCents: 90000, deliverables: ["1 TikTok"] },
+    bestPastCents: null,
+    nicheHit: false,
+    openDeals: 0,
+    categoryOverride: true,
+  });
+  assert.equal(allowed.verdict, "meets");
+  assert.equal(allowed.categoryWarn, true);
+  const podcast = screenOffer({
+    rules: openRules,
+    offer: { brand: "Kind Soap", amountCents: 10000, deliverables: ["Host-read"], downloads: 10000 },
+    bestPastCents: null,
+    nicheHit: false,
+    openDeals: 0,
+  });
+  assert.equal(podcast.verdict, "below");
+  assert.equal(podcast.feeCents, 2000);
+  const stream = screenOffer({
+    rules: openRules,
+    offer: { brand: "Kind Soap", amountCents: 20000, deliverables: ["Viewer-hour"], viewers: 100, hours: 2 },
+    bestPastCents: null,
+    nicheHit: false,
+    openDeals: 0,
+  });
+  assert.equal(stream.verdict, "meets");
+  assert.equal(stream.feeCents, 4000);
+
+  const manager: Viewer = { role: "manager", email: "casey.manager@gmail.com", name: "Casey", creatorId: null, managerId: "not-a-real-manager" };
+  assert.equal((await setCategoryOverride(db, manager, "kosbling", true)).ok, false);
+  assert.equal((await upsertDeal(db, {
+    id: "bench-slots",
+    brand: "Lucky Slots",
+    creatorId: "quiz-guest",
+    status: "active",
+    workflowStage: "offer_received",
+    rateCents: 80000,
+    deliverables: ["1 TikTok"],
+    visibleToCreator: false,
+  })).status, 201);
+  assert.equal((await setCategoryOverride(db, admin, "bench-slots", true)).ok, true);
+
+  const savedKit = await saveMediaKit(db, mariclare, {
+    creatorId: "mariclare",
+    published: true,
+    displayName: "MariClare",
+    bio: "Everyday life.",
+    followers: "12000",
+    avgViews: "4000",
+    engagement: "3%",
+    niches: "parenting, gaming",
+    platforms: [{ platform: "Twitch", metric: "Average concurrent viewers", value: "140" }],
+  });
+  assert.equal(savedKit.ok, true);
+  if (!savedKit.ok) return;
+  const kit = await publicMediaKit(db, savedKit.slug);
+  const packed = JSON.stringify(kit);
+  assert.equal(packed.includes("Average concurrent viewers"), true);
+  assert.equal(packed.includes("$"), false);
+  assert.equal(packed.includes("rate"), false);
+
+  assert.equal((await joinBench(db, { name: "Nope", email: "someone@example.invalid", niches: ["ugc"], platforms: ["TikTok"], samples: [] })).ok, false);
+  const joined = await joinBench(db, {
+    name: "Bench Bea",
+    email: "bench.bea@gmail.com",
+    niches: ["ugc"],
+    platforms: ["TikTok"],
+    samples: [{ title: "Kitchen unboxing", url: "https://example.com/sample" }],
+  });
+  assert.equal(joined.ok, true);
+  if (!joined.ok) return;
+  assert.equal((await db.select().from(payments)).length, paymentsBefore);
+  assert.equal((await db.select().from(approvalEmails)).length, approvalsBefore);
+  assert.equal((await setBenchScore(db, manager, joined.id, 80)).ok, false);
+  assert.equal(benchPromotionSuggested(40), false);
+  assert.equal((await setBenchScore(db, admin, joined.id, 82)).ok, true);
+  assert.equal(benchPromotionSuggested(82), true);
+
+  const fitting = await saveCampaign(db, admin, {
+    brand: "Kind Soap",
+    name: "Roster still fits",
+    budgetCents: 200000,
+    niches: [],
+    platforms: ["TikTok"],
+    deliverables: ["TikTok"],
+    slots: 1,
+    startsOn: "2026-12-01",
+    endsOn: "2026-12-20",
+  });
+  assert.equal(fitting.ok, true);
+  if (!fitting.ok) return;
+  assert.match((await queueBenchOffer(db, admin, { campaignId: fitting.id, benchId: joined.id, amountCents: 8000 })).error ?? "", /roster/);
+
+  const leftover = await saveCampaign(db, admin, {
+    brand: "Bench Soap",
+    name: "Passed by the roster",
+    budgetCents: 10000,
+    niches: [],
+    platforms: ["TikTok"],
+    deliverables: ["TikTok"],
+    slots: 1,
+    startsOn: "2026-12-01",
+    endsOn: "2026-12-20",
+  });
+  assert.equal(leftover.ok, true);
+  if (!leftover.ok) return;
+  const queued = await queueBenchOffer(db, admin, { campaignId: leftover.id, benchId: joined.id, amountCents: 8000 });
+  assert.equal(queued.ok, true);
+  if (!queued.ok) return;
+  const draft = (await db.select().from(approvalEmails)).find((row) => row.id === queued.approvalId);
+  assert.equal(draft?.status, "pending");
+  assert.equal(draft?.sentAt ?? null, null);
+  assert.equal((await recordBenchPaid(db, admin, queued.id)).ok, false);
+  assert.equal((await approveBenchOffer(db, admin, queued.id)).ok, true);
+  assert.equal((await db.select().from(approvalEmails)).find((row) => row.id === queued.approvalId)?.status, "pending");
+  const paid = await recordBenchPaid(db, admin, queued.id);
+  assert.equal(paid.ok, true);
+  if (paid.ok) assert.equal(paid.feeCents, 1600);
+  assert.equal((await db.select().from(payments)).length, paymentsBefore);
+  assert.equal((await db.select().from(approvalEmails)).filter((row) => row.status === "sent").length, sentBefore);
+
+  assert.equal((await promoteBench(db, manager, joined.id, "abby")).ok, false);
+  assert.equal((await promoteBench(db, admin, joined.id, "abby")).ok, true);
+  const portfolio = await publicBenchPortfolio(db, (await listBench(db, admin)).find((person) => person.id === joined.id)?.slug ?? "");
+  assert.equal(portfolio?.samples[0]?.title, "Kitchen unboxing");
+  assert.equal(JSON.stringify(portfolio).includes("@"), false);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
