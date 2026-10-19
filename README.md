@@ -421,7 +421,9 @@ curl -sS -X POST \
 
 `POST /api/bot/analytics/snapshots` with the bearer token. Send one snapshot, a `snapshots` array, or the same shape as `data/analytics-snapshots.json` (`creators` with a `snapshots` list). The July seed file is that shape: one snapshot per creator per platform, `capturedOn` `2026-10-19`, `source` `July`, and `period` only when July showed one (`Past 30d` or `Past 90d`). A metric July did not display is left out. A shown value that is unavailable is `null` (Abby's Instagram saves), not `-1` and not `0`.
 
-Numbers stay in July's own labels (`"326k"`, `"3.57%"`). The portal does not round them again. Rank scores read followers from the roster total audience, the average of the engagement rates that were shown, and the average of the average-view figures that were shown. A missing figure is skipped. Week-over-week change appears after a second snapshot for that platform.
+Until Momma Mari connects its own analytics tool, a bot reads https://july.bio/mommamari every Monday and posts one snapshot per creator per platform. The portal does not fetch July itself. Posting the same creator, platform, capture date, and date range updates that week. A different capture date adds a week and leaves every older row in place.
+
+Numbers stay in July's own labels (`"326k"`, `"3.57%"`). The portal does not round them again. Rank scores read followers from the roster total audience, the average of the engagement figures that were shown, and the average of the average-view figures that were shown. A missing figure is skipped. The creator's Analytics card and media kit show the latest week, the change from the previous week, and a simple trend once two weeks exist.
 
 ```bash
 curl -sS -X POST \

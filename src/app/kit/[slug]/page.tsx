@@ -24,6 +24,40 @@ export default async function PublicKitPage({ params }: { params: Promise<{ slug
           {kit.platforms.map((item) => <li key={`${item.platform}-${item.metric}`}>{item.platform}: {item.metric} {item.value}</li>)}
         </ul>
       ) : null}
+      {kit.weeks.length ? (
+        <section>
+          <h2>Latest week</h2>
+          {kit.weeks.map((week) => (
+            <article key={week.platform} className="box">
+              <div className="sec-title">{week.platform}{week.period ? ` · ${week.period}` : ""}</div>
+              <p className="note">{week.source} · {week.capturedOn}</p>
+              <ul>
+                {week.followers ? <li>Followers: {week.followers}</li> : null}
+                {week.engagement ? <li>Engagement: {week.engagement}</li> : null}
+                {week.views ? <li>Views: {week.views}</li> : null}
+                {week.reach ? <li>Reach: {week.reach}</li> : null}
+                {week.likes ? <li>Likes: {week.likes}</li> : null}
+                {week.comments ? <li>Comments: {week.comments}</li> : null}
+                {week.shares ? <li>Shares: {week.shares}</li> : null}
+                {Object.hasOwn(week, "saves") ? <li>Saves: {week.saves == null ? "Unavailable" : week.saves}</li> : null}
+              </ul>
+              {week.audience?.gender ? <p>Gender. {week.audience.gender.join("; ")}</p> : null}
+              {week.audience?.age ? <p>Age. {week.audience.age.join("; ")}</p> : null}
+              {week.audience?.location ? <p>Location. {week.audience.location.join("; ")}</p> : null}
+              <p className="note">
+                {week.weekChange
+                  ? `Since the previous week: followers ${week.weekChange.followers ?? "not shown"}, engagement ${week.weekChange.engagement ?? "not shown"}.`
+                  : "No earlier week, so there is no week-over-week change yet."}
+              </p>
+              <p className="note">
+                {week.trend.length > 1
+                  ? week.trend.map((point) => `${point.capturedOn} ${point.followers ?? "not shown"}`).join(" · ")
+                  : "One week on file, so there is no trend yet."}
+              </p>
+            </article>
+          ))}
+        </section>
+      ) : null}
       <p className="note">Stats were entered by hand. This page does not show pay or contact details.</p>
     </main>
   );

@@ -24,7 +24,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       tab="analytics"
       creators={portal.creators}
       viewedId={portal.viewedId}
-      hello={<div className="hello"><div><h1>Analytics</h1><p>Latest July snapshot for each platform, plus the change from the previous snapshot. Blank means July did not display it.</p></div></div>}
+      hello={<div className="hello"><div><h1>Analytics</h1><p>Each Monday a snapshot is saved per platform. This card is the latest week, the change from the week before, and the trend. A blank means that number was not shown.</p></div></div>}
     >
       {params.saved ? <p className="note">Saved.</p> : null}
       {params.snapshotError ? <p className="private-note">{params.snapshotError}</p> : null}
@@ -32,20 +32,27 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       {portal.viewer.role === "admin" && portal.viewed ? (
         <form action={saveAnalyticsSnapshotAction} className="card stack" style={{ marginTop: 14 }}>
           <input type="hidden" name="creatorId" value={portal.viewed.id} />
-          <div className="sec-title">Enter a snapshot for {portal.viewed.name}</div>
-          <p className="note">Only your sign-in can add one. Leave a box empty when the number was not shown. A manager sees dollar amounts only if the pricing switch is on.</p>
+          <div className="sec-title">Enter or edit a weekly snapshot for {portal.viewed.name}</div>
+          <p className="note">Only your sign-in can save one. The same platform and capture date updates that week. An older week is left as it was. Leave a box empty when the number was not shown. A manager sees dollar amounts only if the pricing switch is on.</p>
           <label>Platform
             <select name="platform" defaultValue="TikTok">
               {PLATFORM_OPTIONS.map((platform) => <option key={platform}>{platform}</option>)}
             </select>
           </label>
           <label>Captured on<input name="capturedOn" type="date" required defaultValue="2026-10-19" /></label>
-          <label>Period<input name="period" type="text" placeholder="Past 30d, or blank" /></label>
+          <label>Date range<input name="period" type="text" placeholder="Past 30d, or blank" /></label>
+          <label>Source<input name="source" type="text" defaultValue="July" /></label>
           <label>Followers<input name="followers" type="text" inputMode="decimal" /></label>
-          <label>Views<input name="views" type="text" inputMode="decimal" /></label>
-          <label>Average views<input name="avgViews" type="text" inputMode="decimal" /></label>
           <label>Engagement<input name="engagement" type="text" inputMode="decimal" placeholder="3.57%" /></label>
+          <label>Views<input name="views" type="text" inputMode="decimal" /></label>
+          <label>Reach<input name="reach" type="text" inputMode="decimal" /></label>
+          <label>Likes<input name="likes" type="text" inputMode="decimal" /></label>
+          <label>Comments<input name="comments" type="text" inputMode="decimal" /></label>
+          <label>Shares<input name="shares" type="text" inputMode="decimal" /></label>
           <label>Saves<input name="saves" type="text" /></label>
+          <label>Audience gender<textarea name="audienceGender" placeholder="Female 79%; Male 21%" /></label>
+          <label>Audience age<textarea name="audienceAge" placeholder="18-24 40.5%" /></label>
+          <label>Audience location<textarea name="audienceLocation" placeholder="USA 52.4%" /></label>
           <label>Revenue, dollars<input name="revenue" type="text" inputMode="decimal" /></label>
           <button className="btn" type="submit">Save snapshot</button>
         </form>

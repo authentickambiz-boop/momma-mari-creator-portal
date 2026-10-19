@@ -59,6 +59,11 @@ export type SnapshotChange = {
   engagement: string | null;
 };
 
+export type SnapshotTrendPoint = {
+  capturedOn: string;
+  followers: string | null;
+};
+
 export type PlatformSnapshot = {
   platform: string;
   capturedOn: string;
@@ -72,7 +77,26 @@ export type PlatformSnapshot = {
   audience: SnapshotAudience | null;
   clips: string[] | null;
   change: SnapshotChange | null;
+  trend: SnapshotTrendPoint[];
   revenueCents?: number | null;
+};
+
+export type PublicWeek = {
+  platform: string;
+  capturedOn: string;
+  source: string;
+  period: string | null;
+  followers: string | null;
+  engagement: string | null;
+  views: string | null;
+  reach: string | null;
+  likes: string | null;
+  comments: string | null;
+  shares: string | null;
+  saves?: string | null;
+  audience: { gender?: string[]; age?: string[]; location?: string[] } | null;
+  weekChange: { followers: string | null; engagement: string | null } | null;
+  trend: SnapshotTrendPoint[];
 };
 
 export type CreatorSnapshotCard = {
@@ -193,6 +217,14 @@ function followerCount(metrics: SnapshotMetrics) {
   return parseDisplayedCount(displayed(metrics, "followers") ?? displayed(metrics, "subscribers"));
 }
 
+function mergedAudience(previousJson: string | null | undefined, next: SnapshotAudience | null | undefined, merge: boolean) {
+  if (next && Object.keys(next).length) {
+    const prior = merge && previousJson ? parseJson<SnapshotAudience>(previousJson, {}) : {};
+    return JSON.stringify({ ...prior, ...next });
+  }
+  return merge ? previousJson ?? null : null;
+}
+
 function periodKeyOf(period: string | null | undefined) {
   return period?.trim() ?? "";
 }
@@ -255,7 +287,7 @@ export async function saveSnapshot(db: PortalDb, draft: SnapshotDraft, source: s
     largestPlatform: draft.largestPlatform?.trim() || (draft.merge ? previous?.largestPlatform ?? null : null),
     location: draft.location?.trim() || (draft.merge ? previous?.location ?? null : null),
     metricsJson: JSON.stringify(mergedMetrics),
-    audienceJson: draft.audience ? JSON.stringify(draft.audience) : draft.merge ? previous?.audienceJson ?? null : null,
+    audienceJson: mergedAudience(previous?.audienceJson, draft.audience, Boolean(draft.merge)),
     clipsJson: draft.clips?.length ? JSON.stringify(draft.clips) : draft.merge ? previous?.clipsJson ?? null : null,
     revenueCents: revenue == null && draft.merge ? previous?.revenueCents ?? null : revenue,
     updatedAt: timestamp,
@@ -307,7 +339,7 @@ export async function writeAnalyticsSnapshots(db: PortalDb, body: unknown) {
   if (!list.length) return { status: 400, body: { error: "Expected at least one snapshot." } };
   const ids: string[] = [];
   for (const draft of list) {
-    const saved = await saveSnapshot(db, draft, "bot");
+    const saved = await saveSnapshot(db, { ...draft, source: draft.source?.trim() || "July" }, "July");
     if (!saved.ok) return { status: saved.status, body: { error: saved.error } };
     ids.push(saved.id);
   }
@@ -406,6 +438,7 @@ export async function analyticsBoard(db: PortalDb, viewer: Viewer) {
           audience: latest.audience,
           clips: latest.clips,
           change: changeBetween(latest, previous),
+          trend: history.map((row) => ({ capturedOn: row.capturedOn, followers: displayed(row.metrics, "followers") ?? displayed(row.metrics, "subscribers") })),
         };
         if (showRevenue) platformRow.revenueCents = latest.revenueCents;
         return platformRow;
@@ -423,6 +456,46 @@ export async function analyticsBoard(db: PortalDb, viewer: Viewer) {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
   return { ok: true as const, showRevenue, creators: cards };
+}
+
+function publicAudience(audience: SnapshotAudience | null): PublicWeek["audience"] {
+  if (!audience) return null;
+  const next: NonNullable<PublicWeek["audience"]> = {};
+  if (audience.gender?.length) next.gender = audience.gender;
+  if (audience.age?.length) next.age = audience.age;
+  const location = audience.location ?? audience.country;
+  if (location?.length) next.location = location;
+  return Object.keys(next).length ? next : null;
+}
+
+export async function publicWeeklySnapshots(db: PortalDb, creatorId: string): Promise<PublicWeek[]> {
+  const rows = (await db.select().from(analyticsSnapshots).where(eq(analyticsSnapshots.creatorId, creatorId))).map(toStored);
+  const platforms = [...new Set(rows.map((row) => row.platform))].sort((a, b) => a.localeCompare(b));
+  return platforms.flatMap((platform) => {
+    const history = rows.filter((row) => row.platform === platform).sort((a, b) => a.capturedOn.localeCompare(b.capturedOn) || a.id.localeCompare(b.id));
+    const latest = history.at(-1);
+    if (!latest) return [];
+    const previous = history.length > 1 ? history[history.length - 2] : undefined;
+    const change = changeBetween(latest, previous);
+    const text = (key: string) => displayed(latest.metrics, key);
+    return [{
+      platform: latest.platform,
+      capturedOn: latest.capturedOn,
+      source: latest.source,
+      period: latest.period,
+      followers: text("followers") ?? text("subscribers"),
+      engagement: text("engagement"),
+      views: text("views") ?? text("avgViews") ?? text("totalViews"),
+      reach: text("reach"),
+      likes: text("likes") ?? text("avgLikes"),
+      comments: text("comments") ?? text("avgComments"),
+      shares: text("shares") ?? text("avgShares"),
+      ...(Object.hasOwn(latest.metrics, "saves") ? { saves: text("saves") } : {}),
+      audience: publicAudience(latest.audience),
+      weekChange: change ? { followers: change.followers, engagement: change.engagement } : null,
+      trend: history.map((row) => ({ capturedOn: row.capturedOn, followers: displayed(row.metrics, "followers") ?? displayed(row.metrics, "subscribers") })),
+    }];
+  });
 }
 
 export async function rankFieldsFromSnapshots(db: PortalDb, creatorId: string): Promise<Partial<RankInputs>> {

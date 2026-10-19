@@ -3,6 +3,8 @@ import { PortalFrame } from "@/components/portal-frame";
 import { TagPicker } from "@/components/tag-picker";
 import { loadPortal } from "@/lib/current-user";
 import { withBasePath } from "@/lib/format";
+import { SnapshotBoard } from "@/components/analytics-snapshots";
+import { analyticsBoard } from "@/lib/analytics-snapshots";
 import { myMediaKit, parsePlatformStats, zernioStatsEnabled } from "@/lib/media-kit";
 import { NICHE_CATALOG } from "@/lib/niche-catalog";
 import { MEDIA_KIT_CATALOG, PLATFORM_METRICS } from "@/lib/platforms";
@@ -18,6 +20,7 @@ export default async function MediaKitPage({ searchParams }: { searchParams: Pro
     );
   }
   const kit = await myMediaKit(portal.db, portal.viewer);
+  const board = await analyticsBoard(portal.db, portal.viewer);
   const stats = parsePlatformStats(kit?.platformsJson);
   const zernio = zernioStatsEnabled();
   return (
@@ -25,6 +28,7 @@ export default async function MediaKitPage({ searchParams }: { searchParams: Pro
       {params.saved ? <p className="note">Saved.</p> : null}
       {kit?.published && kit.slug ? <p className="note">Share <a href={withBasePath(`/kit/${kit.slug}`)}>{withBasePath(`/kit/${kit.slug}`)}</a></p> : null}
       {params.kitError ? <p className="private-note">{params.kitError}</p> : null}
+      <SnapshotBoard creators={board.creators} showRevenue={false} />
       <div className="card">
         <div className="sec-title">Catalog price</div>
         <p className="note">A kit is sold at the existing catalog price. Nothing is charged from this page.</p>
