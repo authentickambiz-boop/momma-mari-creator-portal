@@ -1,7 +1,9 @@
+import { addReinvestmentAction, saveReinvestTargetAction } from "@/app/growth-actions";
 import { PortalFrame } from "@/components/portal-frame";
 import { ownerDashboard } from "@/lib/campaigns";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
+import { REINVEST_CATEGORIES, reinvestmentSummary } from "@/lib/reinvestment";
 import { getDealStage } from "@/lib/stages";
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ creator?: string }> }) {
@@ -15,6 +17,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     );
   }
   const dash = await ownerDashboard(portal.db, portal.viewer);
+  const month = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
+  const reinvest = await reinvestmentSummary(portal.db, portal.viewer, month);
   if (!dash.ok) {
     return (
       <PortalFrame viewer={portal.viewer} tab="dashboard" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Dashboard</h1>}>
@@ -53,6 +57,31 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <p>Unfilled campaign slots: {dash.unfilledSlots}</p>
         <p>Outside creators: {dash.converted} of {dash.prospects} prospects on the roster, {dash.outsideOffers} offers queued.</p>
       </div>
+      {reinvest.ok ? (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="sec-title">Reinvestment</div>
+          <p>{reinvest.label}</p>
+          {reinvest.placeholder ? <p className="note">70% is a placeholder until you set the target you actually want.</p> : null}
+          <p className="note">This is a log. Money is not moved, paid, or billed from this screen.</p>
+          {reinvest.byCategory.map((row) => <p key={row.id}>{row.label}: {formatMoney(row.cents)}</p>)}
+          <form action={saveReinvestTargetAction} className="stack">
+            <label>Target percent<input name="percent" defaultValue={reinvest.targetPercent} inputMode="numeric" /></label>
+            <button className="btn" type="submit">Save target</button>
+          </form>
+          <form action={addReinvestmentAction} className="stack">
+            <input type="hidden" name="month" value={reinvest.month} />
+            <label>
+              Category
+              <select name="category">
+                {REINVEST_CATEGORIES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </select>
+            </label>
+            <label>Amount<input name="amount" inputMode="decimal" /></label>
+            <label>Note<input name="note" /></label>
+            <button className="btn" type="submit">Log an amount</button>
+          </form>
+        </div>
+      ) : null}
     </PortalFrame>
   );
 }

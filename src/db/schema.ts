@@ -730,6 +730,116 @@ export const outsideOffers = sqliteTable("outside_offers", {
   createdAt: text("created_at").notNull(),
 });
 
+export const creatorRankSettings = sqliteTable("creator_rank_settings", {
+  id: text("id").primaryKey(),
+  weightsJson: text("weights_json").notNull(),
+  cadence: text("cadence").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const creatorRankInputs = sqliteTable("creator_rank_inputs", {
+  creatorId: text("creator_id").primaryKey(),
+  inputsJson: text("inputs_json").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const creatorRankHistory = sqliteTable("creator_rank_history", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  score: integer("score").notNull(),
+  tier: text("tier").notNull(),
+  rank: integer("rank").notNull(),
+  recordedOn: text("recorded_on").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const rankReports = sqliteTable("rank_reports", {
+  id: text("id").primaryKey(),
+  level: text("level").notNull(),
+  subjectId: text("subject_id"),
+  title: text("title").notNull(),
+  showRanks: integer("show_ranks", { mode: "boolean" }).notNull(),
+  token: text("token").notNull().unique(),
+  bodyJson: text("body_json").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const pods = sqliteTable("pods", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  managerId: text("manager_id").notNull(),
+  niche: text("niche").notNull(),
+  sizeBand: text("size_band").notNull(),
+  channelId: text("channel_id"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const podMembers = sqliteTable("pod_members", {
+  podId: text("pod_id").notNull(),
+  creatorId: text("creator_id").notNull(),
+});
+
+export const podDates = sqliteTable("pod_dates", {
+  id: text("id").primaryKey(),
+  podId: text("pod_id").notNull(),
+  creatorId: text("creator_id"),
+  title: text("title").notNull(),
+  onDate: text("on_date").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const collabIdeas = sqliteTable("collab_ideas", {
+  id: text("id").primaryKey(),
+  podId: text("pod_id").notNull(),
+  creatorId: text("creator_id").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  partnerId: text("partner_id"),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const podShoutouts = sqliteTable("pod_shoutouts", {
+  id: text("id").primaryKey(),
+  podId: text("pod_id").notNull(),
+  authorEmail: text("author_email").notNull(),
+  body: text("body").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const podGoals = sqliteTable("pod_goals", {
+  id: text("id").primaryKey(),
+  podId: text("pod_id").notNull(),
+  title: text("title").notNull(),
+  target: integer("target").notNull(),
+  progress: integer("progress").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const podMetrics = sqliteTable("pod_metrics", {
+  id: text("id").primaryKey(),
+  podId: text("pod_id").notNull(),
+  month: text("month").notNull(),
+  followers: integer("followers").notNull(),
+  collabPosts: integer("collab_posts").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const reinvestmentSettings = sqliteTable("reinvestment_settings", {
+  id: text("id").primaryKey(),
+  targetPercent: integer("target_percent").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const reinvestmentEntries = sqliteTable("reinvestment_entries", {
+  id: text("id").primaryKey(),
+  month: text("month").notNull(),
+  category: text("category").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  note: text("note"),
+  createdAt: text("created_at").notNull(),
+});
+
 export const creatorQuestionnaires = sqliteTable("creator_questionnaires", {
   creatorId: text("creator_id").primaryKey(),
   step: text("step").notNull(),

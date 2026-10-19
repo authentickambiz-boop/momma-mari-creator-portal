@@ -7,6 +7,7 @@ import {
   canSeeMoney,
   listOutsideOffers,
   listProspects,
+  presentRoster,
   projectedCommission,
   rankRoster,
   rosterHasAFit,
@@ -25,7 +26,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       </PortalFrame>
     );
   }
-  const ranked = await rankRoster(portal.db, campaign);
+  const ranked = presentRoster(portal.viewer, await rankRoster(portal.db, campaign));
   const allocations = await allocationsFor(portal.db, campaign.id);
   const offers = await listOutsideOffers(portal.db, campaign.id);
   const prospects = portal.viewer.role === "admin" ? await listProspects(portal.db) : [];
@@ -53,7 +54,8 @@ export default async function CampaignPage({ params, searchParams }: { params: P
         <div className="sec-title">Roster match</div>
         {ranked.map((row) => (
           <p key={row.creatorId}>
-            <b>{row.name}</b> · <span className="match-score">{row.score}</span> · {row.verdictLabel}
+            <b>{row.name}</b> · fit <span className="match-score">{row.score}</span> · {row.verdictLabel}
+            {portal.viewer.role === "admin" && row.rosterRank ? <> · roster rank {row.rosterRank}</> : null}
             {priced && row.askCents ? <> · ask {formatMoney(row.askCents)}</> : null}
           </p>
         ))}
