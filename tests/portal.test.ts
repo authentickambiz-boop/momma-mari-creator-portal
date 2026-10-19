@@ -6,7 +6,7 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorNotifications, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, payments } from "../src/db/schema";
+import { approvalEmails, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, payments } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
@@ -34,6 +34,7 @@ import { listDraftReviews, listUnreadCreatorNotices, onDraftSubmitted, reviewDra
 import { setDealStage } from "../src/lib/deal-stage";
 import { sideStages, trackStages } from "../src/lib/stages";
 import { agencyTimeZone, commissionLabel, creatorCutLabel, creatorPayoutTracker, feeAndPayout, nextPayoutLabel, pipelineHeadline, withBasePath } from "../src/lib/format";
+import { accountMenuItems, billingUsage, billingWarning, creatorHomeCards, firstName, isMenuTab, listSupportMessages, readOwnAccount, saveOwnSettings, submitSupportMessage } from "../src/lib/creator-home";
 import { requestClientIp } from "../src/lib/request-ip";
 import { confirmLivePost, confirmProductReceived, listLivePostsSince, listPaymentsSince, listShipmentsSince, markPayment, saveShipment, submitLivePosts } from "../src/lib/fulfillment";
 import {
@@ -3892,6 +3893,64 @@ test("the signature audit prefers Cloudflare's connecting IP", () => {
   assert.equal(requestClientIp(headers({ "x-forwarded-for": "9.9.9.9, 8.8.8.8" })), "8.8.8.8");
   assert.equal(requestClientIp(headers({ "x-real-ip": "7.7.7.7" })), "7.7.7.7");
   assert.equal(requestClientIp(headers({})), "unknown");
+});
+
+test("the creator menu, home cards, and billing stay on her own sign-in", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  assert.equal(firstName("Abby Theriot"), "Abby");
+  assert.equal(firstName("MariClare"), "MariClare");
+  assert.deepEqual(accountMenuItems("creator").map((item) => item.label), ["My profile", "Referrals", "Support", "Settings", "Billing and usage"]);
+  assert.equal(accountMenuItems("manager").some((item) => item.label === "Billing and usage" || item.label === "My profile"), false);
+  assert.equal(accountMenuItems("admin").some((item) => item.href === "/referrals"), true);
+  assert.equal(isMenuTab("profile"), true);
+  assert.equal(isMenuTab("referrals"), true);
+  assert.equal(isMenuTab("deals"), false);
+  const cards = creatorHomeCards({ offersWaiting: 2, payoutsPending: 1, accountsConnected: false });
+  assert.equal(cards.find((card) => card.title === "Brand deals")?.status, "2 offers waiting");
+  assert.equal(cards.find((card) => card.title === "Earnings & payouts")?.status, "1 payout pending");
+  assert.equal(cards.find((card) => card.title === "Analytics")?.status, "Example numbers until accounts are connected");
+  assert.equal(billingUsage({ tier: "Basic", used: 120 }).warning, "80");
+  assert.equal(billingUsage({ tier: "Basic", used: 120 }).cap, 150);
+  assert.equal(billingUsage({ tier: "Basic", used: 150 }).warning, "100");
+  assert.equal(billingUsage({ tier: "Plus", used: 10 }).cap, 1000);
+  assert.equal(billingUsage({ tier: "Pro", used: 10 }).cap, 2500);
+  assert.equal(billingWarning("80"), "You've used 80% of your AI credits.");
+  assert.equal(billingWarning("100"), "You've used all of your AI credits for this tier.");
+
+  const queueBefore = (await db.select().from(approvalEmails)).length;
+  const sent = await submitSupportMessage(db, mariclare, { subject: "Need a hand", body: "The upload button is confusing." });
+  assert.equal(sent.ok, true);
+  assert.equal((await db.select().from(approvalEmails)).length, queueBefore);
+  assert.equal((await listSupportMessages(db, mariclare)).some((note) => note.subject === "Need a hand" && note.authorName === "You"), true);
+  assert.equal((await listSupportMessages(db, abby)).some((note) => note.subject === "Need a hand"), false);
+  assert.equal((await listSupportMessages(db, admin)).some((note) => note.subject === "Need a hand" && note.authorName === "MariClare"), true);
+
+  const saved = await saveOwnSettings(db, mariclare, { emailNotices: false, pushNotices: true, quietHours: true, communityVisible: false });
+  assert.equal(saved.ok, true);
+  const mine = await readOwnAccount(db, mariclare);
+  assert.equal(mine?.emailNotices, false);
+  assert.equal(mine?.pushNotices, true);
+  assert.equal(mine?.plan, "Core");
+  assert.equal(mine?.stripe, false);
+  await db.update(creatorAccounts).set({ aiCreditsUsed: 120, aiTier: "Basic" }).where(eq(creatorAccounts.creatorId, "mariclare"));
+  const warned = await readOwnAccount(db, mariclare);
+  assert.equal((warned?.usage.percent ?? 0) >= 80, true);
+  assert.equal(warned?.warning, "You've used 80% of your AI credits.");
+  const other = await readOwnAccount(db, abby);
+  assert.equal(other?.emailNotices, true);
+  assert.equal(other?.usage.used, 0);
+  assert.equal(await readOwnAccount(db, admin), null);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
 });
 
 test("chat still posts when photo storage is missing, and the home screen button follows the device", async () => {
