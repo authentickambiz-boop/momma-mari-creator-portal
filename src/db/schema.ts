@@ -685,6 +685,51 @@ export const pricingSettings = sqliteTable("pricing_settings", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const campaigns = sqliteTable("campaigns", {
+  id: text("id").primaryKey(),
+  brand: text("brand").notNull(),
+  name: text("name").notNull(),
+  budgetCents: integer("budget_cents").notNull(),
+  nichesJson: text("niches_json").notNull(),
+  platformsJson: text("platforms_json").notNull(),
+  deliverablesJson: text("deliverables_json").notNull(),
+  slots: integer("slots").notNull(),
+  startsOn: text("starts_on"),
+  endsOn: text("ends_on"),
+  status: text("status").notNull(),
+  openOutside: integer("open_outside", { mode: "boolean" }).notNull().default(false),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const campaignAllocations = sqliteTable("campaign_allocations", {
+  id: text("id").primaryKey(),
+  campaignId: text("campaign_id").notNull(),
+  creatorId: text("creator_id"),
+  prospectId: text("prospect_id"),
+  amountCents: integer("amount_cents").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const prospects = sqliteTable("prospects", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  nichesJson: text("niches_json").notNull(),
+  notes: text("notes"),
+  convertedCreatorId: text("converted_creator_id"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const outsideOffers = sqliteTable("outside_offers", {
+  id: text("id").primaryKey(),
+  campaignId: text("campaign_id").notNull(),
+  prospectId: text("prospect_id").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  status: text("status").notNull(),
+  approvalId: text("approval_id"),
+  createdAt: text("created_at").notNull(),
+});
+
 export const creatorQuestionnaires = sqliteTable("creator_questionnaires", {
   creatorId: text("creator_id").primaryKey(),
   step: text("step").notNull(),

@@ -92,6 +92,7 @@ import { NICHE_CATALOG } from "../src/lib/niche-catalog";
 import { matchOffer, needsQuestionnaire, questionnaireFor, saveQuestionnaireStep, type QuestionnaireAnswers } from "../src/lib/questionnaire";
 import { tagChoices } from "../src/lib/tag-picker";
 import { prefillDealRules, presentScreening, saveDealRules, savePricingFloor, screenOffer, type DealRules } from "../src/lib/deal-rules";
+import { allocateCampaign, addProspect, canSeeCommission, convertProspect, listCampaigns, markOpenOutside, ownerDashboard, projectedCommission, queueOutsideOffer, rankRoster, rosterHasAFit, saveCampaign } from "../src/lib/campaigns";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -4167,6 +4168,150 @@ test("offer screening respects floors, the profit guardrail, and who can see dol
 
   assert.equal((await db.select().from(adminNotifications)).length, noticesBefore);
   assert.equal((await db.select().from(approvalEmails)).length, approvalsBefore);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("campaign matching keeps the roster first and outside offers stay in the queue", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const sentBefore = (await db.select().from(approvalEmails)).filter((row) => row.status === "sent").length;
+
+  const floor: DealRules = {
+    minRates: { tiktok: 50000 },
+    targetRates: { tiktok: 80000 },
+    minDealCents: 60000,
+    blockedCategories: [],
+    blockedBrands: ["OutsideCo"],
+    maxDealsPerMonth: 20,
+    turnaround: "About a week",
+    exclusivityMaxDays: 30,
+    usageMinDays: 30,
+    kidsOnCamera: "",
+    kidsLimits: "",
+  };
+  const people = await db.select().from(creators);
+  for (const person of people) {
+    const saved = await saveDealRules(db, admin, person.id, floor);
+    assert.equal(saved.ok, true);
+  }
+
+  const outside = await saveCampaign(db, admin, {
+    brand: "OutsideCo",
+    name: "Spring",
+    budgetCents: 80000,
+    niches: ["parenting"],
+    platforms: ["TikTok"],
+    deliverables: ["TikTok video"],
+    slots: 1,
+  });
+  assert.equal(outside.ok, true);
+  if (!outside.ok) return;
+  const outsideRank = await rankRoster(db, (await listCampaigns(db)).find((row) => row.id === outside.id)!);
+  assert.equal(outsideRank.every((row) => row.verdict === "blocked" && row.score <= 12), true);
+  assert.equal(rosterHasAFit(outsideRank), false);
+  assert.equal((await markOpenOutside(db, admin, outside.id)).ok, true);
+
+  const kind = await saveCampaign(db, admin, {
+    brand: "Kind Soap",
+    name: "Fall",
+    budgetCents: 200000,
+    niches: ["parenting"],
+    platforms: ["TikTok"],
+    deliverables: ["TikTok video"],
+    slots: 3,
+  });
+  assert.equal(kind.ok, true);
+  if (!kind.ok) return;
+  const kindCampaign = (await listCampaigns(db, { niche: "parenting", platform: "TikTok", minBudgetCents: 150000 })).find((row) => row.id === kind.id);
+  assert.equal(Boolean(kindCampaign), true);
+  assert.equal((await listCampaigns(db, { niche: "underwater basket" })).some((row) => row.id === kind.id), false);
+  const kindRank = await rankRoster(db, kindCampaign!);
+  assert.equal(kindRank[0]?.verdict, "meets");
+  assert.equal(kindRank[0]?.score >= 45, true);
+  assert.equal(rosterHasAFit(kindRank), true);
+  assert.equal((await markOpenOutside(db, admin, kind.id)).ok, false);
+
+  assert.equal(projectedCommission([80000, 40000]), 24000);
+  const first = await allocateCampaign(db, admin, { campaignId: kind.id, creatorId: "mariclare", amountCents: 80000 });
+  const second = await allocateCampaign(db, admin, { campaignId: kind.id, creatorId: "abby", amountCents: 40000 });
+  assert.equal(first.ok && second.ok, true);
+  if (first.ok) assert.equal(first.commissionCents, 16000);
+  if (second.ok) assert.equal(second.commissionCents, 24000);
+  const over = await allocateCampaign(db, admin, { campaignId: kind.id, creatorId: "authentickam", amountCents: 90000 });
+  assert.equal(over.ok, false);
+
+  const plainManager: Viewer = {
+    email: "plain.manager@gmail.com",
+    name: "Plain Manager",
+    role: "manager",
+    creatorId: null,
+    permissions: { approveEmail: true, approveVideo: true, approveContract: false, countersign: false, canPriceDeals: false },
+  };
+  assert.equal(canSeeCommission(plainManager), false);
+  assert.equal(canSeeCommission(admin), true);
+  assert.equal((await saveCampaign(db, plainManager, { brand: "Nope", name: "Nope", budgetCents: 100, niches: [], platforms: [], deliverables: [], slots: 1 })).ok, false);
+  assert.equal((await ownerDashboard(db, plainManager)).ok, false);
+
+  const before = await ownerDashboard(db, admin, new Date("2026-10-19T16:00:00.000Z"));
+  assert.equal(before.ok, true);
+  if (!before.ok) return;
+  assert.equal((await upsertDeal(db, {
+    id: "dash-oct",
+    brand: "Dash October",
+    creatorId: "quiz-guest",
+    status: "active",
+    workflowStage: "creator_interested",
+    rateCents: 100000,
+    postDate: "2026-10-20",
+    visibleToCreator: false,
+  })).status, 201);
+  assert.equal((await upsertDeal(db, {
+    id: "dash-nov",
+    brand: "Dash November",
+    creatorId: "quiz-guest",
+    status: "active",
+    workflowStage: "creator_interested",
+    rateCents: 50000,
+    postDate: "2026-11-05",
+    visibleToCreator: false,
+  })).status, 201);
+  const after = await ownerDashboard(db, admin, new Date("2026-10-19T16:00:00.000Z"));
+  assert.equal(after.ok, true);
+  if (!after.ok) return;
+  assert.equal(after.commissionThisMonth - before.commissionThisMonth, 20000);
+  assert.equal(after.commissionNextMonth - before.commissionNextMonth, 10000);
+  assert.equal(after.winRate, after.won / (after.won + after.lost));
+  assert.equal(after.pipeline.some((row) => row.stage === "creator_interested" && row.cents > 0), true);
+  assert.equal(after.unfilledSlots >= 1, true);
+  assert.equal(after.utilization.some((row) => row.maxDeals === 20), true);
+
+  const early = await queueOutsideOffer(db, admin, { campaignId: kind.id, prospectId: "missing", amountCents: 10000 });
+  assert.equal(early.ok, false);
+  const prospect = await addProspect(db, admin, { name: "New Creator", email: "new.creator@gmail.com", niches: ["parenting"], notes: "From Kash Bot" });
+  assert.equal(prospect.ok, true);
+  if (!prospect.ok) return;
+  const queued = await queueOutsideOffer(db, admin, { campaignId: outside.id, prospectId: prospect.id, amountCents: 70000 });
+  assert.equal(queued.ok, true);
+  if (!queued.ok) return;
+  const draft = (await db.select().from(approvalEmails)).find((row) => row.id === queued.approvalId);
+  assert.equal(draft?.status, "pending");
+  assert.equal(draft?.sentAt ?? null, null);
+  assert.equal(draft?.fromEmail, "authentickambiz@gmail.com");
+  const queue = await listApprovalQueue(db, "all");
+  assert.equal(queue.some((row) => row.id === queued.approvalId && row.status === "pending" && row.brand === "OutsideCo"), true);
+  assert.equal((await listApprovalQueue(db, "mariclare")).some((row) => row.id === queued.approvalId), false);
+  const converted = await convertProspect(db, admin, prospect.id, "quiz-guest");
+  assert.equal(converted.ok, true);
+  assert.equal((await db.select().from(approvalEmails)).filter((row) => row.status === "sent").length, sentBefore);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
