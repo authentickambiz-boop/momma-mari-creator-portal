@@ -90,3 +90,33 @@ Tracks referrals. The perk amount is a configurable placeholder, and nothing is 
 ## Phase 17, Home Screen app
 
 A PWA with a manifest, install prompt, and service worker, plus web push for approvals, announcements, mentions, and replies. Quiet hours are 9 PM–8 AM ET. The chat button becomes a bottom-bar item when installed.
+
+## PR G, creator email bridge
+
+Queued after PR F (`cursor/platform-bench-e39d`). This section is the plan only. Do not build the bridge in F, and do not start it until F is merged. One pull request, with tests. Nothing in it sends or charges on its own.
+
+The portal is the only bridge between a creator's connected email and her managers. A manager never receives credentials, a password, or a direct inbox for her email or her social accounts. This pull request covers Gmail only. It does not connect a manager to TikTok, Instagram, or any other social login.
+
+What the server does:
+
+- Read each creator's connected Gmail with the scopes already used by Connect your email: `https://www.googleapis.com/auth/gmail.readonly` and `https://www.googleapis.com/auth/gmail.compose`. Keep sign-in on `openid email profile`. Use the existing redirect URI. Do not add another one, and do not request `https://mail.google.com/`.
+- Store the refresh token encrypted with `TOKEN_ENCRYPTION_KEY`, the same rule as today. The token never goes to the browser, the manager, or the bot API. If the key is empty, connect does not start.
+- Pull in only deal-relevant threads: a thread that matches an active deal or brand, plus a new brand inquiry the bot classifies as a deal. Each one becomes a task on the manager queue. A manager sees tasks only for creators assigned to her.
+- Let the manager read that thread and draft a reply inside the portal. The send goes through the existing approval queue. Whether the creator or the owner must approve is a per-creator setting. After approval, the portal sends server-side as the creator. The manager never sees the token.
+- This send path is not the agency From address. Other queued mail stays from `authentickambiz@gmail.com`. A deal reply waits pending until the required person approves it. Drafting does not send.
+- Never show personal or other non-deal mail to a manager. The creator can mark a thread private. That mark keeps the body off the manager queue until she clears it. The owner can correct the bot's deal or not-deal label. Reclassifying a thread as not a deal removes it from the queue. An owner "this is a deal" label does not override a private mark.
+- Audit-log every view and every send: who, which thread, and when. The owner can read the log. A manager cannot delete it.
+- Drop access the moment a manager is unassigned. The next request returns nothing for that creator, and the portal does not keep a manager-side copy of the thread.
+- Let the creator disconnect at any time. Disconnect revokes the Google grant and deletes the stored token. New pulls stop.
+- Proxy attachments through the portal. A manager can open one file to view it. There is no bulk download and no Gmail attachment URL in the browser.
+
+Google scope and verification, before this is offered past the current test roster:
+
+- Both Gmail scopes are restricted. `gmail.readonly` is "view your email messages and settings." `gmail.compose` is "manage drafts and send emails." Google has no scope that means "deal threads only." The consent screen will say the app can read mail and send mail. Hiding personal mail is a portal rule, not a Google limit. The deals-only Gmail recommended on Connect your email is still the right mailbox to connect. A personal inbox still has to be filtered in the portal.
+- The portal stores and transmits that mail on its own server, so restricted-scope verification includes a CASA security assessment by a Google-empanelled assessor. CASA is required before the app goes past 100 users. The unverified cap is 100 new users over the life of the Cloud project, and it cannot be reset. In Testing, only allowlisted test users can connect, they see a testing warning, and their refresh tokens expire seven days after consent. A creator will have to reconnect weekly until the app is verified and published. A password change can also invalidate a Gmail refresh token. Treat a dead token as "reconnect," not as an empty inbox.
+- Publishing to any Google user requires brand verification first, then restricted-scope review, including a privacy policy on the same public domain as the app home page. The policy has to say that the portal reads Gmail, stores deal threads, shows those threads to the assigned manager, and deletes them on disconnect. Google's Limited Use rules also limit letting humans read Gmail, so the consent and the policy need to name that manager access. Google's own estimate for restricted-scope review is about six weeks, and that estimate is not a promise.
+- Keep the verified scopes by repeating compliance review and CASA at least every 12 months. Adding another restricted scope later can force a new assessment.
+- An Internal consent screen does not cover creators on their own Gmail. They are outside a Momma Mari Workspace, so the app stays External.
+- Switching the send scope to `gmail.send` would not remove CASA. Reading mail with `gmail.readonly` and keeping it on the server is what requires the assessment.
+
+When it is built, tests should show: a manager cannot read another creator's threads; unassign and disconnect both return no body and no token; a private or non-deal thread is absent from the manager payload; the token never appears in manager JSON, bot API responses, or page HTML; a reply stays pending until approval and goes out as the creator; an attachment route returns one file and not a zip. Leave the KOSBLING deal unchanged.
