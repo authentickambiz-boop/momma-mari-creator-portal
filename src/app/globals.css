@@ -603,4 +603,9 @@ textarea {
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),
   select,
   textarea { font-size: 16px; }
+  .hello p { overflow-wrap: anywhere; }
+  .card:has(table) { overflow-x: auto; }
+  .stage-form { flex-direction: column; align-items: stretch; }
+  .stage-form input, .stage-form select, .stage-form textarea { width: 100%; max-width: 100%; }
+  .connect { flex-wrap: wrap; align-items: flex-start; }
 }

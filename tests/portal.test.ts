@@ -37,6 +37,7 @@ import { setDealStage } from "../src/lib/deal-stage";
 import { sideStages, trackStages } from "../src/lib/stages";
 import { agencyTimeZone, commissionLabel, creatorCutLabel, creatorPayoutTracker, feeAndPayout, nextPayoutLabel, pipelineHeadline, withBasePath } from "../src/lib/format";
 import { accountMenuItems, billingUsage, billingWarning, creatorHomeCards, firstName, isMenuTab, listSupportMessages, readOwnAccount, saveOwnSettings, submitSupportMessage } from "../src/lib/creator-home";
+import { visiblePortalTabs } from "../src/lib/portal-tabs";
 import { requestClientIp } from "../src/lib/request-ip";
 import { confirmLivePost, confirmProductReceived, listLivePostsSince, listPaymentsSince, listShipmentsSince, markPayment, saveShipment, submitLivePosts } from "../src/lib/fulfillment";
 import {
@@ -5747,6 +5748,40 @@ test("gmail watch returns Google's error and leaves secrets out", async () => {
   } finally {
     restore();
   }
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("a creator sees Connect accounts, and wide tables scroll on a phone", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  const creatorTabs = visiblePortalTabs(mariclare).map((tab) => tab.label);
+  assert.equal(creatorTabs.includes("Connect accounts"), true);
+  assert.equal(creatorTabs.includes("Campaigns"), false);
+  assert.equal(creatorTabs.includes("Dashboard"), false);
+  assert.equal(creatorTabs.includes("Billing and usage"), false);
+  const managerTabs = visiblePortalTabs({
+    email: "riley.manager@gmail.com",
+    role: "manager",
+    creatorId: null,
+    name: "Riley",
+    assignedCreatorIds: ["mariclare"],
+  }).map((tab) => tab.label);
+  assert.equal(managerTabs.includes("Connect accounts"), true);
+  assert.equal(managerTabs.includes("Dashboard"), false);
+  assert.equal(visiblePortalTabs(admin).some((tab) => tab.label === "Connect accounts"), true);
+  assert.equal(visiblePortalTabs(admin).some((tab) => tab.label === "Dashboard"), true);
+  const css = readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
+  assert.match(css, /\.card:has\(table\) \{ overflow-x: auto; \}/);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
