@@ -995,6 +995,39 @@ export const capabilityDrafts = sqliteTable("capability_drafts", {
   createdAt: text("created_at").notNull(),
 });
 
+export const giftedOffers = sqliteTable("gifted_offers", {
+  id: text("id").primaryKey(),
+  brand: text("brand").notNull(),
+  product: text("product").notNull(),
+  photosJson: text("photos_json").notNull(),
+  deliverable: text("deliverable").notNull(),
+  dueOn: text("due_on").notNull(),
+  retailValueCents: integer("retail_value_cents").notNull(),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const giftedApplications = sqliteTable("gifted_applications", {
+  id: text("id").primaryKey(),
+  offerId: text("offer_id").notNull(),
+  creatorId: text("creator_id"),
+  benchId: text("bench_id"),
+  status: text("status").notNull(),
+  termsVersion: text("terms_version").notNull(),
+  termsAcceptedAt: text("terms_accepted_at").notNull(),
+  postUrl: text("post_url"),
+  appliedAt: text("applied_at").notNull(),
+  approvedAt: text("approved_at"),
+  shippedAt: text("shipped_at"),
+  deliveredAt: text("delivered_at"),
+  postedAt: text("posted_at"),
+  overdueAt: text("overdue_at"),
+  chargedAt: text("charged_at"),
+  amountOwedCents: integer("amount_owed_cents"),
+  findersFeeCents: integer("finders_fee_cents"),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const botTokens = sqliteTable("bot_tokens", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
