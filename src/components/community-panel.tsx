@@ -27,6 +27,7 @@ type Snapshot = {
   audit: { id: string; actorName: string; action: string; targetName: string | null; createdAt: string }[];
   settings: { readOnly: boolean; slowSeconds: number };
   held: { id: string }[];
+  photosEnabled?: boolean;
 };
 
 function channelLabel(channel: { kind: string; name: string }) {
@@ -101,11 +102,21 @@ export function CommunityPanel() {
           setHidden(true);
           return;
         }
-        if (response.status !== 204) {
+        if (response.status === 204) {
+          // Nothing new.
+        } else if (!response.ok) {
+          const data = await response.json().catch(() => null) as { error?: string } | null;
+          setNotice(data?.error ?? "Chat didn't load.");
+        } else {
           const data = await response.json() as Snapshot;
-          cursor.current = data.cursor;
-          setSnapshot(data);
-          setHidden(false);
+          if (!data.cursor || !data.channels) {
+            setNotice("Chat didn't load.");
+          } else {
+            cursor.current = data.cursor;
+            setSnapshot(data);
+            setHidden(false);
+            setNotice("");
+          }
         }
       } catch {
         setNotice("Chat didn't refresh.");
@@ -147,8 +158,23 @@ export function CommunityPanel() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  if (hidden || !snapshot) {
-    return null;
+  if (hidden) return null;
+
+  if (!snapshot) {
+    return (
+      <>
+        <aside className="community-panel" data-state={state} aria-label="Community chat">
+          <div className="community-head">
+            <strong>Chat</strong>
+            <button className="community-toggle" type="button" onClick={toggle} aria-label="Collapse chat">✕</button>
+          </div>
+          <p className="community-note">{notice || "Opening chat…"}</p>
+        </aside>
+        {state === "collapsed" ? (
+          <button className="community-fab" type="button" onClick={() => setState("sheet")}>💬 Chat</button>
+        ) : null}
+      </>
+    );
   }
 
   const role = snapshot.me.communityRole;
@@ -340,19 +366,23 @@ export function CommunityPanel() {
                   Message
                   <textarea value={draft} onChange={(event) => { setDraft(event.target.value); setPendingPrivate(false); }} rows={3} />
                 </label>
-                <label className="community-file">
-                  Photo
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png"
-                    aria-label="Photo"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (!file) return;
-                      void resizePhoto(file).then((base64) => setPhoto({ base64, childFace: null })).catch(() => setNotice("Could not resize that photo."));
-                    }}
-                  />
-                </label>
+                {snapshot.photosEnabled ? (
+                  <label className="community-file">
+                    Photo
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      aria-label="Photo"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        void resizePhoto(file).then((base64) => setPhoto({ base64, childFace: null })).catch(() => setNotice("Could not resize that photo."));
+                      }}
+                    />
+                  </label>
+                ) : (
+                  <p className="community-note">Photos are off until photo storage is connected.</p>
+                )}
                 {photo && photo.childFace == null ? (
                   <div className="community-note">
                     <p>Does this show a child's face?</p>

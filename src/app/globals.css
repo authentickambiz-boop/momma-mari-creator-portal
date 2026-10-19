@@ -28,10 +28,12 @@
   gap: 12px;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   padding: 10px 16px;
   background: #fff;
   border-top: 1px solid var(--line);
 }
+.home-install p { margin: 0; }
 .home-bar {
   justify-content: space-around;
   background: var(--ink);
