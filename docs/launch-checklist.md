@@ -21,7 +21,8 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 4. Merge `#43` while Stripe is still off. Confirm Webflow env still has `STRIPE_ENABLED` empty.
 5. Merge `#44` for `/services`, `/roster`, and `/inquire`.
 6. Merge `#45` so creators see Connect accounts. On a phone, wide tables scroll.
-7. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`).
+7. Merge `#46` so this checklist and the overnight log are on `main`.
+8. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`).
 
 ## Gmail, still before paid features
 

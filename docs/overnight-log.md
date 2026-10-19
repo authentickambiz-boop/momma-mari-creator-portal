@@ -13,7 +13,7 @@ Nothing in this list is merged. Kamron merges.
 | [#43](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/43) | `cursor/stripe-flag-e39d` | Payment links, incomplete subscriptions, and draft invoices. They run only when `STRIPE_ENABLED` is `true` and `STRIPE_SECRET_KEY` is set. Both are empty. Nothing is charged. | Open. Not merged. |
 | [#44](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/44) | `cursor/public-marketing-e39d` | Public services, a creator roster that reads the creators table, and a brand inquiry form that saves a brand contact. Nothing is emailed. | Open. Not merged. |
 | [#45](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/45) | `cursor/portal-polish-e39d` | Creators see the Connect accounts tab. Phone tables scroll. Free Products and staged permissions are not on main, so they were left alone. | Open. Not merged. |
-| This docs PR | `cursor/launch-checklist-e39d` | This log and `docs/launch-checklist.md`. | Open with this file. |
+| [#46](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/46) | `cursor/launch-checklist-e39d` | This log and `docs/launch-checklist.md`. | Open. Not merged. |
 
 Each feature PR is against `main`, with `npx tsc --noEmit` and `npm test` passing on that branch. They are not stacked on each other. `#41` owns the unshipped migration `0036`. Do not add another `0036` on a different branch.
 
