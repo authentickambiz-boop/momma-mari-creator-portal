@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { creatorRankHistory, creatorRankInputs, creatorRankSettings, creators } from "@/db/schema";
+import { rankFieldsFromSnapshots } from "./analytics-snapshots";
 import { agencyTimeZone, nowIso } from "./format";
 import type { Viewer } from "./types";
 
@@ -172,6 +173,11 @@ export async function saveRankSettings(db: PortalDb, viewer: Viewer, weights: Ra
   return { ok: true as const };
 }
 
+export async function scoringInputs(db: PortalDb, creatorId: string) {
+  const manual = await inputsFor(db, creatorId);
+  return { ...manual, ...(await rankFieldsFromSnapshots(db, creatorId)) };
+}
+
 export async function inputsFor(db: PortalDb, creatorId: string) {
   const rows = await db.select().from(creatorRankInputs).where(eq(creatorRankInputs.creatorId, creatorId));
   if (!rows[0]) return emptyInputs();
@@ -224,7 +230,7 @@ export async function leaderboard(db: PortalDb, viewer: Viewer) {
   const rows = [];
   for (const person of people) {
     const saved = ranks.get(person.id);
-    const inputs = await inputsFor(db, person.id);
+    const inputs = await scoringInputs(db, person.id);
     const scored = compositeScore(inputs, settings.weights);
     rows.push({
       creatorId: person.id,
@@ -249,7 +255,7 @@ export async function refreshRanks(db: PortalDb, viewer: Viewer, now = new Date(
   const people = await db.select().from(creators);
   const scored = [];
   for (const person of people) {
-    const inputs = await inputsFor(db, person.id);
+    const inputs = await scoringInputs(db, person.id);
     const result = compositeScore(inputs, settings.weights);
     scored.push({ creatorId: person.id, name: person.name, score: result.score });
   }

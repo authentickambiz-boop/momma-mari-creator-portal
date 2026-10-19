@@ -35,7 +35,9 @@ yarn-error.log*
 !.env.example
 
 # local sqlite and wrangler state
-/data/
+/data/*
+/data/.*
+!/data/analytics-snapshots.json
 .wrangler/
 .dev.vars
 
