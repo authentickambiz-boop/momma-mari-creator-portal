@@ -1,3 +1,4 @@
+import { disconnectMailboxAction } from "@/app/mailbox-actions";
 import { ConnectPanel } from "@/components/connect-panel";
 import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
@@ -32,22 +33,34 @@ export default async function ConnectPage({ searchParams }: { searchParams: Prom
       hello={<div className="hello"><div><h1>Connect accounts</h1><p>Email uses a separate Google permission. The other buttons wait until a bot adds the Zernio links.</p></div></div>}
     >
       {params.gmail === "connected" ? <p className="note">That inbox is connected. The portal can read it. It will not send mail.</p> : null}
+      {params.gmail === "disconnected" ? <p className="note">That inbox is disconnected. Connect it again with the current Google client.</p> : null}
       {gmailError ? <p className="private-note">{gmailError}</p> : null}
       {watched.length > 0 ? (
         <section className="card" style={{ marginBottom: 16 }}>
           <h2>Watched inboxes</h2>
           <p className="note">Brand mail in these inboxes becomes a hidden offer. The portal only reads mail. It never sends.</p>
           {watched.map(({ box, state }) => {
-            const connected = state.connected && state.gmailEmail === box.email;
+            const matches = state.connected && state.gmailEmail === box.email;
+            const needsReconnect = matches && state.needsReconnect;
+            const connected = matches && !needsReconnect;
             return (
               <div className="connect" key={box.creatorId}>
                 <div>
                   <b>{box.label}</b>
                   <div className="note">{box.email}</div>
+                  {needsReconnect ? <div className="note">Google rejected the saved sign-in. Disconnect it, then connect this inbox again.</div> : null}
                 </div>
-                {connected ? <span className="chip c-sage">Connected</span> : (
-                  <a className="btn" href={withBasePath(`/api/auth/gmail/watch?creator=${box.creatorId}`)}>Connect</a>
-                )}
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  {needsReconnect ? <span className="chip c-sun">Needs reconnect</span> : null}
+                  {connected ? <span className="chip c-sage">Connected</span> : null}
+                  {connected || needsReconnect ? (
+                    <form action={disconnectMailboxAction}>
+                      <input type="hidden" name="email" value={box.email} />
+                      <button className="btn ghost" type="submit">Disconnect</button>
+                    </form>
+                  ) : null}
+                  {!connected ? <a className="btn" href={withBasePath(`/api/auth/gmail/watch?creator=${box.creatorId}`)}>Connect</a> : null}
+                </div>
               </div>
             );
           })}
@@ -61,6 +74,7 @@ export default async function ConnectPage({ searchParams }: { searchParams: Prom
               creator={creator}
               canConnectEmail={portal.viewer.role === "creator" && portal.viewer.creatorId === creator.id}
               emailConnected={connections[index]?.connected ?? false}
+              emailNeedsReconnect={connections[index]?.needsReconnect ?? false}
               gmailEmail={connections[index]?.gmailEmail ?? null}
               emailSetup={setups[index]?.choice ?? null}
               hostedEmailAddress={setups[index]?.hostedEmailAddress ?? null}

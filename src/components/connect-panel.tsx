@@ -16,6 +16,7 @@ export function ConnectPanel({
   creator,
   canConnectEmail,
   emailConnected,
+  emailNeedsReconnect = false,
   gmailEmail,
   emailSetup,
   hostedEmailAddress,
@@ -24,6 +25,7 @@ export function ConnectPanel({
   creator: CreatorProfile;
   canConnectEmail: boolean;
   emailConnected: boolean;
+  emailNeedsReconnect?: boolean;
   gmailEmail: string | null;
   emailSetup: "business" | "personal" | "hosted" | null;
   hostedEmailAddress: string | null;
@@ -71,7 +73,7 @@ export function ConnectPanel({
             <div className="note">Separate from sign-in. Lets your bot read brand threads and draft replies.</div>
           </div>
         </div>
-        {emailConnected ? <span className="chip c-sage">Connected</span> : emailSetup === "hosted" ? (
+        {emailNeedsReconnect ? <span className="chip c-sun">Needs reconnect</span> : emailConnected ? <span className="chip c-sage">Connected</span> : emailSetup === "hosted" ? (
           <span className="chip c-gray">Hosted email requested</span>
         ) : canConnectEmail && (emailSetup === "business" || emailSetup === "personal") ? (
           <a className="btn" href={`${publicBasePath()}/api/auth/gmail`}>Connect your email</a>
@@ -81,6 +83,17 @@ export function ConnectPanel({
           <span className="chip c-gray">Not connected</span>
         )}
       </div>
+      {emailNeedsReconnect ? (
+        <p className="note" style={{ marginTop: 10 }}>
+          Google rejected the saved sign-in. Connect this inbox again.
+          {canConnectEmail ? "" : " An admin can disconnect it from Watched inboxes, then connect it with the current Google client."}
+        </p>
+      ) : null}
+      {emailNeedsReconnect && canConnectEmail ? (
+        <p className="note" style={{ marginTop: 10 }}>
+          <a href={`${publicBasePath()}/api/auth/gmail`}>Connect your email again</a>
+        </p>
+      ) : null}
       {emailSetup === "personal" ? (
         <p className="note" style={{ marginTop: 10 }}>We only process brand-related mail. Your bot sorts those threads and labels them.</p>
       ) : null}

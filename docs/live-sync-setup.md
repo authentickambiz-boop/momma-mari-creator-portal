@@ -147,7 +147,16 @@ Run the job once by hand after connecting the inboxes. The response lists each m
 
 The watch call fails before any mail is delivered when Gmail cannot publish a test message to the topic. The error looks like: `Gmail watch failed (400): Error sending test message to Cloud PubSub projects/YOUR_PROJECT_ID/topics/gmail-push : User not authorized to perform this action.` Fix that on the topic itself, not only on the project: principal `gmail-api-push@system.gserviceaccount.com`, role **Pub/Sub Publisher**. An organization policy that blocks principals outside your domain can refuse this grant even when the console looks saved. The project id inside `GMAIL_WATCH_TOPIC` has to be the same project that owns the OAuth client in `GOOGLE_CLIENT_ID`. `GOOGLE_CLIENT_SECRET` has to be that same client's secret.
 
-A refresh failure looks different: `Gmail token refresh failed (400): invalid_grant` or `invalid_client`. Reconnect the watched inbox after the client id and secret match. `APP_BASE_URL` is the site origin plus `/portal`. The OAuth client's authorized redirect URI is that value plus `/api/auth/callback`. The Pub/Sub push URL and `GMAIL_PUSH_AUDIENCE` must both be the host that actually serves the portal, plus `/api/gmail/push`. A watch can succeed and later pushes can still be rejected when those two URLs differ.
+A refresh failure looks different: `Gmail token refresh failed (401): unauthorized_client` or `invalid_grant`. Those two mean the saved refresh token cannot be used with the current OAuth client (often because it was minted by an older client). The inbox stays listed and Connect accounts shows **Needs reconnect** for that creator and on the admin Watched inboxes list. The token is not deleted by the cron.
+
+Disconnect it, then connect it again:
+
+- On **Connect accounts**, as the owner, use **Disconnect** on that watched inbox.
+- Or call `POST /api/bot/mailboxes/disconnect` with `Authorization: Bearer BOT_API_TOKEN` and JSON `{ "email": "mmaclamroc@gmail.com" }`.
+
+Disconnect clears the refresh token and the watch row. It does not delete deals. Then use **Connect** on that same inbox so Google mints a token for the current client.
+
+`invalid_client` is different: the client id and secret do not match, and the inbox is not marked needs-reconnect. Fix the secret, then run the cron again. `APP_BASE_URL` is the site origin plus `/portal`. The OAuth client's authorized redirect URI is that value plus `/api/auth/callback`. The Pub/Sub push URL and `GMAIL_PUSH_AUDIENCE` must both be the host that actually serves the portal, plus `/api/gmail/push`. A watch can succeed and later pushes can still be rejected when those two URLs differ.
 
 ## 10. What the portal does with a message
 

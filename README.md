@@ -453,6 +453,39 @@ curl -sS \
 
 Each profile includes `creatorId`, `name`, `email`, `gmailEmail`, `gmailConnected`, `emailSetup` (`business`, `personal`, or `hosted`), `hostedEmailAddress` (always `name@mommamari.com` when hosted), `hostedEmailAddOn` (only for a hosted request: name `hosted creator email`, roster price `$79 one-time setup + $15/month`, public price `$99 one-time setup + $19/month`, `charged: false`), `botName`, `niche`, `kidsAges`, `contentStyle`, `rates`, `favoriteBrands`, `platforms`, `finishedAt`, and `message` (`New creator ready for bot`). The refresh token is never included.
 
+### Disconnect a watched inbox
+
+`POST /api/bot/mailboxes/disconnect` clears the saved Gmail refresh token and the watch for one inbox. Use it when Google returns `unauthorized_client` or `invalid_grant` and Connect accounts says **Needs reconnect**. The owner can also press **Disconnect** on that inbox. Nothing is emailed.
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"mmaclamroc@gmail.com"}' \
+  http://localhost:43123/api/bot/mailboxes/disconnect
+```
+
+### Platform invite
+
+`POST /api/bot/platform-invites` adds an alert when a brand sent a platform invite or named a deadline. It shows on that creator's home and on the owner dashboard, with the deadline in Eastern time. Nothing is seeded, emailed, or charged.
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "mmaclamroc@gmail.com",
+    "brand": "Example Brand",
+    "platform": "TikTok One",
+    "accountHandle": "@example",
+    "actionNeeded": "Accept the invite",
+    "deadline": "2026-10-25T22:00:00.000Z"
+  }' \
+  http://localhost:43123/api/bot/platform-invites
+```
+
+`platform` is the place the invite landed, such as TikTok One, Creator Marketplace, Instagram, or Amazon. `deadline` is optional and must be an ISO timestamp when you send it.
+
 ### Upsert a creator
 
 `resolveLogin` refuses any `.invalid` address, so a reserved placeholder can never open a session. Abby Theriot's sign-in is `theofficialtheriots@gmail.com` (`drizzle/0004_creator_profiles.sql`). Use this endpoint to replace a sign-in email.

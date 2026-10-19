@@ -6,7 +6,7 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { adminNotifications, analyticsSnapshots, approvalEmails, brandCrmEntries, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creatorProfiles, creatorRankHistory, creators, deals, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, gmailWatches, payments } from "../src/db/schema";
+import { adminNotifications, analyticsSnapshots, approvalEmails, brandCrmEntries, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creatorProfiles, creatorRankHistory, creators, deals, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, gmailWatches, payments, platformInvites } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
@@ -108,6 +108,7 @@ import {
   isSpamSender,
   listInboxEvents,
   parseSince,
+  disconnectMailbox,
   renewGmailWatches,
   renewMailboxWatch,
   verifyPubSubOidc,
@@ -120,6 +121,7 @@ import { compositeScore, defaultWeights, emptyInputs, inputsFor, leaderboard, re
 import { addCollab, collabLift, pairCollab, podById, savePod, suggestPods } from "../src/lib/pods";
 import { createRankReport, reportPdf, sharedReport } from "../src/lib/rank-reports";
 import { addReinvestment, reinvestmentSummary } from "../src/lib/reinvestment";
+import { createPlatformInvite, listPlatformInvites, presentDeadline, setPlatformInviteDone } from "../src/lib/platform-invites";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -5747,6 +5749,128 @@ test("gmail watch returns Google's error and leaves secrets out", async () => {
   } finally {
     restore();
   }
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("a rejected Gmail token needs a reconnect, and platform invites stay on the home list", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const dealsBefore = (await db.select().from(deals)).length;
+
+  const rejected = await renewGmailWatches(db, async () => {
+    throw new Error("Gmail token refresh failed (401): unauthorized_client");
+  });
+  const mailbox = rejected.find((row) => row.mailbox === "mmaclamroc@gmail.com");
+  assert.equal(mailbox?.ok, false);
+  assert.match(mailbox?.error ?? "", /unauthorized_client/);
+  assert.equal(mailbox?.needsReconnect, true);
+  const flagged = await gmailConnectionState(db, "mariclare");
+  assert.equal(flagged.needsReconnect, true);
+  assert.equal(flagged.reconnectReason, "unauthorized_client");
+  assert.equal(flagged.connected, true);
+  assert.equal(flagged.gmailEmail, "mmaclamroc@gmail.com");
+  assert.equal(Boolean(flagged.cipher), true);
+
+  const healed = await renewGmailWatches(db, async () => ({ historyId: "9100", expiration: "1893456000000" }));
+  assert.equal(healed.find((row) => row.mailbox === "mmaclamroc@gmail.com")?.ok, true);
+  assert.equal((await gmailConnectionState(db, "mariclare")).needsReconnect, false);
+
+  const expired = await renewGmailWatches(db, async () => {
+    throw new Error("Gmail token refresh failed (400): invalid_grant: Token has been expired or revoked.");
+  });
+  assert.equal(expired.find((row) => row.mailbox === "mmaclamroc@gmail.com")?.needsReconnect, true);
+  assert.equal((await gmailConnectionState(db, "mariclare")).reconnectReason, "invalid_grant");
+
+  const other = await renewGmailWatches(db, async () => {
+    throw new Error("Gmail watch failed (400): User not authorized to perform this action.");
+  });
+  assert.equal(other.find((row) => row.mailbox === "mmaclamroc@gmail.com")?.needsReconnect, false);
+  assert.equal((await gmailConnectionState(db, "mariclare")).reconnectReason, "invalid_grant");
+
+  const cleared = await disconnectMailbox(db, "MMACLamroc@gmail.com");
+  assert.equal(cleared.status, 200);
+  assert.equal(JSON.stringify(cleared.body).includes("1//"), false);
+  assert.equal(JSON.stringify(cleared.body).includes("gmailRefreshToken"), false);
+  const afterClear = await gmailConnectionState(db, "mariclare");
+  assert.equal(afterClear.connected, false);
+  assert.equal(afterClear.needsReconnect, false);
+  assert.equal(afterClear.gmailEmail, null);
+  assert.equal(afterClear.cipher, null);
+  assert.equal((await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com"))).length, 0);
+  assert.equal((await db.select().from(creators).where(eq(creators.id, "mariclare")))[0]?.emailStatus, "disconnected");
+  const again = await disconnectMailbox(db, "mmaclamroc@gmail.com");
+  assert.equal(again.status, 200);
+  assert.equal((await disconnectMailbox(db, "nobody@example.com")).status, 404);
+  assert.equal((await disconnectMailbox(db, "not-an-email")).status, 400);
+  const quiet = await renewGmailWatches(db, async () => {
+    throw new Error("should not watch a disconnected inbox");
+  });
+  assert.equal(quiet.find((row) => row.mailbox === "mmaclamroc@gmail.com")?.error, "Mailbox is not connected.");
+
+  const missing = await createPlatformInvite(db, { brand: "Example Brand" });
+  assert.equal(missing.status, 400);
+  const unknown = await createPlatformInvite(db, { email: "nobody@example.com", brand: "Example Brand", platform: "TikTok One", actionNeeded: "Accept the invite" });
+  assert.equal(unknown.status, 404);
+  const deadline = "2026-10-21T20:00:00.000Z";
+  const now = new Date("2026-10-19T20:00:00.000Z");
+  const created = await createPlatformInvite(db, {
+    email: "MMACLamroc@gmail.com",
+    brand: "Example Brand",
+    platform: "TikTok One",
+    accountHandle: "@example",
+    actionNeeded: "Accept the invite",
+    deadline,
+  }, now);
+  assert.equal(created.status, 201);
+  if (created.status !== 201) return;
+  const invite = created.body.invite;
+  assert.equal(invite.creatorName, "MariClare");
+  assert.equal(invite.platform, "TikTok One");
+  assert.equal(invite.accountHandle, "@example");
+  assert.equal(invite.actionNeeded, "Accept the invite");
+  assert.equal(invite.deadlineLabel.includes("Oct 21"), true);
+  assert.equal(invite.deadlineLabel.endsWith("ET"), true);
+  assert.equal(invite.countdown, "2 days left");
+  assert.equal(invite.done, false);
+  assert.equal(JSON.stringify(created.body).includes("gmail"), false);
+  const shown = presentDeadline(deadline, now);
+  assert.equal(shown.label.includes("4:00"), true);
+  assert.equal(presentDeadline(deadline, new Date("2026-10-22T20:00:00.000Z")).countdown, "Overdue by 1 day");
+  assert.equal(presentDeadline(null, now).label, "No deadline yet");
+
+  const mariInvites = await listPlatformInvites(db, mariclare, now);
+  assert.equal(mariInvites.length, 1);
+  assert.equal(mariInvites[0]?.brand, "Example Brand");
+  assert.equal((await listPlatformInvites(db, abby, now)).length, 0);
+  const manager: Viewer = { email: "quinn.invite@gmail.com", role: "manager", creatorId: null, name: "Quinn Invite" };
+  assert.equal((await listPlatformInvites(db, manager, now)).length, 0);
+  const ownerInvites = await listPlatformInvites(db, admin, now);
+  assert.equal(ownerInvites.some((row) => row.id === invite.id && row.creatorName === "MariClare"), true);
+
+  const blocked = await setPlatformInviteDone(db, abby, invite.id, true);
+  assert.equal(blocked.ok, false);
+  if (!blocked.ok) assert.equal(blocked.status, 403);
+  assert.equal((await listPlatformInvites(db, mariclare, now))[0]?.done, false);
+  assert.equal((await setPlatformInviteDone(db, mariclare, invite.id, true)).ok, true);
+  assert.equal((await listPlatformInvites(db, mariclare, now))[0]?.done, true);
+  assert.equal((await setPlatformInviteDone(db, admin, invite.id, false)).ok, true);
+  assert.equal((await listPlatformInvites(db, admin, now))[0]?.done, false);
+  assert.equal((await db.select().from(platformInvites)).length, 1);
+
+  const migration = readFileSync(path.join(process.cwd(), "drizzle/0036_mailbox_reconnect.sql"), "utf8");
+  assert.equal(migration.toLowerCase().includes("update deals"), false);
+  assert.equal(migration.toLowerCase().includes("insert"), false);
+  assert.equal(migration.includes("KOSBLING"), true);
+  assert.equal((await db.select().from(deals)).length, dealsBefore);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
