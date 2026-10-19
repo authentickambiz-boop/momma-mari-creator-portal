@@ -15,6 +15,7 @@ const TABS = [
   { id: "directory", href: "/directory", label: "Members" },
   { id: "profile", href: "/profile", label: "My profile" },
   { id: "brands", href: "/brands", label: "Brands" },
+  { id: "rules", href: "/rules", label: "Deal rules" },
   { id: "rights", href: "/rights", label: "Usage rights" },
   { id: "safety", href: "/safety", label: "Safety" },
   { id: "referrals", href: "/referrals", label: "Referrals" },
@@ -51,6 +52,7 @@ export function PortalFrame({
     if (item.id === "report") return viewer.role !== "manager";
     if (item.id === "approvals") return viewer.role === "admin" || Boolean(viewer.permissions?.approveEmail);
     if (item.id === "brands") return viewer.role === "admin" || viewer.role === "manager";
+    if (item.id === "rules") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "kit") return viewer.role === "creator";
     if (item.id === "connect") return viewer.role !== "creator";
     return true;

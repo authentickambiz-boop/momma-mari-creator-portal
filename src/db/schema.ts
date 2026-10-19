@@ -56,6 +56,7 @@ export const managers = sqliteTable("managers", {
   canApproveVideo: integer("can_approve_video", { mode: "boolean" }).notNull().default(true),
   canApproveContract: integer("can_approve_contract", { mode: "boolean" }).notNull().default(false),
   canCountersign: integer("can_countersign", { mode: "boolean" }).notNull().default(false),
+  canPriceDeals: integer("can_price_deals", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull(),
   deactivatedAt: text("deactivated_at"),
 });
@@ -669,6 +670,19 @@ export const sessions = sqliteTable("sessions", {
   role: text("role").notNull(),
   createdAt: text("created_at").notNull(),
   expiresAt: text("expires_at").notNull(),
+});
+
+export const creatorDealRules = sqliteTable("creator_deal_rules", {
+  creatorId: text("creator_id").primaryKey(),
+  rulesJson: text("rules_json").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const pricingSettings = sqliteTable("pricing_settings", {
+  id: text("id").primaryKey(),
+  minAgencyProfitCents: integer("min_agency_profit_cents").notNull(),
+  catalogJson: text("catalog_json").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
 export const creatorQuestionnaires = sqliteTable("creator_questionnaires", {

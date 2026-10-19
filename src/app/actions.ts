@@ -517,6 +517,7 @@ export async function addManagerAction(formData: FormData) {
       approveVideo: formData.get("approveVideo") === "1",
       approveContract: formData.get("approveContract") === "1",
       countersign: formData.get("countersign") === "1",
+      canPriceDeals: formData.get("canPriceDeals") === "1",
     },
   });
   if (!result.ok) redirect("/team?teamError=1");
@@ -547,6 +548,7 @@ export async function setManagerPermissionsAction(formData: FormData) {
       approveVideo: formData.get("approveVideo") === "1",
       approveContract: formData.get("approveContract") === "1",
       countersign: formData.get("countersign") === "1",
+      canPriceDeals: formData.get("canPriceDeals") === "1",
     },
   });
   redirect("/team");

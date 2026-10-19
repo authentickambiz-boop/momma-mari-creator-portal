@@ -9,6 +9,7 @@ export type ManagerPermissions = {
   approveVideo: boolean;
   approveContract: boolean;
   countersign: boolean;
+  canPriceDeals?: boolean;
 };
 
 export type Viewer = {

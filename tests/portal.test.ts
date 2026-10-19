@@ -91,6 +91,7 @@ import { dueHomeNotices, homeScreenOffer, inQuietHours, isIosHomeScreen, pushEna
 import { NICHE_CATALOG } from "../src/lib/niche-catalog";
 import { matchOffer, needsQuestionnaire, questionnaireFor, saveQuestionnaireStep, type QuestionnaireAnswers } from "../src/lib/questionnaire";
 import { tagChoices } from "../src/lib/tag-picker";
+import { prefillDealRules, presentScreening, saveDealRules, savePricingFloor, screenOffer, type DealRules } from "../src/lib/deal-rules";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -4020,6 +4021,149 @@ test("the questionnaire resumes, prefills her own profile, and scores a brand of
   assert.equal(await needsQuestionnaire(db, "quiz-guest"), false);
   const bot = await saveQuestionnaireStep(db, guest, { step: "bot", skip: false, pause: false, patch: {} });
   assert.equal(bot.ok, false);
+
+  assert.equal((await db.select().from(adminNotifications)).length, noticesBefore);
+  assert.equal((await db.select().from(approvalEmails)).length, approvalsBefore);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("offer screening respects floors, the profit guardrail, and who can see dollars", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const noticesBefore = (await db.select().from(adminNotifications)).length;
+  const approvalsBefore = (await db.select().from(approvalEmails)).length;
+
+  const rules: DealRules = {
+    minRates: { tiktok: 50000 },
+    targetRates: { tiktok: 80000 },
+    minDealCents: 60000,
+    blockedCategories: ["gambling"],
+    blockedBrands: ["NopeBrand"],
+    maxDealsPerMonth: 4,
+    turnaround: "About a week",
+    exclusivityMaxDays: 30,
+    usageMinDays: 30,
+    kidsOnCamera: "no",
+    kidsLimits: "",
+  };
+  const blocked = screenOffer({
+    rules,
+    offer: { brand: "NopeBrand", amountCents: 200000, deliverables: ["1 TikTok"] },
+    bestPastCents: null,
+    nicheHit: false,
+    openDeals: 0,
+  });
+  assert.equal(blocked.verdict, "blocked");
+  assert.equal(blocked.fit <= 12, true);
+
+  const below = screenOffer({
+    rules,
+    offer: { brand: "Kind", amountCents: 40000, deliverables: ["1 TikTok"], rush: true },
+    bestPastCents: 90000,
+    nicheHit: true,
+    openDeals: 0,
+    minProfitCents: 15000,
+  });
+  assert.equal(below.verdict, "below");
+  assert.equal(below.suggestedAskCents, 110000);
+  assert.equal((below.counterCents ?? 0) >= 60000, true);
+  assert.equal(below.profitWarn, true);
+  assert.equal(below.feeCents, 8000);
+
+  const meets = screenOffer({
+    rules,
+    offer: { brand: "Kind", amountCents: 120000, deliverables: ["1 TikTok"] },
+    bestPastCents: null,
+    nicheHit: true,
+    openDeals: 0,
+    minProfitCents: 15000,
+  });
+  assert.equal(meets.verdict, "meets");
+  assert.equal(meets.profitWarn, false);
+  assert.equal(meets.suggestedAskCents, 80000);
+  assert.equal(meets.feeCents, 24000);
+
+  const ownerView = presentScreening(admin, below);
+  assert.equal(ownerView.feeCents, 8000);
+  assert.equal(ownerView.profitWarn, true);
+  assert.equal(ownerView.suggestedAskCents, 110000);
+  assert.match(ownerView.reasons.join(" "), /agency minimum/);
+
+  const plainManager: Viewer = {
+    email: "plain.manager@gmail.com",
+    name: "Plain Manager",
+    role: "manager",
+    creatorId: null,
+    permissions: { approveEmail: true, approveVideo: true, approveContract: false, countersign: false, canPriceDeals: false },
+    assignedCreatorIds: ["abby"],
+  };
+  const hidden = presentScreening(plainManager, below);
+  assert.equal(hidden.verdictLabel, "Below floor");
+  assert.equal(hidden.suggestedAskCents, null);
+  assert.equal(hidden.feeCents, null);
+  assert.equal(hidden.profitWarn, false);
+  assert.equal(JSON.stringify(hidden).includes("$"), false);
+  assert.equal(JSON.stringify(hidden).includes("8000"), false);
+
+  const pricedManager: Viewer = {
+    ...plainManager,
+    permissions: { ...plainManager.permissions!, canPriceDeals: true },
+    assignedCreatorIds: ["quiz-guest"],
+  };
+  const priced = presentScreening(pricedManager, below);
+  assert.equal(priced.suggestedAskCents, below.suggestedAskCents);
+  assert.equal(priced.feeCents, null);
+  assert.equal(priced.profitWarn, false);
+
+  const denied = await saveDealRules(db, plainManager, "quiz-guest", rules);
+  assert.equal(denied.ok, false);
+  const allowed = await saveDealRules(db, pricedManager, "quiz-guest", rules);
+  assert.equal(allowed.ok, true);
+
+  const guest: Viewer = { email: "quiz.guest@gmail.com", name: "Quiz Guest", role: "creator", creatorId: "quiz-guest" };
+  const rates = await saveQuestionnaireStep(db, guest, {
+    step: "rates",
+    skip: false,
+    pause: false,
+    patch: { rates: { TikTok: "400" } },
+  });
+  assert.equal(rates.ok, true);
+  const brands = await saveQuestionnaireStep(db, guest, {
+    step: "brands",
+    skip: false,
+    pause: false,
+    patch: { brands: ["VEV"], blocked: ["NopeBrand"] },
+  });
+  assert.equal(brands.ok, true);
+  const past = await upsertDeal(db, {
+    id: "quiz-past-tiktok",
+    brand: "Kind",
+    creatorId: "quiz-guest",
+    status: "active",
+    workflowStage: "creator_interested",
+    rateCents: 90000,
+    deliverables: ["1 TikTok"],
+    visibleToCreator: false,
+  });
+  assert.equal(past.status, 201);
+  const prefilled = await prefillDealRules(db, "quiz-guest");
+  assert.equal((prefilled.targetRates.tiktok ?? 0) >= 90000, true);
+  assert.equal(prefilled.blockedBrands.includes("NopeBrand"), true);
+  assert.equal(prefilled.minRates.tiktok, 40000);
+
+  const floorDenied = await savePricingFloor(db, pricedManager, 20000);
+  assert.equal(floorDenied.ok, false);
+  const floorSaved = await savePricingFloor(db, admin, 20000);
+  assert.equal(floorSaved.ok, true);
 
   assert.equal((await db.select().from(adminNotifications)).length, noticesBefore);
   assert.equal((await db.select().from(approvalEmails)).length, approvalsBefore);

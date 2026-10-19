@@ -470,6 +470,7 @@ th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color
 .tag-picker li button { width: 100%; text-align: left; border: 0; background: transparent; padding: 8px; border-radius: 8px; cursor: pointer; font: inherit; }
 .tag-picker li button.on { background: #f6f1ec; }
 .match-score { font-size: 28px; font-weight: 700; margin: 4px 0; }
+.rules-note { margin: 0; }
 .wizard select { width: 100%; }
 
 .community-panel {
