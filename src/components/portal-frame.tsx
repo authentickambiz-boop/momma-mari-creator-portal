@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AccountMenu } from "@/components/account-menu";
 import { accountMenuItems, isMenuTab } from "@/lib/creator-home";
+import { withBasePath } from "@/lib/format";
 import type { CreatorProfile, Viewer } from "@/lib/types";
 
 const TABS = [
@@ -70,12 +71,13 @@ export function PortalFrame({
   const menu = accountMenuItems(viewer.role);
   return (
     <>
+      <div className="sticky-chrome">
       <div className="demo-bar">
         Pilot. MariClare&apos;s deals are seed data from her inbox as of Oct 17, 2026. TBD means the emails don&apos;t say yet.
       </div>
       <header className="top">
         <Link href={staff ? `/${query(viewedId === "all" ? "mariclare" : viewedId)}` : "/"} className="brand">
-          <div className="logo">M</div>
+          <img className="logo-img" src={withBasePath("/momma-logo.png")} alt="" />
           <div>
             <strong>Momma Mari</strong>
             <small>Creator Portal</small>
@@ -86,6 +88,7 @@ export function PortalFrame({
           <AccountMenu initials={viewer.initials || viewer.name.slice(0, 1)} items={menu} />
         </div>
       </header>
+      </div>
       <div className="wrap">
         {hello}
         {staff ? (

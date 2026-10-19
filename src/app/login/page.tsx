@@ -4,7 +4,7 @@ import { devLoginAction } from "@/app/actions";
 import { getDb } from "@/db/getDb";
 import { devLoginEnabled } from "@/lib/authz";
 import { currentViewer } from "@/lib/current-user";
-import { publicBasePath } from "@/lib/format";
+import { publicBasePath, withBasePath } from "@/lib/format";
 import { googleConfigured } from "@/lib/google-oauth";
 import { listManagers } from "@/lib/managers";
 import { listCreators } from "@/lib/queries";
@@ -29,7 +29,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <div className="login-wrap">
       <div className="card login-card">
-        <div className="logo">M</div>
+        <img className="logo-img" src={withBasePath("/momma-logo.png")} alt="" />
         <h1>Momma Mari</h1>
         <p className="note">Creator portal. Sign in with the Google account Kamron invited. You&apos;ll only see your own deals.</p>
         {error ? <p className="private-note">{error}</p> : null}
