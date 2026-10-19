@@ -78,6 +78,12 @@ export const deals = sqliteTable("deals", {
   subtitle: text("subtitle"),
   contact: text("contact"),
   gmailThreadId: text("gmail_thread_id"),
+  offerAllocationId: text("offer_allocation_id"),
+  reviewStatus: text("review_status").notNull().default("pending"),
+  productRequired: integer("product_required", { mode: "boolean" }).notNull().default(true),
+  rateReady: integer("rate_ready", { mode: "boolean" }).notNull().default(false),
+  rateConfirmedAt: text("rate_confirmed_at"),
+  rushRevision: integer("rush_revision", { mode: "boolean" }).notNull().default(false),
   status: text("status").notNull(),
   amountDisplay: text("amount_display"),
   rateLabel: text("rate_label"),
@@ -592,6 +598,7 @@ export const brandCrmEntries = sqliteTable("brand_crm_entries", {
   outcome: text("outcome"),
   nextFollowUp: text("next_follow_up"),
   creatorId: text("creator_id"),
+  domain: text("domain"),
 });
 
 export const usageRights = sqliteTable("usage_rights", {
@@ -905,6 +912,39 @@ export const creatorAccounts = sqliteTable("creator_accounts", {
   quietHours: integer("quiet_hours", { mode: "boolean" }).notNull(),
   communityVisible: integer("community_visible", { mode: "boolean" }).notNull(),
   updatedAt: text("updated_at").notNull(),
+});
+
+export const brandReplyDrafts = sqliteTable("brand_reply_drafts", {
+  dealId: text("deal_id").primaryKey(),
+  body: text("body").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const gmailWatches = sqliteTable("gmail_watches", {
+  mailbox: text("mailbox").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  historyId: text("history_id"),
+  expiration: text("expiration"),
+  topic: text("topic"),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const gmailSeenMessages = sqliteTable("gmail_seen_messages", {
+  messageId: text("message_id").primaryKey(),
+  mailbox: text("mailbox").notNull(),
+  threadId: text("thread_id"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const inboxEvents = sqliteTable("inbox_events", {
+  id: text("id").primaryKey(),
+  mailbox: text("mailbox").notNull(),
+  messageId: text("message_id").notNull().unique(),
+  threadId: text("thread_id"),
+  dealId: text("deal_id"),
+  kind: text("kind").notNull(),
+  createdAt: text("created_at").notNull(),
 });
 
 export const supportMessages = sqliteTable("support_messages", {

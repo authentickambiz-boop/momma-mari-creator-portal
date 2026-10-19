@@ -6,7 +6,7 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { adminNotifications, analyticsSnapshots, approvalEmails, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creatorProfiles, creatorRankHistory, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, payments } from "../src/db/schema";
+import { adminNotifications, analyticsSnapshots, approvalEmails, brandCrmEntries, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creatorProfiles, creatorRankHistory, creators, deals, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, gmailWatches, payments } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
@@ -27,10 +27,12 @@ import {
 import { communityFailure } from "../src/lib/community-http";
 import { hideMyProfile, listPublicProfiles, moderateProfileField, saveMyProfile } from "../src/lib/profiles";
 import { canApproveEmail, canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
-import { addFeedback, authorizeBot, createApprovalDraft, listApprovedApprovals, markApprovalDraftSent, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
+import { addFeedback, authorizeBot, createApprovalDraft, listApprovedApprovals, markApprovalDraftSent, syncDeals, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
 import { listCreatorInterest, listOfferScreenings, recordCreatorInterest, releaseOffer, logOfferScreening } from "../src/lib/creator-interest";
 import { approveContract, listContracts, requestContractRevisions, saveChecklist, saveContract, setSigningFormat } from "../src/lib/contracts";
 import { listDraftReviews, listUnreadCreatorNotices, onDraftSubmitted, reviewDraft } from "../src/lib/video-review";
+import { deadlineFlag, uploadDueDate } from "../src/lib/deadlines";
+import { askCreatorToConfirmRate, confirmAgreedRate, editDealReview, listDealReviews, publishDealReview, rejectDealReview, saveBrandReplyDraft } from "../src/lib/deal-review";
 import { setDealStage } from "../src/lib/deal-stage";
 import { sideStages, trackStages } from "../src/lib/stages";
 import { agencyTimeZone, commissionLabel, creatorCutLabel, creatorPayoutTracker, feeAndPayout, nextPayoutLabel, pipelineHeadline, withBasePath } from "../src/lib/format";
@@ -50,12 +52,16 @@ import {
   summarizeAnalytics,
 } from "../src/lib/queries";
 import {
+  GMAIL_READONLY_SCOPE,
   GMAIL_SCOPES,
   createGmailOAuthState,
+  createWatchCreatorCookie,
   createOAuthState,
   googleAuthUrl,
   googleGmailAuthUrl,
+  googleGmailWatchAuthUrl,
   googleRedirectUri,
+  readWatchCreatorCookie,
   verifyGmailOAuthState,
   verifyOAuthState,
 } from "../src/lib/google-oauth";
@@ -74,13 +80,13 @@ import {
 } from "../src/lib/onboarding";
 import { hostedEmailPreview, STRIPE_CATALOG } from "../src/lib/email-setup";
 import { addManager, assignCreatorManagers, assignedCreatorIds, listManagerNotices, listManagers, needsYou, notifyStaff, setManagerActive, setManagerPermissions } from "../src/lib/managers";
-import { countersignContract, listSignatures, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "../src/lib/signing";
+import { advanceAfterSignature, countersignContract, listSignatures, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "../src/lib/signing";
 import { createSession, readSignedSessionId } from "../src/lib/session";
 import { decryptToken } from "../src/lib/token-crypto";
 import { assertCanUpload, parseContentRange, validateChunk } from "../src/lib/uploads";
 import type { Viewer } from "../src/lib/types";
 import { buildCalendarFeed, listCalendar, runDeliverableNudges, saveDeliverableDate, setCalendarConnected } from "../src/lib/calendar";
-import { addBrandCrmEntry, listBrandCrm } from "../src/lib/brand-crm";
+import { addBrandCrmEntry, listBrandCrm, upsertBrandCrmByDomain } from "../src/lib/brand-crm";
 import { listUsageRights, saveUsageRights, suggestUsageRenewal, usageFlag } from "../src/lib/usage";
 import { myMediaKit, publicMediaKit, saveMediaKit, zernioStatsEnabled } from "../src/lib/media-kit";
 import { clearSafetyHold, listSafetyHolds, recordDraftSafety } from "../src/lib/safety";
@@ -95,6 +101,18 @@ import { matchOffer, needsQuestionnaire, questionnaireFor, saveQuestionnaireStep
 import { tagChoices } from "../src/lib/tag-picker";
 import { deliverableKind, prefillDealRules, presentScreening, quotedAskCents, rulesFor, saveDealRules, savePricingFloor, screenOffer, setCategoryOverride, creatorKnowledge, type DealRules } from "../src/lib/deal-rules";
 import { createBrandOffer, listCreatorOffers, listOfferBoard, respondToOffer } from "../src/lib/brand-offers";
+import {
+  authorizeCron,
+  decodePushMessage,
+  ingestGmailPush,
+  isSpamSender,
+  listInboxEvents,
+  parseSince,
+  renewGmailWatches,
+  verifyPubSubOidc,
+  type GmailHistoryMessage,
+} from "../src/lib/gmail-push";
+import { listLiveDeals } from "../src/lib/live-deals";
 import { allocateCampaign, addProspect, campaignById, canSeeCommission, convertProspect, listCampaigns, markOpenOutside, ownerDashboard, presentRoster, projectedCommission, queueOutsideOffer, rankRoster, rosterHasAFit, saveCampaign } from "../src/lib/campaigns";
 import { analyticsBoard, importAnalyticsSnapshots, parseDisplayedCount, publicWeeklySnapshots, saveOwnerSnapshot, writeAnalyticsSnapshots } from "../src/lib/analytics-snapshots";
 import { compositeScore, defaultWeights, emptyInputs, inputsFor, leaderboard, refreshRanks, saveRankInputs, saveRankSettings, scoringInputs, tierFor } from "../src/lib/creator-rank";
@@ -1018,6 +1036,7 @@ test("a creator can accept or pass a screened offer, and KOSBLING stays put", as
   });
   assert.equal(releasedPass.ok, true);
   const beforeContacts = await listBrandContacts(db);
+  const beforePass = await getDealForViewer(db, admin, "phase3-pass");
   const declined = await recordCreatorInterest(db, {
     dealId: "phase3-pass",
     creatorId: mariclare.creatorId!,
@@ -1026,44 +1045,16 @@ test("a creator can accept or pass a screened offer, and KOSBLING stays put", as
     decision: "declined",
     note: "The dates don't work for me",
   });
-  assert.equal(declined.ok, true);
-  assert.equal(await getDealForViewer(db, mariclare, "phase3-pass"), null);
+  assert.equal(declined.ok, false);
+  if (!declined.ok) assert.equal(declined.status, 403);
   const passAdmin = await getDealForViewer(db, admin, "phase3-pass");
-  assert.equal(passAdmin?.workflowStage, "creator_declined");
-  assert.equal(passAdmin?.visibleToCreator, false);
-  assert.equal(passAdmin?.interest?.decision, "declined");
-  assert.equal(passAdmin?.interest?.note, "The dates don't work for me");
-  const passNotices = await listUnreadNotices(db);
-  assert.equal(passNotices.some((notice) => notice.kind === "creator_passed" && notice.message.includes("MariClare passed on Nimbus.") && notice.message.includes("The dates don't work for me")), true);
-
-  const declineDraft = (await listApprovalQueue(db, "all")).find((item) => item.dealId === "phase3-pass" && item.gate === "decline");
-  assert.equal(declineDraft?.status, "pending");
-  assert.equal(declineDraft?.fromEmail, "authentickambiz@gmail.com");
-  assert.equal(declineDraft?.toEmail, "hello@nimbus.example");
-  assert.equal(declineDraft?.brandContactCompany, "Nimbus");
-  assert.equal(declineDraft?.brandContactEmail, "hello@nimbus.example");
-  assert.equal(declineDraft?.brandContactName, "Nimbus Team");
-  assert.equal(declineDraft?.suggestedCreatorId, "abby");
-  assert.notEqual(declineDraft?.suggestedCreatorId, "mariclare");
-  assert.match(declineDraft?.suggestedPlan ?? "", /gifted post/);
-  assert.match(declineDraft?.body ?? "", /isn't the right fit/);
-  assert.equal((declineDraft?.body ?? "").includes("The dates don't work"), false);
-  assert.equal((declineDraft?.body ?? "").includes("Abby"), false);
+  assert.equal(passAdmin?.workflowStage, "offer_shared");
+  assert.equal(passAdmin?.visibleToCreator, true);
+  assert.equal(passAdmin?.interest, null);
+  assert.equal(passAdmin?.stageEvents?.length, beforePass?.stageEvents?.length);
+  assert.equal((await getDealForViewer(db, mariclare, "phase3-pass"))?.workflowStage, "offer_shared");
+  assert.equal((await listApprovalQueue(db, "all")).some((item) => item.dealId === "phase3-pass" && item.gate === "decline"), false);
   assert.equal((await listBrandContacts(db)).length, beforeContacts.length);
-
-  assert.equal(declined.ok, true);
-  const saved = await reviewApproval(db, {
-    approvalId: declined.ok ? declined.approvalId : "",
-    intent: "approve",
-    actorEmail: admin.email,
-    actorRole: "admin",
-  });
-  assert.equal(saved.ok, true);
-  const contacts = await listBrandContacts(db);
-  assert.equal(contacts.length, beforeContacts.length + 1);
-  assert.equal(contacts.at(-1)?.company, "Nimbus");
-  assert.equal(contacts.at(-1)?.contactEmail, "hello@nimbus.example");
-  assert.equal(contacts.at(-1)?.suggestedCreatorId, "abby");
 
   const sneak = await setDealStage(db, {
     dealId: "phase3-offer",
@@ -1698,7 +1689,7 @@ test("a creator signs her own approved PDF once, and a new version voids the req
   assert.equal(signed.ok, true, signed.ok ? "" : `${signed.status} ${signed.error}`);
   if (!signed.ok) return;
   assert.equal(signed.status, "final");
-  assert.equal(signed.workflowStage, "signed_by_creator");
+  assert.equal(signed.workflowStage, "waiting_for_product");
   const afterSign = await getDealForViewer(db, admin, "phase6-sign");
   const audit = afterSign?.signatures.find((row) => row.id === signed.signatureId);
   assert.equal(audit?.signerName, "Mari Clare Maclamroc");
@@ -1716,7 +1707,7 @@ test("a creator signs her own approved PDF once, and a new version voids the req
   const signedDoc = await PDFDocument.load(signedBytes);
   const originalDoc = await PDFDocument.load(pdf);
   assert.equal(signedDoc.getPageCount(), originalDoc.getPageCount() + 1);
-  assert.equal(afterSign?.workflowStage, "signed_by_creator");
+  assert.equal(afterSign?.workflowStage, "waiting_for_product");
   assert.equal(afterSign?.stageEvents?.some((event) => event.toStage === "signed_by_creator" && event.actorRole === "creator"), true);
   const brandEmail = (await listApprovalQueue(db, "all")).find((row) => row.dealId === "phase6-sign" && row.gate === "signed_contract");
   assert.equal(brandEmail?.status, "pending");
@@ -1819,7 +1810,7 @@ test("a creator signs her own approved PDF once, and a new version voids the req
   assert.equal(counterEmail?.status, "pending");
   assert.equal(counterEmail?.fromEmail, "authentickambiz@gmail.com");
   const counterDealAfter = await getDealForViewer(db, admin, "phase6-counter");
-  assert.equal(counterDealAfter?.workflowStage, "signed_by_creator");
+  assert.equal(counterDealAfter?.workflowStage, "waiting_for_product");
   assert.equal(counterDealAfter?.signatures.find((row) => row.id === creatorSigned.signatureId)?.status, "final");
   assert.equal(counterDealAfter?.stageEvents?.some((event) => (event.note ?? "").includes("Momma Mari countersigned contract v2")), true);
   assert.equal(counterDealAfter?.revisions.some((row) => row.summary === "Momma Mari countersigned the contract."), true);
@@ -1977,7 +1968,7 @@ test("a creator signs her own approved PDF once, and a new version voids the req
   const uploadedBytes = Buffer.from(uploadedRow[0]?.bytesBase64 ?? "", "base64");
   assert.equal(Buffer.compare(uploadedBytes, Buffer.from(brandPdf)), 0);
   const brandView = await getDealForViewer(db, admin, "phase6-brand");
-  assert.equal(brandView?.workflowStage, "signed_by_creator");
+  assert.equal(brandView?.workflowStage, "waiting_for_product");
   assert.equal(brandView?.signatures.find((row) => row.id === uploaded.signatureId)?.status, "final");
   assert.equal(brandView?.signatures.some((row) => row.contractId === brandFile.id && row.status === "requested"), false);
   const skipped = await signContract(db, { ...signAs, contractId: brandFile.id, actorEmail: mariclare.email });
@@ -5076,9 +5067,10 @@ test("brand offers use creator minimums, stay private, and update the brand list
   const accepted = await respondToOffer(db, lowViewer, { allocationId: lowInbox[0]!.id, decision: "accepted" });
   assert.equal(accepted.ok, true);
   const asked = await respondToOffer(db, midViewer, { allocationId: (await listCreatorOffers(db, midViewer))[0]!.id, decision: "question", question: "Can I post this in December?" });
-  assert.equal(asked.ok, true);
+  assert.equal(asked.ok, false);
   const declined = await respondToOffer(db, highViewer, { allocationId: highInbox[0]!.id, decision: "declined" });
-  assert.equal(declined.ok, true);
+  assert.equal(declined.ok, false);
+  assert.equal((await db.select().from(deals).where(eq(deals.creatorId, "offer-high"))).some((row) => row.brand === "Second Soap"), false);
   const emptyQuestion = await respondToOffer(db, midViewer, { allocationId: (await listCreatorOffers(db, midViewer))[0]!.id, decision: "question", question: " " });
   assert.equal(emptyQuestion.ok, false);
   assert.equal((await respondToOffer(db, highViewer, { allocationId: lowInbox[0]!.id, decision: "accepted" })).ok, false);
@@ -5086,7 +5078,8 @@ test("brand offers use creator minimums, stay private, and update the brand list
   const board = await listOfferBoard(db, admin);
   const spread = board.find((row) => row.brand === "Spread Soap");
   assert.equal(spread?.recipients.find((row) => row.creatorId === "offer-low")?.response, "accepted");
-  assert.equal(spread?.recipients.find((row) => row.creatorId === "offer-mid")?.question, "Can I post this in December?");
+  assert.equal(spread?.recipients.find((row) => row.creatorId === "offer-mid")?.response, "pending");
+  assert.equal(spread?.recipients.find((row) => row.creatorId === "offer-mid")?.question, null);
   assert.equal(board.find((row) => row.brand === "Tiny Soap")?.flagLabel, "Pitch agency retainer");
   assert.equal(board.find((row) => row.brand === "Trainee Soap")?.flagLabel, "Commission-only trainee");
   assert.equal(JSON.stringify(board).includes("minimumPerVideo"), false);
@@ -5139,7 +5132,7 @@ test("brand offers use creator minimums, stay private, and update the brand list
   assert.equal(highKnowledge?.minimumPerVideoCents, 100000);
   assert.equal(highKnowledge?.typicalRateCents, 250000);
   assert.equal(JSON.stringify(highKnowledge).includes("offer-low"), false);
-  assert.equal(highKnowledge?.minimumPerVideoCents === 5000, false);
+  assert.equal(Number(highKnowledge?.minimumPerVideoCents) === 5000, false);
   assert.deepEqual(highKnowledge?.platformMinimums, {});
   assert.equal(await creatorKnowledge(db, "missing-creator"), null);
 
@@ -5170,6 +5163,450 @@ test("brand offers use creator minimums, stay private, and update the brand list
   assert.equal(packed.includes("rate"), false);
   assert.equal((await db.select().from(approvalEmails)).length, approvalsBefore);
 
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("live mail updates the deal, filters spam, and stays hidden until you share it", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  const audience = "https://mommamari.com/portal/api/gmail/push";
+  const serviceAccount = "portal-gmail-push@example.iam.gserviceaccount.com";
+  const goodClaims = {
+    iss: "https://accounts.google.com",
+    aud: audience,
+    email: serviceAccount,
+    email_verified: true,
+    exp: Math.floor(Date.now() / 1000) + 600,
+  };
+  assert.equal((await verifyPubSubOidc(null, { audience, serviceAccount, verifyToken: async () => goodClaims })).ok, false);
+  assert.equal((await verifyPubSubOidc("Bearer nope", { audience, serviceAccount, verifyToken: async () => null })).ok, false);
+  assert.equal((await verifyPubSubOidc("Bearer t", { audience, serviceAccount, verifyToken: async () => ({ ...goodClaims, aud: "https://evil.example" }) })).ok, false);
+  assert.equal((await verifyPubSubOidc("Bearer t", { audience, serviceAccount, verifyToken: async () => ({ ...goodClaims, email: "other@example.com" }) })).ok, false);
+  assert.equal((await verifyPubSubOidc("Bearer t", { audience, serviceAccount, verifyToken: async () => ({ ...goodClaims, exp: 1 }) })).ok, false);
+  assert.equal((await verifyPubSubOidc("Bearer t", { audience, serviceAccount, verifyToken: async () => goodClaims })).ok, true);
+  assert.equal((await verifyPubSubOidc("Bearer t", { verifyToken: async () => goodClaims })).status, 503);
+
+  for (const from of [
+    "Spam <a@forceawakens.net>",
+    "a@qq.com",
+    "a@foxmail.com",
+    "a@spam.163.com",
+    "a@mail.ru",
+    "a@deal.live",
+    "a@deal.xyz",
+    "a@deal.mobi",
+    "a@deal.online",
+    "a@deal.cc",
+    "a@deal.shop",
+    "a@deal.work",
+    "a@deal.cloud",
+  ]) {
+    assert.equal(isSpamSender(from), true, from);
+  }
+  assert.equal(isSpamSender("Nina <nina@harbor.example>"), false);
+
+  const watchUrl = new URL(googleGmailWatchAuthUrl("state", "mmaclamroc@gmail.com"));
+  assert.equal(watchUrl.searchParams.get("scope"), GMAIL_READONLY_SCOPE);
+  assert.equal(watchUrl.searchParams.get("scope"), "https://www.googleapis.com/auth/gmail.readonly");
+  assert.doesNotMatch(watchUrl.searchParams.get("scope") ?? "", /compose|gmail\.send/);
+  const watchCookie = await createWatchCreatorCookie("mariclare");
+  assert.equal(await readWatchCreatorCookie(watchCookie), "mariclare");
+  assert.equal(await readWatchCreatorCookie("mariclare.1.nope"), null);
+
+  const encoded = Buffer.from(JSON.stringify({ emailAddress: "mmaclamroc@gmail.com", historyId: 1001 })).toString("base64");
+  assert.deepEqual(decodePushMessage({ message: { data: encoded } }), { emailAddress: "mmaclamroc@gmail.com", historyId: "1001" });
+  assert.equal(decodePushMessage({}), null);
+
+  let listed = 0;
+  const priming = await ingestGmailPush(db, { emailAddress: "mmaclamroc@gmail.com", historyId: "1000" }, {
+    client: {
+      listAdded: async () => {
+        listed += 1;
+        return { latestHistoryId: "1000", messages: [] };
+      },
+      getMessage: async () => {
+        throw new Error("should not read mail before a cursor exists");
+      },
+    },
+  });
+  assert.equal("primed" in priming.body && priming.body.primed, true);
+  assert.equal(listed, 0);
+
+  const spam: GmailHistoryMessage = { id: "live-spam-1", threadId: "live-spam-thread", from: "Junk <junk@forceawakens.net>", to: "mmaclamroc@gmail.com", subject: "You won", labelIds: ["INBOX"] };
+  const inbound: GmailHistoryMessage = { id: "live-mail-1", threadId: "live-thread-1", from: "Nina Cole <nina@harbor.example>", to: "mmaclamroc@gmail.com", subject: "Harbor collab", labelIds: ["INBOX"] };
+  const scripted = (rows: GmailHistoryMessage[], latestHistoryId: string) => ({
+    listAdded: async () => ({ latestHistoryId, messages: rows.map((row) => ({ id: row.id, threadId: row.threadId })) }),
+    getMessage: async (id: string) => {
+      const found = rows.find((row) => row.id === id);
+      if (!found) throw new Error(id);
+      return found;
+    },
+  });
+  const opened = await ingestGmailPush(db, { emailAddress: "MMACLamroc@gmail.com", historyId: "1100" }, { client: scripted([spam, inbound], "1100") });
+  assert.equal(opened.status, 200);
+  if (!("createdDealIds" in opened.body)) throw new Error("expected created deals");
+  assert.deepEqual(opened.body.createdDealIds, ["mail-live-mail-1"]);
+  assert.equal(opened.body.skippedSpam, 1);
+  const hiddenId = "mail-live-mail-1";
+  assert.equal(await getDealForViewer(db, mariclare, hiddenId), null);
+  assert.equal(await getDealForViewer(db, abby, hiddenId), null);
+  const ownerMail = await getDealForViewer(db, admin, hiddenId);
+  assert.equal(ownerMail?.workflowStage, "offer_received");
+  assert.equal(ownerMail?.visibleToCreator, false);
+  assert.equal(ownerMail?.creatorId, "mariclare");
+  assert.equal(ownerMail?.gmailThreadId, "live-thread-1");
+  assert.equal(ownerMail?.brand, "Nina Cole");
+
+  const again = await ingestGmailPush(db, { emailAddress: "mmaclamroc@gmail.com", historyId: "1200" }, { client: scripted([spam, inbound], "1200") });
+  if (!("createdDealIds" in again.body) || !("skippedDuplicate" in again.body)) throw new Error("expected a repeat result");
+  assert.deepEqual(again.body.createdDealIds, []);
+  assert.equal((again.body.skippedDuplicate ?? 0) > 0, true);
+  assert.equal((await db.select().from(deals).where(eq(deals.gmailThreadId, "live-thread-1"))).length, 1);
+
+  const followUp: GmailHistoryMessage = { id: "live-mail-2", threadId: "live-thread-1", from: "Nina Cole <nina@harbor.example>", to: "mmaclamroc@gmail.com", subject: "Checking in", labelIds: ["INBOX"] };
+  const matched = await ingestGmailPush(db, { emailAddress: "mmaclamroc@gmail.com", historyId: "1300" }, { client: scripted([followUp], "1300") });
+  if (!("matchedDealIds" in matched.body) || !("createdDealIds" in matched.body)) throw new Error("expected a match");
+  assert.deepEqual(matched.body.matchedDealIds, [hiddenId]);
+  assert.deepEqual(matched.body.createdDealIds, []);
+  assert.equal((await db.select().from(deals).where(eq(deals.gmailThreadId, "live-thread-1"))).length, 1);
+
+  const reply: GmailHistoryMessage = { id: "live-reply-1", threadId: "live-thread-1", from: "MariClare <mmaclamroc@gmail.com>", to: "nina@harbor.example", subject: "Re: Harbor collab", labelIds: ["SENT"] };
+  const moved = await ingestGmailPush(db, { emailAddress: "mmaclamroc@gmail.com", historyId: "1400" }, { client: scripted([reply], "1400") });
+  if (!("stageMoves" in moved.body)) throw new Error("expected a stage move");
+  assert.deepEqual(moved.body.stageMoves, [hiddenId]);
+  const afterReply = await getDealForViewer(db, admin, hiddenId);
+  assert.equal(afterReply?.workflowStage, "interest_sent");
+  assert.equal(afterReply?.visibleToCreator, false);
+  assert.equal(await getDealForViewer(db, mariclare, hiddenId), null);
+  const events = await listInboxEvents(db, "2000-01-01T00:00:00.000Z");
+  assert.equal(events.some((event) => event.messageId === "live-mail-1" && event.dealId === hiddenId), true);
+  assert.equal(events.some((event) => event.messageId === "live-reply-1"), false);
+  assert.equal(events.some((event) => event.messageId === "live-spam-1"), false);
+  assert.equal((await listInboxEvents(db, "2999-01-01T00:00:00.000Z")).length, 0);
+  assert.equal(parseSince("not-a-date").ok, false);
+  const mariLive = JSON.stringify(await listLiveDeals(db, mariclare));
+  assert.equal(mariLive.includes(hiddenId), false);
+  assert.equal(mariLive.includes("minimum"), false);
+  assert.equal(mariLive.includes("kamronNotes"), false);
+  assert.equal(mariLive.includes("$"), false);
+
+  const kamPrime = await ingestGmailPush(db, { emailAddress: "authentickambiz@gmail.com", historyId: "50" }, {
+    client: { listAdded: async () => ({ latestHistoryId: "50", messages: [] }), getMessage: async () => inbound },
+  });
+  assert.equal("primed" in kamPrime.body && kamPrime.body.primed, true);
+  const kamMail: GmailHistoryMessage = { id: "live-kam-1", threadId: "live-kam-thread", from: "Pat <pat@brand.example>", to: "authentickambiz@gmail.com", subject: "Quick question", labelIds: ["INBOX"] };
+  const kamOpened = await ingestGmailPush(db, { emailAddress: "authentickambiz@gmail.com", historyId: "60" }, { client: scripted([kamMail], "60") });
+  if (!("createdDealIds" in kamOpened.body)) throw new Error("expected Kam's deal");
+  const kamDealId = kamOpened.body.createdDealIds?.[0];
+  assert.equal(kamDealId, "mail-live-kam-1");
+  const kamCreator: Viewer = { email: "authentickambiz@gmail.com", role: "creator", creatorId: "authentickam", name: "AuthenticKam" };
+  assert.equal(await getDealForViewer(db, kamCreator, kamDealId ?? ""), null);
+  assert.equal(await getDealForViewer(db, abby, kamDealId ?? ""), null);
+  assert.equal(await getDealForViewer(db, mariclare, kamDealId ?? ""), null);
+  assert.equal((await getDealForViewer(db, admin, kamDealId ?? ""))?.creatorId, "authentickam");
+  assert.equal((await getDealForViewer(db, admin, kamDealId ?? ""))?.visibleToCreator, false);
+
+  const crmOnce = await upsertBrandCrmByDomain(db, {
+    domain: "https://www.Harbor.example/hello",
+    contactEmail: "Nina@harbor.example",
+    brand: "Harbor Live CRM",
+    outcome: "offered",
+    ratePaidCents: 8000,
+    actorName: "bot",
+  });
+  assert.equal(crmOnce.ok, true);
+  if (!crmOnce.ok) return;
+  const crmTwice = await upsertBrandCrmByDomain(db, {
+    domain: "harbor.example",
+    contactEmail: "nina@harbor.example",
+    outcome: "negotiating",
+    actorName: "bot",
+  });
+  assert.equal(crmTwice.ok, true);
+  if (!crmTwice.ok) return;
+  assert.equal(crmTwice.id, crmOnce.id);
+  assert.equal(crmTwice.created, false);
+  const crmRows = (await db.select().from(brandCrmEntries)).filter((row) => row.domain === "harbor.example" && row.contactEmail === "nina@harbor.example");
+  assert.equal(crmRows.length, 1);
+  assert.equal(crmRows[0]?.outcome, "negotiating");
+  assert.equal(JSON.stringify({ id: crmTwice.id, created: crmTwice.created }).includes("8000"), false);
+
+  const synced = await syncDeals(db, {
+    deals: [
+      {
+        id: "sync-live",
+        brand: "Sync Harbor",
+        creatorId: "mariclare",
+        workflowStage: "offer_received",
+        visibleToCreator: false,
+        kamronNotes: "internal quote 999001",
+        minDealCents: 5000,
+        typicalRateCents: 250000,
+        amountDisplay: "$80",
+      },
+      { brand: "Missing id" },
+    ],
+  });
+  assert.equal(synced.status, 200);
+  const syncBody = synced.body as { results: { id: string | null; ok: boolean; error: string | null }[] };
+  assert.equal(syncBody.results[0]?.ok, true);
+  assert.equal(syncBody.results[0]?.id, "sync-live");
+  assert.equal(syncBody.results[1]?.ok, false);
+  assert.equal(JSON.stringify(syncBody).includes("999001"), false);
+  assert.equal(JSON.stringify(syncBody).includes("5000"), false);
+  assert.equal(JSON.stringify(syncBody).includes("minimum"), false);
+  const syncRow = (await db.select().from(deals).where(eq(deals.id, "sync-live")))[0];
+  assert.equal(syncRow?.kamronNotes, "internal quote 999001");
+  assert.equal(syncRow?.rateCents, null);
+  assert.equal(syncRow?.visibleToCreator, false);
+  assert.equal(await getDealForViewer(db, mariclare, "sync-live"), null);
+  const syncLive = (await listLiveDeals(db, admin)).find((deal) => deal.id === "sync-live");
+  assert.equal(JSON.stringify(syncLive).includes("999001"), false);
+  assert.equal(JSON.stringify(syncLive).includes("5000"), false);
+  assert.equal(JSON.stringify(syncLive).includes("$"), false);
+
+  const person = await upsertCreator(db, { id: "live-one", name: "Live One", email: "live.one@gmail.com", initials: "LO" });
+  assert.equal(person.status, 201);
+  const offer = await createBrandOffer(db, admin, {
+    brand: "Harbor Live",
+    contactName: "Nina Cole",
+    contactEmail: "nina@harbor.example",
+    deliverables: ["TikTok video"],
+    platforms: ["TikTok"],
+    nextFollowUp: "2026-12-01",
+    budgets: [{ creatorId: "live-one", amountCents: 8000 }],
+  });
+  assert.equal(offer.ok, true);
+  const liveViewer: Viewer = { email: "live.one@gmail.com", role: "creator", creatorId: "live-one", name: "Live One" };
+  const inbox = await listCreatorOffers(db, liveViewer);
+  assert.equal(inbox.length, 1);
+  const decided = await respondToOffer(db, liveViewer, { allocationId: inbox[0]!.id, decision: "accepted" });
+  assert.equal(decided.ok, true);
+  assert.equal((await listDealsForViewer(db, liveViewer, "live-one")).some((deal) => deal.brand === "Harbor Live"), false);
+  const hiddenHarbor = await getDealForViewer(db, admin, `offer-${inbox[0]!.id}`);
+  assert.equal(hiddenHarbor?.workflowStage, "creator_interested");
+  assert.equal(hiddenHarbor?.visibleToCreator, false);
+  assert.equal((await publishDealReview(db, { dealId: hiddenHarbor?.id ?? "", actorEmail: admin.email, actorRole: "admin" })).ok, true);
+  const shown = await listDealsForViewer(db, liveViewer, "live-one");
+  const harbor = shown.find((deal) => deal.brand === "Harbor Live");
+  assert.ok(harbor);
+  assert.equal(harbor?.workflowStage, "creator_interested");
+  assert.equal(harbor?.visibleToCreator, true);
+  assert.equal(harbor?.amountDisplay, "$80");
+  assert.equal(JSON.stringify(harbor).includes("minimum"), false);
+  const liveBrands = await listBrandCrm(db, admin);
+  assert.equal(liveBrands.ok, true);
+  if (!liveBrands.ok) return;
+  assert.equal(liveBrands.brands.find((card) => card.brand === "Harbor Live")?.crm.find((row) => row.creatorId === "live-one")?.outcome, "accepted");
+  const beforeStage = harbor?.updatedAt;
+  const staged = await setDealStage(db, {
+    dealId: harbor?.id ?? "",
+    toStage: "interest_sent",
+    actorEmail: admin.email,
+    actorRole: "admin",
+    note: "Told the brand.",
+  });
+  assert.equal(staged.ok, true);
+  const afterStage = await getDealForViewer(db, liveViewer, harbor?.id ?? "");
+  assert.equal(afterStage?.workflowStage, "interest_sent");
+  assert.equal(afterStage?.updatedAt === beforeStage, false);
+  const afterBrands = await listBrandCrm(db, admin);
+  assert.equal(afterBrands.ok, true);
+  if (!afterBrands.ok) return;
+  assert.equal(afterBrands.brands.find((card) => card.brand === "Harbor Live")?.crm.find((row) => row.creatorId === "live-one")?.outcome, "interest sent");
+  const pulse = (await listLiveDeals(db, liveViewer)).find((deal) => deal.id === harbor?.id);
+  assert.equal(pulse?.stageLabel, "Told the brand");
+  assert.equal(pulse?.updatedLabel.startsWith("Last updated"), true);
+  assert.equal(JSON.stringify(pulse).includes("minimum"), false);
+  assert.equal(JSON.stringify(pulse).includes("$"), false);
+
+  const renewed = await renewGmailWatches(db, async ({ mailbox, refreshToken }) => {
+    if (mailbox === "mmaclamroc@gmail.com") assert.equal(refreshToken, "1//secret-refresh-token-not-for-storage");
+    return { historyId: "9000", expiration: "1893456000000" };
+  });
+  assert.equal(renewed.find((row) => row.mailbox === "mmaclamroc@gmail.com")?.ok, true);
+  assert.equal(renewed.find((row) => row.mailbox === "authentickambiz@gmail.com")?.ok, false);
+  assert.equal((await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com")))[0]?.historyId, "9000");
+
+  const previousCron = process.env.GMAIL_WATCH_CRON_SECRET;
+  delete process.env.GMAIL_WATCH_CRON_SECRET;
+  assert.equal(authorizeCron("Bearer secret").status, 503);
+  process.env.GMAIL_WATCH_CRON_SECRET = "cron-secret";
+  assert.equal(authorizeCron("Bearer cron-secret").ok, true);
+  assert.equal(authorizeCron("Bearer wrong").status, 401);
+  if (previousCron == null) delete process.env.GMAIL_WATCH_CRON_SECRET;
+  else process.env.GMAIL_WATCH_CRON_SECRET = previousCron;
+
+  const migration = readFileSync(path.join(process.cwd(), "drizzle/0035_live_sync.sql"), "utf8");
+  assert.equal(migration.toLowerCase().includes("update deals"), false);
+  assert.equal(migration.includes("KOSBLING"), true);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("owner review, rate confirm, upload deadline, and reply drafts leave creators out", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const approvalsBefore = (await db.select().from(approvalEmails)).length;
+
+  const queued = await syncDeals(db, {
+    deals: [{
+      id: "review-sync",
+      brand: "Review Soap",
+      creatorId: "mariclare",
+      workflowStage: "offer_received",
+      visibleToCreator: true,
+      kamronNotes: "internal quote 424242",
+      postDate: "2026-11-20",
+    }],
+  });
+  assert.equal(queued.status, 200);
+  const reviewRow = (await db.select().from(deals).where(eq(deals.id, "review-sync")))[0];
+  assert.equal(reviewRow?.visibleToCreator, false);
+  assert.equal(reviewRow?.reviewStatus, "pending");
+  assert.equal(await getDealForViewer(db, mariclare, "review-sync"), null);
+  assert.equal((await listDealReviews(db)).some((row) => row.id === "review-sync"), true);
+  assert.equal((await listDealReviews(db)).some((row) => row.id === "kosbling"), false);
+
+  const creatorPublish = await publishDealReview(db, { dealId: "review-sync", actorEmail: mariclare.email, actorRole: "creator" });
+  assert.equal(creatorPublish.ok, false);
+  const edited = await editDealReview(db, {
+    dealId: "review-sync",
+    actorRole: "admin",
+    brand: "Review Soap Co",
+    postDate: "2026-11-20",
+    kamronNotes: "keep private",
+    productRequired: false,
+    rushRevision: true,
+    rateCents: 9000,
+  });
+  assert.equal(edited.ok, true);
+  assert.equal(await getDealForViewer(db, mariclare, "review-sync"), null);
+
+  const published = await publishDealReview(db, { dealId: "review-sync", actorEmail: admin.email, actorRole: "admin" });
+  assert.equal(published.ok, true);
+  const creatorDeal = await getDealForViewer(db, mariclare, "review-sync");
+  assert.equal(creatorDeal?.visibleToCreator, true);
+  assert.equal(creatorDeal?.brand, "Review Soap Co");
+  assert.equal(creatorDeal?.workflowStage, "offer_shared");
+  assert.equal(creatorDeal?.uploadDue, "2026-11-17");
+  assert.equal(creatorDeal?.rushRevision, true);
+  assert.equal(creatorDeal?.brandReplyDraft, null);
+  assert.equal(creatorDeal?.reviewStatus, null);
+  assert.equal(creatorDeal?.kamronNotes, null);
+  assert.equal(JSON.stringify(creatorDeal).includes("keep private"), false);
+  assert.equal(JSON.stringify(creatorDeal).includes("424242"), false);
+  assert.equal(JSON.stringify(creatorDeal).includes("minimum"), false);
+
+  const draft = await saveBrandReplyDraft(db, {
+    dealId: "review-sync",
+    actorEmail: admin.email,
+    actorRole: "admin",
+    body: "Hi, MariClare can do Review Soap Co for the agreed rate.",
+  });
+  assert.equal(draft.ok, true);
+  const creatorAfterDraft = await getDealForViewer(db, mariclare, "review-sync");
+  assert.equal(creatorAfterDraft?.brandReplyDraft, null);
+  assert.equal(JSON.stringify(creatorAfterDraft).includes("agreed rate"), false);
+  const ownerAfterDraft = await getDealForViewer(db, admin, "review-sync");
+  assert.equal(ownerAfterDraft?.brandReplyDraft, "Hi, MariClare can do Review Soap Co for the agreed rate.");
+  assert.equal((await db.select().from(approvalEmails)).length, approvalsBefore);
+  const creatorDraft = await saveBrandReplyDraft(db, {
+    dealId: "review-sync",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+    body: "secret reply from a creator",
+  });
+  assert.equal(creatorDraft.ok, false);
+  assert.equal((await getDealForViewer(db, admin, "review-sync"))?.brandReplyDraft?.includes("secret reply"), false);
+
+  const earlyConfirm = await confirmAgreedRate(db, { dealId: "review-sync", actorRole: "creator", creatorId: "mariclare" });
+  assert.equal(earlyConfirm.ok, false);
+  const askedRate = await askCreatorToConfirmRate(db, { dealId: "review-sync", actorRole: "admin" });
+  assert.equal(askedRate.ok, true);
+  const ready = await getDealForViewer(db, mariclare, "review-sync");
+  assert.equal(ready?.canConfirmRate, true);
+  assert.equal(ready?.agreedRateLabel, "$90");
+  const other = await confirmAgreedRate(db, { dealId: "review-sync", actorRole: "creator", creatorId: "abby" });
+  assert.equal(other.ok, false);
+  const confirmed = await confirmAgreedRate(db, { dealId: "review-sync", actorRole: "creator", creatorId: "mariclare" });
+  assert.equal(confirmed.ok, true);
+  assert.equal((await getDealForViewer(db, mariclare, "review-sync"))?.rateConfirmedAt == null, false);
+  assert.equal((await getDealForViewer(db, mariclare, "review-sync"))?.canConfirmRate, false);
+
+  const passed = await setDealStage(db, {
+    dealId: "review-sync",
+    toStage: "creator_declined",
+    actorEmail: mariclare.email,
+    actorRole: "creator",
+    creatorId: "mariclare",
+  });
+  assert.equal(passed.ok, false);
+  assert.equal((await getDealForViewer(db, admin, "review-sync"))?.workflowStage, "offer_shared");
+
+  assert.equal(uploadDueDate("2026-10-20"), "2026-10-17");
+  assert.equal(deadlineFlag("2026-10-20", "draft_due", new Date("2026-10-16T16:00:00.000Z")), "reminder");
+  assert.equal(deadlineFlag("2026-10-20", "draft_due", new Date("2026-10-18T16:00:00.000Z")), "overdue");
+  assert.equal(deadlineFlag("2026-10-20", "draft_submitted", new Date("2026-10-18T16:00:00.000Z")), "none");
+  assert.equal(uploadDueDate("not a date"), null);
+
+  const product = await upsertDeal(db, {
+    id: "review-product",
+    brand: "Product Co",
+    creatorId: "mariclare",
+    status: "negotiating",
+    workflowStage: "signed_by_creator",
+    visibleToCreator: true,
+  });
+  assert.equal(product.status, 201);
+  const waited = await advanceAfterSignature(db, "review-product");
+  assert.equal(waited.ok, true);
+  if (waited.ok) assert.equal(waited.workflowStage, "waiting_for_product");
+
+  const plain = await upsertDeal(db, {
+    id: "review-plain",
+    brand: "Plain Co",
+    creatorId: "mariclare",
+    status: "negotiating",
+    workflowStage: "signed_by_creator",
+    visibleToCreator: true,
+  });
+  assert.equal(plain.status, 201);
+  assert.equal((await editDealReview(db, { dealId: "review-plain", actorRole: "admin", productRequired: false })).ok, true);
+  const produced = await advanceAfterSignature(db, "review-plain");
+  assert.equal(produced.ok, true);
+  if (produced.ok) assert.equal(produced.workflowStage, "draft_due");
+
+  const hidden = await syncDeals(db, {
+    deals: [{ id: "review-no", brand: "No Soap", creatorId: "abby", workflowStage: "offer_received", visibleToCreator: true }],
+  });
+  assert.equal(hidden.status, 200);
+  const rejected = await rejectDealReview(db, { dealId: "review-no", actorEmail: admin.email, actorRole: "admin" });
+  assert.equal(rejected.ok, true);
+  assert.equal(await getDealForViewer(db, abby, "review-no"), null);
+  assert.equal((await listDealReviews(db)).some((row) => row.id === "review-no"), false);
+  assert.equal((await db.select().from(deals).where(eq(deals.id, "review-no")))[0]?.reviewStatus, "rejected");
+
+  const kosblingReject = await rejectDealReview(db, { dealId: "kosbling", actorEmail: admin.email, actorRole: "admin" });
+  assert.equal(kosblingReject.ok, false);
+  if (!kosblingReject.ok) assert.equal(kosblingReject.status, 409);
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
   assert.equal(kosblingAfter?.visibleToCreator, true);

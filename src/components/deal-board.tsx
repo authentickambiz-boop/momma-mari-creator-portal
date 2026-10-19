@@ -2,7 +2,10 @@ import Link from "next/link";
 import { changeDealStageAction, clearSafetyAction, confirmLivePostAction, confirmProductAction, contractReviewAction, creatorInterestAction, markPaymentAction, releaseOfferAction, reviewDraftAction, saveShipmentAction, setSignerMinorAction, submitLivePostsAction, uploadBrandSignedCopyAction, uploadContractAction } from "@/app/actions";
 import { boldSignEnabled } from "@/lib/boldsign";
 import { CONTRACT_CHECKS, contractStageOpen, contractStatusLabel } from "@/lib/contract-shared";
-import { commissionLabel, creatorPayoutTracker, paymentStatusLabel, paymentStatusTone, withBasePath } from "@/lib/format";
+import { CopyText } from "@/components/copy-text";
+import { DealLivePulse } from "@/components/deal-live-pulse";
+import { askRateAction, confirmRateAction, ownerDealFlagsAction, saveReplyDraftAction } from "@/app/review-actions";
+import { commissionLabel, creatorPayoutTracker, lastUpdatedLabel, paymentStatusLabel, paymentStatusTone, shortDate, withBasePath } from "@/lib/format";
 import { safetyLabel } from "@/lib/safety-shared";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
@@ -71,6 +74,7 @@ export function DealBoard({
 }) {
   return (
     <div className={showDetail ? "grid showdetail" : "grid"} id="dealGrid">
+      <DealLivePulse />
       <div className="list">
         <div className="sec-title">Your deals</div>
         {deals.length === 0 ? (
@@ -80,14 +84,23 @@ export function DealBoard({
           </div>
         ) : (
           deals.map((deal) => (
-            <Link key={deal.id} href={`/deals/${deal.id}${creatorQuery}`} className={selected?.id === deal.id ? "deal on" : "deal"}>
+            <Link key={deal.id} href={`/deals/${deal.id}${creatorQuery}`} className={selected?.id === deal.id ? "deal on" : "deal"} data-deal-id={deal.id}>
               <div className="top">
                 <span className="name">{deal.brand}</span>
                 <span className="amt">{deal.amountDisplay}</span>
               </div>
               <div className="note">{creatorQuery.includes("all") ? `${deal.creatorName} · ` : ""}{deal.subtitle}</div>
               <Chips chips={deal.chips} />
-              {deal.workflowStage ? <div className="note">{stageShortLabel(deal.workflowStage)}</div> : null}
+              {deal.workflowStage ? <div className="note" data-live-stage>{stageShortLabel(deal.workflowStage)}</div> : null}
+              {deal.uploadDue ? (
+                <div className="next" data-upload-due>
+                  Upload due {shortDate(deal.uploadDue)}
+                  {deal.deadlineFlag === "overdue" ? " · Overdue" : deal.deadlineFlag === "reminder" ? " · Due soon" : ""}
+                </div>
+              ) : null}
+              {deal.postDate ? <div className="note">Brand post date {shortDate(deal.postDate) || deal.postDate}</div> : null}
+              {deal.rushRevision ? <div className="callout">Rush revision</div> : null}
+              <div className="note" data-live-updated>{lastUpdatedLabel(deal.updatedAt)}</div>
               {deal.nextStep ? <div className="next">→ {deal.nextStep}</div> : null}
             </Link>
           ))
@@ -97,7 +110,7 @@ export function DealBoard({
           <p className="note">Seed data. These deals were loaded from the Oct 17, 2026 mockup. Deals the bot adds later are not marked seed.</p>
         ) : null}
       </div>
-      <div className="detail card">
+      <div className="detail card" data-deal-detail={selected?.id ?? ""}>
         {selected ? (
           <DealDetailView
             deal={selected}
@@ -182,12 +195,13 @@ function DealDetailView({
       <Link href={backHref} className="btn ghost back">← All deals</Link>
       <h2>{deal.brand}</h2>
       <div className="sub">{deal.subtitle}{showOwner ? ` · ${deal.creatorName}` : ""}</div>
+      <p className="note" data-live-updated>{lastUpdatedLabel(deal.updatedAt)}</p>
       <Chips chips={deal.chips} />
       {deal.isSeed ? <p className="note">Seed data from the Oct 17, 2026 mockup.</p> : null}
       {current ? (
         <>
           <div className="sec-title" style={{ marginTop: 14 }}>Where this deal is</div>
-          <p className="stage-note">{creatorStageMessage(current, deal.brand)}</p>
+          <p className="stage-note" data-live-message>{creatorStageMessage(current, deal.brand)}</p>
           {latestDraft?.review?.decision === "approved" ? (
             <p className="stage-note">Approved by your manager, sending to {deal.brand}.</p>
           ) : null}
@@ -215,6 +229,24 @@ function DealDetailView({
           </div>
         </>
       ) : null}
+      {deal.rushRevision ? <div className="callout"><b>Rush revision.</b> Kamron needs this one quickly.</div> : null}
+      {deal.uploadDue ? (
+        <div className="callout">
+          <b>Upload due {shortDate(deal.uploadDue)}</b>
+          {deal.deadlineFlag === "overdue" ? <div>Overdue</div> : null}
+          {deal.deadlineFlag === "reminder" ? <div>This is coming up.</div> : null}
+          <div className="note">Brand post date: {deal.postDate ? shortDate(deal.postDate) || deal.postDate : "TBD"}</div>
+        </div>
+      ) : null}
+      {deal.canConfirmRate && deal.agreedRateLabel ? (
+        <form action={confirmRateAction} className="stage-form">
+          <input type="hidden" name="dealId" value={deal.id} />
+          <p><b>Agreed rate: {deal.agreedRateLabel}</b></p>
+          <p className="note">This is the rate after negotiation. Confirm it if it looks right.</p>
+          <button className="btn" type="submit">Confirm this rate</button>
+        </form>
+      ) : null}
+      {deal.rateConfirmedAt && !canChangeStage ? <p className="stage-note">You confirmed the agreed rate.</p> : null}
       {deal.canRespondToOffer ? (
         <form action={creatorInterestAction} className="stage-form">
           <input type="hidden" name="dealId" value={deal.id} />
@@ -223,13 +255,12 @@ function DealDetailView({
             <input
               type="text"
               name="note"
-              placeholder="I'd want $500, or I can't post until November"
+              placeholder="I can start in November"
               aria-label="Optional note"
             />
           </label>
           <button className="btn" type="submit" name="decision" value="interested">I&apos;m interested</button>
-          <button className="btn ghost" type="submit" name="decision" value="declined">Not for me</button>
-          <p className="note">If you pass, put the reason in the note if you want. Kamron sees it. The brand only gets a polite note after he approves it, and your reason is not included unless he writes it in.</p>
+          <p className="note">This is before negotiation. Kamron handles the rate with the brand.</p>
           {interestError ? <span className="note">That choice was not saved.</span> : null}
         </form>
       ) : null}
@@ -264,6 +295,38 @@ function DealDetailView({
           )}
         </form>
       ) : null}
+      {isOwner ? (
+        <form action={ownerDealFlagsAction} className="stage-form">
+          <input type="hidden" name="dealId" value={deal.id} />
+          {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+          <label>Brand post date<input name="postDate" defaultValue={deal.postDate ?? ""} placeholder="2026-11-20" aria-label="Brand post date" /></label>
+          <label>Agreed rate, dollars<input name="rate" defaultValue={deal.rateCents != null ? String(deal.rateCents / 100) : ""} inputMode="decimal" aria-label="Agreed rate" /></label>
+          <label className="contract-choices"><input type="checkbox" name="productRequired" value="1" defaultChecked={deal.productRequired} /> Product required</label>
+          <label className="contract-choices"><input type="checkbox" name="rushRevision" value="1" defaultChecked={deal.rushRevision} /> Rush revision</label>
+          <button className="btn ghost" type="submit">Save dates</button>
+        </form>
+      ) : null}
+      {isOwner && deal.rateCents != null && !deal.rateReady ? (
+        <form action={askRateAction}>
+          <input type="hidden" name="dealId" value={deal.id} />
+          {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+          <button className="btn ghost" type="submit">Ask the creator to confirm {deal.agreedRateLabel ?? "the rate"}</button>
+        </form>
+      ) : null}
+      {isOwner ? (
+        <form action={saveReplyDraftAction} className="stage-form">
+          <input type="hidden" name="dealId" value={deal.id} />
+          <input type="hidden" name="back" value="deal" />
+          {creatorId ? <input type="hidden" name="creator" value={creatorId} /> : null}
+          <label>
+            Reply draft, only you see this
+            <textarea name="body" rows={4} defaultValue={deal.brandReplyDraft ?? ""} aria-label="Reply draft" placeholder="Hi, thanks for the offer..." />
+          </label>
+          <button className="btn ghost" type="submit">Save draft</button>
+          <p className="note">This stays in the portal. It is not emailed.</p>
+        </form>
+      ) : null}
+      {isOwner && deal.brandReplyDraft ? <CopyText text={deal.brandReplyDraft} label="Copy reply" /> : null}
       {canChangeStage ? (
         <form action={changeDealStageAction} className="stage-form">
           <input type="hidden" name="dealId" value={deal.id} />

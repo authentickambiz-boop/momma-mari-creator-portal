@@ -1,10 +1,11 @@
 import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { campaignAllocations, campaigns, creators, deals } from "@/db/schema";
-import { upsertBrandCrm } from "./brand-crm";
+import { brandKey, upsertBrandCrm } from "./brand-crm";
 import { latestRanks } from "./creator-rank";
+import { setDealStage } from "./deal-stage";
 import { rulesFor, videoMinimumCents } from "./deal-rules";
-import { agencyTimeZone, nowIso } from "./format";
+import { agencyTimeZone, formatMoney, nowIso } from "./format";
 import { getDealStage } from "./stages";
 import type { Viewer } from "./types";
 
@@ -62,6 +63,7 @@ async function sponsoredThisMonth(db: PortalDb, creatorId: string, now = new Dat
   const offerIds = new Set(offerRows.filter((row) => row.kind === "offer").map((row) => row.id));
   let count = 0;
   for (const deal of dealRows) {
+    if (deal.offerAllocationId) continue;
     const stage = getDealStage(deal.workflowStage);
     if ((stage?.order ?? 0) < 3 || deal.workflowStage === "creator_declined") continue;
     if (monthOf(deal.createdAt) === month) count += 1;
@@ -280,11 +282,9 @@ export async function respondToOffer(
   if (viewer.role !== "creator" || !viewer.creatorId) {
     return { ok: false as const, error: "Open this from your own sign-in." };
   }
-  if (input.decision !== "accepted" && input.decision !== "declined" && input.decision !== "question") {
-    return { ok: false as const, error: "Accept, decline, or ask a question." };
+  if (input.decision !== "accepted") {
+    return { ok: false as const, error: "Tell Kamron you're interested. Passing and questions stay with him." };
   }
-  const question = input.question?.trim() ?? "";
-  if (input.decision === "question" && !question) return { ok: false as const, error: "Write the question for Kamron." };
   const rows = await db.select().from(campaignAllocations).where(eq(campaignAllocations.id, input.allocationId));
   const row = rows[0];
   if (!row || row.creatorId !== viewer.creatorId) return { ok: false as const, error: "That offer is not on your list." };
@@ -293,16 +293,107 @@ export async function respondToOffer(
   if (!offer || offer.kind !== "offer") return { ok: false as const, error: "That offer is not on your list." };
   const timestamp = nowIso();
   await db.update(campaignAllocations).set({
-    response: input.decision,
-    question: input.decision === "question" ? question : row.question,
+    response: "accepted",
+    question: row.question,
     respondedAt: timestamp,
   }).where(eq(campaignAllocations.id, row.id));
+  const dealWrite = await applyOfferToDeal(db, viewer, offer, row, "accepted", "");
+  if (!dealWrite.ok) return dealWrite;
   await upsertBrandCrm(db, {
     brand: offer.brand,
     creatorId: viewer.creatorId,
-    outcome: input.decision === "question" ? "question" : input.decision,
+    outcome: "accepted",
+    contactName: offer.contactName,
+    contactEmail: offer.contactEmail,
+    nextFollowUp: offer.nextFollowUp ?? undefined,
+    ratePaidCents: row.amountCents,
     actorName: viewer.name,
-    note: input.decision === "question" ? question : null,
+    note: null,
   });
+  return { ok: true as const };
+}
+
+function earlyOfferStage(stageId: string | null) {
+  if (stageId === "creator_declined") return true;
+  const order = getDealStage(stageId)?.order;
+  return order != null && order <= 4;
+}
+
+async function applyOfferToDeal(
+  db: PortalDb,
+  viewer: Viewer,
+  offer: typeof campaigns.$inferSelect,
+  allocation: typeof campaignAllocations.$inferSelect,
+  decision: string,
+  question: string,
+) {
+  const target = decision === "accepted" ? "creator_interested" : decision === "declined" ? "creator_declined" : "offer_shared";
+  const rows = await db.select().from(deals).where(eq(deals.creatorId, viewer.creatorId ?? ""));
+  const key = brandKey(offer.brand);
+  const linked = rows.find((deal) => deal.offerAllocationId === allocation.id);
+  const sameBrand = rows.find((deal) => brandKey(deal.brand) === key && earlyOfferStage(deal.workflowStage));
+  const deal = linked ?? sameBrand ?? null;
+  const timestamp = nowIso();
+  const deliverables = (() => {
+    try {
+      const parsed = JSON.parse(offer.deliverablesJson) as unknown;
+      return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+    } catch {
+      return [];
+    }
+  })();
+  const contact = offer.contactEmail?.trim() || offer.contactName;
+  const patch = {
+    offerAllocationId: allocation.id,
+    contact,
+    amountDisplay: formatMoney(allocation.amountCents),
+    rateCents: allocation.amountCents,
+    updatedAt: timestamp,
+    nextStep: decision === "question" ? question : null,
+  };
+  if (!deal) {
+    const sort = rows.reduce((max, row) => Math.max(max, row.sortOrder), 0) + 1;
+    const id = `offer-${allocation.id}`;
+    await db.insert(deals).values({
+      id,
+      creatorId: viewer.creatorId ?? "",
+      brand: offer.brand,
+      subtitle: deliverables.join(", ") || "Brand offer",
+      status: "pitch",
+      deliverablesJson: JSON.stringify(deliverables),
+      chipsJson: "[]",
+      visibleToCreator: false,
+      reviewStatus: "pending",
+      uploadEnabled: false,
+      needsCreator: false,
+      sortOrder: sort,
+      isSeed: false,
+      createdAt: timestamp,
+      ...patch,
+    });
+    const moved = await setDealStage(db, {
+      dealId: id,
+      toStage: target,
+      actorEmail: viewer.email,
+      actorRole: "system",
+      creatorId: viewer.creatorId,
+      note: decision === "question" ? question : `Creator ${decision} the offer.`,
+    });
+    if (!moved.ok) return { ok: false as const, error: moved.error };
+    await db.update(deals).set({ visibleToCreator: false, reviewStatus: "pending" }).where(eq(deals.id, id));
+    return { ok: true as const };
+  }
+  await db.update(deals).set(patch).where(eq(deals.id, deal.id));
+  if (earlyOfferStage(deal.workflowStage) && deal.workflowStage !== target) {
+    const moved = await setDealStage(db, {
+      dealId: deal.id,
+      toStage: target,
+      actorEmail: viewer.email,
+      actorRole: "system",
+      creatorId: viewer.creatorId,
+      note: `Creator ${decision} the offer.`,
+    });
+    if (!moved.ok) return { ok: false as const, error: moved.error };
+  }
   return { ok: true as const };
 }
