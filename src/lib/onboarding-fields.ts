@@ -11,3 +11,18 @@ const PLATFORM_LABELS: Record<OnboardingPlatform, string> = {
 export function onboardingPlatformLabel(id: string) {
   return PLATFORM_LABELS[id as OnboardingPlatform] ?? id;
 }
+
+const PLATFORM_IDS: Record<string, OnboardingPlatform> = {
+  tiktok: "tiktok",
+  instagram: "instagram",
+  facebook: "facebook",
+  youtube: "youtube",
+  TikTok: "tiktok",
+  Instagram: "instagram",
+  Facebook: "facebook",
+  YouTube: "youtube",
+};
+
+export function onboardingPlatformId(value: string) {
+  return PLATFORM_IDS[value.trim()] ?? null;
+}

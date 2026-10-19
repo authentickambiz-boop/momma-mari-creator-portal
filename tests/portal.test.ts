@@ -6,7 +6,7 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { approvalEmails, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, payments } from "../src/db/schema";
+import { adminNotifications, approvalEmails, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creatorProfiles, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, payments } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
@@ -88,6 +88,9 @@ import { findSafetyKinds } from "../src/lib/safety-shared";
 import { buildMonthlyReport, draftMonthlyReport } from "../src/lib/report";
 import { getReferralPerk, listReferrals, perkLabel, recordReferral, REFERRAL_LAWYER_NOTE, setReferralPerk } from "../src/lib/referrals";
 import { dueHomeNotices, homeScreenOffer, inQuietHours, isIosHomeScreen, pushEnabled, queueHomeNotice } from "../src/lib/home-screen";
+import { NICHE_CATALOG } from "../src/lib/niche-catalog";
+import { matchOffer, needsQuestionnaire, questionnaireFor, saveQuestionnaireStep, type QuestionnaireAnswers } from "../src/lib/questionnaire";
+import { tagChoices } from "../src/lib/tag-picker";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -3893,6 +3896,142 @@ test("the signature audit prefers Cloudflare's connecting IP", () => {
   assert.equal(requestClientIp(headers({ "x-forwarded-for": "9.9.9.9, 8.8.8.8" })), "8.8.8.8");
   assert.equal(requestClientIp(headers({ "x-real-ip": "7.7.7.7" })), "7.7.7.7");
   assert.equal(requestClientIp(headers({})), "unknown");
+});
+
+test("the questionnaire resumes, prefills her own profile, and scores a brand offer", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  const choices = tagChoices(["parenting", "food"], ["food"], "toddler mom");
+  assert.equal(choices.some((choice) => choice.add && choice.value === "toddler mom"), true);
+  assert.equal(choices.some((choice) => choice.value === "food"), false);
+  assert.equal(NICHE_CATALOG.length >= 200, true);
+  const picker = readFileSync(path.join(process.cwd(), "src/components/tag-picker.tsx"), "utf8");
+  assert.match(picker, /aria-activedescendant/);
+  assert.match(picker, /role="listbox"/);
+  assert.match(picker, /Add "/);
+
+  const blank: QuestionnaireAnswers = {
+    niches: [],
+    platforms: [],
+    handles: {},
+    audienceSize: "",
+    audienceAge: "",
+    genderSplit: "",
+    locations: [],
+    formats: [],
+    frequency: "",
+    rates: {},
+    brands: [],
+    blocked: [],
+    kidAges: [],
+    kidsConfirm: false,
+    onCamera: "",
+    availability: "",
+    turnaround: "",
+    shipping: "",
+    languages: [],
+  };
+  const high = matchOffer(
+    { ...blank, niches: ["parenting"], platforms: ["TikTok"], brands: ["VEV"], languages: ["English"] },
+    { brand: "VEV", subtitle: "parenting video" },
+  );
+  const blocked = matchOffer(
+    { ...blank, niches: ["parenting"], platforms: ["TikTok"], brands: ["VEV"], blocked: ["VEV"], languages: ["English"] },
+    { brand: "VEV", subtitle: "parenting video" },
+  );
+  assert.equal(high.score > blocked.score, true);
+  assert.equal(blocked.score <= 12, true);
+  assert.equal(blocked.reasons.some((reason) => reason.includes("no list")), true);
+  assert.equal(JSON.stringify(high).includes("$"), false);
+
+  assert.equal((await upsertCreator(db, { id: "quiz-guest", name: "Quiz Guest", email: "quiz.guest@gmail.com", initials: "QG" })).status, 201);
+  const guest: Viewer = { email: "quiz.guest@gmail.com", name: "Quiz Guest", role: "creator", creatorId: "quiz-guest" };
+  const noticesBefore = (await db.select().from(adminNotifications)).length;
+  const approvalsBefore = (await db.select().from(approvalEmails)).length;
+
+  const skipped = await saveQuestionnaireStep(db, guest, { step: "niches", skip: true, pause: false, patch: {} });
+  assert.equal(skipped.ok, false);
+  const emptyNiche = await saveQuestionnaireStep(db, guest, { step: "niches", skip: false, pause: false, patch: { niches: [] } });
+  assert.equal(emptyNiche.ok, false);
+  const saved = await saveQuestionnaireStep(db, guest, { step: "niches", skip: false, pause: false, patch: { niches: ["toddler mom", "food"] } });
+  assert.equal(saved.ok, true);
+  if (saved.ok) assert.equal(saved.next, "platforms");
+  const resumed = await questionnaireFor(db, "quiz-guest");
+  assert.deepEqual(resumed.answers.niches, ["toddler mom", "food"]);
+  assert.equal(resumed.step, "platforms");
+
+  const kids = await saveQuestionnaireStep(db, guest, { step: "kids", skip: false, pause: false, patch: { kidAges: ["6–8"], kidsConfirm: false } });
+  assert.equal(kids.ok, false);
+  if (!kids.ok) assert.match(kids.error, /Confirm/);
+  const skipKids = await saveQuestionnaireStep(db, guest, { step: "kids", skip: true, pause: false, patch: { kidAges: ["6–8"] } });
+  assert.equal(skipKids.ok, true);
+  const afterSkip = await questionnaireFor(db, "quiz-guest");
+  assert.deepEqual(afterSkip.answers.niches, ["toddler mom", "food"]);
+  assert.equal(afterSkip.answers.kidAges.length, 0);
+
+  const profile = await db.select().from(creatorProfiles).where(eq(creatorProfiles.creatorId, "quiz-guest"));
+  assert.equal(profile[0]?.nichesOn, false);
+  assert.match(profile[0]?.niches ?? "", /toddler mom/);
+  assert.equal(profile[0]?.formatsOn, false);
+  assert.equal(profile[0]?.brandsOn, false);
+
+  const custom = await saveMyProfile(db, guest, {
+    creatorId: "quiz-guest",
+    profileOn: false,
+    displayName: "Quiz Guest",
+    displayNameOn: false,
+    avatarOn: false,
+    bio: "",
+    bioOn: false,
+    niches: ["toddler mom"],
+    nichesOn: false,
+    handles: "",
+    handlesOn: false,
+    audience: "",
+    audienceOn: false,
+    formats: ["Photo diary"],
+    formatsOn: false,
+    askMe: "",
+    askMeOn: false,
+    collabs: false,
+    collabsOn: false,
+    state: "",
+    stateOn: false,
+    brands: "VEV $1200",
+    brandsOn: false,
+    childName: "",
+    childAge: "",
+    familyOn: false,
+    familyConfirm: false,
+    joinedOn: true,
+  });
+  assert.equal(custom.ok, true);
+  const customRow = await db.select().from(creatorProfiles).where(eq(creatorProfiles.creatorId, "quiz-guest"));
+  assert.match(customRow[0]?.niches ?? "", /toddler mom/);
+  assert.match(customRow[0]?.formats ?? "", /Photo diary/);
+
+  const staff = await saveQuestionnaireStep(db, admin, { step: "niches", skip: false, pause: false, patch: { niches: ["food"] } });
+  assert.equal(staff.ok, false);
+  const paused = await saveQuestionnaireStep(db, guest, { step: "platforms", skip: false, pause: true, patch: { platforms: ["TikTok"] } });
+  assert.equal(paused.ok, true);
+  if (paused.ok) assert.equal(paused.next, "home");
+  assert.equal(await needsQuestionnaire(db, "quiz-guest"), false);
+  const bot = await saveQuestionnaireStep(db, guest, { step: "bot", skip: false, pause: false, patch: {} });
+  assert.equal(bot.ok, false);
+
+  assert.equal((await db.select().from(adminNotifications)).length, noticesBefore);
+  assert.equal((await db.select().from(approvalEmails)).length, approvalsBefore);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
 });
 
 test("the creator menu, home cards, and billing stay on her own sign-in", async () => {

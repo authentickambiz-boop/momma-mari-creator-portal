@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { creatorNotifications, creatorProfiles, creators, profileAdminLog } from "@/db/schema";
 import { nowIso } from "./format";
-import { AGE_RANGES, AUDIENCE_RANGES, CONTENT_FORMATS, NICHE_TAGS, PROFILE_FIELDS, US_STATES, type ProfileField } from "./profile-shared";
+import { AGE_RANGES, AUDIENCE_RANGES, PROFILE_FIELDS, US_STATES, type ProfileField } from "./profile-shared";
+import { cleanTag } from "./tag-picker";
 
 type Result<T> = { ok: true } & T | { ok: false; status: number; error: string };
 
@@ -62,6 +63,19 @@ function monthYear(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
   return date.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+function cleanTags(values: string[]) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const tag = cleanTag(value);
+    if (!tag || seen.has(tag.toLowerCase())) continue;
+    seen.add(tag.toLowerCase());
+    out.push(tag);
+    if (out.length >= 30) break;
+  }
+  return out;
 }
 
 function cleanBrands(value: string) {
@@ -163,8 +177,8 @@ export async function saveMyProfile(
   const displayName = input.displayName.trim();
   if (input.profileOn && !displayName) return { ok: false, status: 400, error: "Add a display name before showing your profile." };
   if (input.bio.length > 280) return { ok: false, status: 400, error: "Bio can be 280 characters." };
-  const niches = input.niches.filter((tag) => (NICHE_TAGS as readonly string[]).includes(tag));
-  const formats = input.formats.filter((tag) => (CONTENT_FORMATS as readonly string[]).includes(tag));
+  const niches = cleanTags(input.niches);
+  const formats = cleanTags(input.formats);
   const audience = (AUDIENCE_RANGES as readonly string[]).includes(input.audience) ? input.audience : "";
   const state = (US_STATES as readonly string[]).includes(input.state) ? input.state : "";
   const age = (AGE_RANGES as readonly string[]).includes(input.childAge) ? input.childAge : "";

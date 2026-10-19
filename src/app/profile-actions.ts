@@ -35,7 +35,7 @@ export async function saveProfileAction(formData: FormData) {
     collabsOn: formData.get("collabsOn") === "1",
     state: String(formData.get("state") ?? ""),
     stateOn: formData.get("stateOn") === "1",
-    brands: String(formData.get("brands") ?? ""),
+    brands: formData.getAll("brands").map((value) => String(value)).join(", "),
     brandsOn: formData.get("brandsOn") === "1",
     childName: String(formData.get("childName") ?? ""),
     childAge: String(formData.get("childAge") ?? ""),

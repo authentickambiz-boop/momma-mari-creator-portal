@@ -5,6 +5,7 @@ import { dealPowers } from "@/lib/authz";
 import { longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
+import { matchOffer, questionnaireFor } from "@/lib/questionnaire";
 import { listUnreadCreatorNotices } from "@/lib/video-review";
 
 export default async function DealPage({
@@ -26,6 +27,10 @@ export default async function DealPage({
   const visible = deals.filter((deal) => deal.visibleToCreator && deal.status !== "paid");
   const need = deals.filter((deal) => deal.visibleToCreator && deal.needsCreator);
   const hidden = deals.filter((deal) => !deal.visibleToCreator);
+  const offerStage = selected?.workflowStage === "offer_received" || selected?.workflowStage === "offer_shared";
+  const match = staff && selected && offerStage
+    ? matchOffer((await questionnaireFor(portal.db, selected.creatorId)).answers, { brand: selected.brand, subtitle: selected.subtitle })
+    : null;
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -66,6 +71,17 @@ export default async function DealPage({
           <p className="note">If a brand is still in negotiation, Kamron hasn&apos;t turned it on for you yet.</p>
         </div>
       )}
+      {match ? (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="sec-title">Deal match</div>
+          <p className="match-score">{match.score}</p>
+          {match.reasons.length ? (
+            <ul>{match.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+          ) : (
+            <p className="note">Not enough answers yet.</p>
+          )}
+        </div>
+      ) : null}
       <DealBoard
         deals={deals}
         selected={selected}

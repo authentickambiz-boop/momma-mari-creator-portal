@@ -8,6 +8,7 @@ import { publicBasePath } from "@/lib/format";
 import { googleConfigured } from "@/lib/google-oauth";
 import { listManagers } from "@/lib/managers";
 import { listCreators } from "@/lib/queries";
+import { creatorStartPath } from "@/lib/questionnaire";
 
 const ERRORS: Record<string, string> = {
   not_allowed: "That Google account isn't on the Momma Mari creator list. Use the Gmail Kamron has on file for you.",
@@ -18,9 +19,9 @@ const ERRORS: Record<string, string> = {
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const viewer = await currentViewer();
-  if (viewer) redirect("/");
   const params = await searchParams;
   const db = await getDb();
+  if (viewer) redirect(await creatorStartPath(db, viewer));
   const creators = devLoginEnabled() ? await listCreators(db) : [];
   const managers = devLoginEnabled() ? (await listManagers(db)).filter((manager) => manager.active) : [];
   const error = params.error ? ERRORS[params.error] : null;

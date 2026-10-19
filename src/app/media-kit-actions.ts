@@ -17,7 +17,7 @@ export async function saveMediaKitAction(formData: FormData) {
     followers: String(formData.get("followers") ?? ""),
     avgViews: String(formData.get("avgViews") ?? ""),
     engagement: String(formData.get("engagement") ?? ""),
-    niches: String(formData.get("niches") ?? ""),
+    niches: formData.getAll("niches").map((value) => String(value)).join(", "),
   });
   if (!result.ok) redirect(`/media-kit?kitError=${encodeURIComponent(result.error)}`);
   redirect(`/media-kit?saved=1&slug=${encodeURIComponent(result.slug)}`);

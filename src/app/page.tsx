@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { dismissCreatorNoticeAction, dismissNotificationAction } from "@/app/actions";
 import { DealBoard } from "@/components/deal-board";
 import { PortalFrame } from "@/components/portal-frame";
@@ -10,6 +11,7 @@ import { listManagerNotices, needsYou } from "@/lib/managers";
 import { listUnreadNotices } from "@/lib/onboarding";
 import { listUnreadCreatorNotices } from "@/lib/video-review";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
+import { questionnaireFor } from "@/lib/questionnaire";
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string; passed?: string }> }) {
   const params = await searchParams;
@@ -44,6 +46,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const creatorNotices = portal.viewer.role === "creator" && portal.viewer.creatorId
     ? await listUnreadCreatorNotices(portal.db, portal.viewer.creatorId)
     : [];
+  const quiz = portal.viewer.role === "creator" && portal.viewer.creatorId
+    ? await questionnaireFor(portal.db, portal.viewer.creatorId)
+    : null;
+  if (quiz && !quiz.finished && !quiz.paused) redirect("/onboarding");
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -63,6 +69,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
       }
     >
+      {quiz && !quiz.finished ? (
+        <div className="callout">
+          <b>Finish your setup.</b> Your answers match brand deals and fill in your profile. <Link href="/onboarding">Continue</Link>
+        </div>
+      ) : null}
       {params.passed === "1" && portal.viewer.role === "creator" ? (
         <div className="callout">
           <b>You passed on that offer.</b> It is off your list. Kamron has a polite note to the brand waiting for his OK. Nothing goes out until he approves it.

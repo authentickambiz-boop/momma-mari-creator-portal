@@ -1,7 +1,9 @@
 import { hideProfileAction, saveProfileAction } from "@/app/profile-actions";
 import { PortalFrame } from "@/components/portal-frame";
+import { TagPicker } from "@/components/tag-picker";
 import { loadPortal } from "@/lib/current-user";
-import { AGE_RANGES, AUDIENCE_RANGES, CONTENT_FORMATS, NICHE_TAGS, US_STATES } from "@/lib/profile-shared";
+import { BRAND_OPTIONS, FORMAT_OPTIONS, NICHE_CATALOG } from "@/lib/niche-catalog";
+import { AGE_RANGES, AUDIENCE_RANGES, US_STATES } from "@/lib/profile-shared";
 import { myProfile } from "@/lib/profiles";
 
 function savedList(value: string | null | undefined) {
@@ -29,7 +31,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const preview = mine?.preview;
   const savedNiches = savedList(profile?.niches);
   const savedFormats = savedList(profile?.formats);
-  const savedBrands = savedList(profile?.brands).join(", ");
+  const savedBrands = savedList(profile?.brands);
   return (
     <PortalFrame viewer={portal.viewer} tab="profile" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>My profile</h1><p>Hidden until you turn it on. Others only see the fields you check.</p></div>}>
       {params.saved ? <p className="note">Saved.</p> : null}
@@ -54,10 +56,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         <label><input type="checkbox" name="avatarOn" value="1" defaultChecked={profile?.avatarOn} /> Show initials</label>
         <label>Bio<textarea name="bio" maxLength={280} defaultValue={profile?.bio ?? ""} /></label>
         <label><input type="checkbox" name="bioOn" value="1" defaultChecked={profile?.bioOn} /> Show bio</label>
-        <fieldset>
-          <legend>Niche</legend>
-          {NICHE_TAGS.map((tag) => <label key={tag}><input type="checkbox" name="niches" value={tag} defaultChecked={savedNiches.includes(tag)} /> {tag}</label>)}
-        </fieldset>
+        <TagPicker name="niches" label="Niches" options={NICHE_CATALOG} selected={savedNiches} placeholder="Search niches" />
         <label><input type="checkbox" name="nichesOn" value="1" defaultChecked={profile?.nichesOn} /> Show niches</label>
         <label>Handles<input name="handles" defaultValue={profile?.handles ?? ""} placeholder="@name" /></label>
         <label><input type="checkbox" name="handlesOn" value="1" defaultChecked={profile?.handlesOn} /> Show handles</label>
@@ -68,10 +67,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           </select>
         </label>
         <label><input type="checkbox" name="audienceOn" value="1" defaultChecked={profile?.audienceOn} /> Show audience range</label>
-        <fieldset>
-          <legend>Formats</legend>
-          {CONTENT_FORMATS.map((format) => <label key={format}><input type="checkbox" name="formats" value={format} defaultChecked={savedFormats.includes(format)} /> {format}</label>)}
-        </fieldset>
+        <TagPicker name="formats" label="Formats" options={FORMAT_OPTIONS} selected={savedFormats} />
         <label><input type="checkbox" name="formatsOn" value="1" defaultChecked={profile?.formatsOn} /> Show formats</label>
         <label>Ask me about<input name="askMe" defaultValue={profile?.askMe ?? ""} /></label>
         <label><input type="checkbox" name="askMeOn" value="1" defaultChecked={profile?.askMeOn} /> Show ask me about</label>
@@ -84,7 +80,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           </select>
         </label>
         <label><input type="checkbox" name="stateOn" value="1" defaultChecked={profile?.stateOn} /> Show state</label>
-        <label>Brands, names only<input name="brands" placeholder="VEV, WaterH" defaultValue={savedBrands} /></label>
+        <TagPicker name="brands" label="Brands, names only" options={BRAND_OPTIONS} selected={savedBrands} placeholder="Search or add a brand" />
         <label><input type="checkbox" name="brandsOn" value="1" defaultChecked={profile?.brandsOn} /> Show brands</label>
         <label>Child&apos;s first name or nickname<input name="childName" defaultValue={profile?.childName ?? ""} /></label>
         <label>Age range
