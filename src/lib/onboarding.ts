@@ -49,9 +49,26 @@ export async function saveGmailConnection(
     gmailRefreshToken: cipher,
     gmailEmail,
     gmailConnectedAt: timestamp,
+    gmailReconnectReason: null,
     emailStatus: "connected",
   }).where(eq(creators.id, creatorId));
   return { ok: true as const, gmailEmail };
+}
+
+export type MailboxReconnectReason = "unauthorized_client" | "invalid_grant";
+
+export function mailboxReconnectReason(message: string): MailboxReconnectReason | null {
+  if (message.includes("unauthorized_client")) return "unauthorized_client";
+  if (message.includes("invalid_grant")) return "invalid_grant";
+  return null;
+}
+
+export async function markMailboxNeedsReconnect(db: PortalDb, creatorId: string, reason: MailboxReconnectReason) {
+  await db.update(creators).set({ gmailReconnectReason: reason }).where(eq(creators.id, creatorId));
+}
+
+export async function clearMailboxReconnect(db: PortalDb, creatorId: string) {
+  await db.update(creators).set({ gmailReconnectReason: null }).where(eq(creators.id, creatorId));
 }
 
 export async function gmailConnectionState(db: PortalDb, creatorId: string) {
@@ -59,13 +76,19 @@ export async function gmailConnectionState(db: PortalDb, creatorId: string) {
     cipher: creators.gmailRefreshToken,
     gmailEmail: creators.gmailEmail,
     connectedAt: creators.gmailConnectedAt,
+    reconnectReason: creators.gmailReconnectReason,
   }).from(creators).where(eq(creators.id, creatorId));
   const row = rows[0];
+  const reconnectReason = row?.reconnectReason === "unauthorized_client" || row?.reconnectReason === "invalid_grant"
+    ? row.reconnectReason
+    : null;
   return {
     connected: Boolean(row?.cipher),
     gmailEmail: row?.gmailEmail ?? null,
     connectedAt: row?.connectedAt ?? null,
     cipher: row?.cipher ?? null,
+    needsReconnect: Boolean(row?.cipher && reconnectReason),
+    reconnectReason,
   };
 }
 

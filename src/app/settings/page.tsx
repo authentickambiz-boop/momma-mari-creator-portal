@@ -1,6 +1,8 @@
 import { saveSettingsAction } from "@/app/account-actions";
 import { ConnectPanel } from "@/components/connect-panel";
 import { PortalFrame } from "@/components/portal-frame";
+import { driveConnectionState, driveConnectHref, gmailConnectHref } from "@/lib/account-connections";
+import { canManageCreatorAccounts, storedConnectionStatus } from "@/lib/account-connection-status";
 import { readOwnAccount } from "@/lib/creator-home";
 import { loadPortal } from "@/lib/current-user";
 import { emailSetupFor, gmailConnectionState } from "@/lib/onboarding";
@@ -11,6 +13,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const account = await readOwnAccount(portal.db, portal.viewer);
   const creator = portal.viewer.role === "creator" ? portal.creators.find((row) => row.id === portal.viewer.creatorId) ?? null : null;
   const connection = creator ? await gmailConnectionState(portal.db, creator.id) : null;
+  const drive = creator ? await driveConnectionState(portal.db, creator.id) : null;
   const setup = creator ? await emailSetupFor(portal.db, creator.id) : null;
   return (
     <PortalFrame viewer={portal.viewer} tab="settings" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>Settings</h1><p>Connected accounts and the notices you want.</p></div>}>
@@ -21,12 +24,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         {creator ? (
           <ConnectPanel
             creator={creator}
-            canConnectEmail={true}
-            emailConnected={connection?.connected ?? false}
+            canManage={canManageCreatorAccounts(portal.viewer, creator.id)}
+            gmailStatus={storedConnectionStatus(connection?.connected ?? false, connection?.needsReconnect ?? false)}
             gmailEmail={connection?.gmailEmail ?? null}
+            gmailConnectHref={gmailConnectHref(portal.viewer, creator.id)}
+            driveStatus={storedConnectionStatus(drive?.connected ?? false, drive?.needsReconnect ?? false)}
+            driveConnectHref={driveConnectHref(portal.viewer, creator.id)}
             emailSetup={setup?.choice ?? null}
             hostedEmailAddress={setup?.hostedEmailAddress ?? null}
             showBilling={false}
+            showOwnSetup
           />
         ) : (
           <p className="note">Creators connect their own accounts from their sign-in. Staff still have Connect accounts in the tab row.</p>
