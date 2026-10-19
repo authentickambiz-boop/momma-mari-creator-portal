@@ -519,6 +519,8 @@ Sign-in stays on `openid email profile`. **Connect your email** is a second Goog
    - **Hosted email:** ask Momma Mari to host a business address on `@mommamari.com`. She types a name and sees a preview such as `abby@mommamari.com`. Momma Mari owns the domain and the mailbox. Roster creators are `$79 one-time setup + $15/month`. The public price is `$99 one-time setup + $19/month`. The portal does not charge anyone; Stripe is not connected yet. She can finish her profile without connecting Google.
 5. Connecting a new or personal Gmail uses **Connect your email**. Finishing the profile writes **New creator ready for bot** on Kamron's home page. Kash Bot reads finished profiles, including `emailSetup`, from `GET /api/bot/onboarding` and creates the bot manually after Kamron says OK.
 
+Watched brand inboxes (MariClare and AuthenticKam) are a separate read-only setup. The steps, the Pub/Sub topic, and the Webflow secrets are in `docs/live-sync-setup.md`. That path does not send mail.
+
 ## Google Drive
 
 Uploads need one of these. Do not commit either value.

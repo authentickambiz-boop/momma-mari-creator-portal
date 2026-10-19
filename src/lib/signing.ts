@@ -220,6 +220,23 @@ async function saveSignedFile(
   return { driveFileId, driveFileUrl, signedSha256: await sha256Hex(input.bytes) };
 }
 
+export async function advanceAfterSignature(db: PortalDb, dealId: string) {
+  const rows = await db.select().from(deals).where(eq(deals.id, dealId));
+  const deal = rows[0];
+  if (!deal) return { ok: false as const, status: 404, error: "Deal not found." };
+  const next = deal.productRequired ? "waiting_for_product" : "draft_due";
+  if (deal.workflowStage === next) return { ok: true as const, workflowStage: next };
+  const moved = await setDealStage(db, {
+    dealId,
+    toStage: next,
+    actorEmail: "portal",
+    actorRole: "system",
+    note: deal.productRequired ? "Product is required before production." : "No product is needed. Straight to production.",
+  });
+  if (!moved.ok) return moved;
+  return { ok: true as const, workflowStage: moved.workflowStage };
+}
+
 export async function signContract(
   db: PortalDb,
   input: {
@@ -351,6 +368,12 @@ export async function signContract(
     note: minor ? `Parent or guardian signed contract v${contract.version}.` : `Creator signed contract v${contract.version}.`,
   });
   if (!moved.ok) return { ok: false, status: moved.status, error: moved.error };
+  let workflowStage = moved.workflowStage;
+  if (!pendingCountersign) {
+    const advanced = await advanceAfterSignature(db, deal.id);
+    if (!advanced.ok) return advanced;
+    workflowStage = advanced.workflowStage;
+  }
 
   if (!pendingCountersign) {
     const drafted = await queueSignedEmail(db, {
@@ -376,7 +399,7 @@ export async function signContract(
     createdAt: signedAt,
     readAt: null,
   });
-  return { ok: true, signatureId: request.id, status: pendingCountersign ? "pending_countersign" : "final", workflowStage: moved.workflowStage, pendingCountersign };
+  return { ok: true, signatureId: request.id, status: pendingCountersign ? "pending_countersign" : "final", workflowStage, pendingCountersign };
 }
 
 export async function countersignContract(
@@ -517,7 +540,9 @@ export async function countersignContract(
     createdAt: signedAt,
     readAt: null,
   });
-  return { ok: true, signatureId: id, workflowStage: deal.workflowStage };
+  const advanced = await advanceAfterSignature(db, deal.id);
+  if (!advanced.ok) return advanced;
+  return { ok: true, signatureId: id, workflowStage: advanced.workflowStage };
 }
 
 export async function uploadBrandSignedCopy(
@@ -611,6 +636,8 @@ export async function uploadBrandSignedCopy(
     note: `Uploaded the brand's completed DocuSign for v${contract.version}. The sign page was skipped.`,
   });
   if (!moved.ok) return { ok: false, status: moved.status, error: moved.error };
+  const advanced = await advanceAfterSignature(db, deal.id);
+  if (!advanced.ok) return advanced;
   await db.insert(creatorNotifications).values({
     id: crypto.randomUUID(),
     creatorId: deal.creatorId,
@@ -620,7 +647,7 @@ export async function uploadBrandSignedCopy(
     createdAt: signedAt,
     readAt: null,
   });
-  return { ok: true, signatureId: id, workflowStage: moved.workflowStage };
+  return { ok: true, signatureId: id, workflowStage: advanced.workflowStage };
 }
 
 export async function setSignerIsMinor(

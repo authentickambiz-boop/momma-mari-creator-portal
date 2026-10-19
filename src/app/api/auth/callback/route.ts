@@ -1,14 +1,17 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/getDb";
-import { appBaseUrl } from "@/lib/format";
+import { appBaseUrl, normalizeEmail } from "@/lib/format";
 import { currentViewer } from "@/lib/current-user";
+import { mailboxForCreator, renewGmailWatches, renewMailboxWatch } from "@/lib/gmail-push";
 import {
   exchangeCode,
   exchangeGmailCode,
   gmailStateCookieName,
+  gmailWatchCreatorCookieName,
   isGmailOAuthState,
   oauthStateCookieName,
+  readWatchCreatorCookie,
   verifyGmailOAuthState,
   verifyOAuthState,
 } from "@/lib/google-oauth";
@@ -49,17 +52,31 @@ async function finishGmailConnect(code: string | null, state: string | null) {
   const fail = (reason: string) => {
     const response = NextResponse.redirect(`${appBaseUrl()}/connect?gmail=${reason}`);
     response.cookies.set(gmailStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+    response.cookies.set(gmailWatchCreatorCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
     return response;
   };
   if (!valid || !code) return fail("oauth");
   const viewer = await currentViewer();
-  if (!viewer || viewer.role !== "creator" || !viewer.creatorId) return fail("creator_only");
+  const watchCreatorId = await readWatchCreatorCookie(jar.get(gmailWatchCreatorCookieName())?.value);
   const mailbox = await exchangeGmailCode(code);
   if (!mailbox) return fail("no_refresh");
   const db = await getDb();
+  if (viewer?.role === "admin" && watchCreatorId) {
+    const mapped = mailboxForCreator(watchCreatorId);
+    if (!mapped || normalizeEmail(mailbox.gmailEmail) !== mapped.email) return fail("wrong_mailbox");
+    const saved = await saveGmailConnection(db, mapped.creatorId, mailbox);
+    if (!saved.ok) return fail(saved.status === 503 ? "not_configured" : "oauth");
+    await renewGmailWatches(db, ({ refreshToken }) => renewMailboxWatch(refreshToken));
+    const response = NextResponse.redirect(`${appBaseUrl()}/connect?gmail=connected`);
+    response.cookies.set(gmailStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+    response.cookies.set(gmailWatchCreatorCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+    return response;
+  }
+  if (!viewer || viewer.role !== "creator" || !viewer.creatorId) return fail("creator_only");
   const saved = await saveGmailConnection(db, viewer.creatorId, mailbox);
   if (!saved.ok) return fail(saved.status === 503 ? "not_configured" : "oauth");
   const response = NextResponse.redirect(`${appBaseUrl()}/onboarding?connected=1`);
   response.cookies.set(gmailStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+  response.cookies.set(gmailWatchCreatorCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
   return response;
 }

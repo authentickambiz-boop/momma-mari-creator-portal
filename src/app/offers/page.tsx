@@ -40,27 +40,13 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
               <p>{offer.startsOn || "Start TBD"} to {offer.endsOn || "end TBD"}</p>
               <p>The brand will pay {formatMoney(offer.budgetCents)} for this.</p>
               {offer.contactName ? <p className="note">Contact: {offer.contactName}</p> : null}
-              <p className="note">{offer.response === "pending" ? "Waiting on you" : offer.response === "accepted" ? "You accepted" : offer.response === "declined" ? "You declined" : "You asked a question"}</p>
-              {offer.question ? <p>{offer.question}</p> : null}
-              {offer.response === "pending" || offer.response === "question" ? (
-                <>
-                  <form action={respondToOfferAction}>
-                    <input type="hidden" name="allocationId" value={offer.id} />
-                    <input type="hidden" name="decision" value="accepted" />
-                    <button className="btn" type="submit">Accept</button>
-                  </form>
-                  <form action={respondToOfferAction}>
-                    <input type="hidden" name="allocationId" value={offer.id} />
-                    <input type="hidden" name="decision" value="declined" />
-                    <button className="btn ghost" type="submit">Decline</button>
-                  </form>
-                  <form action={respondToOfferAction} className="stack">
-                    <input type="hidden" name="allocationId" value={offer.id} />
-                    <input type="hidden" name="decision" value="question" />
-                    <label>Question for Kamron<textarea name="question" rows={3} defaultValue={offer.question ?? ""} /></label>
-                    <button className="btn ghost" type="submit">Ask a question</button>
-                  </form>
-                </>
+              <p className="note">{offer.response === "accepted" ? "You said you're interested" : "Waiting on you"}</p>
+              {offer.response === "pending" ? (
+                <form action={respondToOfferAction}>
+                  <input type="hidden" name="allocationId" value={offer.id} />
+                  <input type="hidden" name="decision" value="accepted" />
+                  <button className="btn" type="submit">I&apos;m interested</button>
+                </form>
               ) : null}
             </article>
           ))}

@@ -8,9 +8,6 @@ import { assertStaffAccess, assignedManagersByCreator, notifyStaff, staffHistory
 
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 
-/** Prefill for a decline. Kamron can change it before he approves. It is not pasted into the email. */
-export const DECLINE_SUGGESTED_PLAN = "A gifted post or a smaller scope, if a full paid post doesn't fit.";
-
 type Result<T> = { ok: true } & T | { ok: false; status: number; error: string };
 
 export type InterestDecision = "interested" | "declined";
@@ -37,14 +34,6 @@ function clean(value: string | null | undefined) {
 export function firstEmail(value: string | null | undefined) {
   const match = value?.match(EMAIL_PATTERN);
   return match ? normalizeEmail(match[0]) : null;
-}
-
-function contactName(contact: string | null, email: string | null) {
-  if (!contact) return null;
-  const stripped = email ? contact.replace(new RegExp(email, "i"), "") : contact;
-  const name = stripped.replace(/[<>(),]/g, " ").replace(/\s+/g, " ").trim();
-  if (!name || name.includes("@")) return null;
-  return name;
 }
 
 function isInterestDecision(value: string): value is InterestDecision {
@@ -172,21 +161,6 @@ export async function logOfferScreening(
   });
 }
 
-async function suggestOtherCreator(db: PortalDb, decliningCreatorId: string) {
-  const people = await db.select().from(creators);
-  const self = people.find((creator) => creator.id === decliningCreatorId);
-  const others = people.filter((creator) => creator.id !== decliningCreatorId);
-  if (others.length === 0) return null;
-  const selfGoal = self?.monthlyGoalCents ?? null;
-  const smaller = selfGoal == null
-    ? []
-    : others
-        .filter((creator) => creator.monthlyGoalCents != null && creator.monthlyGoalCents < selfGoal)
-        .sort((a, b) => (a.monthlyGoalCents ?? 0) - (b.monthlyGoalCents ?? 0) || a.name.localeCompare(b.name));
-  if (smaller[0]) return smaller[0];
-  return others.slice().sort((a, b) => a.name.localeCompare(b.name))[0] ?? null;
-}
-
 function interestEmail(creatorName: string, brand: string, note: string | null) {
   const lines = [`Hi,`, ``, `${creatorName} is interested in working with ${brand}.`];
   if (note) lines.push(``, `${creatorName} added this note: ${note}`);
@@ -194,21 +168,6 @@ function interestEmail(creatorName: string, brand: string, note: string | null) 
   return {
     subject: `${creatorName} is interested in ${brand}`,
     body: lines.join("\n"),
-  };
-}
-
-function declineEmail(creatorName: string, brand: string) {
-  return {
-    subject: `Thanks for thinking of ${creatorName}`,
-    body: [
-      `Hi,`,
-      ``,
-      `Thank you for thinking of ${creatorName} for ${brand}. This one isn't the right fit right now, and we'd like to stay in touch for something that works better for both of you.`,
-      ``,
-      `Thanks,`,
-      `Kamron`,
-      `Momma Mari`,
-    ].join("\n"),
   };
 }
 
@@ -234,6 +193,9 @@ export async function recordCreatorInterest(
   }
   const prior = await savedChoice(db, deal.id);
   if (prior) return { ok: false, status: 409, error: "You already answered this offer." };
+  if (input.decision === "declined") {
+    return { ok: false, status: 403, error: "Creators don't pass on terms from here." };
+  }
   const released = await releasedScreening(db, deal.id);
   if (!deal.visibleToCreator || deal.workflowStage !== "offer_shared" || !released) {
     return { ok: false, status: 403, error: "This offer is not on your list yet." };
@@ -243,14 +205,11 @@ export async function recordCreatorInterest(
   if (!brandEmail) return { ok: false, status: 400, error: "This offer has no brand email yet." };
 
   const note = clean(input.note);
-  const suggested = input.decision === "declined" ? await suggestOtherCreator(db, deal.creatorId) : null;
-  const email = input.decision === "interested"
-    ? interestEmail(input.creatorName, deal.brand, note)
-    : declineEmail(input.creatorName, deal.brand);
+  const email = interestEmail(input.creatorName, deal.brand, note);
 
   const moved = await setDealStage(db, {
     dealId: deal.id,
-    toStage: input.decision === "interested" ? "creator_interested" : "creator_declined",
+    toStage: "creator_interested",
     actorEmail: input.creatorEmail,
     actorRole: "creator",
     creatorId: input.creatorId,
@@ -260,15 +219,10 @@ export async function recordCreatorInterest(
 
   const drafted = await createApprovalEmail(db, {
     dealId: deal.id,
-    gate: input.decision === "interested" ? "interest" : "decline",
+    gate: "interest",
     to: brandEmail,
     subject: email.subject,
     body: email.body,
-    brandContactName: input.decision === "declined" ? contactName(deal.contact, brandEmail) : null,
-    brandContactEmail: input.decision === "declined" ? brandEmail : null,
-    brandContactCompany: input.decision === "declined" ? deal.brand : null,
-    suggestedCreatorId: suggested?.id ?? null,
-    suggestedPlan: input.decision === "declined" ? DECLINE_SUGGESTED_PLAN : null,
   }, { email: input.creatorEmail, role: "creator" });
   if (!drafted.ok) return { ok: false, status: drafted.status, error: drafted.error };
 
@@ -282,11 +236,9 @@ export async function recordCreatorInterest(
     approvalId: drafted.id,
     createdAt: timestamp,
   });
-  const lead = input.decision === "interested"
-    ? `${input.creatorName} is interested in ${deal.brand}.`
-    : `${input.creatorName} passed on ${deal.brand}.`;
+  const lead = `${input.creatorName} is interested in ${deal.brand}.`;
   await notifyStaff(db, {
-    kind: input.decision === "interested" ? "creator_interest" : "creator_passed",
+    kind: "creator_interest",
     creatorId: deal.creatorId,
     message: note ? `${lead} ${note}` : lead,
   });

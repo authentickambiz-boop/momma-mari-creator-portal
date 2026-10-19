@@ -8,6 +8,7 @@ import {
   contractSignatures,
   contracts,
   dealStageEvents,
+  brandReplyDrafts,
   deals,
   drafts,
   inboxItems,
@@ -23,7 +24,8 @@ import { firstEmail, interestContextForDeal } from "./creator-interest";
 import { safetyForDeal } from "./safety";
 import { reviewsForDeal } from "./video-review";
 import { shipmentStatusLabel, trackingUrl } from "./fulfillment";
-import { normalizeEmail, nowIso, parseJson } from "./format";
+import { deadlineFlag, uploadDueDate } from "./deadlines";
+import { formatMoney, normalizeEmail, nowIso, parseJson } from "./format";
 import { getDealStage } from "./stages";
 import type {
   Chip,
@@ -92,6 +94,11 @@ function toSummary(row: typeof deals.$inferSelect, creatorName: string): DealSum
     pipelineName: row.pipelineName,
     sortOrder: row.sortOrder,
     workflowStage: row.workflowStage,
+    updatedAt: row.updatedAt,
+    postDate: row.postDate,
+    uploadDue: uploadDueDate(row.postDate),
+    deadlineFlag: deadlineFlag(row.postDate, row.workflowStage),
+    rushRevision: row.rushRevision,
   };
 }
 
@@ -404,6 +411,19 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
     canConfirmProduct: (viewer.role === "creator" ? viewer.creatorId === row.creatorId : staff) && row.workflowStage === "waiting_for_product",
     canSubmitPosts: (viewer.role === "creator" ? viewer.creatorId === row.creatorId : staff) && (getDealStage(row.workflowStage)?.order ?? 0) >= 20,
     canMarkPayment: viewer.role === "admin" && (getDealStage(row.workflowStage)?.order ?? 0) >= 21,
+    productRequired: row.productRequired,
+    rateReady: row.rateReady,
+    rateConfirmedAt: row.rateConfirmedAt,
+    canConfirmRate:
+      viewer.role === "creator" &&
+      viewer.creatorId === row.creatorId &&
+      row.visibleToCreator &&
+      row.rateReady &&
+      row.rateCents != null &&
+      !row.rateConfirmedAt,
+    agreedRateLabel: row.rateReady && row.rateCents != null && !managerView ? formatMoney(row.rateCents) : null,
+    brandReplyDraft: staff ? (await db.select().from(brandReplyDrafts).where(eq(brandReplyDrafts.dealId, dealId)))[0]?.body ?? null : null,
+    reviewStatus: staff ? row.reviewStatus : null,
   };
 }
 
