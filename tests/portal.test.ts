@@ -91,8 +91,12 @@ import { dueHomeNotices, homeScreenOffer, inQuietHours, isIosHomeScreen, pushEna
 import { NICHE_CATALOG } from "../src/lib/niche-catalog";
 import { matchOffer, needsQuestionnaire, questionnaireFor, saveQuestionnaireStep, type QuestionnaireAnswers } from "../src/lib/questionnaire";
 import { tagChoices } from "../src/lib/tag-picker";
-import { prefillDealRules, presentScreening, saveDealRules, savePricingFloor, screenOffer, type DealRules } from "../src/lib/deal-rules";
-import { allocateCampaign, addProspect, canSeeCommission, convertProspect, listCampaigns, markOpenOutside, ownerDashboard, projectedCommission, queueOutsideOffer, rankRoster, rosterHasAFit, saveCampaign } from "../src/lib/campaigns";
+import { prefillDealRules, presentScreening, rulesFor, saveDealRules, savePricingFloor, screenOffer, type DealRules } from "../src/lib/deal-rules";
+import { allocateCampaign, addProspect, campaignById, canSeeCommission, convertProspect, listCampaigns, markOpenOutside, ownerDashboard, presentRoster, projectedCommission, queueOutsideOffer, rankRoster, rosterHasAFit, saveCampaign } from "../src/lib/campaigns";
+import { compositeScore, defaultWeights, emptyInputs, leaderboard, refreshRanks, saveRankInputs, saveRankSettings, tierFor } from "../src/lib/creator-rank";
+import { addCollab, collabLift, pairCollab, podById, savePod, suggestPods } from "../src/lib/pods";
+import { createRankReport, reportPdf, sharedReport } from "../src/lib/rank-reports";
+import { addReinvestment, reinvestmentSummary } from "../src/lib/reinvestment";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -4311,6 +4315,149 @@ test("campaign matching keeps the roster first and outside offers stay in the qu
   assert.equal((await listApprovalQueue(db, "mariclare")).some((row) => row.id === queued.approvalId), false);
   const converted = await convertProspect(db, admin, prospect.id, "quiz-guest");
   assert.equal(converted.ok, true);
+  assert.equal((await db.select().from(approvalEmails)).filter((row) => row.status === "sent").length, sentBefore);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("owner ranks drive campaign priority, pods stay private, and reinvestment is tracking only", async () => {
+  const paymentsBefore = (await db.select().from(payments)).length;
+  const sentBefore = (await db.select().from(approvalEmails)).filter((row) => row.status === "sent").length;
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length;
+
+  const weights = defaultWeights();
+  const low = compositeScore({ ...emptyInputs(), engagement: 1, averageViews: 1000, followers: 1000, completion: 20, onTime: 20, revisions: 8, rehire: 10, response: 40 }, weights);
+  const high = compositeScore(
+    { ...emptyInputs(), audienceGrowth: 40, engagement: 10, averageViews: 100000, followers: 1000000, completion: 100, onTime: 100, rehire: 100, revenue: 1000000, community: 20, collabs: 8 },
+    weights,
+  );
+  assert.ok(high.score > low.score);
+  assert.ok(high.score <= 100 && low.score >= 0);
+  assert.equal(tierFor(high.score), "Platinum");
+  assert.equal(tierFor(70), "Gold");
+  assert.equal(tierFor(50), "Silver");
+  assert.equal(tierFor(49), "Bronze");
+  assert.equal(collabLift([{ followers: 100, collabPosts: 0 }, { followers: 110, collabPosts: 0 }, { followers: 200, collabPosts: 3 }]), 80);
+
+  const manager: Viewer = { role: "manager", email: "casey.manager@gmail.com", name: "Casey", creatorId: null, managerId: "not-a-real-manager" };
+  assert.equal((await saveRankSettings(db, manager, weights, "weekly")).ok, false);
+  assert.equal((await refreshRanks(db, manager, new Date("2026-10-19T16:00:00Z"))).ok, false);
+  assert.equal((await leaderboard(db, manager)).ok, false);
+  assert.equal((await saveRankSettings(db, admin, weights, "daily")).ok, true);
+  const mariRules = await rulesFor(db, "mariclare");
+  assert.equal((await saveDealRules(db, admin, "mariclare", { ...mariRules, blockedBrands: [...mariRules.blockedBrands, "Rank Soap"] })).ok, true);
+  assert.equal((await saveRankInputs(db, admin, "abby", { ...emptyInputs(), engagement: 9, followers: 120000, completion: 90, onTime: 90, rehire: 80, revenue: 500000 })).ok, true);
+  assert.equal((await saveRankInputs(db, admin, "authentickam", { ...emptyInputs(), engagement: 2, followers: 8000, completion: 40, onTime: 40 })).ok, true);
+  assert.equal((await saveRankInputs(db, admin, "mariclare", { ...emptyInputs(), audienceGrowth: 40, engagement: 10, averageViews: 100000, followers: 900000, completion: 100, onTime: 100, rehire: 100, revenue: 1000000, community: 20, collabs: 8 })).ok, true);
+  const first = await refreshRanks(db, admin, new Date("2026-10-19T16:00:00Z"));
+  assert.equal(first.ok, true);
+  const second = await refreshRanks(db, admin, new Date("2026-10-19T20:00:00Z"));
+  assert.equal(second.ok, true);
+  if (second.ok) assert.equal(second.created, false);
+  const nextDay = await refreshRanks(db, admin, new Date("2026-10-20T16:00:00Z"));
+  assert.equal(nextDay.ok, true);
+  if (nextDay.ok) assert.equal(nextDay.created, true);
+
+  const saved = await saveCampaign(db, admin, {
+    brand: "Rank Soap",
+    name: "Ranked slots",
+    budgetCents: 200000,
+    niches: ["parenting"],
+    platforms: ["TikTok"],
+    deliverables: ["TikTok"],
+    slots: 1,
+    startsOn: "2026-12-01",
+    endsOn: "2026-12-20",
+  });
+  assert.equal(saved.ok, true);
+  if (!saved.ok) return;
+  const campaign = await campaignById(db, saved.id);
+  assert.ok(campaign);
+  const ranked = await rankRoster(db, campaign!);
+  const abbyRow = ranked.find((row) => row.creatorId === "abby");
+  const kam = ranked.find((row) => row.creatorId === "authentickam");
+  const mari = ranked.find((row) => row.creatorId === "mariclare");
+  assert.ok(abbyRow && kam && mari);
+  assert.equal(mari?.verdict, "blocked");
+  assert.notEqual(abbyRow?.verdict, "blocked");
+  assert.ok((mari?.rosterScore ?? 0) > (abbyRow?.rosterScore ?? 0));
+  assert.ok(ranked.indexOf(abbyRow!) < ranked.indexOf(mari!));
+  assert.ok((abbyRow?.rosterScore ?? 0) > (kam?.rosterScore ?? 0));
+  if (abbyRow?.verdict === kam?.verdict) assert.ok(ranked.indexOf(abbyRow) < ranked.indexOf(kam!));
+  const hidden = presentRoster(manager, ranked);
+  assert.equal(hidden[0]?.rosterRank, null);
+  assert.equal(hidden[0]?.rosterScore, 0);
+  assert.ok((presentRoster(admin, ranked).find((row) => row.creatorId === "abby")?.rosterRank ?? 0) >= 1);
+
+  const choices = { breakdown: true, strengths: true, improve: false, trend: true, averages: false, contributors: false, collabs: false };
+  assert.equal((await createRankReport(db, manager, { level: "creator", subjectId: "abby", choices, showRanks: true })).ok, false);
+  const quiet = await createRankReport(db, admin, { level: "creator", subjectId: "abby", choices, showRanks: false });
+  assert.equal(quiet.ok, true);
+  if (!quiet.ok) return;
+  const shared = await sharedReport(db, quiet.token);
+  const lines = (shared?.sections ?? []).flatMap((section) => section.lines).join(" ");
+  assert.equal(/\bScore \d|\bRank \d/.test(lines), false);
+  const loud = await createRankReport(db, admin, { level: "creator", subjectId: "abby", choices: { ...choices, trend: false }, showRanks: true });
+  assert.equal(loud.ok, true);
+  if (!loud.ok) return;
+  assert.match((await sharedReport(db, loud.token))?.sections.flatMap((section) => section.lines).join(" ") ?? "", /Score /);
+  const bytes = await reportPdf({ title: "Abby snapshot", sections: shared?.sections ?? [] });
+  assert.equal(new TextDecoder().decode(bytes.subarray(0, 4)), "%PDF");
+
+  assert.equal((await suggestPods(db, manager)).ok, false);
+  const lead = await addManager(db, { actorRole: "admin", name: "Pod Lead", email: "pod.lead@gmail.com" });
+  assert.equal(lead.ok, true);
+  if (!lead.ok) return;
+  const pod = await savePod(db, admin, { name: "Parenting micro", managerId: lead.id, niche: "parenting", sizeBand: "micro", creatorIds: ["abby"] });
+  assert.equal(pod.ok, true);
+  if (!pod.ok) return;
+  const otherManager: Viewer = { ...manager, managerId: "someone-else", email: "other.manager@gmail.com" };
+  assert.equal(await podById(db, otherManager, pod.id), null);
+  const leadViewer: Viewer = { role: "manager", email: "pod.lead@gmail.com", name: "Pod Lead", creatorId: null, managerId: lead.id };
+  assert.ok(await podById(db, leadViewer, pod.id));
+  const creator: Viewer = { role: "creator", email: "theofficialtheriots@gmail.com", name: "Abby", creatorId: "abby", managerId: null };
+  const idea = await addCollab(db, creator, { podId: pod.id, title: "Duet the unboxing", body: "Joint video" });
+  assert.equal(idea.ok, true);
+  if (!idea.ok) return;
+  const creatorPair = await pairCollab(db, creator, idea.id, "mariclare");
+  assert.equal(creatorPair.ok, false);
+  if (!creatorPair.ok) assert.match(creatorPair.error, /manager pairs/);
+  assert.equal((await pairCollab(db, leadViewer, idea.id, "mariclare")).ok, false);
+
+  const mariActor = { email: mariclare.email, name: "MariClare", role: "creator", creatorId: "mariclare" };
+  const listed = await listCommunity(db, mariActor, null);
+  assert.equal(listed.ok, true);
+  if (listed.ok && !listed.unchanged) assert.equal(listed.channels.some((channel) => channel.kind === "pod"), false);
+  const posted = await postCommunityMessage(db, mariActor, { channelId: `pod-${pod.id}`, body: "Can I join this room?" });
+  assert.equal(posted.ok, false);
+  if (!posted.ok) {
+    assert.equal(posted.status, 403);
+    assert.equal(posted.error, "That room is private.");
+  }
+  const abbyCreator = await findCreatorById(db, "abby");
+  const memberPost = await postCommunityMessage(db, { email: abbyCreator?.email ?? "", name: "Abby", role: "creator", creatorId: "abby" }, { channelId: `pod-${pod.id}`, body: "Hello from the pod" });
+  assert.equal(memberPost.ok, true);
+
+  assert.equal((await addReinvestment(db, manager, { month: "2026-10", category: "tools", amountCents: 5000 })).ok, false);
+  assert.equal((await addReinvestment(db, admin, { month: "2026-10", category: "tools", amountCents: 7000, note: "Editing app" })).ok, true);
+  const summary = await reinvestmentSummary(db, admin, "2026-10");
+  assert.equal(summary.ok, true);
+  if (summary.ok) {
+    assert.equal(summary.placeholder, true);
+    assert.equal(summary.byCategory.find((row) => row.id === "tools")?.cents, 7000);
+    assert.ok(summary.commissionCents >= 20000);
+    assert.match(summary.label, /Nothing is moved/);
+  }
+  assert.equal((await db.select().from(payments)).length, paymentsBefore);
   assert.equal((await db.select().from(approvalEmails)).filter((row) => row.status === "sent").length, sentBefore);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");

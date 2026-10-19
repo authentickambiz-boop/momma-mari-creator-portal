@@ -14,6 +14,8 @@ import {
   communityState,
   creators,
   managers,
+  podMembers,
+  pods,
 } from "@/db/schema";
 import { COMMUNITY_EMOJIS, privateKinds } from "./community-shared";
 import { normalizeEmail, nowIso, withBasePath } from "./format";
@@ -236,6 +238,20 @@ export async function loadCommunityMember(db: PortalDb, actor: CommunityActor): 
   return { ok: true, member, communityRole };
 }
 
+async function canUsePodChannel(db: PortalDb, email: string, creatorId: string | null, communityRole: string, channelId: string) {
+  if (communityRole === "admin") return true;
+  const podRows = await db.select().from(pods).where(eq(pods.channelId, channelId));
+  const pod = podRows[0];
+  if (!pod) return false;
+  if (creatorId) {
+    const members = await db.select().from(podMembers).where(eq(podMembers.podId, pod.id));
+    if (members.some((member) => member.creatorId === creatorId)) return true;
+  }
+  const managerRows = await db.select().from(managers);
+  const manager = managerRows.find((row) => normalizeEmail(row.email) === normalizeEmail(email) && row.active);
+  return Boolean(manager && manager.id === pod.managerId);
+}
+
 function muted(member: Member) {
   return Boolean(member.mutedUntil && member.mutedUntil > nowIso());
 }
@@ -372,6 +388,9 @@ export async function postCommunityMessage(
   if (!channel) return { ok: false, status: 404, error: "That channel does not exist." };
   if (channel.kind === "announcements" && access.communityRole !== "admin") {
     return { ok: false, status: 403, error: "Only an admin can post in Announcements." };
+  }
+  if (channel.kind === "pod" && !(await canUsePodChannel(db, access.member.email, access.member.creatorId, access.communityRole, channel.id))) {
+    return { ok: false, status: 403, error: "That room is private." };
   }
   if (settings.slowSeconds > 0 && access.member.lastPostAt) {
     const elapsed = Date.now() - Date.parse(access.member.lastPostAt);
@@ -628,7 +647,12 @@ export async function listCommunity(db: PortalDb, actor: CommunityActor, after: 
   if (after && after === cursor) return { ok: true as const, unchanged: true as const };
   const yearAgo = new Date(Date.now() - YEAR_MS).toISOString();
   touch("community_channels");
-  const channels = await db.select().from(communityChannels);
+  const channels = [];
+  for (const channel of await db.select().from(communityChannels)) {
+    if (channel.kind === "pod" && !(await canUsePodChannel(db, access.member.email, access.member.creatorId, access.communityRole, channel.id))) continue;
+    channels.push(channel);
+  }
+  const visibleChannels = new Set(channels.map((channel) => channel.id));
   touch("community_members");
   const members = await db.select().from(communityMembers);
   const removed = new Set(members.filter((member) => member.status === "removed").map((member) => member.id));
@@ -644,6 +668,7 @@ export async function listCommunity(db: PortalDb, actor: CommunityActor, after: 
   }).from(communityPhotos);
   const photosEnabled = Boolean(await photoStore());
   const visible = messages
+    .filter((message) => visibleChannels.has(message.channelId))
     .filter((message) => !message.deletedAt && message.createdAt >= yearAgo)
     .filter((message) => !message.held || access.communityRole === "admin")
     .sort((a, b) => {

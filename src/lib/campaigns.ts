@@ -11,6 +11,7 @@ import {
   prospects,
 } from "@/db/schema";
 import { BRAND_EMAIL_SENDER } from "./approvals";
+import { latestRanks } from "./creator-rank";
 import { rulesFor, screenOffer, type Screening } from "./deal-rules";
 import { agencyTimeZone, feeAndPayout, nowIso } from "./format";
 import { questionnaireFor } from "./questionnaire";
@@ -57,6 +58,8 @@ export type RankedCreator = {
   verdictLabel: string;
   askCents: number;
   reasons: string[];
+  rosterScore: number;
+  rosterRank: number | null;
 };
 
 export type BoardFilter = {
@@ -166,6 +169,7 @@ async function openDealCount(db: PortalDb, creatorId: string) {
 
 export async function rankRoster(db: PortalDb, campaign: CampaignRecord): Promise<RankedCreator[]> {
   const people = await db.select().from(creators);
+  const ranks = await latestRanks(db);
   const perSlot = Math.floor(campaign.budgetCents / Math.max(campaign.slots, 1));
   const ranked: RankedCreator[] = [];
   for (const person of people) {
@@ -203,14 +207,27 @@ export async function rankRoster(db: PortalDb, campaign: CampaignRecord): Promis
       verdictLabel: screened.verdict === "meets" ? "Meets rules" : screened.verdict === "below" ? "Below floor" : "Blocked",
       askCents: screened.suggestedAskCents,
       reasons: screened.reasons,
+      rosterScore: ranks.get(person.id)?.score ?? 0,
+      rosterRank: ranks.get(person.id)?.rank ?? null,
     });
   }
+  const gate = (verdict: Screening["verdict"]) => (verdict === "meets" ? 0 : verdict === "below" ? 1 : 2);
   return ranked.sort((a, b) => {
-    if (a.verdict === "blocked" && b.verdict !== "blocked") return 1;
-    if (b.verdict === "blocked" && a.verdict !== "blocked") return -1;
+    const gated = gate(a.verdict) - gate(b.verdict);
+    if (gated !== 0) return gated;
+    if (b.rosterScore !== a.rosterScore) return b.rosterScore - a.rosterScore;
     if (b.score !== a.score) return b.score - a.score;
     return b.askCents - a.askCents;
   });
+}
+
+export function presentRoster(viewer: Viewer, rows: RankedCreator[]) {
+  const owner = viewer.role === "admin";
+  return rows.map((row) => ({
+    ...row,
+    rosterScore: owner ? row.rosterScore : 0,
+    rosterRank: owner ? row.rosterRank : null,
+  }));
 }
 
 export function rosterHasAFit(ranked: RankedCreator[]) {
