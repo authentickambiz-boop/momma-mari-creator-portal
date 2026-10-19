@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { dealStageEvents, deals, revisions } from "@/db/schema";
+import { upsertBrandCrm } from "./brand-crm";
 import { nowIso } from "./format";
 import { assertStaffAccess } from "./managers";
 import { creatorStageMessage, getDealStage, stageAdminLabel, type StageActorRole } from "./stages";
@@ -26,7 +27,7 @@ export async function setDealStage(
     input.actorRole === "creator" &&
     input.creatorId === deal.creatorId &&
     deal.workflowStage === "offer_shared" &&
-    (stage.id === "creator_interested" || stage.id === "creator_declined");
+    stage.id === "creator_interested";
   const creatorSign =
     input.actorRole === "creator" &&
     input.creatorId === deal.creatorId &&
@@ -68,7 +69,10 @@ export async function setDealStage(
   };
   if (stage.bucket) patch.status = stage.bucket;
   if (stage.videoStep !== null) patch.stage = stage.videoStep;
-  if (stage.id === "offer_shared") patch.visibleToCreator = true;
+  if (stage.id === "offer_shared" && (input.actorRole === "admin" || input.actorRole === "manager")) {
+    patch.visibleToCreator = true;
+    patch.reviewStatus = "published";
+  }
   if (stage.id === "offer_received" || stage.id === "creator_declined") patch.visibleToCreator = false;
   await db.update(deals).set(patch).where(eq(deals.id, deal.id));
 
@@ -100,5 +104,31 @@ export async function setDealStage(
     createdAt: timestamp,
   });
 
+  if (deal.brand.trim()) {
+    await upsertBrandCrm(db, {
+      brand: deal.brand,
+      creatorId: deal.creatorId,
+      outcome: stageOutcome(stage.id),
+      contactEmail: emailIn(deal.contact),
+      actorName: input.actorEmail,
+    });
+  }
+
   return { ok: true as const, changed: true, workflowStage: stage.id, status: patch.status ?? deal.status };
+}
+
+function stageOutcome(stageId: string) {
+  if (stageId === "offer_received") return "offer received";
+  if (stageId === "offer_shared") return "offered";
+  if (stageId === "creator_interested") return "interested";
+  if (stageId === "creator_declined") return "declined";
+  if (stageId === "interest_sent") return "interest sent";
+  if (stageId === "paid") return "closed";
+  return stageAdminLabel(stageId);
+}
+
+function emailIn(value: string | null) {
+  if (!value) return null;
+  const match = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match ? match[0] : null;
 }

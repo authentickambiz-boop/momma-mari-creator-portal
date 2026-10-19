@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { brandContacts, brandCrmEntries, campaigns, creatorInterest, creators, deals, offerScreenings } from "@/db/schema";
 import { canSeeDeal, isOwner } from "./authz";
-import { nowIso } from "./format";
+import { normalizeEmail, nowIso } from "./format";
 import type { Viewer } from "./types";
 
 type Result<T> = { ok: true } & T | { ok: false; status: number; error: string };
@@ -197,6 +197,7 @@ export async function upsertBrandCrm(
     nextFollowUp?: string | null;
     contactName?: string | null;
     contactEmail?: string | null;
+    domain?: string | null;
     actorName: string;
     note?: string | null;
   },
@@ -219,6 +220,7 @@ export async function upsertBrandCrm(
     outcome,
     nextFollowUp: input.nextFollowUp !== undefined ? input.nextFollowUp : existing?.nextFollowUp ?? null,
     creatorId,
+    domain: input.domain !== undefined ? cleanDomain(input.domain ?? "") || null : existing?.domain ?? null,
   };
   if (existing) {
     await db.update(brandCrmEntries).set(values).where(eq(brandCrmEntries.id, existing.id));
@@ -227,6 +229,67 @@ export async function upsertBrandCrm(
   const id = crypto.randomUUID();
   await db.insert(brandCrmEntries).values({ ...values, id, createdAt: nowIso() });
   return { ok: true, id };
+}
+
+export function cleanDomain(value: string) {
+  return value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] ?? "";
+}
+
+/** Bot upsert. The key is the brand domain plus the contact email, not the creator. */
+export async function upsertBrandCrmByDomain(
+  db: PortalDb,
+  input: {
+    domain: string;
+    contactEmail: string;
+    brand?: string | null;
+    contactName?: string | null;
+    outcome?: string | null;
+    ratePaidCents?: number | null;
+    nextFollowUp?: string | null;
+    note?: string | null;
+    creatorId?: string | null;
+    actorName: string;
+  },
+): Promise<Result<{ id: string; created: boolean }>> {
+  const domain = cleanDomain(input.domain);
+  const contactEmail = normalizeEmail(input.contactEmail);
+  if (!domain || !domain.includes(".")) return { ok: false, status: 400, error: "domain is required." };
+  if (!contactEmail.includes("@")) return { ok: false, status: 400, error: "contactEmail is required." };
+  const rows = await db.select().from(brandCrmEntries);
+  const existing = rows.find((row) => cleanDomain(row.domain ?? "") === domain && normalizeEmail(row.contactEmail ?? "") === contactEmail);
+  const brand = input.brand?.trim() || existing?.brandKey || domain;
+  const outcome = input.outcome !== undefined ? input.outcome : existing?.outcome ?? null;
+  if (existing) {
+    await db.update(brandCrmEntries).set({
+      brandKey: brandKey(brand),
+      kind: outcome === "closed" ? "deal" : existing.kind === "contact" || existing.kind === "response" ? existing.kind : "offer",
+      contactName: input.contactName?.trim() || existing.contactName,
+      contactEmail,
+      domain,
+      response: existing.response,
+      note: input.note !== undefined ? input.note?.trim() || null : existing.note,
+      actorName: input.actorName,
+      ratePaidCents: input.ratePaidCents !== undefined ? input.ratePaidCents : existing.ratePaidCents,
+      outcome,
+      nextFollowUp: input.nextFollowUp !== undefined ? input.nextFollowUp : existing.nextFollowUp,
+      creatorId: input.creatorId !== undefined ? input.creatorId : existing.creatorId,
+    }).where(eq(brandCrmEntries.id, existing.id));
+    return { ok: true, id: existing.id, created: false };
+  }
+  const saved = await upsertBrandCrm(db, {
+    brand,
+    creatorId: input.creatorId ?? null,
+    ratePaidCents: input.ratePaidCents,
+    outcome,
+    nextFollowUp: input.nextFollowUp,
+    contactName: input.contactName,
+    contactEmail,
+    domain,
+    actorName: input.actorName,
+    note: input.note,
+  });
+  if (!saved.ok) return saved;
+  return { ok: true, id: saved.id, created: true };
 }
 
 export async function brandCrmFor(db: PortalDb, viewer: Viewer, brand: string) {

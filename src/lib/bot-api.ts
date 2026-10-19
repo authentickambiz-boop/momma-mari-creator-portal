@@ -7,6 +7,7 @@ import { createApprovalEmail, listSendableApprovals, markApprovalSent } from "./
 import { setDealStage } from "./deal-stage";
 import { isPaymentStatus } from "./fulfillment";
 import { findCreatorByEmail, findCreatorById } from "./queries";
+import { holdForOwnerReview } from "./deal-review";
 import { isDealStage, workflowStageForLegacy, workflowStageForVideoStep } from "./stages";
 
 export function authorizeBot(header: string | null) {
@@ -459,6 +460,55 @@ export async function markApprovalDraftSent(db: PortalDb, approvalId: string, bo
   }, { email: "bot", role: "bot" });
   if (!sent.ok) return { status: sent.status, body: { error: sent.error } };
   return { status: 200, body: { id: sent.id, status: sent.status, messageId: sent.messageId } };
+}
+
+const PRIVATE_SYNC_KEYS = [
+  "minDealCents",
+  "minimumPerVideoCents",
+  "typicalRateCents",
+  "typicalRate",
+  "minRates",
+  "targetRates",
+  "platformMinimums",
+  "internalQuoteCents",
+  "internalQuote",
+  "quoteCents",
+  "quote",
+];
+
+/** Batch upsert. Per-item results never echo minimums, quotes, or private notes. */
+export async function syncDeals(db: PortalDb, body: unknown) {
+  if (!isRecord(body) || !Array.isArray(body.deals)) {
+    return { status: 400, body: { error: "deals must be a list." } };
+  }
+  const results = [];
+  for (const item of body.deals) {
+    const source = isRecord(item) ? { ...item } : item;
+    if (isRecord(source)) {
+      delete source.visibleToCreator;
+      for (const key of PRIVATE_SYNC_KEYS) delete source[key];
+    }
+    const result = await upsertDeal(db, source);
+    const payload = result.body as {
+      error?: string;
+      created?: boolean;
+      workflowStage?: string;
+      visibleToCreator?: boolean;
+    };
+    const id = isRecord(item) && typeof item.id === "string" ? item.id : null;
+    if (result.status < 300 && payload.created && id) await holdForOwnerReview(db, id);
+    const stored = id ? (await db.select({ visibleToCreator: deals.visibleToCreator }).from(deals).where(eq(deals.id, id)))[0] : null;
+    results.push({
+      id,
+      ok: result.status < 300,
+      status: result.status,
+      created: typeof payload.created === "boolean" ? payload.created : null,
+      workflowStage: typeof payload.workflowStage === "string" ? payload.workflowStage : null,
+      visibleToCreator: stored ? stored.visibleToCreator : typeof payload.visibleToCreator === "boolean" ? payload.visibleToCreator : null,
+      error: typeof payload.error === "string" ? payload.error : null,
+    });
+  }
+  return { status: 200, body: { results } };
 }
 
 export async function setDealFolder(db: PortalDb, dealId: string, folderId: string) {

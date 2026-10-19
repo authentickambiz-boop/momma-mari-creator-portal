@@ -179,6 +179,28 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
+export function shortDate(isoDate: string | null | undefined) {
+  const match = isoDate?.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return isoDate?.trim() || "";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12)));
+}
+
+export function lastUpdatedLabel(iso: string | null | undefined) {
+  if (!iso) return "Last updated";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Last updated";
+  const time = new Intl.DateTimeFormat("en-US", {
+    timeZone: agencyTimeZone(),
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+  return `Last updated ${time}`;
+}
+
 export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }

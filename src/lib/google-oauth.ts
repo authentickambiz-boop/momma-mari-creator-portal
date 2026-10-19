@@ -99,6 +99,45 @@ export async function verifyGmailOAuthState(cookie: string | undefined, returned
   return Number(parts[2]) > Date.now();
 }
 
+/** Watch connect asks for read-only Gmail. It does not include compose or send. */
+export const GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+
+export function googleGmailWatchAuthUrl(state: string, loginHint: string) {
+  const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  url.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID ?? "");
+  url.searchParams.set("redirect_uri", googleRedirectUri());
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", GMAIL_READONLY_SCOPE);
+  url.searchParams.set("include_granted_scopes", "false");
+  url.searchParams.set("access_type", "offline");
+  url.searchParams.set("prompt", "consent");
+  url.searchParams.set("login_hint", loginHint);
+  url.searchParams.set("state", state);
+  return url.toString();
+}
+
+const WATCH_CREATOR_COOKIE = "mm_gmail_watch";
+
+export function gmailWatchCreatorCookieName() {
+  return WATCH_CREATOR_COOKIE;
+}
+
+export async function createWatchCreatorCookie(creatorId: string) {
+  const exp = Date.now() + 10 * 60 * 1000;
+  const payload = `${creatorId}.${exp}`;
+  return `${payload}.${await sign(payload)}`;
+}
+
+export async function readWatchCreatorCookie(value: string | undefined) {
+  if (!value) return null;
+  const parts = value.split(".");
+  if (parts.length !== 3) return null;
+  const payload = `${parts[0]}.${parts[1]}`;
+  if ((await sign(payload)) !== parts[2]) return null;
+  if (Number(parts[1]) <= Date.now()) return null;
+  return parts[0];
+}
+
 export function googleGmailAuthUrl(state: string, loginHint: string) {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID ?? "");

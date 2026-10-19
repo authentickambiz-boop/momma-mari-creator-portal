@@ -72,6 +72,11 @@ export type DealSummary = {
   pipelineName: string | null;
   sortOrder: number;
   workflowStage: string | null;
+  updatedAt: string;
+  postDate: string | null;
+  uploadDue: string | null;
+  deadlineFlag: "none" | "reminder" | "overdue";
+  rushRevision: boolean;
 };
 
 export type StageEventView = {
@@ -233,6 +238,13 @@ export type DealDetail = DealSummary & {
   canConfirmProduct: boolean;
   canSubmitPosts: boolean;
   canMarkPayment: boolean;
+  productRequired: boolean;
+  rateReady: boolean;
+  rateConfirmedAt: string | null;
+  canConfirmRate: boolean;
+  agreedRateLabel: string | null;
+  brandReplyDraft: string | null;
+  reviewStatus: string | null;
 };
 
 export type InboxItem = {
