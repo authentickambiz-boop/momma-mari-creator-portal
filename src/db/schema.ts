@@ -25,6 +25,8 @@ export const creators = sqliteTable("creators", {
   gmailEmail: text("gmail_email"),
   gmailConnectedAt: text("gmail_connected_at"),
   gmailReconnectReason: text("gmail_reconnect_reason"),
+  driveRefreshToken: text("drive_refresh_token"),
+  driveReconnectReason: text("drive_reconnect_reason"),
   emailSetup: text("email_setup"),
   hostedEmailAddress: text("hosted_email_address"),
   signerIsMinor: integer("signer_is_minor", { mode: "boolean" }).notNull().default(false),

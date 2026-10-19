@@ -151,10 +151,12 @@ A refresh failure looks different: `Gmail token refresh failed (401): unauthoriz
 
 Disconnect it, then connect it again:
 
-- On **Connect accounts**, as the owner, use **Disconnect** on that watched inbox.
+- On **Connect accounts**, the creator or the owner uses **Disconnect** on that inbox. The page asks for confirmation. Nobody is signed out of the portal.
 - Or call `POST /api/bot/mailboxes/disconnect` with `Authorization: Bearer BOT_API_TOKEN` and JSON `{ "email": "mmaclamroc@gmail.com" }`.
 
-Disconnect clears the refresh token and the watch row. It does not delete deals. Then use **Connect** on that same inbox so Google mints a token for the current client.
+Disconnect revokes the Google token, then clears the refresh token and the watch row. It does not delete deals. Then use **Connect** or **Reconnect** on that same inbox so Google mints a token for the current client.
+
+The same screen covers Google Drive and TikTok, Instagram, Facebook, and YouTube. Each row shows **Connected**, **Needs reconnect**, or **Not connected**, with **Connect**, **Reconnect**, and **Disconnect**. Drive uses the `drive.file` scope and is stored per creator. Disconnecting it does not revoke the agency Drive credential used for uploads. Social disconnect keeps the Zernio connect link. A manager can see the status and cannot change it.
 
 `invalid_client` is different: the client id and secret do not match, and the inbox is not marked needs-reconnect. Fix the secret, then run the cron again. `APP_BASE_URL` is the site origin plus `/portal`. The OAuth client's authorized redirect URI is that value plus `/api/auth/callback`. The Pub/Sub push URL and `GMAIL_PUSH_AUDIENCE` must both be the host that actually serves the portal, plus `/api/gmail/push`. A watch can succeed and later pushes can still be rejected when those two URLs differ.
 

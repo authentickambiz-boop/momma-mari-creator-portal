@@ -5,16 +5,21 @@ import { appBaseUrl, normalizeEmail } from "@/lib/format";
 import { currentViewer } from "@/lib/current-user";
 import { mailboxForCreator, renewGmailWatches, renewMailboxWatch } from "@/lib/gmail-push";
 import {
+  driveStateCookieName,
   exchangeCode,
+  exchangeDriveCode,
   exchangeGmailCode,
   gmailStateCookieName,
   gmailWatchCreatorCookieName,
+  isDriveOAuthState,
   isGmailOAuthState,
   oauthStateCookieName,
   readWatchCreatorCookie,
+  verifyDriveOAuthState,
   verifyGmailOAuthState,
   verifyOAuthState,
 } from "@/lib/google-oauth";
+import { saveDriveConnection } from "@/lib/account-connections";
 import { saveGmailConnection } from "@/lib/onboarding";
 import { creatorStartPath } from "@/lib/questionnaire";
 import { resolveLogin } from "@/lib/queries";
@@ -24,6 +29,9 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
+  if (isDriveOAuthState(state)) {
+    return finishDriveConnect(code, state);
+  }
   if (isGmailOAuthState(state)) {
     return finishGmailConnect(code, state);
   }
@@ -61,7 +69,9 @@ async function finishGmailConnect(code: string | null, state: string | null) {
   const mailbox = await exchangeGmailCode(code);
   if (!mailbox) return fail("no_refresh");
   const db = await getDb();
-  if (viewer?.role === "admin" && watchCreatorId) {
+  if (watchCreatorId) {
+    const allowed = viewer?.role === "admin" || (viewer?.role === "creator" && viewer.creatorId === watchCreatorId);
+    if (!allowed) return fail("creator_only");
     const mapped = mailboxForCreator(watchCreatorId);
     if (!mapped || normalizeEmail(mailbox.gmailEmail) !== mapped.email) return fail("wrong_mailbox");
     const saved = await saveGmailConnection(db, mapped.creatorId, mailbox);
@@ -78,5 +88,26 @@ async function finishGmailConnect(code: string | null, state: string | null) {
   const response = NextResponse.redirect(`${appBaseUrl()}/onboarding?connected=1`);
   response.cookies.set(gmailStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
   response.cookies.set(gmailWatchCreatorCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+  return response;
+}
+
+async function finishDriveConnect(code: string | null, state: string | null) {
+  const jar = await cookies();
+  const valid = await verifyDriveOAuthState(jar.get(driveStateCookieName())?.value, state);
+  const fail = (reason: string) => {
+    const response = NextResponse.redirect(`${appBaseUrl()}/connect?drive=${reason}`);
+    response.cookies.set(driveStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+    return response;
+  };
+  if (!valid || !code) return fail("oauth");
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "creator" || !viewer.creatorId) return fail("creator_only");
+  const drive = await exchangeDriveCode(code);
+  if (!drive) return fail("no_refresh");
+  const db = await getDb();
+  const saved = await saveDriveConnection(db, viewer.creatorId, drive.refreshToken);
+  if (!saved.ok) return fail(saved.status === 503 ? "not_configured" : "oauth");
+  const response = NextResponse.redirect(`${appBaseUrl()}/connect?drive=connected`);
+  response.cookies.set(driveStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
   return response;
 }

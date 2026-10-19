@@ -2,6 +2,8 @@
 -- This does not change any existing deal row. MariClare's KOSBLING deal is left exactly as it is.
 
 ALTER TABLE creators ADD COLUMN gmail_reconnect_reason TEXT;
+ALTER TABLE creators ADD COLUMN drive_refresh_token TEXT;
+ALTER TABLE creators ADD COLUMN drive_reconnect_reason TEXT;
 
 CREATE TABLE platform_invites (
   id TEXT PRIMARY KEY,

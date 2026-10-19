@@ -455,7 +455,9 @@ Each profile includes `creatorId`, `name`, `email`, `gmailEmail`, `gmailConnecte
 
 ### Disconnect a watched inbox
 
-`POST /api/bot/mailboxes/disconnect` clears the saved Gmail refresh token and the watch for one inbox. Use it when Google returns `unauthorized_client` or `invalid_grant` and Connect accounts says **Needs reconnect**. The owner can also press **Disconnect** on that inbox. Nothing is emailed.
+On **Connect accounts**, the creator (and the owner) can connect, reconnect, and disconnect Gmail, Google Drive, TikTok, Instagram, Facebook, and YouTube. Each row shows **Connected**, **Needs reconnect**, or **Not connected**. **Disconnect** asks for confirmation, revokes the Google token when that account has one, and clears the saved token. Gmail disconnect also clears the watch. The creator stays signed in.
+
+`POST /api/bot/mailboxes/disconnect` does the same Gmail clear for one inbox. Use it when Google returns `unauthorized_client` or `invalid_grant`. Nothing is emailed. Drive disconnect revokes only that creator's Drive token (`drive.file`). It does not revoke the agency Drive credential used for uploads. Social disconnect marks the account disconnected and keeps the Zernio connect link.
 
 ```bash
 curl -sS -X POST \
