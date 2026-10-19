@@ -6,6 +6,7 @@ import { PortalFrame } from "@/components/portal-frame";
 import { dealPowers } from "@/lib/authz";
 import { longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
+import { countOwnPayouts, creatorHomeCards, creatorNeedsYou, firstName } from "@/lib/creator-home";
 import { listManagerNotices, needsYou } from "@/lib/managers";
 import { listUnreadNotices } from "@/lib/onboarding";
 import { listUnreadCreatorNotices } from "@/lib/video-review";
@@ -28,11 +29,20 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     ? await listManagerNotices(portal.db, portal.viewer.managerId)
     : [];
   const waiting = portal.viewer.role === "manager" ? await needsYou(portal.db, portal.viewer) : [];
+  const creatorHome = portal.viewer.role === "creator" && Boolean(portal.viewed);
+  const creatorNeed = creatorHome ? creatorNeedsYou(deals) : [];
+  const payoutsPending = creatorHome && portal.viewer.creatorId ? await countOwnPayouts(portal.db, portal.viewer.creatorId) : 0;
+  const accountsConnected = Boolean(portal.viewed && Object.values(portal.viewed.accounts).some((account) => account.status === "connected"));
+  const cards = creatorHome
+    ? creatorHomeCards({ offersWaiting: creatorNeed.length, payoutsPending, accountsConnected })
+    : [];
   const heading = portal.viewer.role === "manager"
     ? "My creators"
-    : portal.viewed
-      ? `Hi ${portal.viewed.name} 👋`
-      : "All creators";
+    : creatorHome && portal.viewed
+      ? `Welcome, ${firstName(portal.viewed.name)}`
+      : portal.viewed
+        ? `Hi ${portal.viewed.name} 👋`
+        : "All creators";
   const creatorNotices = portal.viewer.role === "creator" && portal.viewer.creatorId
     ? await listUnreadCreatorNotices(portal.db, portal.viewer.creatorId)
     : [];
@@ -78,6 +88,29 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </form>
         </div>
       ))}
+      {cards.length > 0 ? (
+        <div className="home-cards">
+          {cards.map((card) => (
+            <Link key={card.title} href={card.href} className="home-card">
+              <strong>{card.title}</strong>
+              <span>{card.status}</span>
+            </Link>
+          ))}
+        </div>
+      ) : null}
+      {creatorNeed.length > 0 ? (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="sec-title">Needs you</div>
+          <ul className="timeline">
+            {creatorNeed.map((item) => (
+              <li key={item.id}>
+                <Link href={item.href}><b>{item.title}</b></Link>
+                <div className="note">{item.detail}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {waiting.length > 0 ? (
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="sec-title">Needs you</div>
@@ -111,6 +144,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </form>
         </div>
       ))}
+      <div id="deals">
       <DealBoard
         deals={deals}
         selected={selected}
@@ -119,6 +153,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         creatorQuery={creatorQuery}
         {...dealPowers(portal.viewer)}
       />
+      </div>
     </PortalFrame>
   );
 }
