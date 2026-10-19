@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { creators, mediaKits } from "@/db/schema";
+import { publicWeeklySnapshots, type PublicWeek } from "./analytics-snapshots";
 import { nowIso } from "./format";
 import { PLATFORM_METRICS, type PlatformStat } from "./platforms";
 
@@ -15,6 +16,7 @@ export type MediaKitView = {
   engagement: string | null;
   niches: string[];
   platforms: PlatformStat[];
+  weeks: PublicWeek[];
 };
 
 export function zernioStatsEnabled() {
@@ -49,7 +51,7 @@ export function parsePlatformStats(value: string | null | undefined): PlatformSt
   }
 }
 
-function toView(row: typeof mediaKits.$inferSelect): MediaKitView | null {
+function toView(row: typeof mediaKits.$inferSelect, weeks: PublicWeek[]): MediaKitView | null {
   if (!row.published || !row.displayName) return null;
   return {
     slug: row.slug,
@@ -60,6 +62,7 @@ function toView(row: typeof mediaKits.$inferSelect): MediaKitView | null {
     engagement: row.engagement,
     niches: nichesOf(row.niches),
     platforms: parsePlatformStats(row.platformsJson),
+    weeks,
   };
 }
 
@@ -73,7 +76,7 @@ export async function publicMediaKit(db: PortalDb, slug: string) {
   const rows = await db.select().from(mediaKits).where(eq(mediaKits.slug, slug));
   const row = rows[0];
   if (!row) return null;
-  return toView(row);
+  return toView(row, await publicWeeklySnapshots(db, row.creatorId));
 }
 
 export async function saveMediaKit(

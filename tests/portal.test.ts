@@ -95,7 +95,7 @@ import { matchOffer, needsQuestionnaire, questionnaireFor, saveQuestionnaireStep
 import { tagChoices } from "../src/lib/tag-picker";
 import { deliverableKind, prefillDealRules, presentScreening, quotedAskCents, rulesFor, saveDealRules, savePricingFloor, screenOffer, setCategoryOverride, type DealRules } from "../src/lib/deal-rules";
 import { allocateCampaign, addProspect, campaignById, canSeeCommission, convertProspect, listCampaigns, markOpenOutside, ownerDashboard, presentRoster, projectedCommission, queueOutsideOffer, rankRoster, rosterHasAFit, saveCampaign } from "../src/lib/campaigns";
-import { analyticsBoard, importAnalyticsSnapshots, parseDisplayedCount, saveOwnerSnapshot, writeAnalyticsSnapshots } from "../src/lib/analytics-snapshots";
+import { analyticsBoard, importAnalyticsSnapshots, parseDisplayedCount, publicWeeklySnapshots, saveOwnerSnapshot, writeAnalyticsSnapshots } from "../src/lib/analytics-snapshots";
 import { compositeScore, defaultWeights, emptyInputs, inputsFor, leaderboard, refreshRanks, saveRankInputs, saveRankSettings, scoringInputs, tierFor } from "../src/lib/creator-rank";
 import { addCollab, collabLift, pairCollab, podById, savePod, suggestPods } from "../src/lib/pods";
 import { createRankReport, reportPdf, sharedReport } from "../src/lib/rank-reports";
@@ -4866,6 +4866,82 @@ test("July snapshots fill analytics, stay off other creators, and feed rank scor
   const saves = (await db.select().from(analyticsSnapshots)).find((row) => row.id === "snap-abby-instagram-2026-10-19-past30d");
   assert.match(saves?.metricsJson ?? "", /"saves":null/);
   assert.equal((saves?.metricsJson ?? "").includes("-1"), false);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("a later Monday snapshot keeps earlier weeks and shows up on the public kit", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+  const earlier = (await db.select().from(analyticsSnapshots)).find((row) => row.id === "snap-mariclare-instagram-2026-10-19-past30d");
+  assert.match(earlier?.metricsJson ?? "", /326k/);
+  const added = await writeAnalyticsSnapshots(db, {
+    creatorId: "mariclare",
+    platform: "Instagram",
+    capturedOn: "2026-10-26",
+    source: "July",
+    period: "Past 30d",
+    metrics: {
+      followers: "330k",
+      engagement: "3.60%",
+      views: "3.1m",
+      reach: "1.3m",
+      likes: "95k",
+      comments: "810",
+      shares: "2,900",
+      saves: "5,800",
+    },
+    audience: { gender: ["Female 80%", "Male 20%"], age: ["18-24 41%"], country: ["USA 53%"] },
+  });
+  assert.equal(added.status, 200);
+  const still = (await db.select().from(analyticsSnapshots)).find((row) => row.id === "snap-mariclare-instagram-2026-10-19-past30d");
+  assert.match(still?.metricsJson ?? "", /326k/);
+  assert.equal((await db.select().from(analyticsSnapshots)).filter((row) => row.creatorId === "mariclare" && row.platform === "Instagram").length, 2);
+
+  const edited = await saveOwnerSnapshot(db, admin, {
+    creatorId: "mariclare",
+    platform: "Instagram",
+    capturedOn: "2026-10-26",
+    period: "Past 30d",
+    source: "July",
+    metrics: { followers: "331k" },
+    merge: true,
+  });
+  assert.equal(edited.ok, true);
+  const week = (await db.select().from(analyticsSnapshots)).find((row) => row.id === "snap-mariclare-instagram-2026-10-26-past30d");
+  assert.match(week?.metricsJson ?? "", /331k/);
+  assert.match(week?.metricsJson ?? "", /3\.60%/);
+  const untouched = (await db.select().from(analyticsSnapshots)).find((row) => row.id === "snap-mariclare-instagram-2026-10-19-past30d");
+  assert.match(untouched?.metricsJson ?? "", /326k/);
+  assert.equal((untouched?.metricsJson ?? "").includes("331k"), false);
+
+  const board = await analyticsBoard(db, mariclare);
+  const instagram = board.creators[0].platforms.find((row) => row.platform === "Instagram");
+  assert.equal(instagram?.metrics.followers, "331k");
+  assert.equal(instagram?.trend.length, 2);
+  assert.equal(instagram?.trend[0].followers, "326k");
+  assert.notEqual(instagram?.change, null);
+
+  const weeks = await publicWeeklySnapshots(db, "mariclare");
+  const publicIg = weeks.find((row) => row.platform === "Instagram");
+  assert.equal(publicIg?.followers, "331k");
+  assert.equal(publicIg?.saves, "5,800");
+  assert.deepEqual(publicIg?.audience?.location, ["USA 53%"]);
+  assert.equal(publicIg?.trend.length, 2);
+  const packed = JSON.stringify(await publicMediaKit(db, "mariclare"));
+  assert.equal(packed.includes("@"), false);
+  assert.equal(packed.includes("$"), false);
+  assert.equal(packed.includes("rate"), false);
+  assert.equal(packed.includes("331k"), true);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");

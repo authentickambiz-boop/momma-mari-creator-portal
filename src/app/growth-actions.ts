@@ -46,17 +46,31 @@ export async function saveAnalyticsSnapshotAction(formData: FormData) {
     return value ? value : undefined;
   };
   const metrics: Record<string, string> = {};
-  for (const key of ["followers", "views", "avgViews", "engagement", "saves"]) {
+  for (const key of ["followers", "engagement", "views", "reach", "likes", "comments", "shares", "saves"]) {
     const value = text(key);
     if (value) metrics[key] = value;
   }
+  const lines = (name: string) => {
+    const value = text(name);
+    if (!value) return undefined;
+    const parts = value.split(/\n|;/).map((item) => item.trim()).filter(Boolean);
+    return parts.length ? parts : undefined;
+  };
+  const gender = lines("audienceGender");
+  const age = lines("audienceAge");
+  const location = lines("audienceLocation");
+  const audience = gender || age || location
+    ? { ...(gender ? { gender } : {}), ...(age ? { age } : {}), ...(location ? { country: location } : {}) }
+    : undefined;
   const db = await getDb();
   const result = await saveOwnerSnapshot(db, viewer, {
     creatorId,
     platform: String(formData.get("platform") ?? ""),
     capturedOn: String(formData.get("capturedOn") ?? ""),
     period: text("period") ?? null,
+    source: text("source") || "July",
     metrics,
+    audience,
     revenueCents: text("revenue") ? dollarsToCents(text("revenue") ?? "") : null,
     merge: true,
   });

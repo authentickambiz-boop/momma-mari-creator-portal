@@ -1,4 +1,4 @@
-import { capturedLabel, metricLabel, type CreatorSnapshotCard, type SnapshotMetrics } from "@/lib/analytics-snapshots";
+import { capturedLabel, metricLabel, parseDisplayedCount, type CreatorSnapshotCard, type SnapshotMetrics, type SnapshotTrendPoint } from "@/lib/analytics-snapshots";
 import { formatMoney } from "@/lib/format";
 
 function MetricList({ metrics }: { metrics: SnapshotMetrics }) {
@@ -22,6 +22,22 @@ function MetricList({ metrics }: { metrics: SnapshotMetrics }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function Trend({ points }: { points: SnapshotTrendPoint[] }) {
+  if (points.length < 2) return <p className="note">One week on file, so there is no trend yet.</p>;
+  const counts = points.map((point) => parseDisplayedCount(point.followers) ?? 0);
+  const max = Math.max(...counts, 1);
+  return (
+    <div>
+      <div className="bars" aria-hidden="true">
+        {counts.map((count, index) => (
+          <div key={points[index].capturedOn} style={{ height: `${Math.max(8, Math.round((count / max) * 100))}%` }} />
+        ))}
+      </div>
+      <p className="note">{points.map((point) => `${capturedLabel(point.capturedOn)} ${point.followers ?? "not shown"}`).join(" · ")}</p>
     </div>
   );
 }
@@ -65,6 +81,7 @@ export function SnapshotBoard({ creators, showRevenue }: { creators: CreatorSnap
                     ? `Since ${capturedLabel(platform.change.previousOn)}: followers ${platform.change.followers ?? "not shown"}, engagement ${platform.change.engagement ?? "not shown"}.`
                     : "No earlier snapshot, so there is no week-over-week change yet."}
                 </p>
+                <Trend points={platform.trend} />
                 {showRevenue && platform.revenueCents != null ? <p className="note">Revenue {formatMoney(platform.revenueCents)}</p> : null}
               </article>
             ))}

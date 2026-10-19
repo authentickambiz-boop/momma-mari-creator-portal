@@ -443,6 +443,7 @@ th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color
 .people form { margin: 0; }
 .people .btn { width: 100%; margin-top: 0; text-align: left; }
 .stack { display: flex; flex-direction: column; gap: 14px; }
+.card.stack input:not([type="checkbox"]):not([type="hidden"]), .card.stack textarea, .card.stack select { width: 100%; max-width: 440px; }
 .tag-picker { display: flex; flex-direction: column; gap: 6px; font-weight: 650; }
 .tag-picker input[type="hidden"], .wizard input[type="hidden"] { display: none; }
 .tag-picker input[role="combobox"], .wizard select, .stack select {
