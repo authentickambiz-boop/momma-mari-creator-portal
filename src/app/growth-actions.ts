@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { RANK_FIELDS, refreshRanks, saveRankInputs, saveRankSettings, emptyInputs, type RankFieldId } from "@/lib/creator-rank";
 import { currentViewer } from "@/lib/current-user";
+import { saveOwnerSnapshot } from "@/lib/analytics-snapshots";
 import { dollarsToCents } from "@/lib/deal-rules";
 import { addCollab, addGoal, addPodDate, addShoutout, markCollabPosted, pairCollab, recordPodMetric, savePod, setGoalProgress } from "@/lib/pods";
 import { createRankReport, type ReportChoices, type ReportLevel } from "@/lib/rank-reports";
@@ -34,6 +35,34 @@ export async function saveRankInputsAction(formData: FormData) {
   const result = await saveRankInputs(db, viewer, creatorId, inputs);
   if (!result.ok) back(`/ranking?creator=${encodeURIComponent(creatorId)}`, result.error);
   redirect(`/ranking?creator=${encodeURIComponent(creatorId)}&saved=1`);
+}
+
+export async function saveAnalyticsSnapshotAction(formData: FormData) {
+  const viewer = await currentViewer();
+  if (!viewer) redirect("/login");
+  const creatorId = String(formData.get("creatorId") ?? "");
+  const text = (name: string) => {
+    const value = String(formData.get(name) ?? "").trim();
+    return value ? value : undefined;
+  };
+  const metrics: Record<string, string> = {};
+  for (const key of ["followers", "views", "avgViews", "engagement", "saves"]) {
+    const value = text(key);
+    if (value) metrics[key] = value;
+  }
+  const db = await getDb();
+  const result = await saveOwnerSnapshot(db, viewer, {
+    creatorId,
+    platform: String(formData.get("platform") ?? ""),
+    capturedOn: String(formData.get("capturedOn") ?? ""),
+    period: text("period") ?? null,
+    metrics,
+    revenueCents: text("revenue") ? dollarsToCents(text("revenue") ?? "") : null,
+    merge: true,
+  });
+  const backTo = `/analytics?creator=${encodeURIComponent(creatorId)}`;
+  if (!result.ok) redirect(`${backTo}&snapshotError=${encodeURIComponent(result.error)}`);
+  redirect(`${backTo}&saved=1`);
 }
 
 export async function refreshRanksAction(_formData: FormData) {

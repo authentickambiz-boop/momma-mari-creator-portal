@@ -10,7 +10,8 @@
     "test": "tsx --test tests/portal.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:apply:local": "wrangler d1 migrations apply DB --local",
-    "db:seed": "node scripts/render-seed.mjs"
+    "db:seed": "node scripts/render-seed.mjs",
+    "analytics:import": "tsx scripts/import-analytics-snapshots.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.12",

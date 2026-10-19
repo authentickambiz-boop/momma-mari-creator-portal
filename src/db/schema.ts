@@ -904,3 +904,30 @@ export const supportMessages = sqliteTable("support_messages", {
   body: text("body").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+export const analyticsSnapshots = sqliteTable(
+  "analytics_snapshots",
+  {
+    id: text("id").primaryKey(),
+    creatorId: text("creator_id").notNull(),
+    platform: text("platform").notNull(),
+    capturedOn: text("captured_on").notNull(),
+    source: text("source").notNull(),
+    periodKey: text("period_key").notNull().default(""),
+    period: text("period"),
+    handle: text("handle"),
+    benchmark: text("benchmark"),
+    updatedLabel: text("updated_label"),
+    channelName: text("channel_name"),
+    totalAudience: text("total_audience"),
+    largestPlatform: text("largest_platform"),
+    location: text("location"),
+    metricsJson: text("metrics_json").notNull(),
+    audienceJson: text("audience_json"),
+    clipsJson: text("clips_json"),
+    revenueCents: integer("revenue_cents"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("analytics_snapshot_key").on(table.creatorId, table.platform, table.capturedOn, table.periodKey)],
+);
