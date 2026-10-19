@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   title: "Momma Mari Creator Portal",
   description: "Private deal desk for Momma Mari creators.",
   robots: { index: false, follow: false },
+  appleWebApp: { capable: true, title: "Momma Mari", statusBarStyle: "default" },
+  icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

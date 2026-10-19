@@ -14,6 +14,21 @@ export function pushEnabled() {
   return process.env.PUSH_ENABLED === "true";
 }
 
+export type HomeScreenOffer = "installed" | "ios" | "install" | "waiting";
+
+/** Installed apps hide the button. iOS has no install prompt, so it gets Share instructions. */
+export function homeScreenOffer(input: { installed: boolean; ios: boolean; canPrompt: boolean }): HomeScreenOffer {
+  if (input.installed) return "installed";
+  if (input.ios) return "ios";
+  if (input.canPrompt) return "install";
+  return "waiting";
+}
+
+export function isIosHomeScreen(userAgent: string, maxTouchPoints = 0, platform = "") {
+  if (/iphone|ipad|ipod/i.test(userAgent)) return true;
+  return platform === "MacIntel" && maxTouchPoints > 1;
+}
+
 export function isPushKind(value: string): value is PushKind {
   return (PUSH_KINDS as readonly string[]).includes(value);
 }

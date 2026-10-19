@@ -693,3 +693,26 @@ export const creatorQuestionnaires = sqliteTable("creator_questionnaires", {
   finishedAt: text("finished_at"),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const creatorAccounts = sqliteTable("creator_accounts", {
+  creatorId: text("creator_id").primaryKey(),
+  plan: text("plan").notNull(),
+  aiTier: text("ai_tier").notNull(),
+  aiCreditsUsed: integer("ai_credits_used").notNull(),
+  addOns: text("add_ons").notNull(),
+  emailNotices: integer("email_notices", { mode: "boolean" }).notNull(),
+  pushNotices: integer("push_notices", { mode: "boolean" }).notNull(),
+  quietHours: integer("quiet_hours", { mode: "boolean" }).notNull(),
+  communityVisible: integer("community_visible", { mode: "boolean" }).notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const supportMessages = sqliteTable("support_messages", {
+  id: text("id").primaryKey(),
+  authorEmail: text("author_email").notNull(),
+  authorName: text("author_name").notNull(),
+  creatorId: text("creator_id"),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  createdAt: text("created_at").notNull(),
+});

@@ -6,7 +6,7 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { adminNotifications, approvalEmails, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorNotifications, creatorProfiles, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, payments } from "../src/db/schema";
+import { adminNotifications, approvalEmails, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creatorProfiles, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, payments } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
@@ -18,10 +18,13 @@ import {
   photoLinkValid,
   postCommunityMessage,
   acceptCommunityGuidelines,
+  PHOTOS_OFF,
   saveCommunityPhoto,
+  setCommunityPhotoStoreForTests,
   setCommunityQueryTap,
   stripJpegMetadata,
 } from "../src/lib/community";
+import { communityFailure } from "../src/lib/community-http";
 import { hideMyProfile, listPublicProfiles, moderateProfileField, saveMyProfile } from "../src/lib/profiles";
 import { canApproveEmail, canChangeDealStage, resolveViewedCreator } from "../src/lib/authz";
 import { addFeedback, authorizeBot, createApprovalDraft, listApprovedApprovals, markApprovalDraftSent, updateDeal, upsertCreator, upsertDeal, upsertPayment, writeDailyAnalytics } from "../src/lib/bot-api";
@@ -31,6 +34,7 @@ import { listDraftReviews, listUnreadCreatorNotices, onDraftSubmitted, reviewDra
 import { setDealStage } from "../src/lib/deal-stage";
 import { sideStages, trackStages } from "../src/lib/stages";
 import { agencyTimeZone, commissionLabel, creatorCutLabel, creatorPayoutTracker, feeAndPayout, nextPayoutLabel, pipelineHeadline, withBasePath } from "../src/lib/format";
+import { accountMenuItems, billingUsage, billingWarning, creatorHomeCards, firstName, isMenuTab, listSupportMessages, readOwnAccount, saveOwnSettings, submitSupportMessage } from "../src/lib/creator-home";
 import { requestClientIp } from "../src/lib/request-ip";
 import { confirmLivePost, confirmProductReceived, listLivePostsSince, listPaymentsSince, listShipmentsSince, markPayment, saveShipment, submitLivePosts } from "../src/lib/fulfillment";
 import {
@@ -83,7 +87,7 @@ import { clearSafetyHold, listSafetyHolds, recordDraftSafety } from "../src/lib/
 import { findSafetyKinds } from "../src/lib/safety-shared";
 import { buildMonthlyReport, draftMonthlyReport } from "../src/lib/report";
 import { getReferralPerk, listReferrals, perkLabel, recordReferral, REFERRAL_LAWYER_NOTE, setReferralPerk } from "../src/lib/referrals";
-import { dueHomeNotices, inQuietHours, pushEnabled, queueHomeNotice } from "../src/lib/home-screen";
+import { dueHomeNotices, homeScreenOffer, inQuietHours, isIosHomeScreen, pushEnabled, queueHomeNotice } from "../src/lib/home-screen";
 import { NICHE_CATALOG } from "../src/lib/niche-catalog";
 import { matchOffer, needsQuestionnaire, questionnaireFor, saveQuestionnaireStep, type QuestionnaireAnswers } from "../src/lib/questionnaire";
 import { tagChoices } from "../src/lib/tag-picker";
@@ -2766,12 +2770,27 @@ test("community chat stays on the roster and off deal data", async () => {
   jpeg.set(tail, 2 + segment.length);
   assert.equal(Buffer.from(stripJpegMetadata(jpeg)).toString("latin1").includes("SECRET_EXIF_GPS"), false);
 
+  const photoBytes = new Map<string, Uint8Array>();
+  setCommunityPhotoStoreForTests({
+    async put(key, value) {
+      const copy = new Uint8Array(value.byteLength);
+      copy.set(value);
+      photoBytes.set(key, copy);
+    },
+    async get(key) {
+      const bytes = photoBytes.get(key);
+      if (!bytes) return null;
+      return { async arrayBuffer() { return bytes.slice().buffer; } };
+    },
+  });
   const saved = await saveCommunityPhoto(db, adminActor, { bytes: jpeg, contentType: "image/jpeg", childFace: true });
   assert.equal(saved.ok, true);
   if (!saved.ok) return;
   const stored = await db.select().from(communityPhotos).where(eq(communityPhotos.id, saved.id));
-  const storedBytes = Buffer.from(stored[0]?.bytesBase64 ?? "", "base64");
-  assert.equal(storedBytes.toString("latin1").includes("SECRET_EXIF_GPS"), false);
+  assert.equal(stored[0]?.bytesBase64, null);
+  const kept = photoBytes.get(stored[0]?.r2Key ?? "");
+  assert.equal(Buffer.from(kept ?? new Uint8Array()).toString("latin1").includes("SECRET_EXIF_GPS"), false);
+  setCommunityPhotoStoreForTests(undefined);
   const link = await openCommunityPhoto(db, adminActor, { id: saved.id, exp: "1", sig: "nope" });
   assert.equal(link.ok, false);
   assert.equal(await photoLinkValid(saved.id, "1", "nope"), false);
@@ -4148,6 +4167,115 @@ test("offer screening respects floors, the profit guardrail, and who can see dol
 
   assert.equal((await db.select().from(adminNotifications)).length, noticesBefore);
   assert.equal((await db.select().from(approvalEmails)).length, approvalsBefore);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("the creator menu, home cards, and billing stay on her own sign-in", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  assert.equal(firstName("Abby Theriot"), "Abby");
+  assert.equal(firstName("MariClare"), "MariClare");
+  assert.deepEqual(accountMenuItems("creator").map((item) => item.label), ["My profile", "Referrals", "Support", "Settings", "Billing and usage"]);
+  assert.equal(accountMenuItems("manager").some((item) => item.label === "Billing and usage" || item.label === "My profile"), false);
+  assert.equal(accountMenuItems("admin").some((item) => item.href === "/referrals"), true);
+  assert.equal(isMenuTab("profile"), true);
+  assert.equal(isMenuTab("referrals"), true);
+  assert.equal(isMenuTab("deals"), false);
+  const cards = creatorHomeCards({ offersWaiting: 2, payoutsPending: 1, accountsConnected: false });
+  assert.equal(cards.find((card) => card.title === "Brand deals")?.status, "2 offers waiting");
+  assert.equal(cards.find((card) => card.title === "Earnings & payouts")?.status, "1 payout pending");
+  assert.equal(cards.find((card) => card.title === "Analytics")?.status, "Example numbers until accounts are connected");
+  assert.equal(billingUsage({ tier: "Basic", used: 120 }).warning, "80");
+  assert.equal(billingUsage({ tier: "Basic", used: 120 }).cap, 150);
+  assert.equal(billingUsage({ tier: "Basic", used: 150 }).warning, "100");
+  assert.equal(billingUsage({ tier: "Plus", used: 10 }).cap, 1000);
+  assert.equal(billingUsage({ tier: "Pro", used: 10 }).cap, 2500);
+  assert.equal(billingWarning("80"), "You've used 80% of your AI credits.");
+  assert.equal(billingWarning("100"), "You've used all of your AI credits for this tier.");
+
+  const queueBefore = (await db.select().from(approvalEmails)).length;
+  const sent = await submitSupportMessage(db, mariclare, { subject: "Need a hand", body: "The upload button is confusing." });
+  assert.equal(sent.ok, true);
+  assert.equal((await db.select().from(approvalEmails)).length, queueBefore);
+  assert.equal((await listSupportMessages(db, mariclare)).some((note) => note.subject === "Need a hand" && note.authorName === "You"), true);
+  assert.equal((await listSupportMessages(db, abby)).some((note) => note.subject === "Need a hand"), false);
+  assert.equal((await listSupportMessages(db, admin)).some((note) => note.subject === "Need a hand" && note.authorName === "MariClare"), true);
+
+  const saved = await saveOwnSettings(db, mariclare, { emailNotices: false, pushNotices: true, quietHours: true, communityVisible: false });
+  assert.equal(saved.ok, true);
+  const mine = await readOwnAccount(db, mariclare);
+  assert.equal(mine?.emailNotices, false);
+  assert.equal(mine?.pushNotices, true);
+  assert.equal(mine?.plan, "Core");
+  assert.equal(mine?.stripe, false);
+  await db.update(creatorAccounts).set({ aiCreditsUsed: 120, aiTier: "Basic" }).where(eq(creatorAccounts.creatorId, "mariclare"));
+  const warned = await readOwnAccount(db, mariclare);
+  assert.equal((warned?.usage.percent ?? 0) >= 80, true);
+  assert.equal(warned?.warning, "You've used 80% of your AI credits.");
+  const other = await readOwnAccount(db, abby);
+  assert.equal(other?.emailNotices, true);
+  assert.equal(other?.usage.used, 0);
+  assert.equal(await readOwnAccount(db, admin), null);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("chat still posts when photo storage is missing, and the home screen button follows the device", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const actor = { email: admin.email, name: admin.name, role: "admin" as const, creatorId: null };
+  setCommunityPhotoStoreForTests(null);
+  try {
+    const blocked = await saveCommunityPhoto(db, actor, {
+      bytes: Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]),
+      contentType: "image/jpeg",
+      childFace: false,
+    });
+    assert.equal(blocked.ok, false);
+    if (!blocked.ok) assert.equal(blocked.error, PHOTOS_OFF);
+    const posted = await postCommunityMessage(db, actor, { channelId: "everyone", body: "Text still works without photos." });
+    assert.equal(posted.ok, true);
+    const listed = await listCommunity(db, actor, null);
+    assert.equal(listed.ok, true);
+    if (listed.ok && !listed.unchanged) {
+      assert.equal(listed.photosEnabled, false);
+      assert.equal(listed.messages.some((message) => message.body === "Text still works without photos."), true);
+    }
+    const missing = communityFailure(new Error("D1_ERROR: no such table: community_messages"));
+    assert.equal(missing.status, 503);
+    const body = await missing.json() as { error?: string };
+    assert.equal(body.error, "Community chat isn't set up on this database yet.");
+
+    assert.equal(homeScreenOffer({ installed: true, ios: true, canPrompt: true }), "installed");
+    assert.equal(homeScreenOffer({ installed: false, ios: true, canPrompt: false }), "ios");
+    assert.equal(homeScreenOffer({ installed: false, ios: false, canPrompt: true }), "install");
+    assert.equal(homeScreenOffer({ installed: false, ios: false, canPrompt: false }), "waiting");
+    assert.equal(isIosHomeScreen("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"), true);
+    assert.equal(isIosHomeScreen("Mozilla/5.0 (Linux; Android 14; Pixel 8)"), false);
+    const screen = readFileSync(new URL("../src/components/home-screen.tsx", import.meta.url), "utf8");
+    assert.equal(screen.includes("beforeinstallprompt"), true);
+    assert.equal(screen.includes("Add to Home Screen"), true);
+    assert.equal(screen.includes("tap Share, then Add to Home Screen"), true);
+  } finally {
+    setCommunityPhotoStoreForTests(undefined);
+  }
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
