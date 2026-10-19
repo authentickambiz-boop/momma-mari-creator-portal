@@ -1,0 +1,106 @@
+import { allocateCampaignAction, markOutsideAction, queueOutsideOfferAction } from "@/app/campaign-actions";
+import { PortalFrame } from "@/components/portal-frame";
+import {
+  allocationsFor,
+  campaignById,
+  canSeeCommission,
+  canSeeMoney,
+  listOutsideOffers,
+  listProspects,
+  projectedCommission,
+  rankRoster,
+  rosterHasAFit,
+} from "@/lib/campaigns";
+import { loadPortal } from "@/lib/current-user";
+import { formatMoney } from "@/lib/format";
+
+export default async function CampaignPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ creator?: string; saved?: string; queued?: string; campaignError?: string }> }) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const portal = await loadPortal(query.creator ?? null);
+  const campaign = await campaignById(portal.db, id);
+  if (!campaign || portal.viewer.role === "creator") {
+    return (
+      <PortalFrame viewer={portal.viewer} tab="campaigns" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Campaign</h1>}>
+        <p className="note">That campaign is not on your list.</p>
+      </PortalFrame>
+    );
+  }
+  const ranked = await rankRoster(portal.db, campaign);
+  const allocations = await allocationsFor(portal.db, campaign.id);
+  const offers = await listOutsideOffers(portal.db, campaign.id);
+  const prospects = portal.viewer.role === "admin" ? await listProspects(portal.db) : [];
+  const priced = canSeeMoney(portal.viewer);
+  const commission = canSeeCommission(portal.viewer) ? projectedCommission(allocations.map((row) => row.amountCents)) : null;
+  const names = new Map(ranked.map((row) => [row.creatorId, row.name]));
+  return (
+    <PortalFrame
+      viewer={portal.viewer}
+      tab="campaigns"
+      creators={portal.creators}
+      viewedId={portal.viewedId}
+      hello={<div className="hello"><div><h1>{campaign.brand}</h1><p>{campaign.name}. Roster creators are ranked first, best fit and highest ask at the top.</p></div></div>}
+    >
+      {query.saved ? <p className="note">Saved.</p> : null}
+      {query.queued ? <p className="note">The offer is in the approval queue. Nothing was sent.</p> : null}
+      {query.campaignError ? <p className="private-note">{query.campaignError}</p> : null}
+      <div className="card">
+        <p>{campaign.niches.join(", ") || "Any niche"} · {campaign.platforms.join(", ") || "Any platform"} · {campaign.deliverables.join(", ") || "Deliverables TBD"}</p>
+        <p>{campaign.slots} creator slots · {campaign.status}{campaign.openOutside ? " · Open to outside creators" : ""}</p>
+        {priced ? <p>Budget {formatMoney(campaign.budgetCents)}</p> : <p className="note">The budget stays with the owner unless your pricing toggle is on.</p>}
+        {campaign.startsOn || campaign.endsOn ? <p>{campaign.startsOn || "Start TBD"} to {campaign.endsOn || "End TBD"}</p> : null}
+      </div>
+      <div className="card" style={{ marginTop: 14 }}>
+        <div className="sec-title">Roster match</div>
+        {ranked.map((row) => (
+          <p key={row.creatorId}>
+            <b>{row.name}</b> · <span className="match-score">{row.score}</span> · {row.verdictLabel}
+            {priced && row.askCents ? <> · ask {formatMoney(row.askCents)}</> : null}
+          </p>
+        ))}
+      </div>
+      <div className="card" style={{ marginTop: 14 }}>
+        <div className="sec-title">Budget split</div>
+        {allocations.length ? allocations.map((row) => (
+          <p key={row.id}>{names.get(row.creatorId ?? "") ?? "Creator"}{priced ? ` · ${formatMoney(row.amountCents)}` : ""}</p>
+        )) : <p className="note">No creators are assigned yet.</p>}
+        {commission != null ? <p>Projected commission {formatMoney(commission)} (20%)</p> : null}
+        {portal.viewer.role === "admin" ? (
+          <form action={allocateCampaignAction} className="stack">
+            <input type="hidden" name="campaignId" value={campaign.id} />
+            <label>
+              Creator
+              <select name="creatorId">
+                {ranked.map((row) => <option key={row.creatorId} value={row.creatorId}>{row.name}</option>)}
+              </select>
+            </label>
+            <label>Amount<input name="amount" inputMode="decimal" /></label>
+            <button className="btn" type="submit">Add to this campaign</button>
+          </form>
+        ) : null}
+      </div>
+      {portal.viewer.role === "admin" && !rosterHasAFit(ranked) && !campaign.openOutside ? (
+        <form action={markOutsideAction} className="card stack" style={{ marginTop: 14 }}>
+          <input type="hidden" name="campaignId" value={campaign.id} />
+          <p>No roster creator clears her rules for this budget. You can use it as a recruiting offer.</p>
+          <button className="btn" type="submit">Open to outside creators</button>
+        </form>
+      ) : null}
+      {portal.viewer.role === "admin" && campaign.openOutside ? (
+        <form action={queueOutsideOfferAction} className="card stack" style={{ marginTop: 14 }}>
+          <input type="hidden" name="campaignId" value={campaign.id} />
+          <div className="sec-title">Recruiting offer</div>
+          <p className="note">This writes a draft in Approvals. It is not emailed.</p>
+          <label>
+            Prospect
+            <select name="prospectId">
+              {prospects.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+            </select>
+          </label>
+          <label>Amount<input name="amount" inputMode="decimal" /></label>
+          <button className="btn" type="submit">Queue the offer</button>
+          {offers.length ? <p>{offers.length} outside offer{offers.length === 1 ? "" : "s"} queued.</p> : null}
+        </form>
+      ) : null}
+    </PortalFrame>
+  );
+}

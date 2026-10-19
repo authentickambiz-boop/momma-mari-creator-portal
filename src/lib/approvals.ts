@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { approvalEmails, approvalEvents, brandContacts, creators, deals, emailCopies } from "@/db/schema";
+import { approvalEmails, approvalEvents, brandContacts, campaigns, creators, deals, emailCopies, outsideOffers, prospects } from "@/db/schema";
 import { EMAIL_APPROVER_ROLES } from "./authz";
 import { archiveApprovalCopy } from "./email-archive";
 import { assertStaffAccess } from "./managers";
@@ -477,13 +477,19 @@ export type ApprovalQueueItem = {
 const STATUS_ORDER = ["pending", "approved", "rejected", "sent"];
 
 export async function listApprovalQueue(db: PortalDb, creatorId: string | "all", limitTo?: string[]): Promise<ApprovalQueueItem[]> {
-  const [emailRows, eventRows, dealRows, creatorRows, copyRows] = await Promise.all([
+  const [emailRows, eventRows, dealRows, creatorRows, copyRows, outsideRows, campaignRows, prospectRows] = await Promise.all([
     db.select().from(approvalEmails),
     db.select().from(approvalEvents).orderBy(asc(approvalEvents.createdAt)),
     db.select().from(deals),
     db.select().from(creators),
     db.select().from(emailCopies).orderBy(asc(emailCopies.createdAt)),
+    db.select().from(outsideOffers),
+    db.select().from(campaigns),
+    db.select().from(prospects),
   ]);
+  const outsideByApproval = new Map(outsideRows.filter((row) => row.approvalId).map((row) => [row.approvalId as string, row]));
+  const campaignById = new Map(campaignRows.map((row) => [row.id, row]));
+  const prospectById = new Map(prospectRows.map((row) => [row.id, row]));
   const dealById = new Map(dealRows.map((deal) => [deal.id, deal]));
   const creatorById = new Map(creatorRows.map((creator) => [creator.id, creator]));
   const eventsByApproval = new Map<string, typeof eventRows>();
@@ -501,16 +507,19 @@ export async function listApprovalQueue(db: PortalDb, creatorId: string | "all",
   return emailRows
     .flatMap((row) => {
       const deal = dealById.get(row.dealId);
-      if (!deal) return [];
-      if (limitTo && !limitTo.includes(deal.creatorId)) return [];
-      if (creatorId !== "all" && deal.creatorId !== creatorId) return [];
+      const outside = deal ? null : outsideByApproval.get(row.id);
+      const outsideCampaign = outside ? campaignById.get(outside.campaignId) : null;
+      const outsideProspect = outside ? prospectById.get(outside.prospectId) : null;
+      if (!deal && (!outsideCampaign || !outsideProspect || creatorId !== "all" || limitTo)) return [];
+      if (deal && limitTo && !limitTo.includes(deal.creatorId)) return [];
+      if (deal && creatorId !== "all" && deal.creatorId !== creatorId) return [];
       const suggested = row.suggestedCreatorId ? creatorById.get(row.suggestedCreatorId) : null;
       return [{
         id: row.id,
         dealId: row.dealId,
-        brand: deal.brand,
-        creatorId: deal.creatorId,
-        creatorName: creatorById.get(deal.creatorId)?.name ?? "Creator",
+        brand: deal?.brand ?? outsideCampaign?.brand ?? "Campaign",
+        creatorId: deal?.creatorId ?? outsideProspect?.convertedCreatorId ?? "prospect",
+        creatorName: deal ? (creatorById.get(deal.creatorId)?.name ?? "Creator") : (outsideProspect?.name ?? "Prospect"),
         gate: row.gate,
         gateLabel: approvalGateLabel(row.gate),
         status: row.status,
