@@ -553,6 +553,13 @@ th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color
   .community-fab { display: inline-flex; }
 }
 
+.public-head { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.public-nav { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.public-nav a { min-height: 44px; display: inline-flex; align-items: center; color: var(--ink); font-weight: 650; }
+.public-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.public-grid .card h2 { font-family: var(--heading); font-size: 22px; margin: 8px 0; }
+.public-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 650; }
+.public-form input, .public-form textarea { width: 100%; }
 .snap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 12px; }
 .snap-metrics { margin-top: 8px; }
 .snap-metric { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
