@@ -174,6 +174,87 @@ export async function exchangeGmailCode(code: string) {
   return { refreshToken: json.refresh_token, gmailEmail: mailbox.emailAddress };
 }
 
+/** Per-creator Drive consent. drive.file only, so this cannot widen into Gmail send. */
+export const DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+
+const DRIVE_STATE_COOKIE = "mm_drive_state";
+
+export function driveStateCookieName() {
+  return DRIVE_STATE_COOKIE;
+}
+
+export function isDriveOAuthState(state: string | null) {
+  return Boolean(state?.startsWith("drive."));
+}
+
+export async function createDriveOAuthState() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const nonce = bytesToBase64Url(bytes);
+  const exp = Date.now() + 10 * 60 * 1000;
+  const payload = `drive.${nonce}.${exp}`;
+  return `${payload}.${await sign(payload)}`;
+}
+
+export async function verifyDriveOAuthState(cookie: string | undefined, returned: string | null) {
+  if (!cookie || !returned || cookie !== returned || !cookie.startsWith("drive.")) return false;
+  const parts = cookie.split(".");
+  if (parts.length !== 4) return false;
+  const payload = `${parts[0]}.${parts[1]}.${parts[2]}`;
+  const expected = await sign(payload);
+  if (expected !== parts[3]) return false;
+  return Number(parts[2]) > Date.now();
+}
+
+export function googleDriveAuthUrl(state: string, loginHint: string) {
+  const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  url.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID ?? "");
+  url.searchParams.set("redirect_uri", googleRedirectUri());
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", DRIVE_FILE_SCOPE);
+  url.searchParams.set("include_granted_scopes", "false");
+  url.searchParams.set("access_type", "offline");
+  url.searchParams.set("prompt", "consent");
+  url.searchParams.set("login_hint", loginHint);
+  url.searchParams.set("state", state);
+  return url.toString();
+}
+
+export async function exchangeDriveCode(code: string) {
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: process.env.GOOGLE_CLIENT_ID ?? "",
+      client_secret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      redirect_uri: googleRedirectUri(),
+      grant_type: "authorization_code",
+    }),
+  });
+  const json = (await response.json()) as { refresh_token?: string };
+  if (!response.ok || !json.refresh_token) return null;
+  return { refreshToken: json.refresh_token };
+}
+
+/** Best-effort Google revoke. Failure still lets the caller clear the saved token. */
+export async function revokeGoogleToken(token: string) {
+  if (!token) return false;
+  try {
+    const response = await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }),
+      signal: AbortSignal.timeout(8000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export type GoogleTokenRevoker = (token: string) => Promise<boolean>;
+
 export async function exchangeCode(code: string) {
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",

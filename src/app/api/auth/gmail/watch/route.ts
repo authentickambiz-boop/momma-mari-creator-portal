@@ -17,10 +17,12 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const viewer = await currentViewer();
-  if (!viewer || viewer.role !== "admin") return NextResponse.redirect(`${appBaseUrl()}/login`);
+  if (!viewer) return NextResponse.redirect(`${appBaseUrl()}/login`);
   const creatorId = new URL(request.url).searchParams.get("creator") ?? "";
   const mailbox = mailboxForCreator(creatorId);
   if (!mailbox) return NextResponse.redirect(`${appBaseUrl()}/connect?gmail=oauth`);
+  const allowed = viewer.role === "admin" || (viewer.role === "creator" && viewer.creatorId === mailbox.creatorId);
+  if (!allowed) return NextResponse.redirect(`${appBaseUrl()}/connect?gmail=creator_only`);
   if (!googleConfigured() || !tokenEncryptionConfigured()) {
     return NextResponse.redirect(`${appBaseUrl()}/connect?gmail=not_configured`);
   }

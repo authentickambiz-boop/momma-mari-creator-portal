@@ -24,6 +24,9 @@ export const creators = sqliteTable("creators", {
   gmailRefreshToken: text("gmail_refresh_token"),
   gmailEmail: text("gmail_email"),
   gmailConnectedAt: text("gmail_connected_at"),
+  gmailReconnectReason: text("gmail_reconnect_reason"),
+  driveRefreshToken: text("drive_refresh_token"),
+  driveReconnectReason: text("drive_reconnect_reason"),
   emailSetup: text("email_setup"),
   hostedEmailAddress: text("hosted_email_address"),
   signerIsMinor: integer("signer_is_minor", { mode: "boolean" }).notNull().default(false),
@@ -935,6 +938,20 @@ export const gmailSeenMessages = sqliteTable("gmail_seen_messages", {
   mailbox: text("mailbox").notNull(),
   threadId: text("thread_id"),
   createdAt: text("created_at").notNull(),
+});
+
+export const platformInvites = sqliteTable("platform_invites", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  brand: text("brand").notNull(),
+  platform: text("platform").notNull(),
+  accountHandle: text("account_handle"),
+  actionNeeded: text("action_needed").notNull(),
+  deadlineAt: text("deadline_at"),
+  doneAt: text("done_at"),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
 export const inboxEvents = sqliteTable("inbox_events", {
