@@ -89,13 +89,44 @@ export function QuestionStep({
       ) : null}
       {stepId === "rates" ? (
         <>
-          <p className="note">A dollar amount for each deliverable you offer. This stays on your sign-in.</p>
+          <p className="note">Your minimum stays on your sign-in. Brands and other creators never see it.</p>
+          <label>
+            Minimum per video
+            <input name="minVideo" defaultValue={answers.minVideo} placeholder="$1,000" inputMode="decimal" />
+          </label>
+          <label>
+            Typical rate
+            <input name="typicalRate" defaultValue={answers.typicalRate} placeholder="$2,500" inputMode="decimal" />
+          </label>
+          <label>
+            Max sponsored posts per month
+            <input name="maxSponsored" defaultValue={answers.maxSponsored} placeholder="4" inputMode="numeric" />
+          </label>
+          <p className="note">Add a platform only if that minimum is different from the video minimum.</p>
           {RATE_FIELDS.map((field) => (
             <label key={field}>
-              {field}
-              <input name={`rate${field}`} defaultValue={answers.rates[field] ?? ""} placeholder="$500" />
+              {field} minimum
+              <input name={`rate${field}`} defaultValue={answers.rates[field] ?? ""} placeholder="Optional" />
             </label>
           ))}
+          <TagPicker name="willDo" label="Categories you will do" options={NICHE_CATALOG} selected={answers.willDo} />
+          <TagPicker name="wontDo" label="Categories you won't do" options={NICHE_CATALOG} selected={answers.wontDo} />
+          <label>
+            Gifted deals
+            <select name="acceptGifted" defaultValue={answers.acceptGifted}>
+              <option value="">Choose one</option>
+              <option value="yes">Yes, I'll take gifted</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+          <label>
+            Commission-only deals
+            <select name="acceptCommissionOnly" defaultValue={answers.acceptCommissionOnly}>
+              <option value="">Choose one</option>
+              <option value="yes">Yes, commission-only is ok</option>
+              <option value="no">No</option>
+            </select>
+          </label>
         </>
       ) : null}
       {stepId === "brands" ? (

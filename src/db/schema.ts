@@ -588,6 +588,10 @@ export const brandCrmEntries = sqliteTable("brand_crm_entries", {
   note: text("note"),
   actorName: text("actor_name").notNull(),
   createdAt: text("created_at").notNull(),
+  ratePaidCents: integer("rate_paid_cents"),
+  outcome: text("outcome"),
+  nextFollowUp: text("next_follow_up"),
+  creatorId: text("creator_id"),
 });
 
 export const usageRights = sqliteTable("usage_rights", {
@@ -706,6 +710,11 @@ export const campaigns = sqliteTable("campaigns", {
   status: text("status").notNull(),
   openOutside: integer("open_outside", { mode: "boolean" }).notNull().default(false),
   updatedAt: text("updated_at").notNull(),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  offerFlag: text("offer_flag"),
+  nextFollowUp: text("next_follow_up"),
+  kind: text("kind").notNull().default("campaign"),
 });
 
 export const campaignAllocations = sqliteTable("campaign_allocations", {
@@ -715,6 +724,9 @@ export const campaignAllocations = sqliteTable("campaign_allocations", {
   prospectId: text("prospect_id"),
   amountCents: integer("amount_cents").notNull(),
   createdAt: text("created_at").notNull(),
+  response: text("response"),
+  question: text("question"),
+  respondedAt: text("responded_at"),
 });
 
 export const prospects = sqliteTable("prospects", {

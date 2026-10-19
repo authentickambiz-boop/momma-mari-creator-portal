@@ -2,6 +2,7 @@ import { and, asc, eq, gt } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { creatorNotifications, dealStageEvents, deals, livePosts, offerScreenings, payments, revisions, shipments } from "@/db/schema";
 import { createApprovalEmail, BRAND_EMAIL_SENDER } from "./approvals";
+import { upsertBrandCrm } from "./brand-crm";
 import { setDealStage } from "./deal-stage";
 import { AGENCY_COMMISSION_PERCENT, CREATOR_PAYOUT_PERCENT, commissionLabel, feeAndPayout, nowIso } from "./format";
 import { firstEmail } from "./creator-interest";
@@ -546,6 +547,17 @@ export async function markPayment(
   };
   await notifyCreator(db, { creatorId: deal.creatorId, dealId: deal.id, kind: "payment", message: creatorMessage[requested] });
   await notifyStaff(db, { kind: "payment", creatorId: deal.creatorId, message: staffMessage[requested] });
+  if (requested === "creator_paid") {
+    await upsertBrandCrm(db, {
+      brand: deal.brand,
+      creatorId: deal.creatorId,
+      ratePaidCents: landedAmountCents ?? deal.rateCents,
+      outcome: "closed",
+      nextFollowUp: null,
+      actorName: input.actorEmail,
+      note: "Closed deal.",
+    });
+  }
   return { ok: true, paymentStatus: requested, workflowStage };
 }
 

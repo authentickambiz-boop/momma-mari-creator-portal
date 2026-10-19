@@ -2,6 +2,7 @@ import Link from "next/link";
 import { approveBenchOfferAction, promoteBenchAction, queueBenchOfferAction, recordBenchPaidAction, setBenchScoreAction } from "@/app/bench-actions";
 import { PortalFrame } from "@/components/portal-frame";
 import { leftoverCampaigns, listBench, listBenchOffers } from "@/lib/bench";
+import { listFlaggedOffers } from "@/lib/brand-offers";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
 
@@ -19,6 +20,7 @@ export default async function BenchPage({ searchParams }: { searchParams: Promis
   const waiting = people.filter((person) => person.status === "bench");
   const leftover = await leftoverCampaigns(portal.db);
   const offers = await listBenchOffers(portal.db, portal.viewer);
+  const flagged = await listFlaggedOffers(portal.db);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -57,6 +59,17 @@ export default async function BenchPage({ searchParams }: { searchParams: Promis
         ))}
         {people.length ? null : <p className="note">Nobody is on the bench yet.</p>}
       </div>
+      {flagged.length > 0 ? (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="sec-title">Offers under every minimum</div>
+          <p className="note">Nothing was sent. Pitch the retainer, or keep it for a commission-only trainee.</p>
+          <ul>
+            {flagged.map((offer) => (
+              <li key={offer.id}>{offer.brand}: {offer.flagLabel}{offer.flag === "pitch_retainer" ? " (Momma Mari marketing services)" : ""}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <form action={queueBenchOfferAction} className="card stack" style={{ marginTop: 14 }}>
         <div className="sec-title">Leftover job</div>
         <p className="note">A job shows up here only when nobody on the roster meets the rules. Approving it does not send the note.</p>

@@ -48,6 +48,8 @@ export type CampaignRecord = {
   status: string;
   openOutside: boolean;
   updatedAt: string;
+  kind: string;
+  offerFlag: string | null;
 };
 
 export type RankedCreator = {
@@ -93,6 +95,8 @@ function toCampaign(row: typeof campaigns.$inferSelect): CampaignRecord {
     status: row.status,
     openOutside: row.openOutside,
     updatedAt: row.updatedAt,
+    kind: row.kind || "campaign",
+    offerFlag: row.offerFlag,
   };
 }
 

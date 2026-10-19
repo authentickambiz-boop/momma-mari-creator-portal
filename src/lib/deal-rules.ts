@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { creatorDealRules, dealCategoryOverrides, deals, pricingSettings } from "@/db/schema";
+import { creatorDealRules, creators, dealCategoryOverrides, deals, pricingSettings } from "@/db/schema";
 import { feeAndPayout, formatMoney, nowIso } from "./format";
 import { assignedCreatorIds } from "./managers";
 import { questionnaireFor } from "./questionnaire";
@@ -52,6 +52,10 @@ export type DealRules = {
   usageMinDays: number | null;
   kidsOnCamera: "" | "yes" | "no" | "limits";
   kidsLimits: string;
+  typicalRateCents?: number | null;
+  acceptedCategories?: string[];
+  acceptGifted?: boolean;
+  acceptCommissionOnly?: boolean;
 };
 
 export type OfferTerms = {
@@ -93,6 +97,10 @@ const EMPTY: DealRules = {
   usageMinDays: null,
   kidsOnCamera: "",
   kidsLimits: "",
+  typicalRateCents: null,
+  acceptedCategories: [],
+  acceptGifted: false,
+  acceptCommissionOnly: false,
 };
 
 export function dollarsToCents(value: string) {
@@ -305,6 +313,10 @@ function asRules(value: Partial<DealRules> | null | undefined): DealRules {
     targetRates: value?.targetRates ?? {},
     blockedCategories: value?.blockedCategories ?? [],
     blockedBrands: value?.blockedBrands ?? [],
+    acceptedCategories: value?.acceptedCategories ?? [],
+    typicalRateCents: value?.typicalRateCents ?? null,
+    acceptGifted: Boolean(value?.acceptGifted),
+    acceptCommissionOnly: Boolean(value?.acceptCommissionOnly),
   };
 }
 
@@ -408,16 +420,94 @@ export async function setCategoryOverride(db: PortalDb, viewer: Viewer, dealId: 
   return { ok: true as const };
 }
 
+export async function writeDealRules(db: PortalDb, creatorId: string, rules: DealRules) {
+  const timestamp = nowIso();
+  const values = { creatorId, rulesJson: JSON.stringify(asRules(rules)), updatedAt: timestamp };
+  const existing = await db.select().from(creatorDealRules).where(eq(creatorDealRules.creatorId, creatorId));
+  if (existing[0]) await db.update(creatorDealRules).set(values).where(eq(creatorDealRules.creatorId, creatorId));
+  else await db.insert(creatorDealRules).values(values);
+}
+
 export async function saveDealRules(db: PortalDb, viewer: Viewer, creatorId: string, rules: DealRules) {
   if (!(await canViewRules(db, viewer, creatorId)) || !canEditRules(viewer)) {
     return { ok: false as const, error: "You can't edit these deal rules." };
   }
-  const timestamp = nowIso();
-  const values = { creatorId, rulesJson: JSON.stringify(rules), updatedAt: timestamp };
-  const existing = await db.select().from(creatorDealRules).where(eq(creatorDealRules.creatorId, creatorId));
-  if (existing[0]) await db.update(creatorDealRules).set(values).where(eq(creatorDealRules.creatorId, creatorId));
-  else await db.insert(creatorDealRules).values(values);
+  await writeDealRules(db, creatorId, rules);
   return { ok: true as const };
+}
+
+export async function applyQuestionnaireRates(
+  db: PortalDb,
+  creatorId: string,
+  answers: {
+    minVideo?: string;
+    typicalRate?: string;
+    maxSponsored?: string;
+    willDo?: string[];
+    wontDo?: string[];
+    acceptGifted?: string;
+    acceptCommissionOnly?: string;
+    rates?: Record<string, string>;
+  },
+) {
+  const current = (await savedRules(db, creatorId)) ?? asRules(null);
+  const next = asRules({
+    ...current,
+    minRates: { ...current.minRates },
+    targetRates: { ...current.targetRates },
+    blockedCategories: [...current.blockedCategories],
+    blockedBrands: [...current.blockedBrands],
+    acceptedCategories: [...(current.acceptedCategories ?? [])],
+  });
+  const minVideo = dollarsToCents(answers.minVideo ?? "");
+  if (minVideo != null) next.minDealCents = minVideo;
+  const typical = dollarsToCents(answers.typicalRate ?? "");
+  if (typical != null) next.typicalRateCents = typical;
+  const cap = Number(answers.maxSponsored ?? "");
+  if ((answers.maxSponsored ?? "").trim() && Number.isInteger(cap) && cap >= 0) next.maxDealsPerMonth = cap;
+  if (answers.willDo?.length) next.acceptedCategories = answers.willDo;
+  if (answers.wontDo?.length) next.blockedCategories = answers.wontDo;
+  if (answers.acceptGifted === "yes" || answers.acceptGifted === "no") next.acceptGifted = answers.acceptGifted === "yes";
+  if (answers.acceptCommissionOnly === "yes" || answers.acceptCommissionOnly === "no") {
+    next.acceptCommissionOnly = answers.acceptCommissionOnly === "yes";
+  }
+  for (const [label, raw] of Object.entries(answers.rates ?? {})) {
+    const cents = dollarsToCents(raw);
+    const kind = deliverableKind(label);
+    if (cents == null || !kind) continue;
+    next.minRates[kind] = cents;
+  }
+  await writeDealRules(db, creatorId, next);
+  return next;
+}
+
+export function videoMinimumCents(rules: DealRules, deliverables: string[]) {
+  const kinds = kindsIn(deliverables);
+  const platform = kinds.map((kind) => rules.minRates[kind] ?? 0).filter((value) => value > 0);
+  const platformFloor = platform.length ? Math.max(...platform) : 0;
+  const floor = Math.max(rules.minDealCents ?? 0, platformFloor);
+  return floor > 0 ? floor : null;
+}
+
+export async function creatorKnowledge(db: PortalDb, creatorId: string) {
+  const people = await db.select().from(creators).where(eq(creators.id, creatorId));
+  const person = people[0];
+  if (!person) return null;
+  const rules = await rulesFor(db, creatorId);
+  return {
+    creatorId: person.id,
+    name: person.name,
+    minimumPerVideoCents: rules.minDealCents,
+    platformMinimums: rules.minRates,
+    typicalRateCents: rules.typicalRateCents ?? null,
+    maxSponsoredPostsPerMonth: rules.maxDealsPerMonth,
+    categoriesWillDo: rules.acceptedCategories ?? [],
+    categoriesWontDo: rules.blockedCategories,
+    acceptGifted: Boolean(rules.acceptGifted),
+    acceptCommissionOnly: Boolean(rules.acceptCommissionOnly),
+    blockedBrands: rules.blockedBrands,
+    turnaround: rules.turnaround,
+  };
 }
 
 export async function bestPastCents(db: PortalDb, creatorId: string, kinds: DeliverableId[]) {

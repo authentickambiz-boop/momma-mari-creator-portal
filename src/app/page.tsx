@@ -11,6 +11,7 @@ import { listManagerNotices, needsYou } from "@/lib/managers";
 import { listUnreadNotices } from "@/lib/onboarding";
 import { listUnreadCreatorNotices } from "@/lib/video-review";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
+import { listCreatorOffers } from "@/lib/brand-offers";
 import { questionnaireFor } from "@/lib/questionnaire";
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string; passed?: string }> }) {
@@ -49,6 +50,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const quiz = portal.viewer.role === "creator" && portal.viewer.creatorId
     ? await questionnaireFor(portal.db, portal.viewer.creatorId)
     : null;
+  const brandOffers = portal.viewer.role === "creator" ? await listCreatorOffers(portal.db, portal.viewer) : [];
+  const offersWaiting = brandOffers.filter((offer) => offer.response === "pending" || offer.response === "question");
   if (quiz && !quiz.finished && !quiz.paused) redirect("/onboarding");
   return (
     <PortalFrame
@@ -69,6 +72,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
       }
     >
+      {offersWaiting.length > 0 ? (
+        <div className="callout">
+          <b>{offersWaiting.length === 1 ? "A brand offer is in your inbox." : `${offersWaiting.length} brand offers are in your inbox.`}</b>{" "}
+          <Link href="/offers">Open offers</Link>
+        </div>
+      ) : null}
       {quiz && !quiz.finished ? (
         <div className="callout">
           <b>Finish your setup.</b> Your answers match brand deals and fill in your profile. <Link href="/onboarding">Continue</Link>

@@ -45,6 +45,13 @@ export async function saveQuestionnaireAction(formData: FormData) {
       Story: text(formData, "rateStory"),
       Photo: text(formData, "ratePhoto"),
     };
+    patch.minVideo = text(formData, "minVideo");
+    patch.typicalRate = text(formData, "typicalRate");
+    patch.maxSponsored = text(formData, "maxSponsored");
+    patch.willDo = tags(formData, "willDo");
+    patch.wontDo = tags(formData, "wontDo");
+    patch.acceptGifted = text(formData, "acceptGifted");
+    patch.acceptCommissionOnly = text(formData, "acceptCommissionOnly");
   }
   if (step === "brands") {
     patch.brands = tags(formData, "brands");

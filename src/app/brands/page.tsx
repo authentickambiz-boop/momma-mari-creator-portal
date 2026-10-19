@@ -49,6 +49,13 @@ export default async function BrandsPage({ searchParams }: { searchParams: Promi
             {card.responses.length > 0 ? (
               <p>Responses: {card.responses.map((row) => responseLabel(row.decision)).join(", ")}</p>
             ) : <p className="note">No response yet.</p>}
+            {card.crm.map((row, index) => (
+              <p key={`${row.creatorId ?? "brand"}-${index}`}>
+                {row.creatorName ?? "No creator yet"} · {row.outcome ?? "Open"}
+                {owner && row.ratePaidCents != null ? ` · ${formatMoney(row.ratePaidCents)} paid` : ""}
+                {row.nextFollowUp ? ` · Follow-up ${row.nextFollowUp}` : ""}
+              </p>
+            ))}
             {owner ? (
               <form action={addBrandCrmEntryAction} className="stage-form">
                 <input type="hidden" name="brand" value={card.brand} />

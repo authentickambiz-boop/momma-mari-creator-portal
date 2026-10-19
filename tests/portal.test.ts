@@ -6,7 +6,7 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { adminNotifications, analyticsSnapshots, approvalEmails, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creatorProfiles, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, payments } from "../src/db/schema";
+import { adminNotifications, analyticsSnapshots, approvalEmails, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creatorProfiles, creatorRankHistory, creators, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, payments } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
@@ -93,7 +93,8 @@ import { MEDIA_KIT_CATALOG } from "../src/lib/platforms";
 import { approveBenchOffer, benchPromotionSuggested, joinBench, listBench, promoteBench, publicBenchPortfolio, queueBenchOffer, recordBenchPaid, setBenchScore } from "../src/lib/bench";
 import { matchOffer, needsQuestionnaire, questionnaireFor, saveQuestionnaireStep, type QuestionnaireAnswers } from "../src/lib/questionnaire";
 import { tagChoices } from "../src/lib/tag-picker";
-import { deliverableKind, prefillDealRules, presentScreening, quotedAskCents, rulesFor, saveDealRules, savePricingFloor, screenOffer, setCategoryOverride, type DealRules } from "../src/lib/deal-rules";
+import { deliverableKind, prefillDealRules, presentScreening, quotedAskCents, rulesFor, saveDealRules, savePricingFloor, screenOffer, setCategoryOverride, creatorKnowledge, type DealRules } from "../src/lib/deal-rules";
+import { createBrandOffer, listCreatorOffers, listOfferBoard, respondToOffer } from "../src/lib/brand-offers";
 import { allocateCampaign, addProspect, campaignById, canSeeCommission, convertProspect, listCampaigns, markOpenOutside, ownerDashboard, presentRoster, projectedCommission, queueOutsideOffer, rankRoster, rosterHasAFit, saveCampaign } from "../src/lib/campaigns";
 import { analyticsBoard, importAnalyticsSnapshots, parseDisplayedCount, publicWeeklySnapshots, saveOwnerSnapshot, writeAnalyticsSnapshots } from "../src/lib/analytics-snapshots";
 import { compositeScore, defaultWeights, emptyInputs, inputsFor, leaderboard, refreshRanks, saveRankInputs, saveRankSettings, scoringInputs, tierFor } from "../src/lib/creator-rank";
@@ -3932,6 +3933,13 @@ test("the questionnaire resumes, prefills her own profile, and scores a brand of
     formats: [],
     frequency: "",
     rates: {},
+    minVideo: "",
+    typicalRate: "",
+    maxSponsored: "",
+    willDo: [],
+    wontDo: [],
+    acceptGifted: "",
+    acceptCommissionOnly: "",
     brands: [],
     blocked: [],
     kidAges: [],
@@ -4942,6 +4950,225 @@ test("a later Monday snapshot keeps earlier weeks and shows up on the public kit
   assert.equal(packed.includes("$"), false);
   assert.equal(packed.includes("rate"), false);
   assert.equal(packed.includes("331k"), true);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+test("brand offers use creator minimums, stay private, and update the brand list", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const approvalsBefore = (await db.select().from(approvalEmails)).length;
+  const seedSql = readFileSync(path.join(process.cwd(), "drizzle/0034_brand_offers.sql"), "utf8");
+  assert.match(seedSql, /INSERT OR IGNORE INTO creator_deal_rules/);
+  assert.match(seedSql, /'mariclare'.*100000.*250000/);
+  assert.match(seedSql, /'authentickam'.*25000/);
+  assert.match(seedSql, /'abby'.*5000/);
+  assert.equal(/update\s+deals/i.test(seedSql), false);
+
+  const made = async (id: string, name: string, email: string) => {
+    const result = await upsertCreator(db, { id, name, email });
+    assert.equal(result.status, 201);
+  };
+  await made("offer-low", "Low Rank", "low.offer@gmail.com");
+  await made("offer-mid", "Mid Rank", "mid.offer@gmail.com");
+  await made("offer-high", "High Rank", "high.offer@gmail.com");
+  await made("offer-paid", "Paid Creator", "paid.offer@gmail.com");
+  await made("offer-quiz", "Quiz Rates", "quiz.rates@gmail.com");
+
+  const blank: DealRules = {
+    minRates: {},
+    targetRates: {},
+    minDealCents: null,
+    blockedCategories: [],
+    blockedBrands: [],
+    maxDealsPerMonth: 1,
+    turnaround: "",
+    exclusivityMaxDays: null,
+    usageMinDays: null,
+    kidsOnCamera: "",
+    kidsLimits: "",
+    acceptedCategories: [],
+    acceptGifted: false,
+    acceptCommissionOnly: false,
+  };
+  assert.equal((await saveDealRules(db, admin, "offer-low", { ...blank, minDealCents: 5000, typicalRateCents: 8000 })).ok, true);
+  assert.equal((await saveDealRules(db, admin, "offer-mid", { ...blank, minDealCents: 25000 })).ok, true);
+  assert.equal((await saveDealRules(db, admin, "offer-high", { ...blank, minDealCents: 100000, typicalRateCents: 250000 })).ok, true);
+  const ranked = [
+    ["offer-low", 10, 3],
+    ["offer-mid", 40, 2],
+    ["offer-high", 90, 1],
+  ] as const;
+  for (const [creatorId, score, rank] of ranked) {
+    await db.insert(creatorRankHistory).values({
+      id: `rank-${creatorId}`,
+      creatorId,
+      score,
+      tier: "Silver",
+      rank,
+      recordedOn: "2099-06-01",
+      createdAt: "2099-06-01T00:00:00.000Z",
+    });
+  }
+
+  const budgets = (cents: number, ids: string[]) => ids.map((creatorId) => ({ creatorId, amountCents: cents }));
+  const offerInput = {
+    contactName: "Ada Brand",
+    contactEmail: "ada@spread.example",
+    deliverables: ["TikTok video"],
+    platforms: ["TikTok"],
+    startsOn: "2026-11-01",
+    endsOn: "2026-11-30",
+    nextFollowUp: "2026-11-15",
+  };
+  const manager: Viewer = { email: "plain.manager@gmail.com", name: "Plain Manager", role: "manager", creatorId: null };
+  assert.equal((await createBrandOffer(db, manager, { ...offerInput, brand: "Nope", budgets: budgets(120000, ["offer-low"]) })).ok, false);
+
+  const first = await createBrandOffer(db, admin, { ...offerInput, brand: "Spread Soap", budgets: budgets(120000, ["offer-low", "offer-mid"]) });
+  assert.equal(first.ok, true);
+  if (!first.ok) return;
+  assert.equal(first.flag, null);
+  assert.deepEqual(first.creatorIds, ["offer-low", "offer-mid"]);
+
+  const lowViewer: Viewer = { email: "low.offer@gmail.com", name: "Low Rank", role: "creator", creatorId: "offer-low" };
+  const midViewer: Viewer = { email: "mid.offer@gmail.com", name: "Mid Rank", role: "creator", creatorId: "offer-mid" };
+  const highViewer: Viewer = { email: "high.offer@gmail.com", name: "High Rank", role: "creator", creatorId: "offer-high" };
+  const lowInbox = await listCreatorOffers(db, lowViewer);
+  assert.equal(lowInbox.length, 1);
+  assert.equal(lowInbox[0]?.brand, "Spread Soap");
+  assert.equal(lowInbox[0]?.budgetCents, 120000);
+  assert.equal(JSON.stringify(lowInbox).includes("5000"), false);
+  assert.equal(JSON.stringify(lowInbox).includes("minimum"), false);
+  assert.equal((await listCreatorOffers(db, highViewer)).length, 0);
+  assert.equal((await listCreatorOffers(db, abby)).some((row) => row.brand === "Spread Soap"), false);
+
+  const second = await createBrandOffer(db, admin, { ...offerInput, brand: "Second Soap", budgets: budgets(120000, ["offer-low", "offer-mid", "offer-high"]) });
+  assert.equal(second.ok, true);
+  if (!second.ok) return;
+  assert.deepEqual(second.creatorIds, ["offer-high"]);
+  const highInbox = await listCreatorOffers(db, highViewer);
+  assert.equal(highInbox.length, 1);
+  assert.equal(highInbox[0]?.budgetCents, 120000);
+  assert.equal(JSON.stringify(highInbox).includes("5000"), false);
+  assert.equal(JSON.stringify(highInbox).includes("offer-low"), false);
+
+  const tiny = await createBrandOffer(db, admin, { ...offerInput, brand: "Tiny Soap", budgets: budgets(1000, ["offer-low", "offer-mid", "offer-high"]) });
+  assert.equal(tiny.ok, true);
+  if (!tiny.ok) return;
+  assert.equal(tiny.flag, "pitch_retainer");
+  assert.deepEqual(tiny.creatorIds, []);
+
+  assert.equal((await saveDealRules(db, admin, "offer-low", { ...blank, minDealCents: 5000, acceptCommissionOnly: true })).ok, true);
+  const trainee = await createBrandOffer(db, admin, { ...offerInput, brand: "Trainee Soap", budgets: budgets(1000, ["offer-low", "offer-high"]) });
+  assert.equal(trainee.ok, true);
+  if (!trainee.ok) return;
+  assert.equal(trainee.flag, "commission_trainee");
+  assert.deepEqual(trainee.creatorIds, []);
+
+  const accepted = await respondToOffer(db, lowViewer, { allocationId: lowInbox[0]!.id, decision: "accepted" });
+  assert.equal(accepted.ok, true);
+  const asked = await respondToOffer(db, midViewer, { allocationId: (await listCreatorOffers(db, midViewer))[0]!.id, decision: "question", question: "Can I post this in December?" });
+  assert.equal(asked.ok, true);
+  const declined = await respondToOffer(db, highViewer, { allocationId: highInbox[0]!.id, decision: "declined" });
+  assert.equal(declined.ok, true);
+  const emptyQuestion = await respondToOffer(db, midViewer, { allocationId: (await listCreatorOffers(db, midViewer))[0]!.id, decision: "question", question: " " });
+  assert.equal(emptyQuestion.ok, false);
+  assert.equal((await respondToOffer(db, highViewer, { allocationId: lowInbox[0]!.id, decision: "accepted" })).ok, false);
+
+  const board = await listOfferBoard(db, admin);
+  const spread = board.find((row) => row.brand === "Spread Soap");
+  assert.equal(spread?.recipients.find((row) => row.creatorId === "offer-low")?.response, "accepted");
+  assert.equal(spread?.recipients.find((row) => row.creatorId === "offer-mid")?.question, "Can I post this in December?");
+  assert.equal(board.find((row) => row.brand === "Tiny Soap")?.flagLabel, "Pitch agency retainer");
+  assert.equal(board.find((row) => row.brand === "Trainee Soap")?.flagLabel, "Commission-only trainee");
+  assert.equal(JSON.stringify(board).includes("minimumPerVideo"), false);
+
+  const brands = await listBrandCrm(db, admin);
+  assert.equal(brands.ok, true);
+  if (!brands.ok) return;
+  const spreadCard = brands.brands.find((card) => card.brand === "Spread Soap");
+  assert.equal(spreadCard?.crm.find((row) => row.creatorId === "offer-low")?.outcome, "accepted");
+  assert.equal(spreadCard?.crm.find((row) => row.creatorId === "offer-low")?.ratePaidCents, 120000);
+  assert.equal(spreadCard?.crm.find((row) => row.creatorId === "offer-low")?.nextFollowUp, "2026-11-15");
+  assert.equal(brands.brands.find((card) => card.brand === "Tiny Soap")?.crm[0]?.outcome, "Pitch agency retainer");
+  assert.equal(brands.brands.find((card) => card.brand === "Tiny Soap")?.crm[0]?.creatorId, null);
+  const hiddenRates = await listBrandCrm(db, manager);
+  assert.equal(hiddenRates.ok, true);
+  if (!hiddenRates.ok) return;
+  assert.equal(JSON.stringify(hiddenRates.brands.find((card) => card.brand === "Spread Soap")).includes("120000"), false);
+
+  const quizViewer: Viewer = { email: "quiz.rates@gmail.com", name: "Quiz Rates", role: "creator", creatorId: "offer-quiz" };
+  const quizSaved = await saveQuestionnaireStep(db, quizViewer, {
+    step: "rates",
+    skip: false,
+    pause: false,
+    patch: {
+      minVideo: "1000",
+      typicalRate: "2500",
+      maxSponsored: "3",
+      rates: { TikTok: "75" },
+      willDo: ["parenting"],
+      wontDo: ["gambling"],
+      acceptGifted: "yes",
+      acceptCommissionOnly: "no",
+    },
+  });
+  assert.equal(quizSaved.ok, true);
+  const quizRules = await rulesFor(db, "offer-quiz");
+  assert.equal(quizRules.minDealCents, 100000);
+  assert.equal(quizRules.typicalRateCents, 250000);
+  assert.equal(quizRules.maxDealsPerMonth, 3);
+  assert.equal(quizRules.minRates.tiktok, 7500);
+  assert.equal(quizRules.acceptedCategories?.includes("parenting"), true);
+  assert.equal(quizRules.blockedCategories.includes("gambling"), true);
+  assert.equal(quizRules.acceptGifted, true);
+  assert.equal(quizRules.acceptCommissionOnly, false);
+
+  const lowKnowledge = await creatorKnowledge(db, "offer-low");
+  const highKnowledge = await creatorKnowledge(db, "offer-high");
+  assert.equal(lowKnowledge?.minimumPerVideoCents, 5000);
+  assert.equal(lowKnowledge?.acceptCommissionOnly, true);
+  assert.equal(highKnowledge?.minimumPerVideoCents, 100000);
+  assert.equal(highKnowledge?.typicalRateCents, 250000);
+  assert.equal(JSON.stringify(highKnowledge).includes("offer-low"), false);
+  assert.equal(highKnowledge?.minimumPerVideoCents === 5000, false);
+  assert.deepEqual(highKnowledge?.platformMinimums, {});
+  assert.equal(await creatorKnowledge(db, "missing-creator"), null);
+
+  const closed = await upsertDeal(db, {
+    id: "offer-closed-soap",
+    brand: "Closed Soap Co",
+    creatorId: "offer-paid",
+    status: "delivered",
+    workflowStage: "scheduled_posted",
+    rateCents: 88000,
+    visibleToCreator: false,
+    deliverables: ["1 TikTok"],
+  });
+  assert.equal(closed.status, 201);
+  for (const step of ["brand_invoiced", "brand_paid", "creator_payout_pending", "creator_paid"] as const) {
+    const moved = await markPayment(db, { dealId: "offer-closed-soap", paymentStatus: step, actorEmail: admin.email, actorRole: "admin" });
+    assert.equal(moved.ok, true);
+  }
+  const afterClose = await listBrandCrm(db, admin);
+  assert.equal(afterClose.ok, true);
+  if (!afterClose.ok) return;
+  const closedCard = afterClose.brands.find((card) => card.brand === "Closed Soap Co");
+  assert.equal(closedCard?.crm.some((row) => row.creatorId === "offer-paid" && row.outcome === "closed" && row.ratePaidCents === 88000), true);
+
+  const packed = JSON.stringify(await publicMediaKit(db, "mariclare"));
+  assert.equal(packed.includes("@"), false);
+  assert.equal(packed.includes("$"), false);
+  assert.equal(packed.includes("rate"), false);
+  assert.equal((await db.select().from(approvalEmails)).length, approvalsBefore);
 
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
