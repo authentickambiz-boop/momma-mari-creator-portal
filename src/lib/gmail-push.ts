@@ -192,6 +192,72 @@ export function parseSince(since: string | null) {
   return { ok: true as const, since };
 }
 
+function unwrapEnv(value: string | undefined) {
+  let text = value?.trim() ?? "";
+  if (text.length >= 2) {
+    const quote = text[0];
+    if ((quote === "\"" || quote === "'") && text.endsWith(quote)) text = text.slice(1, -1).trim();
+  }
+  return text;
+}
+
+function configuredTopic() {
+  return unwrapEnv(process.env.GMAIL_WATCH_TOPIC);
+}
+
+/** Pub/Sub topic names are project id plus topic id. Anything else is refused before it can be echoed. */
+function watchTopic() {
+  const topic = configuredTopic();
+  if (!topic) throw new Error("GMAIL_WATCH_TOPIC is not set.");
+  if (!/^projects\/[a-z][a-z0-9-]{4,28}[a-z0-9]\/topics\/[A-Za-z][A-Za-z0-9_.~+%-]{2,254}$/.test(topic)) {
+    throw new Error("GMAIL_WATCH_TOPIC is not a Pub/Sub topic name. It must look like projects/project-id/topics/topic-id.");
+  }
+  return topic;
+}
+
+function googleErrorDetail(body: unknown) {
+  if (!body || typeof body !== "object") return "";
+  const record = body as { error?: unknown; error_description?: unknown };
+  if (typeof record.error === "string") {
+    const description = typeof record.error_description === "string" ? record.error_description.trim() : "";
+    return description ? `${record.error}: ${description}` : record.error;
+  }
+  if (record.error && typeof record.error === "object") {
+    const nested = record.error as { message?: unknown; errors?: { message?: unknown }[] };
+    if (typeof nested.message === "string" && nested.message.trim()) return nested.message.trim();
+    const nestedMessage = nested.errors?.find((item) => typeof item?.message === "string")?.message;
+    if (typeof nestedMessage === "string") return nestedMessage.trim();
+  }
+  return "";
+}
+
+function redactSecrets(text: string, secrets: string[]) {
+  let out = text;
+  const unique = [...new Set(secrets.filter((secret) => secret.length >= 6))].sort((left, right) => right.length - left.length);
+  for (const secret of unique) out = out.split(secret).join("[redacted]");
+  return out
+    .replace(/Bearer\s+\S+/gi, "[redacted]")
+    .replace(/ya29\.[A-Za-z0-9._\-]+/g, "[redacted]")
+    .replace(/1\/\/[A-Za-z0-9._\-]+/g, "[redacted]")
+    .replace(/v1:[A-Za-z0-9+/=]{16,}/g, "[redacted]")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Google's error text for a cron row. Tokens, ciphers, and client secrets are removed. */
+function safeGoogleMessage(fallback: string, status: number | null, body: unknown, secrets: string[]) {
+  const detail = redactSecrets(googleErrorDetail(body), secrets).slice(0, 300);
+  const readable = detail.replaceAll("[redacted]", "").replace(/[^A-Za-z0-9]+/g, "");
+  if (!detail || !readable) return status ? `${fallback} (${status}).` : `${fallback}.`;
+  return status ? `${fallback} (${status}): ${detail}` : `${fallback}: ${detail}`;
+}
+
+function describeWatchFailure(error: unknown, secrets: string[]) {
+  const message = error instanceof Error ? redactSecrets(error.message, secrets).slice(0, 300) : "";
+  const readable = message.replaceAll("[redacted]", "").replace(/[^A-Za-z0-9]+/g, "");
+  return message && readable ? message : "Watch was not renewed.";
+}
+
 async function saveHistory(db: PortalDb, mailbox: string, creatorId: string, historyId: string) {
   const timestamp = nowIso();
   const existing = await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, mailbox));
@@ -204,7 +270,7 @@ async function saveHistory(db: PortalDb, mailbox: string, creatorId: string, his
     creatorId,
     historyId,
     expiration: null,
-    topic: process.env.GMAIL_WATCH_TOPIC ?? null,
+    topic: configuredTopic() || null,
     updatedAt: timestamp,
   });
 }
@@ -416,34 +482,53 @@ export async function renewGmailWatches(
         creatorId: box.creatorId,
         historyId: watched.historyId,
         expiration: watched.expiration,
-        topic: process.env.GMAIL_WATCH_TOPIC ?? null,
+        topic: configuredTopic() || null,
         updatedAt: timestamp,
       };
       if (existing[0]) await db.update(gmailWatches).set(values).where(eq(gmailWatches.mailbox, box.email));
       else await db.insert(gmailWatches).values({ mailbox: box.email, ...values });
       results.push({ mailbox: box.email, ok: true, expiration: watched.expiration });
-    } catch {
-      results.push({ mailbox: box.email, ok: false, error: "Watch was not renewed." });
+    } catch (error) {
+      results.push({
+        mailbox: box.email,
+        ok: false,
+        error: describeWatchFailure(error, [refreshToken, unwrapEnv(process.env.GOOGLE_CLIENT_SECRET), unwrapEnv(process.env.TOKEN_ENCRYPTION_KEY), state.cipher]),
+      });
     }
   }
   return results;
 }
 
+async function readJsonBody(response: Response) {
+  const raw = await response.text();
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 async function refreshGmailAccessToken(refreshToken: string) {
+  const clientId = unwrapEnv(process.env.GOOGLE_CLIENT_ID);
+  const clientSecret = unwrapEnv(process.env.GOOGLE_CLIENT_SECRET);
+  if (!clientId || !clientSecret) throw new Error("Google client id or secret is not set.");
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID ?? "",
-      client_secret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      client_id: clientId,
+      client_secret: clientSecret,
       refresh_token: refreshToken,
       grant_type: "refresh_token",
     }),
   });
-  if (!response.ok) throw new Error("Gmail token refresh failed.");
-  const json = await response.json() as { access_token?: string };
-  if (!json.access_token) throw new Error("Gmail token refresh failed.");
-  return json.access_token;
+  const json = await readJsonBody(response) as { access_token?: unknown } | null;
+  const accessToken = typeof json?.access_token === "string" ? json.access_token : "";
+  if (!response.ok || !accessToken) {
+    throw new Error(safeGoogleMessage("Gmail token refresh failed", response.ok ? null : response.status, json, [refreshToken, clientSecret, accessToken]));
+  }
+  return accessToken;
 }
 
 async function gmailGet(accessToken: string, path: string) {
@@ -451,7 +536,9 @@ async function gmailGet(accessToken: string, path: string) {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (response.status === 404) return { missing: true as const, json: null };
-  if (!response.ok) throw new Error("Gmail read failed.");
+  if (!response.ok) {
+    throw new Error(safeGoogleMessage("Gmail read failed", response.status, await readJsonBody(response), [accessToken]));
+  }
   return { missing: false as const, json: await response.json() };
 }
 
@@ -501,16 +588,18 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
 }
 
 export async function renewMailboxWatch(refreshToken: string) {
+  const topic = watchTopic();
   const accessToken = await refreshGmailAccessToken(refreshToken);
-  const topic = process.env.GMAIL_WATCH_TOPIC?.trim();
-  if (!topic) throw new Error("GMAIL_WATCH_TOPIC is not set.");
+  const clientSecret = unwrapEnv(process.env.GOOGLE_CLIENT_SECRET);
   const response = await fetch(`${GMAIL_API}/watch`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ topicName: topic, labelIds: ["INBOX", "SENT"] }),
+    body: JSON.stringify({ topicName: topic, labelIds: ["INBOX", "SENT"], labelFilterBehavior: "include" }),
   });
-  if (!response.ok) throw new Error("Gmail watch failed.");
-  const json = await response.json() as { historyId?: string; expiration?: string };
-  if (!json.historyId) throw new Error("Gmail watch failed.");
-  return { historyId: String(json.historyId), expiration: json.expiration ? String(json.expiration) : "" };
+  const json = await readJsonBody(response) as { historyId?: unknown; expiration?: unknown } | null;
+  const historyId = json?.historyId == null || json.historyId === "" ? "" : String(json.historyId);
+  if (!response.ok || !historyId) {
+    throw new Error(safeGoogleMessage("Gmail watch failed", response.ok ? null : response.status, json, [refreshToken, accessToken, clientSecret]));
+  }
+  return { historyId, expiration: json?.expiration == null ? "" : String(json.expiration) };
 }

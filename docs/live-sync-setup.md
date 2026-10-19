@@ -143,7 +143,11 @@ There is no timer inside Webflow Cloud. Use Google Cloud Scheduler (3 jobs a mon
 
 You can also call that URL with GET. A wrong or missing bearer token gets 401. If `GMAIL_WATCH_CRON_SECRET` is empty, the route returns 503 and does not call Google.
 
-Run the job once by hand after connecting the inboxes. The response lists each mailbox. `"ok": true` means Gmail accepted the watch. The other mailbox stays `"Mailbox is not connected."` until you connect it.
+Run the job once by hand after connecting the inboxes. The response lists each mailbox. `"ok": true` means Gmail accepted the watch. The other mailbox stays `"Mailbox is not connected."` until you connect it. A connected mailbox that Gmail refused returns `"ok": false` and Google's error text. The refresh token, access token, and client secret are not included.
+
+The watch call fails before any mail is delivered when Gmail cannot publish a test message to the topic. The error looks like: `Gmail watch failed (400): Error sending test message to Cloud PubSub projects/YOUR_PROJECT_ID/topics/gmail-push : User not authorized to perform this action.` Fix that on the topic itself, not only on the project: principal `gmail-api-push@system.gserviceaccount.com`, role **Pub/Sub Publisher**. An organization policy that blocks principals outside your domain can refuse this grant even when the console looks saved. The project id inside `GMAIL_WATCH_TOPIC` has to be the same project that owns the OAuth client in `GOOGLE_CLIENT_ID`. `GOOGLE_CLIENT_SECRET` has to be that same client's secret.
+
+A refresh failure looks different: `Gmail token refresh failed (400): invalid_grant` or `invalid_client`. Reconnect the watched inbox after the client id and secret match. `APP_BASE_URL` is the site origin plus `/portal`. The OAuth client's authorized redirect URI is that value plus `/api/auth/callback`. The Pub/Sub push URL and `GMAIL_PUSH_AUDIENCE` must both be the host that actually serves the portal, plus `/api/gmail/push`. A watch can succeed and later pushes can still be rejected when those two URLs differ.
 
 ## 10. What the portal does with a message
 
