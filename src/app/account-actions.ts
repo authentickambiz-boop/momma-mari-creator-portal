@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
+import { disconnectCreatorAccount } from "@/lib/account-connections";
 import { saveOwnSettings, submitSupportMessage } from "@/lib/creator-home";
 
 export async function saveSettingsAction(formData: FormData) {
@@ -29,4 +30,19 @@ export async function submitSupportAction(formData: FormData) {
   });
   if (!result.ok) redirect(`/support?supportError=${encodeURIComponent(result.error)}`);
   redirect("/support?saved=1");
+}
+
+export async function disconnectAccountAction(formData: FormData) {
+  const viewer = await currentViewer();
+  if (!viewer) redirect("/login");
+  const db = await getDb();
+  const result = await disconnectCreatorAccount(
+    db,
+    viewer,
+    String(formData.get("creatorId") ?? ""),
+    String(formData.get("platform") ?? ""),
+  );
+  if (result.status === 403) redirect("/connect?account=forbidden");
+  if (result.status !== 200) redirect("/connect?account=error");
+  redirect("/connect?account=disconnected");
 }

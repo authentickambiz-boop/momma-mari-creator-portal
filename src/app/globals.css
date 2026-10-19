@@ -355,6 +355,10 @@ a.deal.on { border-color: var(--terra); box-shadow: 0 0 0 2px var(--blush); }
 .btn:hover { background: var(--ivory); color: var(--terra); }
 .btn.ghost { background: var(--cream); color: var(--terra); border: 1px solid var(--terra); }
 .btn.ghost:hover { background: var(--terra); color: #fff; }
+.btn:disabled,
+.btn:disabled:hover { opacity: 0.45; cursor: not-allowed; background: var(--terra); color: #fff; }
+.btn.ghost:disabled,
+.btn.ghost:disabled:hover { background: var(--cream); color: var(--terra); }
 .note { font-size: 12.5px; color: var(--muted); }
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -380,8 +384,10 @@ th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color
 .bars div { flex: 1; background: linear-gradient(180deg, var(--terra), #e9a58f); border-radius: 6px 6px 0 0; position: relative; min-height: 4px; }
 .bars span { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--muted); }
 
-.connect { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.connect { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .connect:last-child { border-bottom: 0; }
+.connect-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.connect-actions .btn { margin-top: 0; padding: 8px 12px; font-size: 14px; }
 .pf { display: flex; gap: 10px; align-items: center; }
 .pf .ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: #fff; font-weight: 700; }
 

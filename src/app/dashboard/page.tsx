@@ -1,8 +1,10 @@
 import { addReinvestmentAction, saveReinvestTargetAction } from "@/app/growth-actions";
+import { PlatformInviteCard } from "@/components/platform-invite-card";
 import { PortalFrame } from "@/components/portal-frame";
 import { ownerDashboard } from "@/lib/campaigns";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
+import { listPlatformInvites } from "@/lib/platform-invites";
 import { REINVEST_CATEGORIES, reinvestmentSummary } from "@/lib/reinvestment";
 import { getDealStage } from "@/lib/stages";
 
@@ -17,6 +19,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     );
   }
   const dash = await ownerDashboard(portal.db, portal.viewer);
+  const invites = await listPlatformInvites(portal.db, portal.viewer);
   const month = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
   const reinvest = await reinvestmentSummary(portal.db, portal.viewer, month);
   if (!dash.ok) {
@@ -34,6 +37,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       viewedId={portal.viewedId}
       hello={<div className="hello"><div><h1>Dashboard</h1><p>What the roster is worth, and where a campaign still needs a creator.</p></div></div>}
     >
+      {invites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} showCreator />)}
       <div className="card">
         <div className="sec-title">Pipeline</div>
         {dash.pipeline.map((row) => (
