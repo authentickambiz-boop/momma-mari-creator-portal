@@ -957,6 +957,55 @@ export const supportMessages = sqliteTable("support_messages", {
   createdAt: text("created_at").notNull(),
 });
 
+export const capabilityGrants = sqliteTable("capability_grants", {
+  id: text("id").primaryKey(),
+  subjectType: text("subject_type").notNull(),
+  subjectId: text("subject_id").notNull(),
+  capability: text("capability").notNull(),
+  level: text("level").notNull(),
+  trainingJson: text("training_json").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const capabilityAudit = sqliteTable("capability_audit", {
+  id: text("id").primaryKey(),
+  actorEmail: text("actor_email").notNull(),
+  actorRole: text("actor_role").notNull(),
+  subjectType: text("subject_type"),
+  subjectId: text("subject_id"),
+  capability: text("capability"),
+  action: text("action").notNull(),
+  detail: text("detail"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const capabilityDrafts = sqliteTable("capability_drafts", {
+  id: text("id").primaryKey(),
+  subjectType: text("subject_type").notNull(),
+  subjectId: text("subject_id").notNull(),
+  capability: text("capability").notNull(),
+  level: text("level").notNull(),
+  actorEmail: text("actor_email").notNull(),
+  summary: text("summary").notNull(),
+  effectJson: text("effect_json").notNull(),
+  status: text("status").notNull(),
+  reviewedBy: text("reviewed_by"),
+  reviewedAt: text("reviewed_at"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const botTokens = sqliteTable("bot_tokens", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  tokenHint: text("token_hint").notNull(),
+  revealOnce: text("reveal_once"),
+  active: integer("active", { mode: "boolean" }).notNull(),
+  createdAt: text("created_at").notNull(),
+  revokedAt: text("revoked_at"),
+});
+
 export const analyticsSnapshots = sqliteTable(
   "analytics_snapshots",
   {
