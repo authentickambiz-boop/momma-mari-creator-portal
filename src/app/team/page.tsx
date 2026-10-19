@@ -44,6 +44,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
           <label className="contract-choices"><input type="checkbox" name="approveVideo" value="1" defaultChecked /> Approve videos</label>
           <label className="contract-choices"><input type="checkbox" name="approveContract" value="1" /> Approve contracts</label>
           <label className="contract-choices"><input type="checkbox" name="countersign" value="1" /> Countersign</label>
+          <label className="contract-choices"><input type="checkbox" name="canPriceDeals" value="1" /> Edit deal rules and see dollar amounts</label>
           <button className="btn" type="submit">Add manager</button>
         </form>
       </div>
@@ -57,6 +58,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
             <label className="contract-choices"><input type="checkbox" name="approveVideo" value="1" defaultChecked={manager.permissions.approveVideo} /> Approve videos</label>
             <label className="contract-choices"><input type="checkbox" name="approveContract" value="1" defaultChecked={manager.permissions.approveContract} /> Approve contracts</label>
             <label className="contract-choices"><input type="checkbox" name="countersign" value="1" defaultChecked={manager.permissions.countersign} /> Countersign</label>
+            <label className="contract-choices"><input type="checkbox" name="canPriceDeals" value="1" defaultChecked={manager.permissions.canPriceDeals} /> Edit deal rules and see dollar amounts</label>
             <button className="btn ghost" type="submit">Save permissions</button>
           </form>
           <form action={setManagerActiveAction}>

@@ -34,6 +34,7 @@ function permissionsOf(row: typeof managers.$inferSelect): ManagerPermissions {
     approveVideo: row.canApproveVideo,
     approveContract: row.canApproveContract,
     countersign: row.canCountersign,
+    canPriceDeals: row.canPriceDeals,
   };
 }
 
@@ -121,6 +122,7 @@ export async function addManager(
     approveVideo: input.permissions?.approveVideo ?? true,
     approveContract: input.permissions?.approveContract ?? false,
     countersign: input.permissions?.countersign ?? false,
+    canPriceDeals: input.permissions?.canPriceDeals ?? false,
   };
   const id = crypto.randomUUID();
   await db.insert(managers).values({
@@ -132,6 +134,7 @@ export async function addManager(
     canApproveVideo: permissions.approveVideo,
     canApproveContract: permissions.approveContract,
     canCountersign: permissions.countersign,
+    canPriceDeals: permissions.canPriceDeals ?? false,
     createdAt: nowIso(),
     deactivatedAt: null,
   });
@@ -164,6 +167,7 @@ export async function setManagerPermissions(
     canApproveVideo: input.permissions.approveVideo,
     canApproveContract: input.permissions.approveContract,
     canCountersign: input.permissions.countersign,
+    canPriceDeals: input.permissions.canPriceDeals ?? false,
   }).where(eq(managers.id, input.managerId));
   return { ok: true, permissions: input.permissions };
 }
