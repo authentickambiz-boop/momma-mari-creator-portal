@@ -1,8 +1,10 @@
 import { saveMediaKitAction } from "@/app/media-kit-actions";
 import { PortalFrame } from "@/components/portal-frame";
+import { TagPicker } from "@/components/tag-picker";
 import { loadPortal } from "@/lib/current-user";
 import { withBasePath } from "@/lib/format";
 import { myMediaKit, zernioStatsEnabled } from "@/lib/media-kit";
+import { NICHE_CATALOG } from "@/lib/niche-catalog";
 
 export default async function MediaKitPage({ searchParams }: { searchParams: Promise<{ saved?: string; kitError?: string; slug?: string }> }) {
   const params = await searchParams;
@@ -29,7 +31,7 @@ export default async function MediaKitPage({ searchParams }: { searchParams: Pro
         <label>Followers<input name="followers" inputMode="numeric" defaultValue={kit?.followers ?? ""} /></label>
         <label>Average views<input name="avgViews" inputMode="numeric" defaultValue={kit?.avgViews ?? ""} /></label>
         <label>Engagement<input name="engagement" placeholder="3%" defaultValue={kit?.engagement ?? ""} /></label>
-        <label>Niches<input name="niches" placeholder="parenting, home" defaultValue={kit?.niches ?? ""} /></label>
+        <TagPicker name="niches" label="Niches" options={NICHE_CATALOG} selected={(kit?.niches ?? "").split(",").map((item) => item.trim()).filter(Boolean)} placeholder="Search niches" />
         <button className="btn" type="submit">Save media kit</button>
       </form>
     </PortalFrame>

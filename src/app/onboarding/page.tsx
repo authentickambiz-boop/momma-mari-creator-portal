@@ -4,11 +4,13 @@ import { chooseEmailSetupAction } from "@/app/actions";
 import { EmailSetupForm } from "@/components/email-setup-form";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { PortalFrame } from "@/components/portal-frame";
+import { QuestionStep } from "@/components/question-step";
 import { emailSetupLabel, STRIPE_CATALOG } from "@/lib/email-setup";
 import { publicBasePath } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
-import { onboardingPlatformLabel } from "@/lib/onboarding-fields";
+import { onboardingPlatformId, onboardingPlatformLabel } from "@/lib/onboarding-fields";
 import { emailSetupFor, gmailConnectionState, onboardingForCreator } from "@/lib/onboarding";
+import { questionnaireFor, stepIndex, type QuestionStepId } from "@/lib/questionnaire";
 
 const GMAIL_ERRORS: Record<string, string> = {
   oauth: "Google didn't finish connecting your email. Try the button again.",
@@ -20,7 +22,7 @@ const GMAIL_ERRORS: Record<string, string> = {
 export default async function OnboardingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ creator?: string; connected?: string; done?: string; error?: string; gmail?: string; emailError?: string; setup?: string; hosted?: string }>;
+  searchParams: Promise<{ creator?: string; connected?: string; done?: string; error?: string; gmail?: string; emailError?: string; setup?: string; hosted?: string; step?: string; questionError?: string }>;
 }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
@@ -30,9 +32,16 @@ export default async function OnboardingPage({
   const profile = creator ? await onboardingForCreator(portal.db, creator.id) : null;
   const setup = creator ? await emailSetupFor(portal.db, creator.id) : null;
   const own = portal.viewer.role === "creator";
+  const quiz = creator && own ? await questionnaireFor(portal.db, creator.id) : null;
+  const requested = params.step && stepIndex(params.step) >= 0 ? params.step : quiz?.step;
+  const savedIndex = stepIndex(quiz?.step && quiz.step !== "done" ? quiz.step : "bot");
+  const activeStep = (quiz && requested && stepIndex(requested) >= 0 && stepIndex(requested) <= savedIndex
+    ? requested
+    : quiz?.step && quiz.step !== "done"
+      ? quiz.step
+      : "niches") as QuestionStepId;
   const gmailError = params.gmail ? GMAIL_ERRORS[params.gmail] : null;
   const choice = setup?.choice ?? null;
-  const needsConnect = choice === "business" || choice === "personal";
   const readyForProfile = Boolean(connection?.connected) || (choice === "hosted" && Boolean(setup?.hostedEmailAddress));
   const addOn = STRIPE_CATALOG.hostedCreatorEmail;
   return (
@@ -44,8 +53,8 @@ export default async function OnboardingPage({
       hello={
         <div className="hello">
           <div>
-            <h1>{own ? "Set up your bot" : "Creator onboarding"}</h1>
-            <p>Choose how brand email should work, then name the bot and fill in a short profile. Kamron is told when it&apos;s finished.</p>
+            <h1>{own ? "Set up your portal" : "Creator onboarding"}</h1>
+            <p>Choose how brand email should work, then answer a few questions so deals can be matched. You can finish later. Nothing is sent from here.</p>
           </div>
         </div>
       }
@@ -93,8 +102,21 @@ export default async function OnboardingPage({
           <button className="btn ghost" type="submit">Choose a different email option</button>
         </form>
       ) : null}
-      {creator && readyForProfile && own && !profile?.finishedAt && (needsConnect ? connection?.connected : true) ? (
-        <OnboardingWizard creatorName={creator.name} suggestedBotName={`${creator.name} Bot`} error={params.error === "1"} />
+      {quiz && !quiz.finished ? (
+        <>
+          <QuestionStep stepId={activeStep} answers={quiz.answers} error={params.questionError ?? null} emailReady={readyForProfile} />
+          {creator && activeStep === "bot" && !profile?.finishedAt ? (
+            <OnboardingWizard
+              creatorName={creator.name}
+              suggestedBotName={`${creator.name} Bot`}
+              error={params.error === "1" && readyForProfile}
+              emailReady={readyForProfile}
+              niches={quiz.answers.niches}
+              platforms={quiz.answers.platforms.filter((item) => onboardingPlatformId(item)).map((item) => onboardingPlatformLabel(onboardingPlatformId(item) ?? item))}
+              brands={quiz.answers.brands}
+            />
+          ) : null}
+        </>
       ) : null}
       {creator && profile?.finishedAt ? (
         <div className="card">

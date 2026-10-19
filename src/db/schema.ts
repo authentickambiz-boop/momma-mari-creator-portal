@@ -670,3 +670,12 @@ export const sessions = sqliteTable("sessions", {
   createdAt: text("created_at").notNull(),
   expiresAt: text("expires_at").notNull(),
 });
+
+export const creatorQuestionnaires = sqliteTable("creator_questionnaires", {
+  creatorId: text("creator_id").primaryKey(),
+  step: text("step").notNull(),
+  answersJson: text("answers_json").notNull(),
+  pausedAt: text("paused_at"),
+  finishedAt: text("finished_at"),
+  updatedAt: text("updated_at").notNull(),
+});

@@ -19,6 +19,8 @@ import { setDealStage } from "@/lib/deal-stage";
 import { confirmLivePost, confirmProductReceived, markPayment, saveShipment, submitLivePosts } from "@/lib/fulfillment";
 import { isEmailSetup } from "@/lib/email-setup";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
+import { onboardingPlatformId } from "@/lib/onboarding-fields";
+import { creatorStartPath, saveQuestionnaireStep } from "@/lib/questionnaire";
 import { resolveLogin } from "@/lib/queries";
 import { createSession, destroySession, sessionCookieName, sessionCookieOptions } from "@/lib/session";
 import { requestClientIp } from "@/lib/request-ip";
@@ -455,16 +457,19 @@ export async function finishOnboardingAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer || viewer.role !== "creator" || !viewer.creatorId) redirect("/login");
   const db = await getDb();
+  const niche = formData.getAll("niche").map((value) => String(value)).filter(Boolean).join(", ");
+  const brands = formData.getAll("favoriteBrands").map((value) => String(value)).filter(Boolean).join(", ");
   const result = await finishOnboarding(db, viewer.creatorId, {
     botName: String(formData.get("botName") ?? ""),
-    niche: String(formData.get("niche") ?? ""),
+    niche,
     kidsAges: String(formData.get("kidsAges") ?? ""),
     contentStyle: String(formData.get("contentStyle") ?? ""),
     rates: String(formData.get("rates") ?? ""),
-    favoriteBrands: String(formData.get("favoriteBrands") ?? ""),
-    platforms: formData.getAll("platforms").map((value) => String(value)),
+    favoriteBrands: brands,
+    platforms: formData.getAll("platforms").map((value) => onboardingPlatformId(String(value)) ?? String(value)),
   });
-  if (!result.ok) redirect("/onboarding?error=1");
+  if (!result.ok) redirect("/onboarding?step=bot&error=1");
+  await saveQuestionnaireStep(db, viewer, { step: "bot", skip: false, pause: false, patch: {} });
   redirect("/onboarding?done=1");
 }
 
@@ -669,5 +674,5 @@ export async function devLoginAction(formData: FormData) {
   const session = await createSession(db, result.viewer);
   const jar = await cookies();
   jar.set(sessionCookieName(), session.cookieValue, sessionCookieOptions());
-  redirect("/");
+  redirect(await creatorStartPath(db, result.viewer));
 }
