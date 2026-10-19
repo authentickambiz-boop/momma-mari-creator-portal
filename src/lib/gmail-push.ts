@@ -1,10 +1,11 @@
 import { asc, eq, gt } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { deals, gmailSeenMessages, gmailWatches, inboxEvents } from "@/db/schema";
+import { creators, deals, gmailSeenMessages, gmailWatches, inboxEvents } from "@/db/schema";
 import { setDealStage } from "./deal-stage";
 import { normalizeEmail, nowIso, safeEqual } from "./format";
-import { gmailConnectionState } from "./onboarding";
+import { clearMailboxReconnect, gmailConnectionState, mailboxReconnectReason, markMailboxNeedsReconnect } from "./onboarding";
 import { getDealStage } from "./stages";
+import { revokeGoogleToken, type GoogleTokenRevoker } from "./google-oauth";
 import { decryptToken } from "./token-crypto";
 
 export const WATCH_MAILBOXES = [
@@ -487,7 +488,7 @@ export async function renewGmailWatches(
   db: PortalDb,
   watch: (input: { mailbox: string; refreshToken: string }) => Promise<{ historyId: string; expiration: string }>,
 ) {
-  const results: { mailbox: string; ok: boolean; expiration?: string; error?: string }[] = [];
+  const results: { mailbox: string; ok: boolean; expiration?: string; error?: string; needsReconnect?: boolean }[] = [];
   for (const box of WATCH_MAILBOXES) {
     const state = await gmailConnectionState(db, box.creatorId);
     if (!state.cipher || normalizeEmail(state.gmailEmail ?? "") !== box.email) {
@@ -518,12 +519,17 @@ export async function renewGmailWatches(
       };
       if (existing[0]) await db.update(gmailWatches).set(values).where(eq(gmailWatches.mailbox, box.email));
       else await db.insert(gmailWatches).values({ mailbox: box.email, ...values });
+      await clearMailboxReconnect(db, box.creatorId);
       results.push({ mailbox: box.email, ok: true, expiration: watched.expiration });
     } catch (error) {
+      const message = describeWatchFailure(error, [refreshToken, unwrapEnv(process.env.GOOGLE_CLIENT_SECRET), unwrapEnv(process.env.TOKEN_ENCRYPTION_KEY), state.cipher]);
+      const reason = mailboxReconnectReason(message);
+      if (reason) await markMailboxNeedsReconnect(db, box.creatorId, reason);
       results.push({
         mailbox: box.email,
         ok: false,
-        error: describeWatchFailure(error, [refreshToken, unwrapEnv(process.env.GOOGLE_CLIENT_SECRET), unwrapEnv(process.env.TOKEN_ENCRYPTION_KEY), state.cipher]),
+        error: message,
+        needsReconnect: Boolean(reason),
       });
     }
   }
@@ -616,6 +622,60 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
       };
     },
   };
+}
+
+async function revokeStoredGoogleToken(cipher: string | null, revoke?: GoogleTokenRevoker) {
+  if (!cipher) return;
+  const run = revoke ?? revokeGoogleToken;
+  try {
+    await run(await decryptToken(cipher));
+  } catch {
+    // An unreadable ciphertext or a failed revoke still clears the local copy.
+  }
+}
+
+/** Revoke the saved Gmail token, then drop it and the watch. Old mail stays marked seen. */
+export async function clearCreatorGmail(
+  db: PortalDb,
+  creatorId: string,
+  options?: { revoke?: GoogleTokenRevoker },
+) {
+  const creator = await db.select().from(creators).where(eq(creators.id, creatorId));
+  if (!creator[0]) return { status: 404 as const, body: { error: "Creator not found." } };
+  const storedEmail = creator[0].gmailEmail ? normalizeEmail(creator[0].gmailEmail) : null;
+  await revokeStoredGoogleToken(creator[0].gmailRefreshToken, options?.revoke);
+  await db.update(creators).set({
+    gmailRefreshToken: null,
+    gmailEmail: null,
+    gmailConnectedAt: null,
+    gmailReconnectReason: null,
+    emailStatus: creator[0].emailStatus === "connected" ? "disconnected" : creator[0].emailStatus,
+  }).where(eq(creators.id, creatorId));
+  if (storedEmail) await db.delete(gmailWatches).where(eq(gmailWatches.mailbox, storedEmail));
+  const watched = mailboxForCreator(creatorId);
+  if (watched) await db.delete(gmailWatches).where(eq(gmailWatches.mailbox, watched.email));
+  await db.delete(gmailWatches).where(eq(gmailWatches.creatorId, creatorId));
+  return { status: 200 as const, body: { ok: true as const, email: storedEmail, creatorId, cleared: true as const } };
+}
+
+/** Drop the saved Gmail token and watch so the inbox can be connected again. */
+export async function disconnectMailbox(
+  db: PortalDb,
+  email: string,
+  options?: { revoke?: GoogleTokenRevoker },
+) {
+  const normalized = normalizeEmail(email);
+  if (!normalized.includes("@")) return { status: 400, body: { error: "email is required." } };
+  const watched = creatorForMailbox(normalized);
+  let creatorId: string | null = watched?.creatorId ?? null;
+  if (!creatorId) {
+    const rows = await db.select({ id: creators.id }).from(creators).where(eq(creators.gmailEmail, normalized));
+    creatorId = rows[0]?.id ?? null;
+  }
+  if (!creatorId) return { status: 404, body: { error: "No watched inbox uses that email." } };
+  const cleared = await clearCreatorGmail(db, creatorId, options);
+  if (cleared.status !== 200) return { status: 404, body: { error: "No watched inbox uses that email." } };
+  return { status: 200, body: { ok: true, email: normalized, creatorId, cleared: true } };
 }
 
 export async function renewMailboxWatch(refreshToken: string) {

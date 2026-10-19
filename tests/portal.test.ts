@@ -6,7 +6,7 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { createDb, type PortalDb } from "../src/db/index";
-import { adminNotifications, analyticsSnapshots, approvalEmails, brandCrmEntries, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creatorProfiles, creatorRankHistory, creators, deals, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, gmailWatches, payments } from "../src/db/schema";
+import { adminNotifications, analyticsSnapshots, approvalEmails, brandCrmEntries, communityMembers, communityPhotos, communitySettings, contracts as contractTable, creatorAccounts, creatorNotifications, creatorProfiles, creatorRankHistory, creators, deals, emailCopies, emailCopyFiles, signatureFiles, draftSafetyFlags, gmailSeenMessages, gmailWatches, payments, platformInvites, sessions } from "../src/db/schema";
 import { openDatabase } from "../src/db/local-d1";
 import { approvalListAllowed, createApprovalEmail, listApprovalQueue, listBrandContacts, reviewApproval } from "../src/lib/approvals";
 import { boldSignEnabled, sendContractWithBoldSign } from "../src/lib/boldsign";
@@ -52,16 +52,22 @@ import {
   summarizeAnalytics,
 } from "../src/lib/queries";
 import {
+  DRIVE_FILE_SCOPE,
   GMAIL_READONLY_SCOPE,
   GMAIL_SCOPES,
+  createDriveOAuthState,
   createGmailOAuthState,
   createWatchCreatorCookie,
   createOAuthState,
   googleAuthUrl,
+  googleDriveAuthUrl,
   googleGmailAuthUrl,
   googleGmailWatchAuthUrl,
   googleRedirectUri,
+  isDriveOAuthState,
+  isGmailOAuthState,
   readWatchCreatorCookie,
+  verifyDriveOAuthState,
   verifyGmailOAuthState,
   verifyOAuthState,
 } from "../src/lib/google-oauth";
@@ -81,7 +87,7 @@ import {
 import { hostedEmailPreview, STRIPE_CATALOG } from "../src/lib/email-setup";
 import { addManager, assignCreatorManagers, assignedCreatorIds, listManagerNotices, listManagers, needsYou, notifyStaff, setManagerActive, setManagerPermissions } from "../src/lib/managers";
 import { advanceAfterSignature, countersignContract, listSignatures, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "../src/lib/signing";
-import { createSession, readSignedSessionId } from "../src/lib/session";
+import { createSession, readSession, readSignedSessionId } from "../src/lib/session";
 import { decryptToken } from "../src/lib/token-crypto";
 import { assertCanUpload, parseContentRange, validateChunk } from "../src/lib/uploads";
 import type { Viewer } from "../src/lib/types";
@@ -108,6 +114,7 @@ import {
   isSpamSender,
   listInboxEvents,
   parseSince,
+  disconnectMailbox,
   renewGmailWatches,
   renewMailboxWatch,
   verifyPubSubOidc,
@@ -120,6 +127,13 @@ import { compositeScore, defaultWeights, emptyInputs, inputsFor, leaderboard, re
 import { addCollab, collabLift, pairCollab, podById, savePod, suggestPods } from "../src/lib/pods";
 import { createRankReport, reportPdf, sharedReport } from "../src/lib/rank-reports";
 import { addReinvestment, reinvestmentSummary } from "../src/lib/reinvestment";
+import { createPlatformInvite, listPlatformInvites, presentDeadline, setPlatformInviteDone } from "../src/lib/platform-invites";
+import {
+  accountButtonState,
+  connectionStatus,
+  disconnectConfirmMessage,
+} from "../src/lib/account-connection-status";
+import { disconnectCreatorAccount, driveConnectionState, saveDriveConnection } from "../src/lib/account-connections";
 
 process.env.SESSION_SECRET = "test-secret-please-change";
 process.env.BOT_API_TOKEN = "test-bot-token-please-change";
@@ -5838,4 +5852,355 @@ test("a dead Gmail token is acknowledged and a blank thread does not open a deal
   assert.equal(kosblingAfter?.contracts.length, 0);
   assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
 });
+
+test("a rejected Gmail token needs a reconnect, and platform invites stay on the home list", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const dealsBefore = (await db.select().from(deals)).length;
+
+  const rejected = await renewGmailWatches(db, async () => {
+    throw new Error("Gmail token refresh failed (401): unauthorized_client");
+  });
+  const mailbox = rejected.find((row) => row.mailbox === "mmaclamroc@gmail.com");
+  assert.equal(mailbox?.ok, false);
+  assert.match(mailbox?.error ?? "", /unauthorized_client/);
+  assert.equal(mailbox?.needsReconnect, true);
+  const flagged = await gmailConnectionState(db, "mariclare");
+  assert.equal(flagged.needsReconnect, true);
+  assert.equal(flagged.reconnectReason, "unauthorized_client");
+  assert.equal(flagged.connected, true);
+  assert.equal(flagged.gmailEmail, "mmaclamroc@gmail.com");
+  assert.equal(Boolean(flagged.cipher), true);
+
+  const healed = await renewGmailWatches(db, async () => ({ historyId: "9100", expiration: "1893456000000" }));
+  assert.equal(healed.find((row) => row.mailbox === "mmaclamroc@gmail.com")?.ok, true);
+  assert.equal((await gmailConnectionState(db, "mariclare")).needsReconnect, false);
+
+  const expired = await renewGmailWatches(db, async () => {
+    throw new Error("Gmail token refresh failed (400): invalid_grant: Token has been expired or revoked.");
+  });
+  assert.equal(expired.find((row) => row.mailbox === "mmaclamroc@gmail.com")?.needsReconnect, true);
+  assert.equal((await gmailConnectionState(db, "mariclare")).reconnectReason, "invalid_grant");
+
+  const other = await renewGmailWatches(db, async () => {
+    throw new Error("Gmail watch failed (400): User not authorized to perform this action.");
+  });
+  assert.equal(other.find((row) => row.mailbox === "mmaclamroc@gmail.com")?.needsReconnect, false);
+  assert.equal((await gmailConnectionState(db, "mariclare")).reconnectReason, "invalid_grant");
+
+  const cleared = await disconnectMailbox(db, "MMACLamroc@gmail.com");
+  assert.equal(cleared.status, 200);
+  assert.equal(JSON.stringify(cleared.body).includes("1//"), false);
+  assert.equal(JSON.stringify(cleared.body).includes("gmailRefreshToken"), false);
+  const afterClear = await gmailConnectionState(db, "mariclare");
+  assert.equal(afterClear.connected, false);
+  assert.equal(afterClear.needsReconnect, false);
+  assert.equal(afterClear.gmailEmail, null);
+  assert.equal(afterClear.cipher, null);
+  assert.equal((await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com"))).length, 0);
+  assert.equal((await db.select().from(creators).where(eq(creators.id, "mariclare")))[0]?.emailStatus, "disconnected");
+  const again = await disconnectMailbox(db, "mmaclamroc@gmail.com");
+  assert.equal(again.status, 200);
+  assert.equal((await disconnectMailbox(db, "nobody@example.com")).status, 404);
+  assert.equal((await disconnectMailbox(db, "not-an-email")).status, 400);
+  const quiet = await renewGmailWatches(db, async () => {
+    throw new Error("should not watch a disconnected inbox");
+  });
+  assert.equal(quiet.find((row) => row.mailbox === "mmaclamroc@gmail.com")?.error, "Mailbox is not connected.");
+
+  const missing = await createPlatformInvite(db, { brand: "Example Brand" });
+  assert.equal(missing.status, 400);
+  const unknown = await createPlatformInvite(db, { email: "nobody@example.com", brand: "Example Brand", platform: "TikTok One", actionNeeded: "Accept the invite" });
+  assert.equal(unknown.status, 404);
+  const deadline = "2026-10-21T20:00:00.000Z";
+  const now = new Date("2026-10-19T20:00:00.000Z");
+  const created = await createPlatformInvite(db, {
+    email: "MMACLamroc@gmail.com",
+    brand: "Example Brand",
+    platform: "TikTok One",
+    accountHandle: "@example",
+    actionNeeded: "Accept the invite",
+    deadline,
+  }, now);
+  assert.equal(created.status, 201);
+  if (created.status !== 201) return;
+  const invite = created.body.invite;
+  assert.equal(invite.creatorName, "MariClare");
+  assert.equal(invite.platform, "TikTok One");
+  assert.equal(invite.accountHandle, "@example");
+  assert.equal(invite.actionNeeded, "Accept the invite");
+  assert.equal(invite.deadlineLabel.includes("Oct 21"), true);
+  assert.equal(invite.deadlineLabel.endsWith("ET"), true);
+  assert.equal(invite.countdown, "2 days left");
+  assert.equal(invite.done, false);
+  assert.equal(JSON.stringify(created.body).includes("gmail"), false);
+  const shown = presentDeadline(deadline, now);
+  assert.equal(shown.label.includes("4:00"), true);
+  assert.equal(presentDeadline(deadline, new Date("2026-10-22T20:00:00.000Z")).countdown, "Overdue by 1 day");
+  assert.equal(presentDeadline(null, now).label, "No deadline yet");
+
+  const mariInvites = await listPlatformInvites(db, mariclare, now);
+  assert.equal(mariInvites.length, 1);
+  assert.equal(mariInvites[0]?.brand, "Example Brand");
+  assert.equal((await listPlatformInvites(db, abby, now)).length, 0);
+  const manager: Viewer = { email: "quinn.invite@gmail.com", role: "manager", creatorId: null, name: "Quinn Invite" };
+  assert.equal((await listPlatformInvites(db, manager, now)).length, 0);
+  const ownerInvites = await listPlatformInvites(db, admin, now);
+  assert.equal(ownerInvites.some((row) => row.id === invite.id && row.creatorName === "MariClare"), true);
+
+  const blocked = await setPlatformInviteDone(db, abby, invite.id, true);
+  assert.equal(blocked.ok, false);
+  if (!blocked.ok) assert.equal(blocked.status, 403);
+  assert.equal((await listPlatformInvites(db, mariclare, now))[0]?.done, false);
+  assert.equal((await setPlatformInviteDone(db, mariclare, invite.id, true)).ok, true);
+  assert.equal((await listPlatformInvites(db, mariclare, now))[0]?.done, true);
+  assert.equal((await setPlatformInviteDone(db, admin, invite.id, false)).ok, true);
+  assert.equal((await listPlatformInvites(db, admin, now))[0]?.done, false);
+  assert.equal((await db.select().from(platformInvites)).length, 1);
+
+  const migration = readFileSync(path.join(process.cwd(), "drizzle/0036_mailbox_reconnect.sql"), "utf8");
+  assert.equal(migration.toLowerCase().includes("update deals"), false);
+  assert.equal(migration.toLowerCase().includes("insert"), false);
+  assert.equal(migration.includes("KOSBLING"), true);
+  assert.equal((await db.select().from(deals)).length, dealsBefore);
+
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
+async function assertKosblingUntouched(drafts: number | undefined, events: number) {
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, drafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, events);
+}
+
+const accountManager: Viewer = {
+  email: "quinn.accounts@gmail.com",
+  role: "manager",
+  creatorId: null,
+  name: "Quinn Accounts",
+};
+
+async function assertStillSignedIn() {
+  const before = (await db.select().from(sessions)).length;
+  const session = await createSession(db, mariclare);
+  return async () => {
+    assert.equal((await db.select().from(sessions)).length, before + 1);
+    const still = await readSession(db, session.cookieValue);
+    assert.equal(still?.email, mariclare.email);
+    assert.equal(still?.role, "creator");
+    assert.equal(still?.creatorId, "mariclare");
+  };
+}
+
+test("a creator can disconnect Gmail without signing out", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const dealsBefore = (await db.select().from(deals)).length;
+  const token = "gmail-creator-refresh-token";
+  const revoked: string[] = [];
+  const revoke = async (value: string) => {
+    revoked.push(value);
+    return true;
+  };
+  const saved = await saveGmailConnection(db, "mariclare", { refreshToken: token, gmailEmail: "mmaclamroc@gmail.com" });
+  assert.equal(saved.ok, true);
+  await db.delete(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com"));
+  await db.insert(gmailWatches).values({
+    mailbox: "mmaclamroc@gmail.com",
+    creatorId: "mariclare",
+    historyId: "77",
+    expiration: "1893456000000",
+    topic: "projects/momma-mari-portal/topics/gmail-push",
+    updatedAt: "2026-10-19T20:00:00.000Z",
+  });
+  await db.insert(gmailSeenMessages).values({
+    messageId: "account-disconnect-seen",
+    mailbox: "mmaclamroc@gmail.com",
+    threadId: "thread-keep",
+    createdAt: "2026-10-19T20:00:00.000Z",
+  });
+  assert.equal(connectionStatus("connected", true), "needs_reconnect");
+  assert.equal(accountButtonState("needs_reconnect").disconnect, true);
+  assert.equal(accountButtonState("not_connected").disconnect, false);
+  assert.equal(disconnectConfirmMessage("Gmail"), "Disconnect Gmail? The saved connection is removed. You stay signed in to the portal.");
+  const panel = readFileSync(path.join(process.cwd(), "src/components/connect-panel.tsx"), "utf8");
+  assert.match(panel, /disconnectConfirmMessage\(label\)/);
+  for (const key of ["gmail", "drive", "tiktok", "instagram", "facebook", "youtube"]) assert.equal(panel.includes(`key: "${key}"`) || panel.includes(`key: '${key}'`) || panel.includes(`${key}`), true);
+  const watchRoute = readFileSync(path.join(process.cwd(), "src/app/api/auth/gmail/watch/route.ts"), "utf8");
+  assert.match(watchRoute, /viewer\.creatorId === mailbox\.creatorId/);
+  const action = readFileSync(path.join(process.cwd(), "src/app/account-actions.ts"), "utf8");
+  const disconnectFn = action.slice(action.indexOf("export async function disconnectAccountAction"));
+  assert.equal(disconnectFn.includes("destroySession"), false);
+  assert.equal(disconnectFn.includes("createSession"), false);
+  const callback = readFileSync(path.join(process.cwd(), "src/app/api/auth/callback/route.ts"), "utf8");
+  const getFn = callback.slice(callback.indexOf("export async function GET"), callback.indexOf("async function finishGmailConnect"));
+  assert.ok(getFn.indexOf("isDriveOAuthState") >= 0);
+  assert.ok(getFn.indexOf("isGmailOAuthState") > getFn.indexOf("isDriveOAuthState"));
+  assert.ok(getFn.indexOf("createSession") > getFn.indexOf("isGmailOAuthState"));
+  const gmailFn = callback.slice(callback.indexOf("async function finishGmailConnect"), callback.indexOf("async function finishDriveConnect"));
+  assert.equal(gmailFn.includes("createSession"), false);
+  assert.equal(gmailFn.includes("destroySession"), false);
+
+  const stillSignedIn = await assertStillSignedIn();
+  assert.equal((await disconnectCreatorAccount(db, abby, "mariclare", "gmail", { revoke })).status, 403);
+  assert.equal((await disconnectCreatorAccount(db, accountManager, "mariclare", "gmail", { revoke })).status, 403);
+  assert.equal((await disconnectCreatorAccount(db, mariclare, "mariclare", "snapchat", { revoke })).status, 400);
+  assert.equal((await disconnectCreatorAccount(db, admin, "missing-creator", "gmail", { revoke })).status, 404);
+  assert.deepEqual(revoked, []);
+  assert.equal((await gmailConnectionState(db, "mariclare")).connected, true);
+
+  const cleared = await disconnectCreatorAccount(db, mariclare, "mariclare", "gmail", { revoke });
+  assert.equal(cleared.status, 200);
+  assert.equal(JSON.stringify(cleared.body).includes(token), false);
+  assert.deepEqual(revoked, [token]);
+  const after = await gmailConnectionState(db, "mariclare");
+  assert.equal(after.connected, false);
+  assert.equal(after.needsReconnect, false);
+  assert.equal(after.gmailEmail, null);
+  assert.equal(after.cipher, null);
+  assert.equal(connectionStatus(after.connected ? "connected" : null, after.needsReconnect), "not_connected");
+  assert.equal((await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com"))).length, 0);
+  assert.equal((await db.select().from(gmailWatches).where(eq(gmailWatches.creatorId, "mariclare"))).length, 0);
+  assert.equal((await db.select().from(gmailSeenMessages).where(eq(gmailSeenMessages.messageId, "account-disconnect-seen"))).length, 1);
+  assert.equal((await db.select().from(creators).where(eq(creators.id, "mariclare")))[0]?.emailStatus, "disconnected");
+  await stillSignedIn();
+
+  const again = await saveGmailConnection(db, "mariclare", { refreshToken: token, gmailEmail: "mmaclamroc@gmail.com" });
+  assert.equal(again.ok, true);
+  const adminCleared = await disconnectCreatorAccount(db, admin, "mariclare", "gmail", { revoke });
+  assert.equal(adminCleared.status, 200);
+  assert.deepEqual(revoked, [token, token]);
+  assert.equal((await gmailConnectionState(db, "mariclare")).cipher, null);
+  await stillSignedIn();
+  assert.equal((await db.select().from(deals)).length, dealsBefore);
+  await assertKosblingUntouched(kosblingBefore?.drafts.length, kosblingBefore?.stageEvents?.length ?? 0);
+});
+
+test("a creator can disconnect Google Drive without signing out", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const dealsBefore = (await db.select().from(deals)).length;
+  const previousAgency = process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
+  process.env.GOOGLE_DRIVE_REFRESH_TOKEN = "agency-upload-token-do-not-revoke";
+  const token = "drive-creator-refresh-token";
+  const revoked: string[] = [];
+  const revoke = async (value: string) => {
+    revoked.push(value);
+    return true;
+  };
+  try {
+    const driveState = await createDriveOAuthState();
+    assert.equal(isDriveOAuthState(driveState), true);
+    assert.equal(isGmailOAuthState(driveState), false);
+    assert.equal(await verifyOAuthState(driveState, driveState), false);
+    assert.equal(await verifyDriveOAuthState(driveState, driveState), true);
+    const driveUrl = new URL(googleDriveAuthUrl(driveState, mariclare.email));
+    assert.equal(driveUrl.searchParams.get("scope"), DRIVE_FILE_SCOPE);
+    assert.equal(driveUrl.searchParams.get("include_granted_scopes"), "false");
+    assert.equal(driveUrl.searchParams.get("access_type"), "offline");
+    assert.equal(driveUrl.searchParams.get("prompt"), "consent");
+    assert.equal((driveUrl.searchParams.get("scope") ?? "").includes("gmail"), false);
+    const callback = readFileSync(path.join(process.cwd(), "src/app/api/auth/callback/route.ts"), "utf8");
+    const driveFn = callback.slice(callback.indexOf("async function finishDriveConnect"));
+    assert.equal(driveFn.includes("createSession"), false);
+    assert.equal(driveFn.includes("destroySession"), false);
+    const migration = readFileSync(path.join(process.cwd(), "drizzle/0036_mailbox_reconnect.sql"), "utf8");
+    assert.match(migration, /drive_refresh_token/);
+    assert.match(migration, /drive_reconnect_reason/);
+    assert.equal(migration.toLowerCase().includes("update deals"), false);
+    assert.equal(migration.toLowerCase().includes("insert"), false);
+    assert.equal(migration.includes("KOSBLING"), true);
+
+    const saved = await saveDriveConnection(db, "mariclare", token);
+    assert.equal(saved.ok, true);
+    await db.update(creators).set({ driveReconnectReason: "invalid_grant" }).where(eq(creators.id, "mariclare"));
+    const flagged = await driveConnectionState(db, "mariclare");
+    assert.equal(flagged.needsReconnect, true);
+    assert.equal(flagged.cipher?.includes(token), false);
+    assert.equal(JSON.stringify(await findCreatorById(db, "mariclare")).includes(token), false);
+    assert.equal(accountButtonState(connectionStatus("connected", true)).reconnect, true);
+    const stillSignedIn = await assertStillSignedIn();
+    assert.equal((await disconnectCreatorAccount(db, abby, "mariclare", "drive", { revoke })).status, 403);
+    assert.equal((await disconnectCreatorAccount(db, accountManager, "mariclare", "drive", { revoke })).status, 403);
+    assert.deepEqual(revoked, []);
+    assert.equal((await driveConnectionState(db, "mariclare")).connected, true);
+    const cleared = await disconnectCreatorAccount(db, mariclare, "mariclare", "drive", { revoke });
+    assert.equal(cleared.status, 200);
+    assert.equal(JSON.stringify(cleared.body).includes(token), false);
+    assert.equal(JSON.stringify(cleared.body).includes("agency-upload-token-do-not-revoke"), false);
+    assert.deepEqual(revoked, [token]);
+    const after = await driveConnectionState(db, "mariclare");
+    assert.equal(after.connected, false);
+    assert.equal(after.cipher, null);
+    assert.equal(after.reconnectReason, null);
+    assert.equal(connectionStatus(null, after.needsReconnect), "not_connected");
+    await stillSignedIn();
+    const adminSaved = await saveDriveConnection(db, "mariclare", token);
+    assert.equal(adminSaved.ok, true);
+    assert.equal((await disconnectCreatorAccount(db, admin, "mariclare", "drive", { revoke })).status, 200);
+    assert.deepEqual(revoked, [token, token]);
+    assert.equal((await driveConnectionState(db, "mariclare")).cipher, null);
+    await stillSignedIn();
+  } finally {
+    if (previousAgency == null) delete process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
+    else process.env.GOOGLE_DRIVE_REFRESH_TOKEN = previousAgency;
+  }
+  assert.equal((await db.select().from(deals)).length, dealsBefore);
+  await assertKosblingUntouched(kosblingBefore?.drafts.length, kosblingBefore?.stageEvents?.length ?? 0);
+});
+
+for (const platform of ["tiktok", "instagram", "facebook", "youtube"] as const) {
+  test(`a creator can disconnect ${platform} without signing out`, async () => {
+    const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+    const dealsBefore = (await db.select().from(deals)).length;
+    const url = `https://zernio.example/${platform}`;
+    const starting = platform === "instagram" ? "needs_reconnect" : platform === "facebook" ? "needs reconnect" : "connected";
+    const patch = {
+      tiktok: { tiktokStatus: starting, tiktokConnectUrl: url },
+      instagram: { instagramStatus: starting, instagramConnectUrl: url },
+      facebook: { facebookStatus: starting, facebookConnectUrl: url },
+      youtube: { youtubeStatus: starting, youtubeConnectUrl: url },
+    }[platform];
+    await db.update(creators).set(patch).where(eq(creators.id, "mariclare"));
+    assert.equal(connectionStatus(starting), starting === "connected" ? "connected" : "needs_reconnect");
+    assert.equal(accountButtonState(connectionStatus(starting)).connect, false);
+    assert.equal(accountButtonState(connectionStatus(starting)).reconnect, true);
+    assert.equal(accountButtonState(connectionStatus(starting)).disconnect, true);
+    const emailBefore = (await db.select().from(creators).where(eq(creators.id, "mariclare")))[0]?.emailStatus;
+    const stillSignedIn = await assertStillSignedIn();
+    const revoke = async () => {
+      throw new Error("social disconnect must not revoke a Google token");
+    };
+    assert.equal((await disconnectCreatorAccount(db, abby, "mariclare", platform, { revoke })).status, 403);
+    assert.equal((await disconnectCreatorAccount(db, accountManager, "mariclare", platform, { revoke })).status, 403);
+    assert.equal((await findCreatorById(db, "mariclare"))?.accounts[platform].status, starting);
+    const cleared = await disconnectCreatorAccount(db, mariclare, "mariclare", platform, { revoke });
+    assert.equal(cleared.status, 200);
+    assert.equal(JSON.stringify(cleared.body).includes(url), false);
+    const profile = await findCreatorById(db, "mariclare");
+    assert.equal(profile?.accounts[platform].status, "disconnected");
+    assert.equal(profile?.accounts[platform].connectUrl, url);
+    assert.equal(connectionStatus(profile?.accounts[platform].status), "not_connected");
+    assert.equal((await db.select().from(creators).where(eq(creators.id, "mariclare")))[0]?.emailStatus, emailBefore);
+    await stillSignedIn();
+    await db.update(creators).set(patch).where(eq(creators.id, "mariclare"));
+    assert.equal((await disconnectCreatorAccount(db, admin, "mariclare", platform, { revoke })).status, 200);
+    await stillSignedIn();
+    assert.equal((await findCreatorById(db, "mariclare"))?.accounts[platform].connectUrl, url);
+    assert.equal((await findCreatorById(db, "mariclare"))?.accounts[platform].status, "disconnected");
+    assert.equal((await db.select().from(deals)).length, dealsBefore);
+    await assertKosblingUntouched(kosblingBefore?.drafts.length, kosblingBefore?.stageEvents?.length ?? 0);
+  });
+}
 });

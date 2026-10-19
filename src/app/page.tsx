@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { dismissCreatorNoticeAction, dismissNotificationAction } from "@/app/actions";
 import { DealBoard } from "@/components/deal-board";
+import { PlatformInviteCard } from "@/components/platform-invite-card";
 import { PortalFrame } from "@/components/portal-frame";
 import { dealPowers } from "@/lib/authz";
 import { longDate } from "@/lib/format";
@@ -13,6 +14,7 @@ import { listUnreadCreatorNotices } from "@/lib/video-review";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
 import { listCreatorOffers } from "@/lib/brand-offers";
 import { questionnaireFor } from "@/lib/questionnaire";
+import { listPlatformInvites } from "@/lib/platform-invites";
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string; passed?: string }> }) {
   const params = await searchParams;
@@ -51,6 +53,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     ? await questionnaireFor(portal.db, portal.viewer.creatorId)
     : null;
   const brandOffers = portal.viewer.role === "creator" ? await listCreatorOffers(portal.db, portal.viewer) : [];
+  const platformInvites = creatorHome ? await listPlatformInvites(portal.db, portal.viewer) : [];
   const offersWaiting = brandOffers.filter((offer) => offer.response === "pending" || offer.response === "question");
   if (quiz && !quiz.finished && !quiz.paused) redirect("/onboarding");
   return (
@@ -72,6 +75,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
       }
     >
+      {platformInvites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} />)}
       {offersWaiting.length > 0 ? (
         <div className="callout">
           <b>{offersWaiting.length === 1 ? "A brand offer is in your inbox." : `${offersWaiting.length} brand offers are in your inbox.`}</b>{" "}
