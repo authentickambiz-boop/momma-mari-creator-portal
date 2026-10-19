@@ -602,6 +602,10 @@ Do this in Webflow. Nothing in this repo publishes the site.
 
 Local `next dev` serves the app at `/`, not at `/portal`. That is expected. The mount path exists only on Webflow Cloud.
 
+## Free products
+
+Gifted brand offers live on Free products. A creator, including someone new or on the free bench, can apply only after accepting the terms. The wording is in `src/config/gifted-terms.ts`, marked DRAFT, pending lawyer review. Missing the video after the product arrives flags the retail cost plus a $50 finder's fee. Nothing is charged. Stripe is a later step. The brand is tagged "future paid prospect" on the brand list.
+
 ## Security notes
 
 - Authorization is in the server queries and the upload routes. Hiding a card in the browser is not the control.
