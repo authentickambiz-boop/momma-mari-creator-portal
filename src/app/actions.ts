@@ -19,6 +19,7 @@ import { setDealStage } from "@/lib/deal-stage";
 import { confirmLivePost, confirmProductReceived, markPayment, paymentErrorCode, saveShipment, submitLivePosts } from "@/lib/fulfillment";
 import { isEmailSetup } from "@/lib/email-setup";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
+import { finishErrorCode } from "@/lib/finish-notes";
 import { onboardingPlatformId } from "@/lib/onboarding-fields";
 import { creatorStartPath, saveQuestionnaireStep } from "@/lib/questionnaire";
 import { resolveLogin } from "@/lib/queries";
@@ -465,7 +466,7 @@ export async function finishOnboardingAction(formData: FormData) {
     favoriteBrands: brands,
     platforms: formData.getAll("platforms").map((value) => onboardingPlatformId(String(value)) ?? String(value)),
   });
-  if (!result.ok) redirect("/onboarding?step=bot&error=1");
+  if (!result.ok) redirect(`/onboarding?step=bot&error=${finishErrorCode(result.error)}`);
   await saveQuestionnaireStep(db, viewer, { step: "bot", skip: false, pause: false, patch: {} });
   redirect("/onboarding?done=1");
 }
