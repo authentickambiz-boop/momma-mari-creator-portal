@@ -100,27 +100,61 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
       <ApplicationsCard applications={applications} note={applyNote} />
       {invites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} showCreator />)}
+      <div className="kpi-row">
+        <article className="kpi">
+          <p className="caption">Expected commission</p>
+          <b>{formatMoney(dash.commissionThisMonth)}</b>
+          <p className="caption">This month</p>
+        </article>
+        <article className="kpi">
+          <p className="caption">Expected commission</p>
+          <b>{formatMoney(dash.commissionNextMonth)}</b>
+          <p className="caption">Next month</p>
+        </article>
+        <article className="kpi">
+          <p className="caption">Win rate</p>
+          <b>{dash.winRate == null ? "No decisions yet" : `${Math.round(dash.winRate * 100)}%`}</b>
+          <p className="caption">{dash.won} won, {dash.lost} declined</p>
+        </article>
+        <article className="kpi">
+          <p className="caption">Unfilled slots</p>
+          <b>{dash.unfilledSlots}</b>
+          <p className="caption">Campaigns still needing a creator</p>
+        </article>
+      </div>
       <div className="card">
         <div className="sec-title">Pipeline</div>
-        {dash.pipeline.map((row) => (
-          <p key={row.stage}>{getDealStage(row.stage)?.adminLabel ?? row.stage}: {formatMoney(row.cents)}</p>
-        ))}
-      </div>
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="sec-title">Expected commission</div>
-        <p>This month {formatMoney(dash.commissionThisMonth)}</p>
-        <p>Next month {formatMoney(dash.commissionNextMonth)}</p>
-        <p>Win rate {dash.winRate == null ? "No decisions yet" : `${Math.round(dash.winRate * 100)}%`} ({dash.won} won, {dash.lost} declined)</p>
+        <table>
+          <thead><tr><th>Stage</th><th>Value</th></tr></thead>
+          <tbody>
+            {dash.pipeline.map((row) => (
+              <tr key={row.stage}>
+                <td>{getDealStage(row.stage)?.adminLabel ?? row.stage}</td>
+                <td>{formatMoney(row.cents)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec-title">Average deal</div>
-        {dash.averageByCreator.map((row) => <p key={row.creatorId}>{row.name}: {formatMoney(row.cents)}</p>)}
-        {dash.averageByNiche.map((row) => <p key={row.niche}>{row.niche}: {formatMoney(row.cents)}</p>)}
+        <table>
+          <tbody>
+            {dash.averageByCreator.map((row) => <tr key={row.creatorId}><td>{row.name}</td><td>{formatMoney(row.cents)}</td></tr>)}
+            {dash.averageByNiche.map((row) => <tr key={row.niche}><td>{row.niche}</td><td>{formatMoney(row.cents)}</td></tr>)}
+          </tbody>
+        </table>
       </div>
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec-title">Roster</div>
-        {dash.utilization.map((row) => <p key={row.creatorId}>{row.name}: {row.openDeals} open of {row.maxDeals} a month</p>)}
-        <p>Unfilled campaign slots: {dash.unfilledSlots}</p>
+        <table>
+          <thead><tr><th>Creator</th><th>Open deals</th></tr></thead>
+          <tbody>
+            {dash.utilization.map((row) => (
+              <tr key={row.creatorId}><td>{row.name}</td><td>{row.openDeals} open of {row.maxDeals} a month</td></tr>
+            ))}
+          </tbody>
+        </table>
         <p>Outside creators: {dash.converted} of {dash.prospects} prospects on the roster, {dash.outsideOffers} offers queued.</p>
       </div>
       {reinvest.ok ? (
