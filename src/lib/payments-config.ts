@@ -155,46 +155,33 @@ export function isSubscriptionPlan(value: string | null | undefined): value is S
   return value === "plus" || value === "pro" || value === "business";
 }
 
-/**
- * Percent off one-time services for a member in good standing.
- * 100 means the service is included: no Checkout session, straight to the fulfillment queue.
- * Change these numbers here. Do not copy them into Checkout or the billing page.
- */
-export const MEMBER_ONE_TIME_PERCENT_OFF: Record<SubscriptionPlanId, number> = {
-  plus: 10,
-  pro: 20,
-  business: 100,
-};
-
 const MEMBER_STATUSES = new Set(["active", "trialing"]);
+
+/** One percent for every active self-serve plan. Empty or invalid stays 0 until Kamron sets it. */
+export function memberDiscountPercent(raw = process.env.MEMBER_DISCOUNT_PERCENT) {
+  const text = raw?.trim() ?? "";
+  if (!/^(?:100|[1-9]?\d)$/.test(text)) return 0;
+  return Number(text);
+}
 
 export function memberOneTimePercent(plan: string | null | undefined, status: string | null | undefined) {
   if (!isSubscriptionPlan(plan) || !status || !MEMBER_STATUSES.has(status)) return 0;
-  const percent = MEMBER_ONE_TIME_PERCENT_OFF[plan];
-  if (!Number.isInteger(percent) || percent < 0 || percent > 100) return 0;
-  return percent;
-}
-
-export function memberServiceIncluded(percentOff: number) {
-  return percentOff >= 100;
+  return memberDiscountPercent();
 }
 
 export function memberPriceCents(amountCents: number, percentOff: number) {
   if (percentOff <= 0) return amountCents;
-  if (memberServiceIncluded(percentOff)) return 0;
+  if (percentOff >= 100) return 0;
   return Math.max(0, amountCents - Math.round((amountCents * percentOff) / 100));
 }
 
-export function memberCouponId(plan: SubscriptionPlanId, percentOff: number) {
-  return `portal_${plan}_${percentOff}`;
+export function memberCouponId(percentOff: number) {
+  return `portal_member_${percentOff}`;
 }
 
-export function oneTimeMemberNote() {
-  const plus = MEMBER_ONE_TIME_PERCENT_OFF.plus;
-  const pro = MEMBER_ONE_TIME_PERCENT_OFF.pro;
-  const business = MEMBER_ONE_TIME_PERCENT_OFF.business;
-  const businessLine = memberServiceIncluded(business)
-    ? "Business members get them included."
-    : `Business members get ${business}% off.`;
-  return `Plus members get ${plus}% off one-time services. Pro members get ${pro}% off. ${businessLine}`;
+export function oneTimeMemberNote(percent = memberDiscountPercent()) {
+  const rate = percent > 0
+    ? `Active Plus, Pro, and Business members get ${percent}% off one-time services.`
+    : "Active Plus, Pro, and Business members buy one-time services at a member discount. That percent is 0 until it is set.";
+  return `${rate} Signed creators get them included.`;
 }

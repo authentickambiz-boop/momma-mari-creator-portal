@@ -4,7 +4,8 @@ import { PortalFrame } from "@/components/portal-frame";
 import { readOwnAccount } from "@/lib/creator-home";
 import { loadPortal } from "@/lib/current-user";
 import { checkoutStatusNote, oneTimePriceNote, paymentsEnabled, readCreatorBilling } from "@/lib/payments";
-import { memberOneTimePercent, memberServiceIncluded, oneTimeMemberNote, oneTimeOffers, subscriptionOffers } from "@/lib/payments-config";
+import { memberOneTimePercent, oneTimeMemberNote, oneTimeOffers, subscriptionOffers } from "@/lib/payments-config";
+import { creatorIsSigned } from "@/lib/signed-creators";
 import { stripeLiveEnabled, stripeStatusNote } from "@/lib/stripe-billing";
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ stripe?: string; checkout?: string }> }) {
@@ -21,15 +22,16 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     name: offer.name,
     prices: offer.prices.flatMap((price) => price.interval === "month" || price.interval === "year" ? [{ interval: price.interval, label: price.label }] : []),
   }));
-  const memberPercent = memberOneTimePercent(billing?.subscriptionPlan, billing?.subscriptionStatus);
+  const signed = account ? await creatorIsSigned(portal.db, account.creatorId) : false;
+  const memberPercent = signed ? 0 : memberOneTimePercent(billing?.subscriptionPlan, billing?.subscriptionStatus);
   const kits = oneTimeOffers().map((offer) => {
     const price = offer.prices[0];
     const label = price?.label ?? "";
     return {
       id: offer.id,
       name: offer.name,
-      priceNote: oneTimePriceNote(label, price?.amountCents ?? 0, memberPercent),
-      included: memberServiceIncluded(memberPercent),
+      priceNote: oneTimePriceNote(label, price?.amountCents ?? 0, memberPercent, signed),
+      included: signed,
     };
   });
   return (

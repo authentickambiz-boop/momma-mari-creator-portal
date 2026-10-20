@@ -1,4 +1,5 @@
 import { approveCreatorApplicationAction, declineCreatorApplicationAction } from "@/app/apply-actions";
+import { setCreatorSignedAction } from "@/app/billing-actions";
 import { addReinvestmentAction, saveReinvestTargetAction } from "@/app/growth-actions";
 import { PlatformInviteCard } from "@/components/platform-invite-card";
 import { PortalFrame } from "@/components/portal-frame";
@@ -14,6 +15,7 @@ import { inviteErrorNote } from "@/lib/invite-notes";
 import { listPlatformInvites } from "@/lib/platform-invites";
 import { REINVEST_CATEGORIES, reinvestmentSummary } from "@/lib/reinvestment";
 import { getDealStage } from "@/lib/stages";
+import { listCreatorSigning, signedCreatorNote } from "@/lib/signed-creators";
 
 function ApplicationsCard({ applications, note }: { applications: CreatorApplicationView[]; note: string | null }) {
   return (
@@ -80,6 +82,35 @@ function FulfillmentCard({ orders, enabled }: { orders: Awaited<ReturnType<typeo
   );
 }
 
+function SignedCreatorsCard({ people }: { people: Awaited<ReturnType<typeof listCreatorSigning>> }) {
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="sec-title">Signed creators</div>
+      <p className="note">A signed creator gets media kits, rate cards, contract reviews, and starter kits included. The request goes to the queue and does not open Checkout. Plus, Pro, and Business still buy those one time.</p>
+      {people.length === 0 ? <p>No creators yet.</p> : (
+        <table>
+          <thead><tr><th>Creator</th><th>Contract</th><th></th></tr></thead>
+          <tbody>
+            {people.map((person) => (
+              <tr key={person.id}>
+                <td>{person.name}</td>
+                <td>{person.signed ? "Signed" : "Not signed"}</td>
+                <td>
+                  <form action={setCreatorSignedAction}>
+                    <input type="hidden" name="creatorId" value={person.id} />
+                    <input type="hidden" name="signed" value={person.signed ? "0" : "1"} />
+                    <button className="btn ghost" type="submit">{person.signed ? "Clear signed" : "Mark signed"}</button>
+                  </form>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 function DashboardNotices({ growthError, saved }: { growthError?: string; saved?: string }) {
   const note = growthErrorNote(growthError);
   return (
@@ -90,10 +121,11 @@ function DashboardNotices({ growthError, saved }: { growthError?: string; saved?
   );
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ creator?: string; growthError?: string; saved?: string; invite?: string; apply?: string; applyError?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ creator?: string; growthError?: string; saved?: string; invite?: string; apply?: string; applyError?: string; signed?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
   const inviteNote = inviteErrorNote(params.invite);
+  const signedNote = signedCreatorNote(params.signed);
   const notices = <DashboardNotices growthError={params.growthError} saved={params.saved} />;
   const applyNote = params.apply === "approved" || params.apply === "declined"
     ? applyReviewNote(params.apply)
@@ -103,11 +135,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <PortalFrame viewer={portal.viewer} tab="dashboard" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Dashboard</h1>}>
         {notices}
         {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
+        {signedNote ? <p className="private-note">{signedNote}</p> : null}
         <p className="note">Pipeline value, commission, and win rate stay on the owner&apos;s sign-in.</p>
       </PortalFrame>
     );
   }
   const orders = await listFulfillmentOrders(portal.db, portal.viewer);
+  const signing = await listCreatorSigning(portal.db, portal.viewer);
   const paymentsOn = paymentsEnabled();
   const dash = await ownerDashboard(portal.db, portal.viewer);
   const applications = await listCreatorApplications(portal.db, portal.viewer);
@@ -119,8 +153,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <PortalFrame viewer={portal.viewer} tab="dashboard" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Dashboard</h1>}>
         {notices}
         {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
+        {signedNote ? <p className="private-note">{signedNote}</p> : null}
         <ApplicationsCard applications={applications} note={applyNote} />
         <FulfillmentCard orders={orders} enabled={paymentsOn} />
+        <SignedCreatorsCard people={signing} />
         <p className="note">{dash.error}</p>
       </PortalFrame>
     );
@@ -135,8 +171,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     >
       {notices}
       {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
+      {signedNote ? <p className="private-note">{signedNote}</p> : null}
       <ApplicationsCard applications={applications} note={applyNote} />
       <FulfillmentCard orders={orders} enabled={paymentsOn} />
+      <SignedCreatorsCard people={signing} />
       {invites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} showCreator />)}
       <div className="kpi-row">
         <article className="kpi">

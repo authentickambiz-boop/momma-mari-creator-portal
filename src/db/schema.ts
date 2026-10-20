@@ -30,6 +30,7 @@ export const creators = sqliteTable("creators", {
   emailSetup: text("email_setup"),
   hostedEmailAddress: text("hosted_email_address"),
   signerIsMinor: integer("signer_is_minor", { mode: "boolean" }).notNull().default(false),
+  contracted: integer("contracted", { mode: "boolean" }).notNull().default(false),
   primaryManagerId: text("primary_manager_id"),
   backupManagerId: text("backup_manager_id"),
   isSeed: integer("is_seed", { mode: "boolean" }).notNull(),
