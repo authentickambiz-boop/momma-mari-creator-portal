@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import type { PortalDb } from "../src/db/index";
 import { deals } from "../src/db/schema";
 import { upsertDeal } from "../src/lib/bot-api";
+import { dealNoticeCode } from "../src/lib/deal-notice-notes";
 import { editDealReview } from "../src/lib/deal-review";
 import { getDealForViewer } from "../src/lib/queries";
 import { admin, openTestDb } from "./harness";
@@ -21,7 +22,10 @@ describe("post date calendar day", { concurrency: 1 }, () => {
     for (const date of ["2026-02-31", "2026-13-40", "2026-02-29"]) {
       const refused = await editDealReview(db, { dealId: "vev", actorRole: "admin", postDate: date });
       assert.equal(refused.ok, false);
-      if (!refused.ok) assert.equal(refused.error, "Use a date like 2026-11-20.");
+      if (!refused.ok) {
+        assert.equal(refused.error, "Use a date like 2026-11-20.");
+        assert.equal(dealNoticeCode(refused.error), "post");
+      }
       const posted = await upsertDeal(db, {
         id: "vev",
         brand: "VEV Gummies",

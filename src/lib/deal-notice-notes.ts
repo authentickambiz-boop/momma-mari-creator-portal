@@ -12,6 +12,7 @@ const DEAL_NOTICE_TEXT = {
   shared: "This deal is already on the creator's list.",
   stage: "That is not a deal stage.",
   move: "You can't move this deal.",
+  post: "Use a date like 2026-11-20.",
 } as const;
 
 export const DEAL_NOTICE_NOTES: Record<string, string> = {
