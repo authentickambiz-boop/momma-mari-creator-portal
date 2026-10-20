@@ -203,7 +203,7 @@ export async function clearSafetyAction(formData: FormData) {
     const code = result.error.includes("can't clear") ? "creator" : "owner";
     redirect(`${back}${join}safetyError=${code}`);
   }
-  redirect(back);
+  redirect(`${back}${join}cleared=1`);
 }
 
 function contractBack(dealId: string, creator: string) {
