@@ -8,6 +8,7 @@ Kamron merges. This log does not merge anything.
 
 | PR | Branch | What it does | Status |
 | --- | --- | --- | --- |
+| [#136](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/136) | `cursor/gmail-bridge-c6f7` | Each creator can connect Gmail read-only. Brand threads show in Deal inbox. Live sync stays off until `GMAIL_SYNC_ENABLED=true`. A reply stays a draft until Kamron approves it. Nothing is sent. Managers do not get creator logins. Migration `0040`. | Open. Not merged. |
 | [#41](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/41) | `cursor/reconnect-invites-e39d` | Creators connect and disconnect Gmail, Drive, and each social account without signing out. A rejected Gmail inbox shows needs-reconnect. Invite and deadline alerts. Migration `0036` shipped with this merge. | Merged to `main` as `da74005`. |
 | [#42](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/42) | `cursor/gmail-sync-ack-e39d` | A dead Gmail inbox (unauthorized client or invalid grant, or a mailbox with no token) is acknowledged with HTTP 200 so Pub/Sub stops retrying. Temporary Google errors stay 503. The history cursor is not moved on those failures. A blank thread does not open a deal. | Squash-merged to `main` as `4d53916`. |
 | [#46](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/46) | `cursor/launch-checklist-e39d` | The first copy of this log and `docs/launch-checklist.md`. | Squash-merged to `main` as `08655f5`. This file is the newer copy. |
@@ -127,7 +128,8 @@ What is still left before launch:
 - Leave `BOLDSIGN_ENABLED` and `PUSH_ENABLED` empty.
 - Leave `TOKEN_ENCRYPTION_KEY` handling as it is. Do not generate a new key in code and do not commit the key.
 - Google restricted-scope review (and CASA, if Google requires it) is still outstanding for the Gmail watch.
-- The email bridge in `docs/build-plan-remaining.md` (sending from the approval queue) is not started. Everything external still waits in the approval queue.
+- [#136](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/136) is the read-only Gmail bridge. Live sync stays off until `GMAIL_SYNC_ENABLED=true`. Replies stay drafts. The portal does not send them. Sending as the creator is not in this pull request.
+- Migration `0040` is in `#136`, not on `main` yet. Do not add another `0040`.
 - Have an attorney review the e-sign wording before relying on it. That note stays on the sign page. The gifted terms are still DRAFT, pending the same review. Nothing on Free products is charged.
 - Public pages are served under the portal mount (`/portal/services`, `/portal/roster`, `/portal/inquire`) until the Webflow marketing site links to them. `#51` keeps the creator chat and the quiet-hours note off those three pages. `#57` adds the roster count and points Services at the inquiry form.
 - A brand that only arrived through the inquiry form, or through a saved offer, can now take a response and a contact. A signup rate for YouTube, LinkedIn, and the other listed deliverables is kept. A Twitch handle and the other platform handles are kept. A brand-offer budget that is not dollars is refused. KOSBLING is unchanged.

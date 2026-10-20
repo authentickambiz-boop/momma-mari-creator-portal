@@ -991,6 +991,45 @@ export const platformInvites = sqliteTable("platform_invites", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const gmailBridgeThreads = sqliteTable(
+  "gmail_bridge_threads",
+  {
+    id: text("id").primaryKey(),
+    creatorId: text("creator_id").notNull(),
+    mailbox: text("mailbox").notNull(),
+    threadId: text("thread_id").notNull(),
+    dealId: text("deal_id"),
+    brand: text("brand").notNull(),
+    subject: text("subject").notNull(),
+    snippet: text("snippet").notNull(),
+    fromEmail: text("from_email").notNull(),
+    classification: text("classification").notNull(),
+    private: integer("private", { mode: "boolean" }).notNull().default(false),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("gmail_bridge_threads_creator_thread").on(table.creatorId, table.threadId)],
+);
+
+export const gmailBridgeMessages = sqliteTable("gmail_bridge_messages", {
+  messageId: text("message_id").primaryKey(),
+  threadRowId: text("thread_row_id").notNull(),
+  fromEmail: text("from_email").notNull(),
+  subject: text("subject").notNull(),
+  snippet: text("snippet").notNull(),
+  attachmentsJson: text("attachments_json").notNull().default("[]"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const gmailBridgeAudit = sqliteTable("gmail_bridge_audit", {
+  id: text("id").primaryKey(),
+  actorEmail: text("actor_email").notNull(),
+  actorRole: text("actor_role").notNull(),
+  threadRowId: text("thread_row_id").notNull(),
+  action: text("action").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const inboxEvents = sqliteTable("inbox_events", {
   id: text("id").primaryKey(),
   mailbox: text("mailbox").notNull(),

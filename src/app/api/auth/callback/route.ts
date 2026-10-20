@@ -3,19 +3,24 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/getDb";
 import { appBaseUrl, normalizeEmail } from "@/lib/format";
 import { currentViewer } from "@/lib/current-user";
+import { gmailSyncEnabled } from "@/lib/gmail-sync-flag";
 import { mailboxForCreator, renewGmailWatches, renewMailboxWatch } from "@/lib/gmail-push";
 import {
   driveStateCookieName,
   exchangeCode,
   exchangeDriveCode,
   exchangeGmailCode,
+  gmailBridgeCreatorCookieName,
+  gmailBridgeStateCookieName,
   gmailStateCookieName,
   gmailWatchCreatorCookieName,
   isDriveOAuthState,
+  isGmailBridgeState,
   isGmailOAuthState,
   oauthStateCookieName,
   readWatchCreatorCookie,
   verifyDriveOAuthState,
+  verifyGmailBridgeOAuthState,
   verifyGmailOAuthState,
   verifyOAuthState,
 } from "@/lib/google-oauth";
@@ -31,6 +36,9 @@ export async function GET(request: Request) {
   const state = url.searchParams.get("state");
   if (isDriveOAuthState(state)) {
     return finishDriveConnect(code, state);
+  }
+  if (isGmailBridgeState(state)) {
+    return finishGmailBridge(code, state);
   }
   if (isGmailOAuthState(state)) {
     return finishGmailConnect(code, state);
@@ -51,6 +59,38 @@ export async function GET(request: Request) {
   const response = NextResponse.redirect(`${appBaseUrl()}${start}`);
   response.cookies.set(sessionCookieName(), session.cookieValue, sessionCookieOptions());
   response.cookies.set(oauthStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+  return response;
+}
+
+async function finishGmailBridge(code: string | null, state: string | null) {
+  const jar = await cookies();
+  const valid = await verifyGmailBridgeOAuthState(jar.get(gmailBridgeStateCookieName())?.value, state);
+  const fail = (reason: string) => {
+    const response = NextResponse.redirect(`${appBaseUrl()}/connect?gmail=${reason}`);
+    response.cookies.set(gmailBridgeStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+    response.cookies.set(gmailBridgeCreatorCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+    return response;
+  };
+  if (!valid || !code) return fail("oauth");
+  const viewer = await currentViewer();
+  const creatorId = await readWatchCreatorCookie(jar.get(gmailBridgeCreatorCookieName())?.value);
+  const allowed = creatorId && (viewer?.role === "admin" || (viewer?.role === "creator" && viewer.creatorId === creatorId));
+  if (!allowed || !creatorId) return fail("creator_only");
+  const mailbox = await exchangeGmailCode(code);
+  if (!mailbox) return fail("no_refresh");
+  const db = await getDb();
+  const saved = await saveGmailConnection(db, creatorId, mailbox);
+  if (!saved.ok) return fail(saved.status === 503 ? "not_configured" : "oauth");
+  if (gmailSyncEnabled()) {
+    try {
+      await renewGmailWatches(db, ({ refreshToken }) => renewMailboxWatch(refreshToken));
+    } catch {
+      // The token is saved. A missing topic can be fixed before the daily job.
+    }
+  }
+  const response = NextResponse.redirect(`${appBaseUrl()}/inbox?connected=1`);
+  response.cookies.set(gmailBridgeStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+  response.cookies.set(gmailBridgeCreatorCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
   return response;
 }
 

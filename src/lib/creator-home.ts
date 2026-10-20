@@ -57,6 +57,11 @@ export function creatorHomeCards(input: { offersWaiting: number; payoutsPending:
       status: offers === 0 ? "No offers waiting" : offers === 1 ? "1 offer waiting" : `${offers} offers waiting`,
     },
     {
+      href: "/inbox",
+      title: "Deal inbox",
+      status: "Brand threads from your connected Gmail",
+    },
+    {
       href: "/earnings",
       title: "Earnings & payouts",
       status: payouts === 0 ? "No payout waiting" : payouts === 1 ? "1 payout pending" : `${payouts} payouts pending`,
