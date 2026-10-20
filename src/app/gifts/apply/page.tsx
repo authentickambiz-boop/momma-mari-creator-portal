@@ -17,14 +17,14 @@ export default async function GiftedBenchApplyPage({ searchParams }: { searchPar
     <main className="wrap">
       <h1>Free products</h1>
       <p>This is for people already on the free bench. Roster creators should sign in and apply from the portal. Kamron approves each person. Nothing is charged.</p>
-      {params.saved === "applied" ? <p className="note">Applied. Kamron still has to approve you.</p> : null}
+      {params.saved === "applied" ? <p className="note">Applied. Kamron still has to approve you. Nothing was charged.</p> : null}
       {params.giftsError ? <p className="private-note">{params.giftsError}</p> : null}
       <div className="callout">
         <b>DRAFT. Pending lawyer review.</b>
         <p style={{ whiteSpace: "pre-wrap" }}>{GIFTED_TERMS_TEXT}</p>
         <p className="note">Version {GIFTED_TERMS_VERSION}. Have an attorney review this wording before you rely on it.</p>
       </div>
-      {board.length === 0 ? <p className="note">No free products yet.</p> : null}
+      {board.length === 0 ? <p className="note">No free products yet. Nothing is charged.</p> : null}
       <div className="stack">
         {board.map((offer) => (
           <form key={offer.id} action={applyGiftedByEmailAction} className="card stack">

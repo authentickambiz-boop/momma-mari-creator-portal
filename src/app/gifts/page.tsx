@@ -54,11 +54,13 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
       }
     >
       {params.giftsError ? <p className="private-note">{params.giftsError}</p> : null}
-      {params.saved === "posted" ? <p className="note">Posted. The brand is tagged as a future paid prospect.</p> : null}
-      {params.saved === "applied" ? <p className="note">Applied. Kamron still has to approve you.</p> : null}
-      {params.saved === "approved" ? <p className="note">Approved.</p> : null}
+      {params.saved === "posted" ? <p className="note">Posted. The brand is tagged as a future paid prospect. Nothing was emailed.</p> : null}
+      {params.saved === "applied" ? <p className="note">Applied. Kamron still has to approve you. Nothing was charged.</p> : null}
+      {params.saved === "approved" ? <p className="note">Approved. Nothing was charged or emailed.</p> : null}
+      {params.saved === "shipped" ? <p className="note">Marked shipped. Nothing was charged.</p> : null}
+      {params.saved === "delivered" ? <p className="note">Marked delivered. Nothing was charged.</p> : null}
       {params.saved === "owed" ? <p className="note">Amount flagged. Nothing was charged.</p> : null}
-      {params.saved === "posted-video" ? <p className="note">Video link saved.</p> : null}
+      {params.saved === "posted-video" ? <p className="note">Video link saved. Nothing was emailed.</p> : null}
 
       {portal.viewer.role === "admin" ? (
         <div className="card stack" id="gift-overdue" style={{ marginBottom: 14 }}>
@@ -102,7 +104,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
       ) : null}
 
       <div className="stack">
-        {board.length === 0 ? <p className="note">No free products yet.</p> : null}
+        {board.length === 0 ? <p className="note">No free products yet. Nothing is charged.</p> : null}
         {board.map((offer) => (
           <article key={offer.id} className="card stack" id={`gift-${offer.id}`}>
             <b>{offer.product}</b>
@@ -133,7 +135,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
               </form>
             ) : null}
             {portal.viewer.role === "admin" ? (
-              offer.applicants.length === 0 ? <p className="note">No one has applied.</p> : offer.applicants.map((row) => (
+              offer.applicants.length === 0 ? <p className="note">No one has applied. Nothing is charged.</p> : offer.applicants.map((row) => (
                 <div key={row.id} className="choice stack">
                   <b>{row.name}</b>
                   <p className="note">{row.label} · terms {row.termsVersion} · accepted {row.termsAcceptedAt}</p>
