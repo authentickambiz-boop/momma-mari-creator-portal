@@ -7,7 +7,7 @@ import { authorizeBot } from "./bot-api";
 import { setDealStage } from "./deal-stage";
 import { nowIso } from "./format";
 import { gmailConnectionState } from "./onboarding";
-import { findManagerByEmail } from "./managers";
+import { assignedCreatorIds, findManagerByEmail } from "./managers";
 import type { Viewer } from "./types";
 
 export const CAPABILITIES = ["negotiate", "review_contracts", "outreach", "draft_replies", "approve_deals"] as const;
@@ -402,6 +402,15 @@ export async function managerAct(
 ) {
   if (viewer.role !== "manager" || !viewer.managerId) {
     return { ok: false as const, status: 403, error: "Open this from a manager sign-in." };
+  }
+  const dealRows = await db.select().from(deals).where(eq(deals.id, input.effect.dealId));
+  const deal = dealRows[0];
+  if (!deal) return { ok: false as const, status: 404, error: "Deal not found." };
+  const assigned = Array.isArray(viewer.assignedCreatorIds)
+    ? viewer.assignedCreatorIds
+    : await assignedCreatorIds(db, viewer.managerId);
+  if (!assigned.includes(deal.creatorId)) {
+    return { ok: false as const, status: 403, error: "That creator is not on your list." };
   }
   return actWithCapability(db, {
     actorEmail: viewer.email,
