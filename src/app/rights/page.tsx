@@ -19,7 +19,7 @@ export default async function RightsPage({ searchParams }: { searchParams: Promi
       viewedId={portal.viewedId}
       hello={<div className="hello"><h1>Usage rights</h1><p>Licenses nearing the end get a flag and a suggested renewal. Nothing is charged.</p></div>}
     >
-      {params.saved ? <p className="note">Saved.</p> : null}
+      {params.saved ? <p className="note">Saved. Nothing was emailed or charged.</p> : null}
       {params.rightsError ? <p className="private-note">{params.rightsError}</p> : null}
       {cards.length === 0 ? <p className="note">No usage windows yet.</p> : null}
       {cards.length > 0 ? (

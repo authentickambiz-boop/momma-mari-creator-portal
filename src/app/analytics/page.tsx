@@ -26,7 +26,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       viewedId={portal.viewedId}
       hello={<div className="hello"><div><h1>Analytics</h1><p>Each Monday a snapshot is saved per platform. This card is the latest week, the change from the week before, and the trend. A blank means that number was not shown.</p></div></div>}
     >
-      {params.saved ? <p className="note">Saved.</p> : null}
+      {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {params.snapshotError ? <p className="private-note">{params.snapshotError}</p> : null}
       <SnapshotBoard creators={shown} showRevenue={board.showRevenue} />
       {portal.viewer.role === "admin" && portal.viewed ? (

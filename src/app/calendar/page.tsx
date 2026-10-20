@@ -22,7 +22,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       viewedId={portal.viewedId}
       hello={<div className="hello"><h1>Calendar</h1><p>Draft and post dates. A reminder lands 3 days ahead, in the portal or in the approval queue. Nothing is emailed on its own.</p></div>}
     >
-      {params.saved ? <p className="note">Saved.</p> : null}
+      {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {params.calendarError ? <p className="private-note">{params.calendarError}</p> : null}
       {dates.length === 0 ? <p className="note">No due dates yet.</p> : null}
       {dates.length > 0 ? (

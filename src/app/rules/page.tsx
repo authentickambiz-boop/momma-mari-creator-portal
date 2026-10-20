@@ -43,7 +43,7 @@ export default async function RulesPage({ searchParams }: { searchParams: Promis
       viewedId={portal.viewedId}
       hello={<div className="hello"><div><h1>Deal rules</h1><p>What {creator.name} will consider. Filled in from her questionnaire and past accepted deals.</p></div></div>}
     >
-      {params.saved ? <p className="note">Saved.</p> : null}
+      {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {params.rulesError ? <p className="private-note">{params.rulesError}</p> : null}
       {!stored ? <p className="callout">These numbers are a starting point from her questionnaire and past deals. Save them to lock them in.</p> : null}
       <form action={saveDealRulesAction} className="card stack">
