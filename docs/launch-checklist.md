@@ -16,12 +16,12 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Before merge
 
 1. Read `docs/overnight-log.md` for the open pull requests.
-2. Already on `main`: `#41` (`da74005`), `#42` (`4d53916`), `#46` (`08655f5`), `#43` (`bc51ed7`), `#44` (`8349259`), `#48` (`3df3b46`), and `#47` (`73950a6`). Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. A dead Gmail inbox is already acknowledged. Stripe stays off. Free products and Access are on `main`.
-3. `#45` was refreshed onto `73950a6` and now matches `main`. The phone scrolling and the Connect accounts tab already shipped inside `#47`. Merging `#45` changes nothing. Closing it is also fine.
-4. Merge `#49` for this log and checklist. It only edits those two docs.
-5. Merge `#50` (follow Gmail history pages, return 503 while a page is still unread) and `#51` (hide creator chat on the public marketing pages). Either order is fine. They edit different files.
+2. Already on `main`: `#41` (`da74005`), `#42` (`4d53916`), `#46` (`08655f5`), `#43` (`bc51ed7`), `#44` (`8349259`), `#48` (`3df3b46`), `#47` (`73950a6`), `#50` (`4ee1322`), `#51` (`02574a4`), and `#49` (`709d83a`). Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. A dead Gmail inbox is already acknowledged. History pages are followed. Public pages hide creator chat. Stripe stays off. Free products and Access are on `main`.
+3. `#45` matches current `main`. The phone scrolling and the Connect accounts tab already shipped inside `#47`. Merging `#45` changes nothing. Closing it is also fine.
+4. Merge `#52` (phone forms and the tab row) and `#53` (skip Gmail newsletters and spam when opening a deal). Either order is fine. They edit different files.
+5. Merge this log when you want the checklist to match. It only edits these two docs.
 6. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
-7. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file.
+7. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file. Current `main` is 68 passing.
 
 ## Gmail, still before paid features
 
@@ -49,6 +49,7 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 
 - Free Products and Access are on `main` via `#47`. The gifted terms are still DRAFT, pending lawyer review. Nothing on that page is charged.
 - Gmail history older than the latest 20 inbox messages is not recovered. `#48` covers that recent page, and it already includes the dead-token acknowledgement from `#42`.
-- One Gmail history response can span more pages than the portal reads today. `#50` follows five pages and asks Pub/Sub to retry for the rest, without jumping the cursor past unread mail.
+- Gmail history pages beyond the first five on one push are retried by Pub/Sub. `#50` is on `main`. The cursor does not jump past unread pages.
+- Until `#53` lands, a newsletter that Gmail already labeled can still open a hidden deal. The sender block list is already on `main`.
 - The approval-queue email bridge is not built.
 - An attorney still needs to review the e-sign wording.
