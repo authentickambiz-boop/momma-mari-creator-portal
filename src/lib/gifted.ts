@@ -25,6 +25,16 @@ export function giftedAmountOwed(retailValueCents: number) {
   return retailValueCents + GIFTED_FINDERS_FEE_CENTS;
 }
 
+/** A real calendar day, or null. 2026-02-31 matches the shape and is still refused. */
+export function giftDueOn(value: string) {
+  const dueOn = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueOn)) return null;
+  const [year, month, day] = dueOn.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return dueOn;
+}
+
 function easternDay(now: Date) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: agencyTimeZone(),
@@ -100,11 +110,11 @@ export async function createGiftedOffer(
   const brand = input.brand.trim();
   const product = input.product.trim();
   const deliverable = input.deliverable.trim();
-  const dueOn = input.dueOn.trim();
+  const dueOn = giftDueOn(input.dueOn);
   if (!brand) return { ok: false, status: 400, error: "Name the brand." };
   if (!product) return { ok: false, status: 400, error: "Name the product." };
   if (!deliverable) return { ok: false, status: 400, error: "Say what video they owe, such as 1 TikTok." };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueOn)) return { ok: false, status: 400, error: "Use a due date like 2026-11-20." };
+  if (!dueOn) return { ok: false, status: 400, error: "Use a due date like 2026-11-20." };
   if (input.retailValueCents == null || !Number.isInteger(input.retailValueCents) || input.retailValueCents <= 0) {
     return { ok: false, status: 400, error: "Enter the product's retail value." };
   }
