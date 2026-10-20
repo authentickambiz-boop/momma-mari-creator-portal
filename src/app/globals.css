@@ -76,6 +76,7 @@ a { color: var(--terra-d); }
   font-size: 12px;
   padding: 8px 12px;
   letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
 }
 
 .sticky-chrome { position: sticky; top: 0; z-index: 40; }
@@ -177,6 +178,7 @@ header.top .logo-img { filter: invert(1); }
   align-items: flex-end;
   gap: 10px;
   margin-bottom: 14px;
+  overflow-wrap: anywhere;
 }
 
 .hello p { margin: 4px 0 0; color: var(--muted); }
@@ -237,9 +239,10 @@ a.deal, button.deal {
 a.deal:hover { border-color: var(--terra); }
 a.deal.on { border-color: var(--terra); box-shadow: 0 0 0 2px var(--blush); }
 
-.deal .top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-.deal .name { font-weight: 700; }
+.deal .top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; min-width: 0; }
+.deal .name { font-weight: 700; min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .deal .amt { font-weight: 600; color: var(--terra-d); white-space: nowrap; font-size: 14px; }
+a.deal, button.deal, a.card { max-width: 100%; }
 .deal .next { font-size: 13px; color: var(--muted); margin-top: 6px; }
 
 .chip {
@@ -461,6 +464,25 @@ th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color
 .people .btn { width: 100%; margin-top: 0; text-align: left; }
 .stack { display: flex; flex-direction: column; gap: 14px; }
 .card.stack input:not([type="checkbox"]):not([type="hidden"]), .card.stack textarea, .card.stack select { width: 100%; max-width: 440px; }
+form.stack > label input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+form.stack > label textarea,
+form.stack > label select { width: 100%; max-width: 440px; }
+.card.stack > label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"])),
+form.stack > label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"])) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.card.stack > label:has(input[type="checkbox"]),
+.card.stack > label:has(input[type="radio"]) {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
 .tag-picker { display: flex; flex-direction: column; gap: 6px; font-weight: 650; }
 .tag-picker input[type="hidden"], .wizard input[type="hidden"] { display: none; }
 .tag-picker input[role="combobox"], .wizard select, .stack select {
@@ -563,9 +585,10 @@ th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color
 .public-nav { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .public-nav a { min-height: 44px; display: inline-flex; align-items: center; color: var(--ink); font-weight: 650; }
 .public-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-.public-grid .card h2 { font-family: var(--heading); font-size: 22px; margin: 8px 0; }
+.public-grid .card h2 { font-family: var(--heading); font-size: 22px; margin: 8px 0; overflow-wrap: anywhere; }
 .public-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 650; }
-.public-form input, .public-form textarea { width: 100%; }
+.public-form input, .public-form textarea { width: 100%; max-width: 100%; }
+.public-form .btn { width: 100%; }
 .snap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 12px; }
 .snap-metrics { margin-top: 8px; }
 .snap-metric { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
@@ -604,8 +627,7 @@ textarea {
   nav.tabs {
     flex-wrap: nowrap;
     overflow-x: auto;
-    position: sticky;
-    top: 100px;
+    position: static;
     z-index: 4;
     background: var(--cream);
     margin: 0 0 12px;
