@@ -16,16 +16,14 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Before merge
 
 1. Read `docs/overnight-log.md` for the open pull requests.
-2. Already on `main`: `#41` (`da74005`), `#42` (`4d53916`), `#46` (`08655f5`), `#43` (`bc51ed7`), `#44` (`8349259`), `#48` (`3df3b46`), `#47` (`73950a6`), `#50` (`4ee1322`), `#51` (`02574a4`), `#49` (`709d83a`), `#52` (`d497e50`), `#53` (`4af6c94`), `#54` (`2a50833`), `#55` (`5ecdc2b`), `#56` (`428cad4`), `#57` (`e7a5dc0`), `#58` (`f12169b`), and `#59` (`f84722f`). Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. A dead Gmail inbox is already acknowledged. A missing message, a draft, and internal mail do not stall the cursor. Watch renewal keeps the history cursor. History pages are followed. Newsletters and spam do not open a new deal. Phone forms stack, and long checkbox labels stay on the phone page. Public pages hide creator chat and show a roster count. The dashboard, brand offers, campaign budgets, and Free products say what they do. Stripe stays off. Free products and Access are on `main`.
-3. `#45` still has no file changes versus current `main` (`f84722f`). The phone scrolling and the Connect accounts tab already shipped inside `#47`. Leave `#45` open for Kamron to close.
-4. Merge `#60` (a reply draft, a rate confirmation, and saved dates show a note on the deal). An empty draft and a rate that is not dollars write nothing. Nothing is emailed or paid.
-5. Merge `#61` (a second inbox page when history has expired, up to 40 messages). It edits the Gmail watch. Merge `#60` first. This copy of the docs is newer than `#61`, `#63`, and `#64`. It also covers `#62` and `#65`. Mail older than those 40 messages is still not recovered. Nothing is sent.
-6. Merge `#62` (Connect, Access, campaigns, and a quiet creator week say what happened). Nothing is emailed or charged.
-7. Merge `#63` (an empty earnings, rank, report, manager, or brand list says so; the error page links back to deals; a phone keeps the active tab in view). Nothing is emailed, paid, or charged.
-8. Merge `#64` (Settings, deal rules, a profile, the calendar, prospects, analytics, a pod, a media kit, and usage rights say a save did not email anyone). Nothing is paid or charged.
-9. Merge `#65` (Support says there are no notes yet, and an unknown billing code says nothing was charged). This checklist is in that same pull request. This copy is newer than `#64`.
-10. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
-11. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file.
+2. Already on `main`: `#41` (`da74005`), `#42` (`4d53916`), `#46` (`08655f5`), `#43` (`bc51ed7`), `#44` (`8349259`), `#48` (`3df3b46`), `#47` (`73950a6`), `#50` (`4ee1322`), `#51` (`02574a4`), `#49` (`709d83a`), `#52` (`d497e50`), `#53` (`4af6c94`), `#54` (`2a50833`), `#55` (`5ecdc2b`), `#56` (`428cad4`), `#57` (`e7a5dc0`), `#58` (`f12169b`), `#59` (`f84722f`), `#60` (`8a55515`), and `#62` (`ed05211`). Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. A dead Gmail inbox is already acknowledged. A missing message, a draft, and internal mail do not stall the cursor. Watch renewal keeps the history cursor. History pages are followed. Newsletters and spam do not open a new deal. Phone forms stack, and long checkbox labels stay on the phone page. Public pages hide creator chat and show a roster count. The dashboard, brand offers, campaign budgets, and Free products say what they do. A reply draft, a rate, and saved dates show a note on the deal. Connect, Access, campaigns, and a quiet creator week say what happened. Stripe stays off. Free products and Access are on `main`.
+3. `#45` still has no file changes versus current `main` (`ed05211`). The phone scrolling and the Connect accounts tab already shipped inside `#47`. Leave `#45` open for Kamron to close.
+4. Merge `#61` (a second inbox page when history has expired, up to 40 messages). It edits the Gmail watch and does not edit these docs. Mail older than those 40 messages is still not recovered. Nothing is sent.
+5. Merge `#63` (an empty earnings, rank, report, manager, or brand list says so; the error page links back to deals; a phone keeps the active tab in view). It does not edit these docs. Nothing is emailed, paid, or charged.
+6. Merge `#64` (Settings, deal rules, a profile, the calendar, prospects, analytics, a pod, a media kit, and usage rights say a save did not email anyone). It does not edit these docs. Nothing is paid or charged.
+7. Merge `#65` (Support says there are no notes yet, and an unknown billing code says nothing was charged). This checklist is only in that pull request.
+8. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
+9. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file.
 
 ## Gmail, still before paid features
 
@@ -55,8 +53,8 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 - Gmail history older than the latest 40 inbox messages is not recovered. `#48` covers the recent inbox, and `#61` reads one more page of 20. A failed later page does not move the cursor.
 - Gmail history pages beyond the first five on one push are retried by Pub/Sub. `#50` is on `main`. The cursor does not jump past unread pages.
 - Newsletters and spam stay off new deals. That shipped in `#53`. `#58` also skips drafts and mail whose From is a watched inbox. That is on `main`.
-- A reply draft, a rate confirmation, and saved dates show a note on the deal once `#60` is merged. An empty draft and a rate that is not dollars write nothing. Nothing is emailed or paid. `#61` does not change that.
-- Connect, Access, campaigns, and a quiet creator week say what happened once `#62` is merged. An unknown connection says to try again. The one-time bot token is called out. Nothing is emailed or charged.
+- A reply draft, a rate confirmation, and saved dates show a note on the deal. That shipped in `#60`. An empty draft and a rate that is not dollars write nothing. Nothing is emailed or paid. `#61` does not change that.
+- Connect, Access, campaigns, and a quiet creator week say what happened. That shipped in `#62`. An unknown connection says to try again. The one-time bot token is called out. Nothing is emailed or charged.
 - Empty earnings, ranks, reports, managers, and brands say the list is empty once `#63` is merged. Ranking and Brands also say a save did not email anyone. The error page says nothing was emailed or charged and links back to deals. A missing page says nothing was changed. On a phone, the active tab scrolls into view.
 - A save on Settings, deal rules, a profile, the calendar, prospects, analytics, a pod, a media kit, and usage rights says nothing was emailed once `#64` is merged. A media kit and usage rights also say nothing was charged.
 - Support says there are no notes yet once `#65` is merged. An unknown billing code says nothing was charged. Stripe stays off.
