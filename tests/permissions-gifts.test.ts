@@ -5,7 +5,7 @@ import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { GIFTED_FINDERS_FEE_CENTS, GIFTED_TERMS_VERSION } from "../src/config/gifted-terms";
 import type { PortalDb } from "../src/db/index";
-import { approvalEmails, creators, payments } from "../src/db/schema";
+import { approvalEmails, creators, deals, payments } from "../src/db/schema";
 import { authorizeBot, upsertCreator, upsertDeal } from "../src/lib/bot-api";
 import { listBrandCrm } from "../src/lib/brand-crm";
 import {
