@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
-import { hideMyProfile, moderateProfileField, saveMyProfile } from "@/lib/profiles";
+import { directoryErrorCode, hideMyProfile, moderateProfileField, saveMyProfile } from "@/lib/profiles";
 
 function list(formData: FormData, name: string) {
   return formData.getAll(name).map((value) => String(value));
@@ -66,6 +66,6 @@ export async function moderateProfileAction(formData: FormData) {
     action,
     reason: String(formData.get("reason") ?? ""),
   });
-  if (!result.ok) redirect(`/directory?directoryError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/directory?directoryError=${directoryErrorCode(result.error)}`);
   redirect("/directory?saved=1");
 }

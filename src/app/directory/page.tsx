@@ -2,12 +2,13 @@ import { moderateProfileAction } from "@/app/profile-actions";
 import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
 import { PROFILE_FIELDS } from "@/lib/profile-shared";
-import { listPublicProfiles } from "@/lib/profiles";
+import { directoryErrorNote, listPublicProfiles } from "@/lib/profiles";
 
 export default async function DirectoryPage({ searchParams }: { searchParams: Promise<{ creator?: string; saved?: string; directoryError?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
   const cards = await listPublicProfiles(portal.db);
+  const directoryError = directoryErrorNote(params.directoryError);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -17,7 +18,7 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Pr
       hello={<div className="hello"><h1>Members</h1><p>Only what each creator chose to show.</p></div>}
     >
       {params.saved === "1" ? <p className="note">Saved. Nothing was emailed.</p> : null}
-      {params.directoryError ? <p className="private-note">{params.directoryError} Nothing was emailed.</p> : null}
+      {directoryError ? <p className="private-note">{directoryError} Nothing was emailed.</p> : null}
       {cards.length === 0 ? <p className="note">No public profiles yet. Nothing is emailed.</p> : null}
       <div className="stack">
         {cards.map((card) => (
