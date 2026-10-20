@@ -30,6 +30,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
       viewedId={portal.viewedId}
       hello={<div className="hello"><div><h1>Deal review</h1><p>New deals stay hidden until you publish them. Nothing here sends email.</p></div></div>}
     >
+      {params.saved === "draft" ? <p className="note">Draft saved. Nothing was emailed.</p> : null}
       {params.saved === "published" ? <p className="note">Published. The creator can see it now.</p> : null}
       {params.saved === "rejected" ? <p className="note">Rejected. The creator still cannot see it.</p> : null}
       {params.reviewError ? <p className="private-note">{params.reviewError}</p> : null}
