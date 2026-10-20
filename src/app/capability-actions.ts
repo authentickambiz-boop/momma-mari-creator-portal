@@ -11,11 +11,12 @@ import {
   setTrainingChecks,
   type CapabilityEffect,
 } from "@/lib/capabilities";
+import { accessErrorCode } from "@/lib/access-notes";
 import { currentViewer } from "@/lib/current-user";
 
 function back(error?: string, saved?: string) {
   const query = new URLSearchParams();
-  if (error) query.set("accessError", error);
+  if (error) query.set("accessError", accessErrorCode(error));
   if (saved) query.set("saved", saved);
   const suffix = query.toString();
   return suffix ? `/access?${suffix}` : "/access";
