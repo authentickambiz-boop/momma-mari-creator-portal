@@ -330,7 +330,7 @@ export function CommunityPanel() {
             ) : null}
             <div className="community-log" aria-live="polite" ref={logRef}>
               {messages.map((message) => (
-                <article key={message.id} className={message.pinned ? "pinned" : ""}>
+                <article key={message.id} className={message.mine ? "mine" : message.pinned ? "pinned" : ""}>
                   <header>
                     <b>{message.authorName}</b>
                     {message.pinned ? <span>Pinned</span> : null}
