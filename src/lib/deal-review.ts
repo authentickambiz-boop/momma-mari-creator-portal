@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { brandReplyDrafts, creators, deals } from "@/db/schema";
 import { setDealStage } from "./deal-stage";
+import { isFakeCalendarDay } from "./deadlines";
 import { nowIso } from "./format";
 
 function ownerOnly() {
@@ -119,7 +120,11 @@ export async function editDealReview(
   const patch: Partial<typeof deals.$inferInsert> = { updatedAt: nowIso() };
   if (typeof input.brand === "string" && input.brand.trim()) patch.brand = input.brand.trim();
   if (typeof input.subtitle === "string") patch.subtitle = input.subtitle.trim() || null;
-  if (typeof input.postDate === "string") patch.postDate = input.postDate.trim() || null;
+  if (typeof input.postDate === "string") {
+    const postDate = input.postDate.trim();
+    if (isFakeCalendarDay(postDate)) return { ok: false as const, status: 400, error: "Use a date like 2026-11-20." };
+    patch.postDate = postDate || null;
+  }
   if (typeof input.kamronNotes === "string") patch.kamronNotes = input.kamronNotes.trim() || null;
   if (typeof input.productRequired === "boolean") patch.productRequired = input.productRequired;
   if (typeof input.rushRevision === "boolean") patch.rushRevision = input.rushRevision;
