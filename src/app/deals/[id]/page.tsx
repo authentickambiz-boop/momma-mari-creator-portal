@@ -7,6 +7,7 @@ import { formatMoney, longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
 import { categoryOverrideFor, screeningForDeal } from "@/lib/deal-rules";
+import { rulesErrorNote } from "@/lib/rules-notes";
 import { listUnreadCreatorNotices } from "@/lib/video-review";
 import { dealNoticeNote } from "@/lib/deal-notice-notes";
 
@@ -15,7 +16,7 @@ export default async function DealPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string; productError?: string; postError?: string; paymentError?: string; safetyError?: string; reply?: string; replyError?: string; rate?: string; rateError?: string; dates?: string; datesError?: string }>;
+  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string; productError?: string; postError?: string; paymentError?: string; safetyError?: string; reply?: string; replyError?: string; rate?: string; rateError?: string; dates?: string; datesError?: string; saved?: string; rulesError?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const portal = await loadPortal(query.creator ?? null);
@@ -60,6 +61,8 @@ export default async function DealPage({
           </form>
         </div>
       ))}
+      {query.saved === "1" ? <p className="note">Saved. Nothing was emailed.</p> : null}
+      {rulesErrorNote(query.rulesError) ? <p className="private-note">{rulesErrorNote(query.rulesError)}</p> : null}
       {query.signed === "1" ? (
         <div className="callout">
           <b>Your signature is saved. Nothing was emailed.</b>
