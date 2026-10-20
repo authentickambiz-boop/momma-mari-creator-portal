@@ -3,7 +3,7 @@ import { creators } from "@/db/schema";
 
 export const PUBLIC_ROBOTS = { index: true as const, follow: true as const };
 
-export const PUBLIC_MARKETING_PATHS = ["/services", "/roster", "/inquire", "/apply", "/apply/thanks"] as const;
+export const PUBLIC_MARKETING_PATHS = ["/services", "/roster", "/meet", "/inquire", "/apply", "/apply/thanks"] as const;
 
 /** True for the public marketing pages, with or without the portal mount prefix. */
 export function isPublicMarketingPath(pathname: string, basePath = "") {
@@ -34,7 +34,7 @@ export const SERVICES = [
   },
   {
     title: "A roster that grows",
-    body: "The public roster lists every creator on the Momma Mari roster. A new creator shows up when Kamron adds her. There is no separate list to edit.",
+    body: "Meet Our Creators lists the people Kamron marks as public. A new creator shows up there when he turns that on.",
   },
 ] as const;
 

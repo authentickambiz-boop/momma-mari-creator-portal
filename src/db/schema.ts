@@ -1079,6 +1079,14 @@ export const botTokens = sqliteTable("bot_tokens", {
   revokedAt: text("revoked_at"),
 });
 
+export const creatorShowcases = sqliteTable("creator_showcases", {
+  creatorId: text("creator_id").primaryKey(),
+  publicOn: integer("public_on", { mode: "boolean" }).notNull().default(false),
+  bio: text("bio"),
+  photoPath: text("photo_path"),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const analyticsSnapshots = sqliteTable(
   "analytics_snapshots",
   {
