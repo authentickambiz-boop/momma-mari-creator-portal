@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
+import { profileErrorCode } from "@/lib/profile-notes";
 import { directoryErrorCode, hideMyProfile, moderateProfileField, saveMyProfile } from "@/lib/profiles";
 
 function list(formData: FormData, name: string) {
@@ -43,7 +44,7 @@ export async function saveProfileAction(formData: FormData) {
     familyConfirm: formData.get("familyConfirm") === "1",
     joinedOn: formData.get("joinedOn") === "1",
   });
-  if (!result.ok) redirect(`/profile?profileError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/profile?profileError=${profileErrorCode(result.error)}`);
   redirect("/profile?saved=1");
 }
 
