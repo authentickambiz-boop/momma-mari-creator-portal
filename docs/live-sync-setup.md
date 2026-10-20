@@ -74,7 +74,7 @@ Pub/Sub will call the portal with a Google ID token. You check that token. The t
 9. Acknowledgement deadline: 30 seconds is enough.
 10. Create the subscription.
 
-The portal returns 401 when the token is missing or does not match that audience and service account. Pub/Sub will retry those. A 200 means the notice was accepted.
+The portal returns 401 when the token is missing or does not match that audience and service account. Pub/Sub will retry those. A 200 means the notice was accepted, including a dead mailbox: `unauthorized_client`, `invalid_grant`, or an inbox that is not connected returns 200 with `"ok": false` so Pub/Sub stops retrying a token that cannot recover. A temporary Google error returns 503 so Pub/Sub tries again. The history cursor stays put on both of those failures. The token is not included.
 
 ## 6. OAuth consent and the two inboxes
 
@@ -164,7 +164,7 @@ The same screen covers Google Drive and TikTok, Instagram, Facebook, and YouTube
 
 - The push body is a Pub/Sub envelope. The inner `emailAddress` and `historyId` say which inbox moved.
 - The portal calls Gmail `history.list` from the history id it stored for that inbox. The same history notice does not create a second deal.
-- When Google says that history id has expired, the portal reads the latest 20 inbox messages (`messages.list` on `INBOX`) and files the ones it has not seen. Mail older than that page is not recovered. The history cursor moves only after that read succeeds. If the inbox cannot be read, the push returns 503 and the cursor stays put so Pub/Sub can retry.
+- When Google says that history id has expired, the portal reads the latest 20 inbox messages (`messages.list` on `INBOX`) and files the ones it has not seen. Mail older than that page is not recovered. The history cursor moves only after that read succeeds. A temporary failure reading the inbox returns 503 so Pub/Sub can retry. A dead token (`unauthorized_client` or `invalid_grant`) is acknowledged with 200, the same as any other dead mailbox. The cursor stays put in both cases.
 - A message whose From domain is spam is dropped. The block list is `forceawakens.net`, `qq.com`, `foxmail`, `163.com`, `mail.ru`, and the endings `.live`, `.xyz`, `.mobi`, `.online`, `.cc`, `.shop`, `.work`, `.cloud`.
 - Any other new thread becomes a deal at **Offer received**, hidden from creators until you publish it on the **Review** page. Publishing shares it with that creator. Reject leaves it hidden. Edit and reply drafts on that page are only for you.
 - A message on a thread the portal already knows updates that deal. It does not open a second deal.

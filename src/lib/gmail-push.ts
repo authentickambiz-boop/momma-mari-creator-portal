@@ -306,6 +306,19 @@ function canMarkInterestSent(stageId: string | null) {
   return order != null && order < 4;
 }
 
+/** A dead refresh token will not start working if Pub/Sub retries it. */
+function permanentMailboxFailure(message: string) {
+  return message.includes("unauthorized_client") || message.includes("invalid_grant");
+}
+
+function pushReadFailure(error: unknown, secrets: string[]) {
+  const message = describeWatchFailure(error, secrets);
+  if (permanentMailboxFailure(message)) {
+    return { status: 200 as const, body: { ok: false as const, permanent: true as const, error: message } };
+  }
+  return { status: 503 as const, body: { ok: false as const, error: message } };
+}
+
 async function dealByThread(db: PortalDb, threadId: string) {
   if (!threadId) return null;
   const rows = await db.select().from(deals).where(eq(deals.gmailThreadId, threadId));
@@ -359,6 +372,7 @@ async function applyAddedMessages(
   creatorId: string,
   refs: { id: string; threadId: string }[],
   client: GmailHistoryClient,
+  secrets: string[],
 ) {
   const createdDealIds: string[] = [];
   const matchedDealIds: string[] = [];
@@ -371,7 +385,16 @@ async function applyAddedMessages(
       skippedDuplicate += 1;
       continue;
     }
-    const message = await client.getMessage(ref.id);
+    let message: GmailHistoryMessage;
+    try {
+      message = await client.getMessage(ref.id);
+    } catch (error) {
+      return { ok: false as const, failure: pushReadFailure(error, secrets) };
+    }
+    if (!message.threadId) {
+      await markSeen(db, mailbox, message);
+      continue;
+    }
     if (isSpamSender(message.from)) {
       await markSeen(db, mailbox, message);
       skippedSpam += 1;
@@ -409,7 +432,7 @@ async function applyAddedMessages(
     createdDealIds.push(dealId);
     await markSeen(db, mailbox, message);
   }
-  return { createdDealIds, matchedDealIds, stageMoves, skippedSpam, skippedDuplicate };
+  return { ok: true as const, createdDealIds, matchedDealIds, stageMoves, skippedSpam, skippedDuplicate };
 }
 
 export async function ingestGmailPush(
@@ -427,18 +450,27 @@ export async function ingestGmailPush(
     return { status: 200, body: { ok: true, primed: true, createdDealIds: [] as string[], matchedDealIds: [] as string[], stageMoves: [] as string[] } };
   }
   let client = options?.client;
+  const secrets: string[] = [];
   if (!client) {
     const connected = await gmailConnectionState(db, mapped.creatorId);
+    if (connected.cipher) secrets.push(connected.cipher);
     if (!connected.cipher || normalizeEmail(connected.gmailEmail ?? "") !== mailbox) {
-      return { status: 503, body: { error: "Mailbox is not connected." } };
+      return { status: 200, body: { ok: false as const, acknowledged: true as const, error: "Mailbox is not connected." } };
     }
     try {
-      client = await gmailReadClient(await decryptToken(connected.cipher));
-    } catch {
-      return { status: 503, body: { error: "Mailbox is not connected." } };
+      const refreshToken = await decryptToken(connected.cipher);
+      secrets.push(refreshToken);
+      client = await gmailReadClient(refreshToken);
+    } catch (error) {
+      return pushReadFailure(error, secrets);
     }
   }
-  const listed = await client.listAdded(start);
+  let listed: Awaited<ReturnType<GmailHistoryClient["listAdded"]>>;
+  try {
+    listed = await client.listAdded(start);
+  } catch (error) {
+    return pushReadFailure(error, secrets);
+  }
   if (listed.expired) {
     if (!client.listRecent) {
       await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
@@ -447,19 +479,40 @@ export async function ingestGmailPush(
     let recent: { id: string; threadId: string }[];
     try {
       recent = await client.listRecent();
-    } catch {
-      return { status: 503, body: { error: "Gmail history expired and the recent inbox could not be read." } };
+    } catch (error) {
+      return pushReadFailure(error, secrets);
     }
-    const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, recent.slice(0, RECENT_INBOX_LIMIT), client);
+    const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, recent.slice(0, RECENT_INBOX_LIMIT), client, secrets);
+    if (!applied.ok) return applied.failure;
     await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
-    return { status: 200, body: { ok: true, expired: true, backfilled: true, ...applied } };
+    return {
+      status: 200,
+      body: {
+        ok: true,
+        expired: true,
+        backfilled: true,
+        createdDealIds: applied.createdDealIds,
+        matchedDealIds: applied.matchedDealIds,
+        stageMoves: applied.stageMoves,
+        skippedSpam: applied.skippedSpam,
+        skippedDuplicate: applied.skippedDuplicate,
+      },
+    };
   }
-  const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, listed.messages, client);
-  const { createdDealIds, matchedDealIds, stageMoves, skippedSpam, skippedDuplicate } = applied;
+  const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, listed.messages, client, secrets);
+  if (!applied.ok) return applied.failure;
   await saveHistory(db, mailbox, mapped.creatorId, laterHistory(listed.latestHistoryId || start, note.historyId));
   return {
     status: 200,
-    body: { ok: true, mailbox, createdDealIds, matchedDealIds, stageMoves, skippedSpam, skippedDuplicate },
+    body: {
+      ok: true,
+      mailbox,
+      createdDealIds: applied.createdDealIds,
+      matchedDealIds: applied.matchedDealIds,
+      stageMoves: applied.stageMoves,
+      skippedSpam: applied.skippedSpam,
+      skippedDuplicate: applied.skippedDuplicate,
+    },
   };
 }
 
