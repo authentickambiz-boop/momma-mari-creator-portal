@@ -25,7 +25,7 @@ export default async function BrandsPage({ searchParams }: { searchParams: Promi
       viewedId={portal.viewedId}
       hello={<div className="hello"><h1>Brands</h1><p>Contacts, past deals, and responses. Screening notes show up here. Amounts stay with the owner.</p></div>}
     >
-      {params.saved ? <p className="note">Saved.</p> : null}
+      {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {params.brandError ? <p className="private-note">{params.brandError}</p> : null}
       {list.brands.length === 0 ? <p className="note">No brands on this list yet.</p> : null}
       <div className="stack">

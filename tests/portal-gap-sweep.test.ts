@@ -35,6 +35,7 @@ describe("portal gap sweep", { concurrency: 1 }, () => {
 
     const ranking = source("src/app/ranking/page.tsx");
     assert.match(ranking, /No ranks yet\. Nothing is emailed\./);
+    assert.match(ranking, /Saved\. Nothing was emailed\./);
 
     const reports = source("src/app/reports/page.tsx");
     assert.match(reports, /No reports yet\. Nothing is emailed\./);
@@ -44,6 +45,7 @@ describe("portal gap sweep", { concurrency: 1 }, () => {
 
     const brands = source("src/app/brands/page.tsx");
     assert.match(brands, /No brands on this list yet\./);
+    assert.match(brands, /Saved\. Nothing was emailed\./);
 
     const tabs = source("src/components/tab-row.tsx");
     assert.match(tabs, /scrollIntoView\(\{ inline: "nearest", block: "nearest" \}\)/);

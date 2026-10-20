@@ -26,7 +26,7 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
       viewedId={portal.viewedId}
       hello={<div className="hello"><div><h1>Ranking</h1><p>A 0 to 100 score for who should see the best-fit deals first. Only your sign-in can see this.</p></div></div>}
     >
-      {params.saved ? <p className="note">Saved.</p> : null}
+      {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {params.growthError ? <p className="private-note">{params.growthError}</p> : null}
       <div className="card">
         <div className="sec-title">Leaderboard</div>
