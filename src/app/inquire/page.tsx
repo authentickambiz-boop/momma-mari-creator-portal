@@ -1,5 +1,6 @@
 import { brandInquiryAction } from "@/app/inquire-actions";
 import { PublicShell } from "@/components/public-shell";
+import { inquiryErrorNote } from "@/lib/inquiry-notes";
 import { INQUIRY_SUBMIT_LABEL, PUBLIC_ROBOTS } from "@/lib/public-site";
 
 export const metadata = {
@@ -15,7 +16,7 @@ const NOTES: Record<string, string> = {
 
 export default async function InquirePage({ searchParams }: { searchParams: Promise<{ sent?: string; error?: string }> }) {
   const params = await searchParams;
-  const note = params.sent ? NOTES.sent : params.error ? NOTES.error : null;
+  const note = params.sent ? NOTES.sent : params.error ? inquiryErrorNote(params.error) ?? NOTES.error : null;
   return (
     <PublicShell title="Work with us" lede="Tell Momma Mari what you want to make with a creator. This form saves a brand contact. It does not send an email.">
       {note ? <p className="note">{note}</p> : null}

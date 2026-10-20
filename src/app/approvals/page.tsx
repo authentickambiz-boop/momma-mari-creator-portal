@@ -40,7 +40,7 @@ export default async function ApprovalsPage({
         </div>
       }
     >
-      <ApprovalsQueue items={items} creatorQuery={creatorQuery} error={params.approvalError === "1"} />
+      <ApprovalsQueue items={items} creatorQuery={creatorQuery} error={params.approvalError ?? null} />
     </PortalFrame>
   );
 }

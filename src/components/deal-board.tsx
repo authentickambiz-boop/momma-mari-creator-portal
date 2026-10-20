@@ -7,6 +7,7 @@ import { DealLivePulse } from "@/components/deal-live-pulse";
 import { askRateAction, confirmRateAction, ownerDealFlagsAction, saveReplyDraftAction } from "@/app/review-actions";
 import { commissionLabel, creatorPayoutTracker, lastUpdatedLabel, paymentStatusLabel, paymentStatusTone, shortDate, withBasePath } from "@/lib/format";
 import { contractErrorNote } from "@/lib/contract-notes";
+import { productErrorNote } from "@/lib/product-notes";
 import { safetyLabel } from "@/lib/safety-shared";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
@@ -592,8 +593,7 @@ function ProductAndPosts({
           <button className="btn" type="submit">I got it</button>
         </form>
       ) : null}
-      {productError === "past" ? <p className="note">This deal is already past the product. Nothing was changed.</p> : null}
-      {productError === "1" ? <p className="note">That tracking was not saved. Nothing was changed.</p> : null}
+      {productError ? <p className="note">{productErrorNote(productError) ?? "That tracking was not saved. Nothing was changed."}</p> : null}
 
       <div className="sec-title" style={{ marginTop: 14 }}>Live posts</div>
       {deal.livePosts.length === 0 ? <p className="note">No live links yet.</p> : null}
