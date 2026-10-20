@@ -23,7 +23,7 @@ export function ApprovalsQueue({
   const decided = items.filter((item) => item.status !== "pending");
   return (
     <div className="stack">
-      {error ? <p className="private-note">That change was not saved.</p> : null}
+      {error ? <p className="private-note">That change was not saved. Nothing was sent.</p> : null}
       {waiting.length === 0 ? (
         <div className="card">
           <b>Nothing is waiting.</b>
