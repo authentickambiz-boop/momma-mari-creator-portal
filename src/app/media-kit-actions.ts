@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
+import { kitErrorCode } from "@/lib/kit-notes";
 import { saveMediaKit } from "@/lib/media-kit";
 import { PLATFORM_METRICS } from "@/lib/platforms";
 
@@ -25,6 +26,6 @@ export async function saveMediaKitAction(formData: FormData) {
       value: String(formData.get(`metric-${index}`) ?? ""),
     })),
   });
-  if (!result.ok) redirect(`/media-kit?kitError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/media-kit?kitError=${kitErrorCode(result.error)}`);
   redirect(`/media-kit?saved=1&slug=${encodeURIComponent(result.slug)}`);
 }
