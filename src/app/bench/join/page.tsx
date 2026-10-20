@@ -27,6 +27,7 @@ export default async function JoinBenchPage({ searchParams }: { searchParams: Pr
         ))}
         <button className="btn" type="submit">Join free</button>
       </form>
+      <p><Link href="/gifts/apply">Free products, if you are already on the bench</Link></p>
       <p><Link href="/login">Creator sign-in</Link></p>
     </main>
   );

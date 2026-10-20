@@ -19,7 +19,9 @@ const TABS = [
   { id: "rules", href: "/rules", label: "Deal rules" },
   { id: "campaigns", href: "/campaigns", label: "Campaigns" },
   { id: "offers", href: "/offers", label: "Offers" },
+  { id: "gifts", href: "/gifts", label: "Free products" },
   { id: "review", href: "/review", label: "Review" },
+  { id: "access", href: "/access", label: "Access" },
   { id: "prospects", href: "/prospects", label: "Prospects" },
   { id: "dashboard", href: "/dashboard", label: "Dashboard" },
   { id: "ranking", href: "/ranking", label: "Ranking" },
@@ -65,7 +67,9 @@ export function PortalFrame({
     if (item.id === "rules") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "campaigns") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "offers") return viewer.role === "admin" || viewer.role === "creator";
+    if (item.id === "gifts") return viewer.role === "admin" || viewer.role === "creator";
     if (item.id === "review") return viewer.role === "admin";
+    if (item.id === "access") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "prospects" || item.id === "dashboard" || item.id === "ranking" || item.id === "reports" || item.id === "bench") return viewer.role === "admin";
     if (item.id === "pods") return true;
     if (item.id === "kit") return viewer.role === "creator";
