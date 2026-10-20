@@ -21,6 +21,19 @@ import type { Viewer } from "./types";
 export const CAMPAIGN_STATUSES = ["open", "filled", "paused", "closed"] as const;
 export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
 
+const DATE_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Empty stays empty. Other wording stays as written. A YYYY-MM-DD value has to be a real day. */
+export function optionalCalendarDay(value: string | null | undefined): { ok: true; value: string | null } | { ok: false; error: string } {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed || !DATE_SHAPE.test(trimmed)) return { ok: true, value: trimmed || null };
+  const [year, month, day] = trimmed.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const real = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  if (!real) return { ok: false, error: "Use a date like 2026-11-01." };
+  return { ok: true, value: trimmed };
+}
+
 export type CampaignInput = {
   brand: string;
   name: string;
@@ -132,6 +145,10 @@ export async function saveCampaign(db: PortalDb, viewer: Viewer, input: Campaign
   if (!brand || !name) return { ok: false as const, error: "Add the brand and the campaign name." };
   if (!Number.isInteger(input.budgetCents) || input.budgetCents < 0) return { ok: false as const, error: "Enter the budget in dollars." };
   if (!Number.isInteger(input.slots) || input.slots < 1) return { ok: false as const, error: "Add at least one creator slot." };
+  const starts = optionalCalendarDay(input.startsOn);
+  if (!starts.ok) return starts;
+  const ends = optionalCalendarDay(input.endsOn);
+  if (!ends.ok) return ends;
   const status = input.status && CAMPAIGN_STATUSES.includes(input.status as CampaignStatus) ? input.status : "open";
   const timestamp = nowIso();
   const values = {
@@ -142,8 +159,8 @@ export async function saveCampaign(db: PortalDb, viewer: Viewer, input: Campaign
     platformsJson: JSON.stringify(input.platforms),
     deliverablesJson: JSON.stringify(input.deliverables),
     slots: input.slots,
-    startsOn: input.startsOn?.trim() || null,
-    endsOn: input.endsOn?.trim() || null,
+    startsOn: starts.value,
+    endsOn: ends.value,
     status,
     updatedAt: timestamp,
   };
