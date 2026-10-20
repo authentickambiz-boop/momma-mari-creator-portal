@@ -16,6 +16,7 @@ Kamron merges. This log does not merge anything.
 | [#45](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/45) | `cursor/portal-polish-e39d` | Creators see the Connect accounts tab. Phone tables scroll. The tab list lives in `src/lib/portal-tabs.ts`. | Refreshed onto `08655f54`. The test is in `tests/portal-polish.test.ts`. `npx tsc --noEmit` clean. `npm test` 61 passing (60 portal, 1 polish). Ready to merge. |
 | [#47](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/47) | `cursor/permissions-gifts-e39d` | Access (staged permissions) and Free products, brought onto `main`. Migrations `0037_capability_grants.sql` and `0038_gifted_products.sql`. KOSBLING is unchanged. Includes the phone rules and the shared tab list, plus Free products and Access. | Refreshed onto `08655f54`. Tests are in `tests/permissions-gifts.test.ts`. `npx tsc --noEmit` clean. `npm test` 63 passing (60 portal, 1 polish, 2 gifts). Ready to merge. |
 | [#48](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/48) | `cursor/gmail-history-gap-e39d` | When Gmail history has expired, read the latest 20 inbox messages and file unseen mail. A temporary failure stays 503. A dead token stays acknowledged. The cursor does not move on either failure. Nothing is sent. | Refreshed onto `08655f54` and combined with `#42`. The test is in `tests/gmail-history-gap.test.ts`. `npx tsc --noEmit` clean. `npm test` 61 passing (60 portal, 1 history gap). Ready to merge. |
+| [#49](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/49) | `cursor/overnight-log-refresh-e39d` | This log and the launch checklist, updated after `#42` and `#46` landed and the five open pull requests were refreshed. | Docs only, based on `08655f54`. `npx tsc --noEmit` clean. `npm test` 60 passing. Ready to merge. It only edits these two docs, so it does not collide with the feature pull requests. |
 
 `#43`, `#44`, `#45`, `#47`, and `#48` are each against `main`. They no longer append to `tests/portal.test.ts`. Each new test is its own file, and `npm test` runs `tests/*.test.ts`. The shared helpers are the same `tests/harness.ts` and the same `package.json` script line on every one of those branches. A squash of one does not rewrite the shared suite for the next.
 
@@ -32,6 +33,7 @@ Migration `0036` is already on `main`. Do not add another `0036`. `#47` uses `00
 
 ## Left to do
 
+- Merge `#49` anytime. It only edits this log and the launch checklist.
 - Merge `#43`, `#44`, `#45`, `#48`, and `#47`. Order among the first four does not matter. When `#45` and `#47` meet, the only conflict is `src/lib/portal-tabs.ts`. Keep `#47`’s file.
 - New tests go in a new `tests/<topic>.test.ts` that imports `./harness`. Do not append to `tests/portal.test.ts`.
 - Reconnect MariClare’s watched inbox (`mmaclamroc@gmail.com`) after deploy. The current refresh token fails with `unauthorized_client` until a new token is saved. `#42` keeps Pub/Sub from retrying that dead inbox in the meantime.

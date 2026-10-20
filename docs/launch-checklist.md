@@ -17,10 +17,11 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 
 1. Read `docs/overnight-log.md` for the open pull requests.
 2. `#41` (`da74005`), `#42` (`4d539163`), and `#46` (`08655f54`) are already on `main`. Migration `0036` shipped with `#41`. A dead Gmail inbox is already acknowledged.
-3. Merge `#43`, `#44`, `#45`, and `#48` in any order. Each one keeps its new tests in its own file, so they no longer fight over `tests/portal.test.ts`.
-4. Merge `#47` for Access and Free products. It adds migrations `0037` and `0038`. The only conflict with `#45` is `src/lib/portal-tabs.ts`. Keep `#47`’s copy, whether `#45` lands first or second. That file is the Connect-accounts list plus Free products and Access.
-5. Confirm Webflow env still has `STRIPE_ENABLED` empty after `#43`.
-6. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file once the first of those pull requests lands.
+3. Merge `#49` for the updated log and this checklist. It only edits those two docs.
+4. Merge `#43`, `#44`, `#45`, and `#48` in any order. Each one keeps its new tests in its own file, so they no longer fight over `tests/portal.test.ts`.
+5. Merge `#47` for Access and Free products. It adds migrations `0037` and `0038`. The only conflict with `#45` is `src/lib/portal-tabs.ts`. Keep `#47`’s copy, whether `#45` lands first or second. That file is the Connect-accounts list plus Free products and Access.
+6. Confirm Webflow env still has `STRIPE_ENABLED` empty after `#43`.
+7. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file once the first of those pull requests lands.
 
 ## Gmail, still before paid features
 
