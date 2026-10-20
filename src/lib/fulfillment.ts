@@ -42,6 +42,31 @@ export function paymentErrorCode(error: string) {
   return match ?? "1";
 }
 
+const POST_ERROR_TEXT = {
+  link: "Add at least one live post link.",
+  platform: "Platform must be TikTok, Instagram, Facebook, or YouTube.",
+  url: "Each post link has to start with http:// or https://.",
+  early: "This video isn't approved for posting yet. Nothing was changed.",
+  email: "Add the brand email before the post links can be queued.",
+  missing: "Deal not found.",
+  gone: "Post not found.",
+  own: "You can't update this deal.",
+} as const;
+
+/** A short code for a live post. Unknown wording stays the fixed fallback. */
+export function postErrorCode(error: string) {
+  const match = (Object.keys(POST_ERROR_TEXT) as (keyof typeof POST_ERROR_TEXT)[])
+    .find((code) => POST_ERROR_TEXT[code] === error);
+  return match ?? "1";
+}
+
+/** The sentence for a known post code. Unknown codes and "1" stay null so the page keeps its own fallback. */
+export function postErrorNote(code: string | undefined) {
+  if (!code || code === "1") return null;
+  if (code in POST_ERROR_TEXT) return POST_ERROR_TEXT[code as keyof typeof POST_ERROR_TEXT];
+  return null;
+}
+
 function clean(value: string | null | undefined) {
   const trimmed = value?.trim() ?? "";
   return trimmed ? trimmed : null;

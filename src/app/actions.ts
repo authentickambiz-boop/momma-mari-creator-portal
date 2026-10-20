@@ -19,7 +19,7 @@ import { recordReferral, referralErrorCode, setReferralPerk } from "@/lib/referr
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
 import { dealNoticeCode } from "@/lib/deal-notice-notes";
-import { confirmLivePost, confirmProductReceived, markPayment, paymentErrorCode, saveShipment, submitLivePosts } from "@/lib/fulfillment";
+import { confirmLivePost, confirmProductReceived, markPayment, paymentErrorCode, postErrorCode, saveShipment, submitLivePosts } from "@/lib/fulfillment";
 import { productErrorCode } from "@/lib/product-notes";
 import { isEmailSetup } from "@/lib/email-setup";
 import { emailSetupErrorCode } from "@/lib/email-setup-notes";
@@ -622,10 +622,7 @@ export async function submitLivePostsAction(formData: FormData) {
     actorRole: viewer.role,
     creatorId: viewer.creatorId,
   });
-  if (!result.ok) {
-    const code = result.status === 409 ? "early" : "1";
-    redirect(`${back}${query ? "&" : "?"}postError=${code}`);
-  }
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}postError=${postErrorCode(result.error)}`);
   redirect(back);
 }
 
@@ -641,10 +638,7 @@ export async function confirmLivePostAction(formData: FormData) {
     actorEmail: viewer.email,
     actorRole: viewer.role,
   });
-  if (!result.ok) {
-    const code = result.error.includes("brand email") ? "email" : "1";
-    redirect(`${back}${query ? "&" : "?"}postError=${code}`);
-  }
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}postError=${postErrorCode(result.error)}`);
   redirect(back);
 }
 

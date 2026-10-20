@@ -6,6 +6,7 @@ import { CopyText } from "@/components/copy-text";
 import { DealLivePulse } from "@/components/deal-live-pulse";
 import { askRateAction, confirmRateAction, ownerDealFlagsAction, saveReplyDraftAction } from "@/app/review-actions";
 import { commissionLabel, creatorPayoutTracker, lastUpdatedLabel, paymentStatusLabel, paymentStatusTone, shortDate, withBasePath } from "@/lib/format";
+import { postErrorNote } from "@/lib/fulfillment";
 import { productErrorNote } from "@/lib/product-notes";
 import { safetyLabel } from "@/lib/safety-shared";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
@@ -636,9 +637,7 @@ function ProductAndPosts({
           <button className="btn" type="submit">Submit live post</button>
         </form>
       ) : null}
-      {postError === "early" ? <p className="note">This video isn&apos;t approved for posting yet. Nothing was changed.</p> : null}
-      {postError === "email" ? <p className="note">Add the brand email before the post links can be queued.</p> : null}
-      {postError === "1" ? <p className="note">That post was not saved. Nothing was emailed.</p> : null}
+      {postError ? <p className="note">{postErrorNote(postError) ?? "That post was not saved. Nothing was emailed."}</p> : null}
 
       {isOwner && deal.canMarkPayment ? (
         <>
