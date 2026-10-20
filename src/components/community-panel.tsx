@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { COMMUNITY_EMOJIS, COMMUNITY_GUIDELINES, privateKinds } from "@/lib/community-shared";
-import { withBasePath } from "@/lib/format";
+import { publicBasePath, withBasePath } from "@/lib/format";
+import { isPublicMarketingPath } from "@/lib/public-site";
 
 type Message = {
   id: string;
@@ -72,6 +74,7 @@ export function CommunityPanel() {
   const logRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const publicPage = isPublicMarketingPath(usePathname() ?? "", publicBasePath());
 
   useEffect(() => {
     const saved = window.localStorage.getItem("mm-community-panel");
@@ -82,6 +85,10 @@ export function CommunityPanel() {
   }, []);
 
   useEffect(() => {
+    if (publicPage) {
+      delete document.body.dataset.community;
+      return;
+    }
     const open = state === "open" || state === "sheet";
     document.body.dataset.community = state === "open" ? "open" : state === "collapsed" ? "collapsed" : "sheet";
     if (state !== "sheet") window.localStorage.setItem("mm-community-panel", open ? "open" : "collapsed");
@@ -89,9 +96,10 @@ export function CommunityPanel() {
       const newest = snapshot.messages.reduce((max, message) => (message.createdAt > max ? message.createdAt : max), "");
       if (newest) window.localStorage.setItem("mm-community-read", newest);
     }
-  }, [state, snapshot]);
+  }, [state, snapshot, publicPage]);
 
   useEffect(() => {
+    if (publicPage) return;
     let timer = 0;
     let stopped = false;
     async function tick() {
@@ -136,7 +144,7 @@ export function CommunityPanel() {
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, []);
+  }, [publicPage]);
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -158,7 +166,7 @@ export function CommunityPanel() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  if (hidden) return null;
+  if (hidden || publicPage) return null;
 
   if (!snapshot) {
     return (
