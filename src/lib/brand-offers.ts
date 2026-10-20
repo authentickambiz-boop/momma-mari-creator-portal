@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { campaignAllocations, campaigns, creators, deals } from "@/db/schema";
 import { brandKey, followUpValue, upsertBrandCrm } from "./brand-crm";
+import { optionalCalendarDay } from "./campaigns";
 import { latestRanks } from "./creator-rank";
 import { setDealStage } from "./deal-stage";
 import { dollarsToCents, rulesFor, videoMinimumCents } from "./deal-rules";
@@ -152,6 +153,10 @@ export async function createBrandOffer(db: PortalDb, viewer: Viewer, input: Bran
   if (!budgets.length) return { ok: false as const, error: "Enter a budget for at least one creator." };
   const contact = offerContactEmail(input.contactEmail);
   if (!contact.ok) return { ok: false as const, error: contact.error };
+  const starts = optionalCalendarDay(input.startsOn);
+  if (!starts.ok) return starts;
+  const ends = optionalCalendarDay(input.endsOn);
+  if (!ends.ok) return ends;
   const follow = followUpValue(input.nextFollowUp);
   if (!follow.ok) return { ok: false as const, error: follow.error };
   const { matches, flag } = await matchBrandOffer(db, { deliverables, budgets });
@@ -167,8 +172,8 @@ export async function createBrandOffer(db: PortalDb, viewer: Viewer, input: Bran
     platformsJson: JSON.stringify(platforms),
     deliverablesJson: JSON.stringify(deliverables),
     slots: Math.max(budgets.length, 1),
-    startsOn: input.startsOn?.trim() || null,
-    endsOn: input.endsOn?.trim() || null,
+    startsOn: starts.value,
+    endsOn: ends.value,
     status: matches.length ? "open" : "paused",
     openOutside: false,
     updatedAt: timestamp,

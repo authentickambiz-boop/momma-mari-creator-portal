@@ -5,6 +5,7 @@ import type { PortalDb } from "../src/db/index";
 import { brandCrmEntries, campaigns } from "../src/db/schema";
 import { createBrandOffer } from "../src/lib/brand-offers";
 import { upsertBrandCrm } from "../src/lib/brand-crm";
+import { offerErrorCode } from "../src/lib/offer-notes";
 import { getDealForViewer } from "../src/lib/queries";
 import { admin, openTestDb } from "./harness";
 
@@ -32,7 +33,10 @@ describe("follow-up calendar day", { concurrency: 1 }, () => {
     for (const date of ["2026-02-31", "2026-13-40", "2026-02-29"]) {
       const refused = await createBrandOffer(db, admin, { ...offer, nextFollowUp: date });
       assert.equal(refused.ok, false);
-      if (!refused.ok) assert.equal(refused.error, "Use a date like 2026-11-15.");
+      if (!refused.ok) {
+        assert.equal(refused.error, "Use a date like 2026-11-15.");
+        assert.equal(offerErrorCode(refused.error), "follow");
+      }
       const crm = await upsertBrandCrm(db, {
         brand: "Follow Soap",
         actorName: "Kamron",

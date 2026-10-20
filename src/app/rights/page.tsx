@@ -2,6 +2,7 @@ import { saveUsageRightsAction } from "@/app/rights-actions";
 import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
 import { listDealsForViewer } from "@/lib/queries";
+import { rightsErrorNote } from "@/lib/rights-notes";
 import { listUsageRights } from "@/lib/usage";
 
 export default async function RightsPage({ searchParams }: { searchParams: Promise<{ creator?: string; saved?: string; rightsError?: string }> }) {
@@ -20,7 +21,7 @@ export default async function RightsPage({ searchParams }: { searchParams: Promi
       hello={<div className="hello"><h1>Usage rights</h1><p>Licenses nearing the end get a flag and a suggested renewal. Nothing is charged.</p></div>}
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed or charged.</p> : null}
-      {params.rightsError ? <p className="private-note">{params.rightsError}</p> : null}
+      {rightsErrorNote(params.rightsError) ? <p className="private-note">{rightsErrorNote(params.rightsError)}</p> : null}
       {cards.length === 0 ? <p className="note">No usage windows yet.</p> : null}
       {cards.length > 0 ? (
         <div className="card">

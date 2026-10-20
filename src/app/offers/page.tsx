@@ -6,6 +6,7 @@ import { loadPortal } from "@/lib/current-user";
 import { DELIVERABLES } from "@/lib/deal-rules";
 import { formatMoney } from "@/lib/format";
 import { PLATFORM_OPTIONS } from "@/lib/niche-catalog";
+import { offerErrorNote } from "@/lib/offer-notes";
 
 export default async function OffersPage({ searchParams }: { searchParams: Promise<{ saved?: string; offerError?: string }> }) {
   const params = await searchParams;
@@ -20,6 +21,7 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
   const creatorView = portal.viewer.role === "creator";
   const inbox = creatorView ? await listCreatorOffers(portal.db, portal.viewer) : [];
   const board = portal.viewer.role === "admin" ? await listOfferBoard(portal.db, portal.viewer) : [];
+  const offerError = offerErrorNote(params.offerError);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -29,7 +31,7 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
       hello={<div className="hello"><div><h1>Brand offers</h1><p>{creatorView ? "What the brand will pay you. Your minimum stays private." : "Save a brand offer for the creators whose minimum and monthly cap fit. Lowest rank goes first. Nothing is emailed."}</p></div></div>}
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
-      {params.offerError ? <p className="private-note">{params.offerError}</p> : null}
+      {offerError ? <p className="private-note">{offerError}</p> : null}
       {creatorView ? (
         <div className="stack">
           {inbox.length === 0 ? <p className="note">No brand offers in your inbox.</p> : null}

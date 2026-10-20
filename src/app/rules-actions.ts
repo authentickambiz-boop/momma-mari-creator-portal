@@ -12,6 +12,7 @@ import {
   type DealRules,
   type DeliverableId,
 } from "@/lib/deal-rules";
+import { rulesErrorCode } from "@/lib/rules-notes";
 
 export async function saveDealRulesAction(formData: FormData) {
   const viewer = await currentViewer();
@@ -46,7 +47,7 @@ export async function saveDealRulesAction(formData: FormData) {
   };
   const result = await saveDealRules(db, viewer, creatorId, rules);
   const back = `/rules?creator=${encodeURIComponent(creatorId)}`;
-  if (!result.ok) redirect(`${back}&rulesError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`${back}&rulesError=${rulesErrorCode(result.error)}`);
   redirect(`${back}&saved=1`);
 }
 
@@ -57,7 +58,7 @@ export async function setCategoryOverrideAction(formData: FormData) {
   const db = await getDb();
   const result = await setCategoryOverride(db, viewer, dealId, formData.get("override") === "1");
   const back = `/deals/${encodeURIComponent(dealId)}`;
-  if (!result.ok) redirect(`${back}?rulesError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`${back}?rulesError=${rulesErrorCode(result.error)}`);
   redirect(`${back}?saved=1`);
 }
 
@@ -69,6 +70,6 @@ export async function savePricingFloorAction(formData: FormData) {
   const creatorId = String(formData.get("creatorId") ?? "");
   const result = await savePricingFloor(db, viewer, cents ?? -1);
   const back = `/rules?creator=${encodeURIComponent(creatorId)}`;
-  if (!result.ok) redirect(`${back}&rulesError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`${back}&rulesError=${rulesErrorCode(result.error)}`);
   redirect(`${back}&saved=1`);
 }

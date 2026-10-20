@@ -5,6 +5,7 @@ import { loadPortal } from "@/lib/current-user";
 import { withBasePath } from "@/lib/format";
 import { SnapshotBoard } from "@/components/analytics-snapshots";
 import { analyticsBoard } from "@/lib/analytics-snapshots";
+import { kitErrorNote } from "@/lib/kit-notes";
 import { myMediaKit, parsePlatformStats, zernioStatsEnabled } from "@/lib/media-kit";
 import { NICHE_CATALOG } from "@/lib/niche-catalog";
 import { MEDIA_KIT_CATALOG, PLATFORM_METRICS } from "@/lib/platforms";
@@ -27,7 +28,7 @@ export default async function MediaKitPage({ searchParams }: { searchParams: Pro
     <PortalFrame viewer={portal.viewer} tab="kit" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>Media kit</h1><p>Stats are typed in by hand. {zernio ? "Zernio stats are on for this portal." : "Zernio is off, so nothing is pulled in."}</p></div>}>
       {params.saved ? <p className="note">Saved. Nothing was emailed or charged.</p> : null}
       {kit?.published && kit.slug ? <p className="note">Share <a href={withBasePath(`/kit/${kit.slug}`)}>{withBasePath(`/kit/${kit.slug}`)}</a></p> : null}
-      {params.kitError ? <p className="private-note">{params.kitError}</p> : null}
+      {kitErrorNote(params.kitError) ? <p className="private-note">{kitErrorNote(params.kitError)}</p> : null}
       <SnapshotBoard creators={board.creators} showRevenue={false} />
       <div className="card">
         <div className="sec-title">Catalog price</div>

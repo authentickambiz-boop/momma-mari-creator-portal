@@ -11,6 +11,7 @@ import { publicBasePath } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
 import { onboardingPlatformId, onboardingPlatformLabel } from "@/lib/onboarding-fields";
 import { emailSetupFor, gmailConnectionState, onboardingForCreator } from "@/lib/onboarding";
+import { questionErrorNote } from "@/lib/question-notes";
 import { questionnaireFor, stepIndex, type QuestionStepId } from "@/lib/questionnaire";
 
 const GMAIL_ERRORS: Record<string, string> = {
@@ -105,7 +106,7 @@ export default async function OnboardingPage({
       ) : null}
       {quiz && !quiz.finished ? (
         <>
-          <QuestionStep stepId={activeStep} answers={quiz.answers} error={params.questionError ?? null} emailReady={readyForProfile} />
+          <QuestionStep stepId={activeStep} answers={quiz.answers} error={questionErrorNote(params.questionError)} emailReady={readyForProfile} />
           {creator && activeStep === "bot" && !profile?.finishedAt ? (
             <OnboardingWizard
               creatorName={creator.name}

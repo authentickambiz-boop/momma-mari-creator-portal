@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import type { PortalDb } from "../src/db/index";
 import { deals } from "../src/db/schema";
 import { dealFlagQuery, saveBrandReplyDraft } from "../src/lib/deal-review";
+import { dealNoticeCode } from "../src/lib/deal-notice-notes";
 import { getDealForViewer } from "../src/lib/queries";
 import { admin, openTestDb } from "./harness";
 
@@ -51,7 +52,7 @@ describe("deal notices", { concurrency: 1 }, () => {
     assert.equal((await getDealForViewer(db, admin, "vev"))?.brandReplyDraft, "Thanks for writing.");
 
     const actions = source("src/app/review-actions.ts");
-    assert.match(actions, /datesError: "Enter the rate in dollars\."/);
+    assert.match(actions, /datesError: dealNoticeCode\("Enter the rate in dollars\."\)/);
     assert.match(actions, /dealFlagQuery\(\{ dealId, creator, reply: "saved" \}\)/);
     assert.equal(actions.includes("replyError=1"), false);
     const dealPage = source("src/app/deals/[id]/page.tsx");

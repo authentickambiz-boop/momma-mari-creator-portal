@@ -5,6 +5,7 @@ import { loadPortal } from "@/lib/current-user";
 import { BRAND_OPTIONS, FORMAT_OPTIONS, NICHE_CATALOG } from "@/lib/niche-catalog";
 import { AGE_RANGES, AUDIENCE_RANGES, US_STATES } from "@/lib/profile-shared";
 import { myProfile } from "@/lib/profiles";
+import { profileErrorNote } from "@/lib/profile-notes";
 
 function savedList(value: string | null | undefined) {
   if (!value) return [] as string[];
@@ -32,10 +33,11 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const savedNiches = savedList(profile?.niches);
   const savedFormats = savedList(profile?.formats);
   const savedBrands = savedList(profile?.brands);
+  const profileError = profileErrorNote(params.profileError);
   return (
     <PortalFrame viewer={portal.viewer} tab="profile" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>My profile</h1><p>Hidden until you turn it on. Others only see the fields you check.</p></div>}>
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
-      {params.profileError ? <p className="private-note">{params.profileError}</p> : null}
+      {profileError ? <p className="private-note">{profileError}</p> : null}
       <div className="card">
         <div className="sec-title">How others see me</div>
         {preview ? (

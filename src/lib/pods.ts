@@ -136,11 +136,19 @@ async function editable(db: PortalDb, viewer: Viewer, podId: string) {
   return pod;
 }
 
+/** A real calendar day. 2026-02-31 matches the shape and is still refused. */
+function isPodDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
 export async function addPodDate(db: PortalDb, viewer: Viewer, input: { podId: string; title: string; onDate: string; creatorId?: string | null }) {
   const pod = await editable(db, viewer, input.podId);
   if (!pod) return { ok: false as const, error: "That pod is not on your list." };
   const title = input.title.trim();
-  if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(input.onDate)) return { ok: false as const, error: "Add a title and a date." };
+  if (!title || !isPodDate(input.onDate)) return { ok: false as const, error: "Add a title and a date." };
   await db.insert(podDates).values({
     id: crypto.randomUUID(),
     podId: pod.id,
@@ -261,7 +269,9 @@ export async function recordPodMetric(db: PortalDb, viewer: Viewer, input: { pod
   if (viewer.role !== "admin" && viewer.role !== "manager") return { ok: false as const, error: "A manager records the pod numbers." };
   const pod = await editable(db, viewer, input.podId);
   if (!pod) return { ok: false as const, error: "That pod is not on your list." };
-  if (!/^\d{4}-\d{2}$/.test(input.month)) return { ok: false as const, error: "Use a month like 2026-10." };
+  if (!/^\d{4}-\d{2}$/.test(input.month) || Number(input.month.slice(5, 7)) < 1 || Number(input.month.slice(5, 7)) > 12) {
+    return { ok: false as const, error: "Use a month like 2026-10." };
+  }
   await db.insert(podMetrics).values({
     id: crypto.randomUUID(),
     podId: pod.id,
