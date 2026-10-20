@@ -1,7 +1,7 @@
 import { draftReportAction } from "@/app/actions";
 import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
-import { buildMonthlyReport, currentMonth } from "@/lib/report";
+import { buildMonthlyReport, currentMonth, reportErrorNote } from "@/lib/report";
 import { redirect } from "next/navigation";
 
 export default async function ReportPage({
@@ -16,6 +16,7 @@ export default async function ReportPage({
   const month = params.month && /^\d{4}-\d{2}$/.test(params.month) ? params.month : currentMonth();
   const built = creator ? await buildMonthlyReport(portal.db, creator.id, month) : null;
   const report = built?.ok ? built.report : null;
+  const reportCode = params.reportError;
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -36,10 +37,9 @@ export default async function ReportPage({
           <b>This month&apos;s report is in the approval queue. Nothing was sent.</b>
         </div>
       ) : null}
-      {params.reportError === "queued" ? <p className="note">This month&apos;s report is already in the approval queue. Nothing was sent.</p> : null}
-      {params.reportError === "1" ? <p className="note">That report was not queued. Nothing was sent.</p> : null}
+      {reportCode ? <p className="note">{reportErrorNote(reportCode) ?? "That report was not queued. Nothing was sent."}</p> : null}
       {!report ? (
-        <div className="card"><p>That report isn&apos;t available.</p></div>
+        <div className="card"><p>{built && !built.ok ? built.error : "That report isn't available."}</p></div>
       ) : (
         <div className="stack">
           <section className="card">
