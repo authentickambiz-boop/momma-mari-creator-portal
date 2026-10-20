@@ -84,6 +84,22 @@ export function isBulkMail(labelIds: string[] | undefined) {
   return (labelIds ?? []).some((label) => BULK_LABELS.has(label));
 }
 
+/** A draft has not been sent. It does not open a brand deal. */
+export function isDraftMail(labelIds: string[] | undefined) {
+  return (labelIds ?? []).includes("DRAFT");
+}
+
+/** Mail from one watched Momma Mari inbox to the other is not a brand offer. */
+export function isWatchedMailboxSender(from: string) {
+  const email = senderEmail(from);
+  return WATCH_MAILBOXES.some((box) => box.email === email);
+}
+
+/** messages.get 404. The rest of the batch can still be filed. */
+export function messageGone(id: string): GmailHistoryMessage {
+  return { id, threadId: "", from: "", to: "", subject: "", labelIds: [] };
+}
+
 function brandFromSender(from: string) {
   const named = from.match(/^\s*"?([^"<]+?)"?\s*</);
   const name = named?.[1]?.trim() ?? "";
@@ -93,12 +109,17 @@ function brandFromSender(from: string) {
   return label ? label.charAt(0).toUpperCase() + label.slice(1) : "Brand";
 }
 
-function laterHistory(left: string, right: string) {
-  try {
-    return BigInt(left) >= BigInt(right) ? left : right;
-  } catch {
-    return right || left;
-  }
+export function historyIdIsNumeric(value: string) {
+  return /^\d+$/.test(value);
+}
+
+/** Keep the further numeric history id. A bad id never replaces a real cursor. */
+export function laterHistoryId(left: string, right: string) {
+  const safeLeft = historyIdIsNumeric(left) ? left : "";
+  const safeRight = historyIdIsNumeric(right) ? right : "";
+  if (!safeLeft) return safeRight;
+  if (!safeRight) return safeLeft;
+  return BigInt(safeLeft) >= BigInt(safeRight) ? safeLeft : safeRight;
 }
 
 function historyMovesForward(start: string, next: string) {
@@ -517,7 +538,7 @@ async function applyAddedMessages(
       await markSeen(db, mailbox, message);
       continue;
     }
-    if (isBulkMail(message.labelIds)) {
+    if (isWatchedMailboxSender(message.from) || isDraftMail(message.labelIds) || isBulkMail(message.labelIds)) {
       await markSeen(db, mailbox, message);
       skippedSpam += 1;
       continue;
@@ -541,6 +562,9 @@ export async function ingestGmailPush(
   const stored = await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, mailbox));
   const start = stored[0]?.historyId ?? "";
   if (!start) {
+    if (!historyIdIsNumeric(note.historyId)) {
+      return { status: 200, body: { ok: false as const, acknowledged: true as const, error: "Gmail history id was not a number." } };
+    }
     await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
     return { status: 200, body: { ok: true, primed: true, createdDealIds: [] as string[], matchedDealIds: [] as string[], stageMoves: [] as string[] } };
   }
@@ -600,8 +624,8 @@ export async function ingestGmailPush(
   const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, listed.messages, client, secrets);
   if (!applied.ok) return applied.failure;
   const cursor = listed.partial
-    ? listed.latestHistoryId
-    : laterHistory(listed.latestHistoryId || start, note.historyId);
+    ? laterHistoryId(start, listed.latestHistoryId)
+    : laterHistoryId(listed.latestHistoryId || start, note.historyId);
   if (listed.partial && !historyMovesForward(start, cursor)) {
     return { status: 503, body: { ok: false as const, error: "Gmail history has more pages, and the cursor did not move." } };
   }
@@ -786,7 +810,8 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
         accessToken,
         `/messages/${encodeURIComponent(id)}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject`,
       );
-      if (loaded.missing || !loaded.json) throw new Error("Gmail message failed.");
+      if (loaded.missing) return messageGone(id);
+      if (!loaded.json) throw new Error("Gmail message failed.");
       const json = loaded.json as {
         id?: string;
         threadId?: string;
