@@ -16,12 +16,14 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Before merge
 
 1. Read `docs/overnight-log.md` for the open pull requests.
-2. Already on `main` (`cd2c74c`): `#41` through `#72`, except `#45`. The newest of those are `#68` (`1361a90`), `#69` (`66f14da`), `#70` (`1c4849d`), `#71` (`da6210e`), and `#72` (`cd2c74c`). `#61` (`fe295ac`) reads a second inbox page, up to 40 messages. Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. Stripe, BoldSign, and push stay off.
-3. `#45` still has no file changes versus current `main` (`cd2c74c`). Leave it open for Kamron to close.
-4. `#73` is still open. It only changes the note for an unknown Gmail code on onboarding. The merger is handling it. It does not edit these docs.
-5. [#74](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/74) is the launch smoke pass. A brand inquiry can take a response and a contact before any deal exists. Signup keeps every rate and handle the form asks for, including a YouTube minimum and a Twitch handle. A brand-offer budget that is not dollars is refused instead of skipping that creator. `npx tsc --noEmit` is clean. `npm test` is 89 passing.
-6. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
-7. Run the portal tests on `main` again after `#73` merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file.
+2. Already on `main` (`5a6e433`): `#41` through `#76`, except `#45`. The newest of those are `#73` (`8b025b6`), `#74` (`6aebbc8`), `#75` (`02f60a5`), and `#76` (`5a6e433`). `#61` (`fe295ac`) reads a second inbox page, up to 40 messages. Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. Stripe, BoldSign, and push stay off.
+3. `#45` still has no file changes. Leave it open for Kamron to close.
+4. `#73` is on `main`. An unknown Gmail code on onboarding says to try again.
+5. `#74` is on `main`. A brand inquiry can take a response and a contact before any deal exists. Signup keeps every rate and handle the form asks for, including a YouTube minimum and a Twitch handle. A brand-offer budget that is not dollars is refused instead of skipping that creator.
+6. `#75` is on `main`. The members directory will not print wording taken from the link.
+7. `#76` is on `main`. A brand offer is changed on Offers, not by splitting it on the campaign board.
+8. [#77](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/77) refuses a gifted due date that is not a real day. [#78](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/78) stops a manager from acting on a creator who is not assigned. [#79](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/79) maps Access errors to fixed sentences. This pull request does the same for Free products. `npx tsc --noEmit` is clean. `npm test` is 93 passing.
+9. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
 
 ## Gmail, still before paid features
 
@@ -47,8 +49,9 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 
 ## Still waiting
 
-- `#45` has no file changes versus `main` (`cd2c74c`). Leave it open for Kamron to close.
-- `#73` is still open. It is a note for an unknown Gmail code on onboarding. Merge it when the hourly merger does. It does not change signup, connect, deals, offers, or the brand list.
+- `#45` has no file changes. Leave it open for Kamron to close.
+- `#73` through `#76` are on `main` (`5a6e433`). `#77`, `#78`, and `#79` are open for the hourly merger. A gifted due date must be a real day. A manager cannot change a deal for a creator who is not on their list. Access and Free products show a fixed sentence instead of text from the link.
+- The campaign board still prints `campaignError` from the link. That is the same kind of hole the directory, Access, and Free products no longer have.
 - Reconnect MariClare’s watched inbox (`mmaclamroc@gmail.com`) after deploy. The saved refresh token still fails with `unauthorized_client` until she connects that inbox again. Signing out is not required.
 - Mail older than the latest 40 inbox messages is not recovered. A failed later page does not move the cursor.
 - Cloud Scheduler for `POST /portal/api/cron/gmail-watch` is still a manual step. Leave it until the next brand payment.
