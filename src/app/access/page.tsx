@@ -17,6 +17,7 @@ import {
   type Capability,
   type CapabilityLevel,
 } from "@/lib/capabilities";
+import { accessErrorNote } from "@/lib/access-notes";
 import { loadPortal } from "@/lib/current-user";
 import { lastUpdatedLabel, shortDate } from "@/lib/format";
 import { listManagers } from "@/lib/managers";
@@ -128,11 +129,12 @@ export default async function AccessPage({
   searchParams: Promise<{ saved?: string; accessError?: string }>;
 }) {
   const params = await searchParams;
+  const accessError = accessErrorNote(params.accessError);
   const portal = await loadPortal(null);
   if (portal.viewer.role === "creator") {
     return (
       <PortalFrame viewer={portal.viewer} tab="access" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Access</h1>}>
-        {params.accessError ? <p className="private-note">{params.accessError}</p> : null}
+        {accessError ? <p className="private-note">{accessError}</p> : null}
         <p className="note">Only Kamron sets who can act.</p>
       </PortalFrame>
     );
@@ -149,7 +151,7 @@ export default async function AccessPage({
         viewedId={portal.viewedId}
         hello={<div className="hello"><div><h1>Your access</h1><p>You can only do what Kamron has turned on. Drafts wait for him.</p></div></div>}
       >
-        {params.accessError ? <p className="private-note">{params.accessError}</p> : null}
+        {accessError ? <p className="private-note">{accessError}</p> : null}
         {params.saved === "draft" || params.saved === "pending" ? <p className="note">Saved. Kamron still has to approve it.</p> : null}
         {params.saved === "applied" ? <p className="note">Done. Outreach, if you sent one, is still waiting in Approvals.</p> : null}
         <div className="stack">
@@ -203,7 +205,7 @@ export default async function AccessPage({
         </div>
       }
     >
-      {params.accessError ? <p className="private-note">{params.accessError}</p> : null}
+      {accessError ? <p className="private-note">{accessError}</p> : null}
       {params.saved === "level" ? <p className="note">Saved. Nothing was emailed or charged.</p> : null}
       {params.saved === "bot" ? <p className="note">Copy the new token below. It is shown once. Nothing was emailed.</p> : null}
       {params.saved === "approved" ? <p className="note">Approved. The change is in.</p> : null}
