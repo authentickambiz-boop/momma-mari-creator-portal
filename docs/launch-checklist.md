@@ -16,12 +16,11 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Before merge
 
 1. Read `docs/overnight-log.md` for the open pull requests.
-2. Already on `main`: `#41` (`da74005`), `#42` (`4d53916`), `#46` (`08655f5`), `#43` (`bc51ed7`), `#44` (`8349259`), `#48` (`3df3b46`), `#47` (`73950a6`), `#50` (`4ee1322`), `#51` (`02574a4`), and `#49` (`709d83a`). Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. A dead Gmail inbox is already acknowledged. History pages are followed. Public pages hide creator chat. Stripe stays off. Free products and Access are on `main`.
-3. `#45` matches current `main`. The phone scrolling and the Connect accounts tab already shipped inside `#47`. Merging `#45` changes nothing. Closing it is also fine.
-4. Merge `#52` (phone forms and the tab row) and `#53` (skip Gmail newsletters and spam when opening a deal). Either order is fine. They edit different files.
-5. Merge this log when you want the checklist to match. It only edits these two docs.
-6. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
-7. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file. Current `main` is 68 passing.
+2. Already on `main`: `#41` (`da74005`), `#42` (`4d53916`), `#46` (`08655f5`), `#43` (`bc51ed7`), `#44` (`8349259`), `#48` (`3df3b46`), `#47` (`73950a6`), `#50` (`4ee1322`), `#51` (`02574a4`), `#49` (`709d83a`), `#52` (`d497e50`), `#53` (`4af6c94`), and `#54` (`2a50833`). Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. A dead Gmail inbox is already acknowledged. History pages are followed. Newsletters and spam do not open a new deal. Phone forms stack. Public pages hide creator chat. Stripe stays off. Free products and Access are on `main`.
+3. `#45` matches current `main` (`2a50833`). The phone scrolling and the Connect accounts tab already shipped inside `#47`. Leave `#45` open for Kamron to close.
+4. Merge `#55` (Gmail watch renewal, duplicate notices, and label changes), `#56` (phone checkbox labels and connect buttons), and `#57` (public roster count, the inquiry link, and this checklist). `#55` edits the Gmail watch. `#56` edits the stylesheet. `#57` edits the public pages and these docs.
+5. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
+6. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file. Current `main` is 70 passing.
 
 ## Gmail, still before paid features
 
@@ -42,14 +41,14 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Marketing
 
 1. Link mommamari.com to `/portal/services`, `/portal/roster`, and `/portal/inquire`, or move those pages onto the marketing site later.
-2. The roster grows when a creator row is added. It shows a name and initials. Email, handles, pay, and kids’ ages stay off that page.
-3. A brand inquiry shows up on Brands for Kamron. It does not send email. Reply from the approval queue when you want a message to go out, from `authentickambiz@gmail.com`.
+2. The roster grows when a creator row is added. It shows a name, initials, a public count, and the line “On the Momma Mari roster.” Email, handles, pay, and kids’ ages stay off that page.
+3. Services links to the inquiry form. A brand inquiry shows up on Brands for Kamron. The button saves the contact. It does not send email. Reply from the approval queue when you want a message to go out, from `authentickambiz@gmail.com`.
 
 ## Still waiting
 
 - Free Products and Access are on `main` via `#47`. The gifted terms are still DRAFT, pending lawyer review. Nothing on that page is charged.
 - Gmail history older than the latest 20 inbox messages is not recovered. `#48` covers that recent page, and it already includes the dead-token acknowledgement from `#42`.
 - Gmail history pages beyond the first five on one push are retried by Pub/Sub. `#50` is on `main`. The cursor does not jump past unread pages.
-- Until `#53` lands, a newsletter that Gmail already labeled can still open a hidden deal. The sender block list is already on `main`.
+- Newsletters and spam stay off new deals. That shipped in `#53`.
 - The approval-queue email bridge is not built.
 - An attorney still needs to review the e-sign wording.

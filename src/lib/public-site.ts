@@ -13,6 +13,16 @@ export function isPublicMarketingPath(pathname: string, basePath = "") {
   return (PUBLIC_MARKETING_PATHS as readonly string[]).includes(path);
 }
 
+export const BRAND_INQUIRY_HREF = "/inquire";
+export const BRAND_INQUIRY_LABEL = "Tell us about a brand";
+export const INQUIRY_SUBMIT_LABEL = "Save on the brand list";
+
+/** A public count. It does not include pay, email, or ages. */
+export function rosterCountLabel(count: number) {
+  if (count === 1) return "1 creator on the roster.";
+  return `${count} creators on the roster.`;
+}
+
 export const SERVICES = [
   {
     title: "Brand partnerships",
