@@ -3,6 +3,7 @@ import { addManagerAction, assignManagersAction, setManagerActiveAction, setMana
 import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
 import { listManagers } from "@/lib/managers";
+import { teamErrorNote } from "@/lib/team-notes";
 
 export default async function TeamPage({ searchParams }: { searchParams: Promise<{ teamError?: string }> }) {
   const params = await searchParams;
@@ -25,8 +26,12 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
         </div>
       }
     >
-      {params.teamError === "1" ? (
-        <div className="callout"><b>That was not saved.</b> Use a real Google email that is not already an owner or a creator, and pick two different active managers when you set a backup.</div>
+      {params.teamError ? (
+        teamErrorNote(params.teamError) ? (
+          <p className="note">{teamErrorNote(params.teamError)}</p>
+        ) : (
+          <div className="callout"><b>That was not saved.</b> Use a real Google email that is not already an owner or a creator, and pick two different active managers when you set a backup.</div>
+        )
       ) : null}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="sec-title">Add a manager</div>

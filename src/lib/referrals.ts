@@ -7,6 +7,28 @@ type Result<T> = { ok: true } & T | { ok: false; status: number; error: string }
 
 export const REFERRAL_LAWYER_NOTE = "Have a lawyer review this referral perk before anyone is paid. Nothing is paid automatically.";
 
+const REFERRAL_ERROR_TEXT = {
+  perk: "Only Kamron can set the perk amount.",
+  amount: "The perk amount has to be a whole number of cents, or blank.",
+  who: "Referrals are for the creator and Kamron.",
+  own: "You can only add a referral for yourself.",
+  name: "Add the person's name.",
+  email: "That email can't be saved.",
+} as const;
+
+/** A short code for the referral form. Unknown wording stays the fixed fallback. */
+export function referralErrorCode(error: string) {
+  const match = (Object.keys(REFERRAL_ERROR_TEXT) as (keyof typeof REFERRAL_ERROR_TEXT)[])
+    .find((code) => REFERRAL_ERROR_TEXT[code] === error);
+  return match ?? "1";
+}
+
+/** A known referral sentence. Unknown codes and the generic fallback stay null so the page can use its own fixed line. */
+export function referralErrorNote(code: string | undefined) {
+  if (!code || code === "1") return null;
+  return REFERRAL_ERROR_TEXT[code as keyof typeof REFERRAL_ERROR_TEXT] ?? null;
+}
+
 export type ReferralRow = {
   id: string;
   referrerCreatorId: string;
