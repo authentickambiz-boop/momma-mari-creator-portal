@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { dismissCreatorNoticeAction, dismissNotificationAction } from "@/app/actions";
 import { DealBoard } from "@/components/deal-board";
+import { HomeDesk } from "@/components/home-desk";
 import { PlatformInviteCard } from "@/components/platform-invite-card";
 import { PortalFrame } from "@/components/portal-frame";
 import { dealPowers } from "@/lib/authz";
@@ -40,13 +41,18 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const cards = creatorHome
     ? creatorHomeCards({ offersWaiting: creatorNeed.length, payoutsPending, accountsConnected })
     : [];
-  const heading = portal.viewer.role === "manager"
+  const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", hourCycle: "h23" }).format(new Date()));
+  const dayHello = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const heading = portal.viewer.role === "manager" && !portal.viewed
     ? "My creators"
-    : creatorHome && portal.viewed
-      ? `Welcome, ${firstName(portal.viewed.name)}`
-      : portal.viewed
-        ? `Hi ${portal.viewed.name} 👋`
-        : "All creators";
+    : portal.viewed
+      ? `${dayHello}, ${firstName(portal.viewed.name)}`
+      : "All creators";
+  const needDeals = creatorHome
+    ? deals.filter((deal) => creatorNeed.some((item) => item.id === deal.id))
+    : portal.viewed
+      ? need
+      : [];
   const creatorNotices = portal.viewer.role === "creator" && portal.viewer.creatorId
     ? await listUnreadCreatorNotices(portal.db, portal.viewer.creatorId)
     : [];
@@ -112,6 +118,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             </Link>
           ))}
         </div>
+      ) : null}
+      {portal.viewed ? (
+        <HomeDesk
+          deals={deals}
+          needs={needDeals}
+          payoutPending={payoutsPending}
+          assistant={selected?.nextStep ?? null}
+        />
       ) : null}
       {creatorHome && creatorNeed.length === 0 ? <p className="note">Nothing needs you this week.</p> : null}
       {creatorNeed.length > 0 ? (

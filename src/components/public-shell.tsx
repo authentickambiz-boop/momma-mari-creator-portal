@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { withBasePath } from "@/lib/format";
+import { BrandMark } from "@/components/brand-mark";
 
 export function PublicShell({ title, lede, children }: { title: string; lede: string; children: React.ReactNode }) {
   return (
     <main className="wrap">
       <header className="public-head">
-        <img className="logo-img" src={withBasePath("/momma-logo.png")} alt="" />
+        <BrandMark sub="Creator management" />
         <nav className="public-nav">
           <Link href="/services">Services</Link>
           <Link href="/roster">Creators</Link>
