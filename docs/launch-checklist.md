@@ -22,7 +22,8 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 5. Merge `#44` for `/services`, `/roster`, and `/inquire`.
 6. Merge `#45` so creators see Connect accounts. On a phone, wide tables scroll.
 7. Merge `#46` so this checklist and the overnight log are on `main`.
-8. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`).
+8. Merge `#47` so Access and Free products are on `main`. It adds migrations `0037` and `0038`. If `#45` is already merged, refresh `#47` first when the tab bar conflicts.
+9. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`).
 
 ## Gmail, still before paid features
 
@@ -48,7 +49,7 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 
 ## Still waiting
 
-- Free Products and staged permissions are not on `main`.
+- Free Products and Access are in `#47`, waiting to merge. The gifted terms are still DRAFT, pending lawyer review. Nothing on that page is charged.
 - Gmail history gaps are not backfilled.
 - The approval-queue email bridge is not built.
 - An attorney still needs to review the e-sign wording.
