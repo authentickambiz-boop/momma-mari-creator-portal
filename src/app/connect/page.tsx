@@ -1,7 +1,7 @@
 import { AccountActions, ConnectPanel } from "@/components/connect-panel";
 import { PortalFrame } from "@/components/portal-frame";
 import { driveConnectionState, driveConnectHref, gmailConnectHref } from "@/lib/account-connections";
-import { canManageCreatorAccounts, storedConnectionStatus } from "@/lib/account-connection-status";
+import { canManageCreatorAccounts, mappedConnectionNote, storedConnectionStatus } from "@/lib/account-connection-status";
 import { loadPortal } from "@/lib/current-user";
 import { withBasePath } from "@/lib/format";
 import { WATCH_MAILBOXES } from "@/lib/gmail-push";
@@ -40,9 +40,11 @@ export default async function ConnectPage({
   const connections = await Promise.all(creators.map((creator) => gmailConnectionState(portal.db, creator.id)));
   const drives = await Promise.all(creators.map((creator) => driveConnectionState(portal.db, creator.id)));
   const setups = await Promise.all(creators.map((creator) => emailSetupFor(portal.db, creator.id)));
-  const gmailError = params.gmail && params.gmail !== "connected" && params.gmail !== "disconnected" ? GMAIL_ERRORS[params.gmail] : null;
-  const driveNote = params.drive ? DRIVE_NOTES[params.drive] : null;
-  const accountNote = params.account ? ACCOUNT_NOTES[params.account] : null;
+  const gmailError = params.gmail && params.gmail !== "connected" && params.gmail !== "disconnected"
+    ? mappedConnectionNote(GMAIL_ERRORS, params.gmail)
+    : null;
+  const driveNote = mappedConnectionNote(DRIVE_NOTES, params.drive);
+  const accountNote = mappedConnectionNote(ACCOUNT_NOTES, params.account);
   const watched = portal.viewer.role === "admin"
     ? await Promise.all(WATCH_MAILBOXES.map(async (box) => ({ box, state: await gmailConnectionState(portal.db, box.creatorId) })))
     : [];

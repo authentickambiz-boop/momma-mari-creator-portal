@@ -132,6 +132,7 @@ export default async function AccessPage({
   if (portal.viewer.role === "creator") {
     return (
       <PortalFrame viewer={portal.viewer} tab="access" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Access</h1>}>
+        {params.accessError ? <p className="private-note">{params.accessError}</p> : null}
         <p className="note">Only Kamron sets who can act.</p>
       </PortalFrame>
     );
@@ -203,7 +204,8 @@ export default async function AccessPage({
       }
     >
       {params.accessError ? <p className="private-note">{params.accessError}</p> : null}
-      {params.saved === "level" ? <p className="note">Saved.</p> : null}
+      {params.saved === "level" ? <p className="note">Saved. Nothing was emailed or charged.</p> : null}
+      {params.saved === "bot" ? <p className="note">Copy the new token below. It is shown once. Nothing was emailed.</p> : null}
       {params.saved === "approved" ? <p className="note">Approved. The change is in.</p> : null}
       {params.saved === "rejected" ? <p className="note">Rejected. Nothing was changed.</p> : null}
       {params.saved === "revoked" ? <p className="note">That bot token no longer works.</p> : null}

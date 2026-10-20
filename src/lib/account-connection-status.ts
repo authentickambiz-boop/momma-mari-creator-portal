@@ -41,6 +41,13 @@ export function disconnectConfirmMessage(label: string) {
   return `Disconnect ${label}? The saved connection is removed. You stay signed in to the portal.`;
 }
 
+export const CONNECTION_RETRY_NOTE = "That connection did not finish. Try again. You are still signed in.";
+
+export function mappedConnectionNote(notes: Record<string, string>, code: string | undefined) {
+  if (!code) return null;
+  return notes[code] ?? CONNECTION_RETRY_NOTE;
+}
+
 export function canManageCreatorAccounts(viewer: Viewer, creatorId: string) {
   if (viewer.role === "admin") return true;
   return viewer.role === "creator" && viewer.creatorId === creatorId;
