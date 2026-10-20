@@ -6,6 +6,7 @@ import { CopyText } from "@/components/copy-text";
 import { DealLivePulse } from "@/components/deal-live-pulse";
 import { askRateAction, confirmRateAction, ownerDealFlagsAction, saveReplyDraftAction } from "@/app/review-actions";
 import { commissionLabel, creatorPayoutTracker, lastUpdatedLabel, paymentStatusLabel, paymentStatusTone, shortDate, withBasePath } from "@/lib/format";
+import { safetyErrorNote } from "@/lib/safety-notes";
 import { safetyLabel } from "@/lib/safety-shared";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
@@ -503,8 +504,6 @@ function DealDetailView({
                     {reviewError === "email" ? <span className="note">Add the brand email before approving. The email stays in your queue.</span> : null}
                     {reviewError === "held" ? <span className="note">This draft is held for Kamron. Nothing was sent to the brand.</span> : null}
                     {reviewError && reviewError !== "note" && reviewError !== "email" && reviewError !== "held" ? <span className="note">That review was not saved. Nothing was emailed.</span> : null}
-                    {safetyError === "creator" ? <span className="note">You can&apos;t clear a safety hold.</span> : null}
-                    {safetyError === "owner" ? <span className="note">Only Kamron can clear a safety hold.</span> : null}
                   </form>
                 ) : null}
               </li>
@@ -512,6 +511,7 @@ function DealDetailView({
           </ul>
         </div>
       ) : null}
+      {safetyError ? <p className="note">{safetyErrorNote(safetyError) ?? "That hold was not cleared. Nothing was sent to the brand."}</p> : null}
       <UploadBox dealId={deal.id} brand={deal.brand} enabled={deal.uploadEnabled} label={deal.uploadLabel || "Upload your draft"} />
     </>
   );
