@@ -14,6 +14,10 @@ export function brandKey(brand: string) {
   return brand.trim().toLowerCase();
 }
 
+export function displayBrand(key: string) {
+  return key.split(/\s+/).filter(Boolean).map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+}
+
 export function isBrandResponse(value: string): value is BrandResponse {
   return (RESPONSES as readonly string[]).includes(value);
 }
@@ -23,6 +27,7 @@ export function responseLabel(value: string) {
   if (value === "declined") return "Declined";
   if (value === "no_reply") return "No reply";
   if (value === "negotiating") return "Negotiating";
+  if (value === "inquiry") return "Inquiry";
   return value;
 }
 
@@ -125,11 +130,18 @@ export async function listBrandCrm(db: PortalDb, viewer: Viewer): Promise<Result
     if (!groups.has(key)) groups.set(key, emptyCard(key, campaign.brand));
   }
   for (const row of extra) {
-    const card = groups.get(row.brandKey) ?? (row.kind === "offer" || row.kind === "deal" ? emptyCard(row.brandKey, row.brandKey) : undefined);
+    const card = groups.get(row.brandKey) ?? (
+      row.kind === "inquiry" ? emptyCard(row.brandKey, displayBrand(row.brandKey))
+      : row.kind === "offer" || row.kind === "deal" ? emptyCard(row.brandKey, row.brandKey)
+      : undefined
+    );
     if (!card) continue;
     groups.set(row.brandKey, card);
-    if (row.kind === "contact") {
-      card.contacts.push({ name: row.contactName, email: row.contactEmail, source: "added" });
+    if (row.kind === "contact" || row.kind === "inquiry") {
+      card.contacts.push({ name: row.contactName, email: row.contactEmail, source: row.kind === "inquiry" ? "inquiry" : "added" });
+    }
+    if (row.kind === "inquiry") {
+      card.responses.push({ decision: "inquiry", note: row.note, createdAt: row.createdAt });
     }
     if (row.response) card.responses.push({ decision: row.response, note: row.note, createdAt: row.createdAt });
     if (row.kind === "offer" || row.kind === "deal" || row.outcome || row.creatorId) {
@@ -182,6 +194,31 @@ export async function addBrandCrmEntry(
     response: input.kind === "response" ? input.response ?? null : null,
     note: input.note?.trim() || null,
     actorName: input.actorName,
+    createdAt: nowIso(),
+  });
+  return { ok: true, id };
+}
+
+/** A public brand inquiry. It is stored on the brand list and nothing is emailed. */
+export async function recordBrandInquiry(
+  db: PortalDb,
+  input: { brand: string; contactName?: string | null; contactEmail: string; note?: string | null },
+): Promise<Result<{ id: string }>> {
+  const key = brandKey(input.brand);
+  if (!key) return { ok: false, status: 400, error: "Name the brand." };
+  const email = normalizeEmail(input.contactEmail ?? "");
+  if (!email.includes("@") || email.endsWith(".invalid") || email.startsWith("@") || email.endsWith("@")) {
+    return { ok: false, status: 400, error: "Use a real work email." };
+  }
+  const id = crypto.randomUUID();
+  await db.insert(brandCrmEntries).values({
+    id,
+    brandKey: key,
+    kind: "inquiry",
+    contactName: input.contactName?.trim() || null,
+    contactEmail: email,
+    note: input.note?.trim().slice(0, 2000) || null,
+    actorName: "Website",
     createdAt: nowIso(),
   });
   return { ok: true, id };

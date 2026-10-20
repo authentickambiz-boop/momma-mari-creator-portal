@@ -1,6 +1,6 @@
 # Momma Mari creator portal
 
-Private deal dashboard for creators managed by Momma Mari LLC. Each creator signs in with Google and sees only her own deals, drafts, payments, and analytics. Kamron (`Kamron@mommamari.com`) is the agency admin and can see every creator, including deals still hidden from the creator.
+Private deal dashboard for creators managed by Momma Mari LLC. Public pages at `/services`, `/roster`, and `/inquire` describe the work, list creators from the roster (no email, handle, or pay), and save a brand inquiry onto the brand list. The inquiry form does not send email. Each creator signs in with Google and sees only her own deals, drafts, payments, and analytics. Kamron (`Kamron@mommamari.com`) is the agency admin and can see every creator, including deals still hidden from the creator.
 
 The pilot is a Next.js app prepared for [Webflow Cloud](https://developers.webflow.com/webflow-cloud), mounted at `mommamari.com/portal`. This repository does not deploy itself and does not connect to the Webflow site. The steps at the bottom are what the owner runs once.
 
