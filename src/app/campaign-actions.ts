@@ -10,6 +10,7 @@ import {
   queueOutsideOffer,
   saveCampaign,
 } from "@/lib/campaigns";
+import { campaignErrorCode } from "@/lib/campaign-notes";
 import { currentViewer } from "@/lib/current-user";
 import { budgetFilterText, dollarsToCents } from "@/lib/deal-rules";
 
@@ -28,14 +29,14 @@ export async function filterCampaignsAction(formData: FormData) {
   if (!minBudget.ok) {
     const failed = new URLSearchParams();
     if (creator) failed.set("creator", creator);
-    failed.set("campaignError", minBudget.error);
+    failed.set("campaignError", campaignErrorCode(minBudget.error));
     redirect(`/campaigns?${failed.toString()}`);
   }
   const maxBudget = budgetFilterText(max);
   if (!maxBudget.ok) {
     const failed = new URLSearchParams();
     if (creator) failed.set("creator", creator);
-    failed.set("campaignError", maxBudget.error);
+    failed.set("campaignError", campaignErrorCode(maxBudget.error));
     redirect(`/campaigns?${failed.toString()}`);
   }
   if (creator) params.set("creator", creator);
@@ -61,7 +62,7 @@ export async function saveCampaignAction(formData: FormData) {
     startsOn: String(formData.get("startsOn") ?? ""),
     endsOn: String(formData.get("endsOn") ?? ""),
   });
-  if (!result.ok) redirect(`/campaigns?campaignError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/campaigns?campaignError=${campaignErrorCode(result.error)}`);
   redirect(`/campaigns/${result.id}?saved=1`);
 }
 
@@ -76,7 +77,7 @@ export async function allocateCampaignAction(formData: FormData) {
     amountCents: dollarsToCents(String(formData.get("amount") ?? "")) ?? -1,
   });
   const back = `/campaigns/${encodeURIComponent(campaignId)}`;
-  if (!result.ok) redirect(`${back}?campaignError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`${back}?campaignError=${campaignErrorCode(result.error)}`);
   redirect(`${back}?saved=1`);
 }
 
@@ -87,7 +88,7 @@ export async function markOutsideAction(formData: FormData) {
   const db = await getDb();
   const result = await markOpenOutside(db, viewer, campaignId);
   const back = `/campaigns/${encodeURIComponent(campaignId)}`;
-  if (!result.ok) redirect(`${back}?campaignError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`${back}?campaignError=${campaignErrorCode(result.error)}`);
   redirect(`${back}?saved=1`);
 }
 
@@ -125,6 +126,6 @@ export async function queueOutsideOfferAction(formData: FormData) {
     amountCents: dollarsToCents(String(formData.get("amount") ?? "")) ?? -1,
   });
   const back = `/campaigns/${encodeURIComponent(campaignId)}`;
-  if (!result.ok) redirect(`${back}?campaignError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`${back}?campaignError=${campaignErrorCode(result.error)}`);
   redirect(`${back}?queued=1`);
 }
