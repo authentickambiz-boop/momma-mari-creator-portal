@@ -14,7 +14,7 @@ export default async function DealPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string; productError?: string; postError?: string; paymentError?: string; safetyError?: string }>;
+  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string; productError?: string; postError?: string; paymentError?: string; safetyError?: string; reply?: string; replyError?: string; rate?: string; rateError?: string; dates?: string; datesError?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const portal = await loadPortal(query.creator ?? null);
@@ -64,6 +64,13 @@ export default async function DealPage({
           <b>Your signature is saved.</b>
         </div>
       ) : null}
+      {query.reply === "saved" ? <p className="note">Draft saved. Nothing was emailed.</p> : null}
+      {query.replyError ? <p className="private-note">{query.replyError}</p> : null}
+      {query.rate === "asked" ? <p className="note">Asked. Nothing was emailed.</p> : null}
+      {query.rate === "confirmed" ? <p className="note">Rate confirmed. Nothing was paid.</p> : null}
+      {query.rateError ? <p className="private-note">{query.rateError}</p> : null}
+      {query.dates === "saved" ? <p className="note">Dates saved. Nothing was emailed or paid.</p> : null}
+      {query.datesError ? <p className="private-note">{query.datesError}</p> : null}
       {selected ? null : (
         <div className="card" style={{ marginBottom: 14 }}>
           <h2>That deal isn&apos;t on your list.</h2>

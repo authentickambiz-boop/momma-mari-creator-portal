@@ -189,3 +189,30 @@ export async function confirmAgreedRate(
   await db.update(deals).set({ rateConfirmedAt: timestamp, updatedAt: timestamp }).where(eq(deals.id, deal.id));
   return { ok: true as const, rateCents: deal.rateCents };
 }
+
+export function dealFlagQuery(input: {
+  dealId: string;
+  creator?: string | null;
+  reply?: string | null;
+  replyError?: string | null;
+  rate?: string | null;
+  rateError?: string | null;
+  dates?: string | null;
+  datesError?: string | null;
+}) {
+  const params = new URLSearchParams();
+  if (input.creator) params.set("creator", input.creator);
+  const fields = [
+    ["reply", input.reply],
+    ["replyError", input.replyError],
+    ["rate", input.rate],
+    ["rateError", input.rateError],
+    ["dates", input.dates],
+    ["datesError", input.datesError],
+  ] as const;
+  for (const [key, value] of fields) {
+    if (value) params.set(key, value);
+  }
+  const query = params.toString();
+  return `/deals/${encodeURIComponent(input.dealId)}${query ? `?${query}` : ""}`;
+}
