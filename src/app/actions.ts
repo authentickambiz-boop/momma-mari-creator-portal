@@ -13,7 +13,7 @@ import { countersignContract, setSignerIsMinor, signContract, uploadBrandSignedC
 import { CONTRACT_CHECKS } from "@/lib/contract-shared";
 import { clearSafetyHold } from "@/lib/safety";
 import { draftMonthlyReport, reportErrorCode } from "@/lib/report";
-import { recordReferral, setReferralPerk } from "@/lib/referrals";
+import { recordReferral, referralErrorCode, setReferralPerk } from "@/lib/referrals";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
 import { dealNoticeCode } from "@/lib/deal-notice-notes";
@@ -64,7 +64,7 @@ export async function setReferralPerkAction(formData: FormData) {
     actorRole: viewer.role,
   });
   const join = back.includes("?") ? "&" : "?";
-  if (!result.ok) redirect(`${back}${join}referralError=perk`);
+  if (!result.ok) redirect(`${back}${join}referralError=${referralErrorCode(result.error)}`);
   redirect(`${back}${join}saved=1`);
 }
 
@@ -82,7 +82,7 @@ export async function recordReferralAction(formData: FormData) {
     actorRole: viewer.role,
     actorCreatorId: viewer.creatorId,
   });
-  if (!result.ok) redirect(`${back}${back.includes("?") ? "&" : "?"}referralError=1`);
+  if (!result.ok) redirect(`${back}${back.includes("?") ? "&" : "?"}referralError=${referralErrorCode(result.error)}`);
   redirect(`${back}${back.includes("?") ? "&" : "?"}saved=1`);
 }
 
