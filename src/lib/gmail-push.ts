@@ -77,6 +77,13 @@ export function isSpamSender(from: string) {
   return BLOCKED_TLDS.has(tld);
 }
 
+const BULK_LABELS = new Set(["SPAM", "TRASH", "CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_FORUMS"]);
+
+/** Gmail already filed this as spam, trash, or a newsletter. A reply on a deal we already have is still kept. */
+export function isBulkMail(labelIds: string[] | undefined) {
+  return (labelIds ?? []).some((label) => BULK_LABELS.has(label));
+}
+
 function brandFromSender(from: string) {
   const named = from.match(/^\s*"?([^"<]+?)"?\s*</);
   const name = named?.[1]?.trim() ?? "";
@@ -469,6 +476,11 @@ async function applyAddedMessages(
       await addInboxEvent(db, { mailbox, messageId: message.id, threadId: message.threadId, dealId: threaded.id });
       matchedDealIds.push(threaded.id);
       await markSeen(db, mailbox, message);
+      continue;
+    }
+    if (isBulkMail(message.labelIds)) {
+      await markSeen(db, mailbox, message);
+      skippedSpam += 1;
       continue;
     }
     const dealId = await createHiddenOffer(db, { creatorId, message });
