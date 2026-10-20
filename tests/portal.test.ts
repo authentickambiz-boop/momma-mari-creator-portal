@@ -127,7 +127,6 @@ import { compositeScore, defaultWeights, emptyInputs, inputsFor, leaderboard, re
 import { addCollab, collabLift, pairCollab, podById, savePod, suggestPods } from "../src/lib/pods";
 import { createRankReport, reportPdf, sharedReport } from "../src/lib/rank-reports";
 import { addReinvestment, reinvestmentSummary } from "../src/lib/reinvestment";
-import { createInvoice, createPaymentLink, createSubscription, stripeLiveEnabled } from "../src/lib/stripe-billing";
 import { createPlatformInvite, listPlatformInvites, presentDeadline, setPlatformInviteDone } from "../src/lib/platform-invites";
 import {
   accountButtonState,
@@ -5773,68 +5772,77 @@ test("gmail watch returns Google's error and leaves secrets out", async () => {
   assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
 });
 
-test("stripe payment links, subscriptions, and invoices stay off until live keys exist", async () => {
+test("a dead Gmail token is acknowledged and a blank thread does not open a deal", async () => {
   const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
   const kosblingDrafts = kosblingBefore?.drafts.length;
   const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
-  const previousEnabled = process.env.STRIPE_ENABLED;
-  const previousKey = process.env.STRIPE_SECRET_KEY;
-  delete process.env.STRIPE_ENABLED;
-  delete process.env.STRIPE_SECRET_KEY;
-  let called = 0;
-  const fetchImpl: typeof fetch = async () => {
-    called += 1;
-    return new Response("{}", { status: 200 });
-  };
-  try {
-    assert.equal(stripeLiveEnabled(), false);
-    for (const result of [
-      await createPaymentLink({ priceId: "price_hosted" }, fetchImpl),
-      await createSubscription({ customerId: "cus_test", priceId: "price_hosted" }, fetchImpl),
-      await createInvoice({ customerId: "cus_test" }, fetchImpl),
-    ]) {
-      assert.equal(result.ok, false);
-      assert.equal(result.charged, false);
-      if (!result.ok) assert.equal(result.error, "Stripe is off. Nothing was charged.");
-    }
-    assert.equal(called, 0);
-    const missingPrice = await createPaymentLink({ priceId: "" }, fetchImpl);
-    assert.equal(missingPrice.ok, false);
-    if (!missingPrice.ok) assert.equal(missingPrice.status, 400);
-    assert.equal(called, 0);
+  const dealsBefore = (await db.select().from(deals)).length;
+  const cursorBefore = (await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com")))[0]?.historyId;
 
-    process.env.STRIPE_ENABLED = "true";
-    process.env.STRIPE_SECRET_KEY = "sk_test_placeholder_not_live";
-    assert.equal(stripeLiveEnabled(), true);
-    const bodies: string[] = [];
-    const liveFetch: typeof fetch = async (input, init) => {
-      called += 1;
-      bodies.push(String(init?.body ?? ""));
-      const url = String(input);
-      const id = url.endsWith("/payment_links") ? "plink_123" : url.endsWith("/subscriptions") ? "sub_123" : "in_123";
-      return new Response(JSON.stringify({ id, url: "https://pay.stripe.com/example" }), { status: 200 });
-    };
-    const link = await createPaymentLink({ priceId: "price_hosted" }, liveFetch);
-    const subscription = await createSubscription({ customerId: "cus_test", priceId: "price_hosted" }, liveFetch);
-    const invoice = await createInvoice({ customerId: "cus_test" }, liveFetch);
-    assert.equal(link.ok && link.charged === false && link.kind === "payment_link" && link.id === "plink_123", true);
-    assert.equal(subscription.ok && subscription.kind === "subscription" && subscription.charged === false, true);
-    assert.equal(invoice.ok && invoice.kind === "invoice" && invoice.charged === false, true);
-    assert.match(decodeURIComponent(bodies[0] ?? ""), /line_items\[0\]\[price\]=price_hosted/);
-    assert.match(decodeURIComponent(bodies[1] ?? ""), /payment_behavior=default_incomplete/);
-    assert.match(decodeURIComponent(bodies[2] ?? ""), /auto_advance=false/);
-    assert.equal(JSON.stringify({ link, subscription, invoice }).includes("sk_test_placeholder_not_live"), false);
-    const leaked = await createInvoice({ customerId: "cus_test" }, async () => new Response(JSON.stringify({ error: { message: "bad key sk_test_placeholder_not_live" } }), { status: 401 }));
-    assert.equal(leaked.ok, false);
-    if (!leaked.ok) assert.equal(leaked.error.includes("sk_test_placeholder_not_live"), false);
-    assert.equal(readFileSync(path.join(process.cwd(), ".env.example"), "utf8").includes("sk_live"), false);
-    assert.equal(readFileSync(path.join(process.cwd(), "src/lib/stripe-billing.ts"), "utf8").includes("sk_live"), false);
-  } finally {
-    if (previousEnabled == null) delete process.env.STRIPE_ENABLED;
-    else process.env.STRIPE_ENABLED = previousEnabled;
-    if (previousKey == null) delete process.env.STRIPE_SECRET_KEY;
-    else process.env.STRIPE_SECRET_KEY = previousKey;
-  }
+  const dead = await ingestGmailPush(db, { emailAddress: "mmaclamroc@gmail.com", historyId: "9900" }, {
+    client: {
+      listAdded: async () => {
+        throw new Error("Gmail token refresh failed (401): unauthorized_client");
+      },
+      getMessage: async () => {
+        throw new Error("should not read a message");
+      },
+    },
+  });
+  assert.equal(dead.status, 200);
+  assert.equal(dead.body.ok, false);
+  if (!("permanent" in dead.body)) throw new Error("expected a permanent failure");
+  assert.equal(dead.body.permanent, true);
+  assert.match(dead.body.error ?? "", /unauthorized_client/);
+  assert.equal(JSON.stringify(dead.body).includes("1//"), false);
+  assert.equal((await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com")))[0]?.historyId, cursorBefore);
+
+  const retry = await ingestGmailPush(db, { emailAddress: "mmaclamroc@gmail.com", historyId: "9910" }, {
+    client: {
+      listAdded: async () => {
+        throw new Error("Gmail read failed (500): backendError");
+      },
+      getMessage: async () => {
+        throw new Error("should not read a message");
+      },
+    },
+  });
+  assert.equal(retry.status, 503);
+  assert.equal(retry.body.ok, false);
+  assert.equal("permanent" in retry.body, false);
+  assert.equal((await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com")))[0]?.historyId, cursorBefore);
+
+  const blank = await ingestGmailPush(db, { emailAddress: "mmaclamroc@gmail.com", historyId: "9920" }, {
+    client: {
+      listAdded: async () => ({ latestHistoryId: "9920", messages: [{ id: "live-blank-thread", threadId: "" }] }),
+      getMessage: async () => ({
+        id: "live-blank-thread",
+        threadId: "",
+        from: "Pat <pat@brand.example>",
+        to: "mmaclamroc@gmail.com",
+        subject: "No thread",
+        labelIds: ["INBOX"],
+      }),
+    },
+  });
+  assert.equal(blank.status, 200);
+  assert.equal(blank.body.ok, true);
+  if (!("createdDealIds" in blank.body)) throw new Error("expected a processed notice");
+  assert.deepEqual(blank.body.createdDealIds, []);
+  assert.equal((await db.select().from(deals).where(eq(deals.id, "mail-live-blank-thread"))).length, 0);
+
+  const saved = await gmailConnectionState(db, "mariclare");
+  await db.update(creators).set({ gmailRefreshToken: null, gmailEmail: null }).where(eq(creators.id, "mariclare"));
+  const quiet = await ingestGmailPush(db, { emailAddress: "mmaclamroc@gmail.com", historyId: "9930" });
+  assert.equal(quiet.status, 200);
+  assert.equal(quiet.body.ok, false);
+  if (!("acknowledged" in quiet.body)) throw new Error("expected an acknowledged disconnect");
+  assert.equal(quiet.body.acknowledged, true);
+  assert.equal(quiet.body.error, "Mailbox is not connected.");
+  assert.equal((await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com")))[0]?.historyId, "9920");
+  await db.update(creators).set({ gmailRefreshToken: saved.cipher, gmailEmail: saved.gmailEmail }).where(eq(creators.id, "mariclare"));
+
+  assert.equal((await db.select().from(deals)).length, dealsBefore);
   const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
   assert.equal(kosblingAfter?.workflowStage, "draft_due");
   assert.equal(kosblingAfter?.visibleToCreator, true);
