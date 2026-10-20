@@ -1,14 +1,15 @@
 import { chooseEmailSetupAction } from "@/app/actions";
 import { HostedAddressField } from "@/components/hosted-address-field";
 import { STRIPE_CATALOG } from "@/lib/email-setup";
+import { emailSetupErrorNote } from "@/lib/email-setup-notes";
 
-export function EmailSetupForm({ error }: { error: boolean }) {
+export function EmailSetupForm({ error }: { error: string | null }) {
   const offer = STRIPE_CATALOG.hostedCreatorEmail;
   return (
     <form action={chooseEmailSetupAction} className="card wizard">
       <h2>How should brand email work?</h2>
       <p className="note">Pick one. You can change it before you finish.</p>
-      {error ? <p className="private-note">Enter the name you want before @mommamari.com, like abby.</p> : null}
+      {error ? <p className="private-note">{emailSetupErrorNote(error) ?? "That email choice was not saved. Nothing was charged."}</p> : null}
       <label className="choice recommended">
         <span className="choice-head">
           <input type="radio" name="emailSetup" value="business" required />
