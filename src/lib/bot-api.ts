@@ -4,6 +4,7 @@ import { analyticsDaily, creators, deals, drafts, payments, revisions } from "@/
 import { DEAL_STATUSES, DRAFT_STATUSES, type DealStatus, type DraftStatus } from "./types";
 import { AGENCY_COMMISSION_PERCENT, CREATOR_PAYOUT_PERCENT, feeAndPayout, normalizeEmail, nowIso, safeEqual } from "./format";
 import { createApprovalEmail, listSendableApprovals, markApprovalSent } from "./approvals";
+import { isFakeCalendarDay } from "./deadlines";
 import { setDealStage } from "./deal-stage";
 import { isPaymentStatus } from "./fulfillment";
 import { findCreatorByEmail, findCreatorById } from "./queries";
@@ -175,6 +176,12 @@ export async function upsertDeal(db: PortalDb, body: unknown) {
     earningsChipText: "earningsChipText",
     earningsChipTone: "earningsChipTone",
   };
+  for (const field of ["draftDue", "postDate"] as const) {
+    const value = body[field];
+    if (typeof value === "string" && isFakeCalendarDay(value.trim())) {
+      return { status: 400, body: { error: `${field} must be a real day like 2026-11-20.` } };
+    }
+  }
   for (const field of textFields) {
     if (typeof body[field] === "string") optional[columnMap[field]] = body[field] as never;
   }

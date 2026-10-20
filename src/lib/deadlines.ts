@@ -3,6 +3,14 @@ import { getDealStage } from "./stages";
 
 const DRAFT_SUBMITTED_ORDER = 16;
 
+/** True only when the text is YYYY-MM-DD and that day is not on the calendar. Other wording is left alone. */
+export function isFakeCalendarDay(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day;
+}
+
 export function uploadDueDate(postDate: string | null | undefined) {
   const match = postDate?.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return null;
