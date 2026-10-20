@@ -34,6 +34,10 @@ describe("deal rules error codes", { concurrency: 1 }, () => {
     assert.match(page, /rulesErrorNote\(params\.rulesError\)/);
     assert.match(page, /Saved\. Nothing was emailed\./);
     assert.equal(page.includes("{params.rulesError}"), false);
+    const deal = source("src/app/deals/[id]/page.tsx");
+    assert.match(deal, /rulesErrorNote\(query\.rulesError\)/);
+    assert.match(deal, /query\.saved === "1"/);
+    assert.equal(deal.includes("{query.rulesError}"), false);
     const action = source("src/app/rules-actions.ts");
     assert.match(action, /rulesError=\$\{rulesErrorCode\(result\.error\)\}/);
     assert.equal(action.includes("encodeURIComponent(result.error)"), false);
