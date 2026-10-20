@@ -34,7 +34,9 @@ export function currentMonth(now = new Date(), timeZone = agencyTimeZone()) {
 }
 
 export function isMonthKey(value: string) {
-  return /^\d{4}-\d{2}$/.test(value);
+  if (!/^\d{4}-\d{2}$/.test(value)) return false;
+  const month = Number(value.slice(5, 7));
+  return month >= 1 && month <= 12;
 }
 
 export function monthLabel(month: string) {

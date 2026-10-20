@@ -33,7 +33,9 @@ export async function saveReinvestTarget(db: PortalDb, viewer: Viewer, percent: 
 
 export async function addReinvestment(db: PortalDb, viewer: Viewer, input: { month: string; category: string; amountCents: number; note?: string }) {
   if (viewer.role !== "admin") return { ok: false as const, error: "Only an owner can log reinvestment." };
-  if (!/^\d{4}-\d{2}$/.test(input.month)) return { ok: false as const, error: "Use a month like 2026-10." };
+  if (!/^\d{4}-\d{2}$/.test(input.month) || Number(input.month.slice(5, 7)) < 1 || Number(input.month.slice(5, 7)) > 12) {
+    return { ok: false as const, error: "Use a month like 2026-10." };
+  }
   if (!REINVEST_CATEGORIES.some((item) => item.id === input.category)) return { ok: false as const, error: "Pick a category." };
   if (!Number.isInteger(input.amountCents) || input.amountCents < 0) return { ok: false as const, error: "Enter the amount in dollars." };
   await db.insert(reinvestmentEntries).values({

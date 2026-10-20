@@ -7,14 +7,16 @@ import { formatMoney, longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
 import { categoryOverrideFor, screeningForDeal } from "@/lib/deal-rules";
+import { rulesErrorNote } from "@/lib/rules-notes";
 import { listUnreadCreatorNotices } from "@/lib/video-review";
+import { dealNoticeNote } from "@/lib/deal-notice-notes";
 
 export default async function DealPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string; productError?: string; postError?: string; paymentError?: string; safetyError?: string; reply?: string; replyError?: string; rate?: string; rateError?: string; dates?: string; datesError?: string }>;
+  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string; productError?: string; postError?: string; paymentError?: string; safetyError?: string; reply?: string; replyError?: string; rate?: string; rateError?: string; dates?: string; datesError?: string; saved?: string; rulesError?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const portal = await loadPortal(query.creator ?? null);
@@ -59,18 +61,20 @@ export default async function DealPage({
           </form>
         </div>
       ))}
+      {query.saved === "1" ? <p className="note">Saved. Nothing was emailed.</p> : null}
+      {rulesErrorNote(query.rulesError) ? <p className="private-note">{rulesErrorNote(query.rulesError)}</p> : null}
       {query.signed === "1" ? (
         <div className="callout">
           <b>Your signature is saved. Nothing was emailed.</b>
         </div>
       ) : null}
       {query.reply === "saved" ? <p className="note">Draft saved. Nothing was emailed.</p> : null}
-      {query.replyError ? <p className="private-note">{query.replyError}</p> : null}
+      {dealNoticeNote(query.replyError) ? <p className="private-note">{dealNoticeNote(query.replyError)}</p> : null}
       {query.rate === "asked" ? <p className="note">Asked. Nothing was emailed.</p> : null}
       {query.rate === "confirmed" ? <p className="note">Rate confirmed. Nothing was paid.</p> : null}
-      {query.rateError ? <p className="private-note">{query.rateError}</p> : null}
+      {dealNoticeNote(query.rateError) ? <p className="private-note">{dealNoticeNote(query.rateError)}</p> : null}
       {query.dates === "saved" ? <p className="note">Dates saved. Nothing was emailed or paid.</p> : null}
-      {query.datesError ? <p className="private-note">{query.datesError}</p> : null}
+      {dealNoticeNote(query.datesError) ? <p className="private-note">{dealNoticeNote(query.datesError)}</p> : null}
       {selected ? null : (
         <div className="card" style={{ marginBottom: 14 }}>
           <h2>That deal isn&apos;t on your list.</h2>

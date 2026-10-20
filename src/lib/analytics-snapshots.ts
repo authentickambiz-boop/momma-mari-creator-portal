@@ -110,6 +110,14 @@ export type CreatorSnapshotCard = {
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** A real calendar day. 2026-02-31 matches the shape and is still refused. */
+function isCaptureDate(value: string) {
+  if (!DATE.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
 const METRIC_LABELS: Record<string, string> = {
   engagement: "Engagement",
   similarCreators: "Similar creators",
@@ -255,7 +263,7 @@ async function creatorFor(db: PortalDb, draft: SnapshotDraft) {
 export async function saveSnapshot(db: PortalDb, draft: SnapshotDraft, source: string) {
   const platform = knownPlatform(draft.platform ?? "");
   if (!platform) return { ok: false as const, status: 400, error: "Pick a platform from the list." };
-  if (!DATE.test(draft.capturedOn ?? "")) return { ok: false as const, status: 400, error: "Enter the capture date as YYYY-MM-DD." };
+  if (!isCaptureDate(draft.capturedOn ?? "")) return { ok: false as const, status: 400, error: "Enter the capture date as YYYY-MM-DD." };
   const person = await creatorFor(db, draft);
   if (!person) return { ok: false as const, status: 404, error: "That creator is not on the roster." };
   const metrics = cleanMetrics(draft.metrics);

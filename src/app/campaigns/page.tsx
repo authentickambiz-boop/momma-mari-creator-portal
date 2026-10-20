@@ -4,6 +4,7 @@ import Link from "next/link";
 import { offerFlagLabel } from "@/lib/brand-offers";
 import { TagPicker } from "@/components/tag-picker";
 import { canSeeMoney, listCampaigns } from "@/lib/campaigns";
+import { campaignErrorNote } from "@/lib/campaign-notes";
 import { loadPortal } from "@/lib/current-user";
 import { DELIVERABLES, dollarsToCents } from "@/lib/deal-rules";
 import { formatMoney } from "@/lib/format";
@@ -19,6 +20,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
       </PortalFrame>
     );
   }
+  const campaignError = campaignErrorNote(params.campaignError);
   const priced = canSeeMoney(portal.viewer);
   const board = await listCampaigns(portal.db, {
     niche: params.niche,
@@ -34,7 +36,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
       viewedId={portal.viewedId}
       hello={<div className="hello"><div><h1>Campaigns</h1><p>Every brand can have more than one campaign. The best-paying fits are listed first.</p></div></div>}
     >
-      {params.campaignError ? <p className="private-note">{params.campaignError}</p> : null}
+      {campaignError ? <p className="private-note">{campaignError}</p> : null}
       <form className="card stack" action={filterCampaignsAction}>
         <input type="hidden" name="creator" value={portal.viewedId} />
         <div className="sec-title">Filter the board</div>

@@ -3,10 +3,19 @@ import { getDealStage } from "./stages";
 
 const DRAFT_SUBMITTED_ORDER = 16;
 
+function isRealDay(year: number, month: number, day: number) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
 export function uploadDueDate(postDate: string | null | undefined) {
   const match = postDate?.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return null;
-  const utc = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!isRealDay(year, month, day)) return null;
+  const utc = new Date(Date.UTC(year, month - 1, day));
   utc.setUTCDate(utc.getUTCDate() - 3);
   return utc.toISOString().slice(0, 10);
 }

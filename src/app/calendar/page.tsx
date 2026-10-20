@@ -1,6 +1,7 @@
 import { connectCalendarAction, saveDeliverableDateAction } from "@/app/calendar-actions";
 import { PortalFrame } from "@/components/portal-frame";
 import { calendarConnected, listCalendar } from "@/lib/calendar";
+import { calendarErrorNote } from "@/lib/calendar-notes";
 import { loadPortal } from "@/lib/current-user";
 import { withBasePath } from "@/lib/format";
 import { listDealsForViewer } from "@/lib/queries";
@@ -14,6 +15,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const connected = portal.viewer.role === "creator" && portal.viewer.creatorId
     ? await calendarConnected(portal.db, portal.viewer.creatorId)
     : false;
+  const calendarError = calendarErrorNote(params.calendarError);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -23,7 +25,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       hello={<div className="hello"><h1>Calendar</h1><p>Draft and post dates. A reminder lands 3 days ahead, in the portal or in the approval queue. Nothing is emailed on its own.</p></div>}
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
-      {params.calendarError ? <p className="private-note">{params.calendarError}</p> : null}
+      {calendarError ? <p className="private-note">{calendarError}</p> : null}
       {dates.length === 0 ? <p className="note">No due dates yet.</p> : null}
       {dates.length > 0 ? (
         <div className="card">

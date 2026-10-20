@@ -4,6 +4,7 @@ import { TagPicker } from "@/components/tag-picker";
 import { listProspects } from "@/lib/campaigns";
 import { loadPortal } from "@/lib/current-user";
 import { NICHE_CATALOG } from "@/lib/niche-catalog";
+import { prospectErrorNote } from "@/lib/prospect-notes";
 
 export default async function ProspectsPage({ searchParams }: { searchParams: Promise<{ creator?: string; saved?: string; prospectError?: string }> }) {
   const params = await searchParams;
@@ -17,6 +18,7 @@ export default async function ProspectsPage({ searchParams }: { searchParams: Pr
   }
   const rows = await listProspects(portal.db);
   const names = new Map(portal.creators.map((creator) => [creator.id, creator.name]));
+  const prospectError = prospectErrorNote(params.prospectError);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -26,7 +28,7 @@ export default async function ProspectsPage({ searchParams }: { searchParams: Pr
       hello={<div className="hello"><div><h1>Prospects</h1><p>A short list for offers the roster passed on. The working prospect list stays in Kash Bot.</p></div></div>}
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
-      {params.prospectError ? <p className="private-note">{params.prospectError}</p> : null}
+      {prospectError ? <p className="private-note">{prospectError}</p> : null}
       <div className="card">
         <table>
           <thead><tr><th>Name</th><th>Email</th><th>Niches</th><th>Roster</th></tr></thead>

@@ -180,13 +180,20 @@ export function nowIso() {
 }
 
 export function shortDate(isoDate: string | null | undefined) {
-  const match = isoDate?.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!match) return isoDate?.trim() || "";
+  const trimmed = isoDate?.trim() || "";
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return trimmed;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
+  const real = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  if (!real) return trimmed;
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     timeZone: "UTC",
-  }).format(new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12)));
+  }).format(date);
 }
 
 export function lastUpdatedLabel(iso: string | null | undefined) {

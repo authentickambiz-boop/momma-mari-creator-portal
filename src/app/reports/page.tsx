@@ -5,6 +5,7 @@ import { loadPortal } from "@/lib/current-user";
 import { withBasePath } from "@/lib/format";
 import { listManagers } from "@/lib/managers";
 import { listRankReports } from "@/lib/rank-reports";
+import { growthErrorNote } from "@/lib/growth-notes";
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ creator?: string; saved?: string; growthError?: string }> }) {
   const params = await searchParams;
@@ -18,6 +19,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   }
   const reports = await listRankReports(portal.db, portal.viewer);
   const managers = await listManagers(portal.db);
+  const growthNote = growthErrorNote(params.growthError);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -27,7 +29,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       hello={<div className="hello"><div><h1>Reports</h1><p>Build a creator, team, or cross-team report. You choose the sections, and whether rank numbers are on the copy.</p></div></div>}
     >
       {params.saved ? <p className="note">Saved. The share link shows only what you included.</p> : null}
-      {params.growthError ? <p className="private-note">{params.growthError}</p> : null}
+      {growthNote ? <p className="private-note">{growthNote}</p> : null}
       <form action={createReportAction} className="card stack">
         <label>
           Level

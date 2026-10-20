@@ -1,6 +1,7 @@
 import { addBrandCrmEntryAction } from "@/app/brand-actions";
 import { PortalFrame } from "@/components/portal-frame";
 import { listBrandCrm, responseLabel } from "@/lib/brand-crm";
+import { brandErrorNote } from "@/lib/brand-notes";
 import { isOwner } from "@/lib/authz";
 import { formatMoney } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
@@ -17,6 +18,7 @@ export default async function BrandsPage({ searchParams }: { searchParams: Promi
     );
   }
   const owner = isOwner(portal.viewer);
+  const brandError = brandErrorNote(params.brandError);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -26,7 +28,7 @@ export default async function BrandsPage({ searchParams }: { searchParams: Promi
       hello={<div className="hello"><h1>Brands</h1><p>Contacts, past deals, and responses. Screening notes show up here. Amounts stay with the owner.</p></div>}
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
-      {params.brandError ? <p className="private-note">{params.brandError}</p> : null}
+      {brandError ? <p className="private-note">{brandError}</p> : null}
       {list.brands.length === 0 ? <p className="note">No brands on this list yet.</p> : null}
       <div className="stack">
         {list.brands.map((card) => (

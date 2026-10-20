@@ -6,6 +6,7 @@ import { brandReplyDrafts } from "@/db/schema";
 import { loadPortal } from "@/lib/current-user";
 import { listDealReviews } from "@/lib/deal-review";
 import { stageAdminLabel } from "@/lib/stages";
+import { dealNoticeNote } from "@/lib/deal-notice-notes";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
   const queue = await listDealReviews(portal.db);
   const drafts = await portal.db.select().from(brandReplyDrafts);
   const draftByDeal = new Map(drafts.map((row) => [row.dealId, row.body]));
+  const reviewError = dealNoticeNote(params.reviewError);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -33,7 +35,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
       {params.saved === "draft" ? <p className="note">Draft saved. Nothing was emailed.</p> : null}
       {params.saved === "published" ? <p className="note">Published. The creator can see it now.</p> : null}
       {params.saved === "rejected" ? <p className="note">Rejected. The creator still cannot see it.</p> : null}
-      {params.reviewError ? <p className="private-note">{params.reviewError}</p> : null}
+      {reviewError ? <p className="private-note">{reviewError}</p> : null}
       {queue.length === 0 ? <p className="note">Nothing is waiting for review.</p> : null}
       <div className="stack">
         {queue.map((deal) => {

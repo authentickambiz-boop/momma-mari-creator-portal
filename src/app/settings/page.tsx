@@ -6,6 +6,7 @@ import { canManageCreatorAccounts, storedConnectionStatus } from "@/lib/account-
 import { readOwnAccount } from "@/lib/creator-home";
 import { loadPortal } from "@/lib/current-user";
 import { emailSetupFor, gmailConnectionState } from "@/lib/onboarding";
+import { settingsErrorNote } from "@/lib/account-notes";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; settingsError?: string }> }) {
   const params = await searchParams;
@@ -15,10 +16,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const connection = creator ? await gmailConnectionState(portal.db, creator.id) : null;
   const drive = creator ? await driveConnectionState(portal.db, creator.id) : null;
   const setup = creator ? await emailSetupFor(portal.db, creator.id) : null;
+  const settingsError = settingsErrorNote(params.settingsError);
   return (
     <PortalFrame viewer={portal.viewer} tab="settings" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>Settings</h1><p>Connected accounts and the notices you want.</p></div>}>
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
-      {params.settingsError ? <p className="private-note">{params.settingsError}</p> : null}
+      {settingsError ? <p className="private-note">{settingsError}</p> : null}
       <div className="card stack">
         <div className="sec-title">Connected accounts</div>
         {creator ? (

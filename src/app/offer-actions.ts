@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
 import { createBrandOffer, offerBudgetsFromRaw, respondToOffer } from "@/lib/brand-offers";
+import { offerErrorCode } from "@/lib/offer-notes";
 
 export async function createBrandOfferAction(formData: FormData) {
   const viewer = await currentViewer();
@@ -14,7 +15,7 @@ export async function createBrandOfferAction(formData: FormData) {
     creatorId,
     raw: String(formData.get(`budget-${creatorId}`) ?? ""),
   })));
-  if (!parsed.ok) redirect(`/offers?offerError=${encodeURIComponent(parsed.error)}`);
+  if (!parsed.ok) redirect(`/offers?offerError=${offerErrorCode(parsed.error)}`);
   const budgets = parsed.budgets;
   const result = await createBrandOffer(db, viewer, {
     brand: String(formData.get("brand") ?? ""),
@@ -27,7 +28,7 @@ export async function createBrandOfferAction(formData: FormData) {
     nextFollowUp: String(formData.get("nextFollowUp") ?? ""),
     budgets,
   });
-  if (!result.ok) redirect(`/offers?offerError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/offers?offerError=${offerErrorCode(result.error)}`);
   redirect("/offers?saved=1");
 }
 
@@ -40,6 +41,6 @@ export async function respondToOfferAction(formData: FormData) {
     decision: String(formData.get("decision") ?? ""),
     question: String(formData.get("question") ?? ""),
   });
-  if (!result.ok) redirect(`/offers?offerError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/offers?offerError=${offerErrorCode(result.error)}`);
   redirect("/offers?saved=1");
 }
