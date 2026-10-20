@@ -2,6 +2,7 @@ import { refreshRanksAction, saveRankInputsAction, saveRankSettingsAction } from
 import { PortalFrame } from "@/components/portal-frame";
 import { RANK_FIELDS, inputsFor, leaderboard, rankHistory, rankSettings } from "@/lib/creator-rank";
 import { loadPortal } from "@/lib/current-user";
+import { growthErrorNote } from "@/lib/growth-notes";
 
 export default async function RankingPage({ searchParams }: { searchParams: Promise<{ creator?: string; saved?: string; growthError?: string }> }) {
   const params = await searchParams;
@@ -18,6 +19,7 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
   const creatorId = portal.viewed?.id ?? board.rows[0]?.creatorId ?? "";
   const inputs = creatorId ? await inputsFor(portal.db, creatorId) : null;
   const history = creatorId ? await rankHistory(portal.db, portal.viewer, creatorId) : null;
+  const growthNote = growthErrorNote(params.growthError);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -27,7 +29,7 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
       hello={<div className="hello"><div><h1>Ranking</h1><p>A 0 to 100 score for who should see the best-fit deals first. Only your sign-in can see this.</p></div></div>}
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
-      {params.growthError ? <p className="private-note">{params.growthError}</p> : null}
+      {growthNote ? <p className="private-note">{growthNote}</p> : null}
       <div className="card">
         <div className="sec-title">Leaderboard</div>
         <p className="note">Updates {settings.cadence}. Fit still decides who can take a campaign. Rank only sorts the creators who clear that gate.</p>

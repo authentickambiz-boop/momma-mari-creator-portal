@@ -6,12 +6,13 @@ import { RANK_FIELDS, refreshRanks, saveRankInputs, saveRankSettings, emptyInput
 import { currentViewer } from "@/lib/current-user";
 import { saveOwnerSnapshot } from "@/lib/analytics-snapshots";
 import { dollarsToCents } from "@/lib/deal-rules";
+import { growthErrorCode } from "@/lib/growth-notes";
 import { addCollab, addGoal, addPodDate, addShoutout, markCollabPosted, pairCollab, recordPodMetric, savePod, setGoalProgress } from "@/lib/pods";
 import { createRankReport, type ReportChoices, type ReportLevel } from "@/lib/rank-reports";
 import { addReinvestment, saveReinvestTarget } from "@/lib/reinvestment";
 
 function back(path: string, error: string): never {
-  return redirect(`${path}${path.includes("?") ? "&" : "?"}growthError=${encodeURIComponent(error)}`);
+  return redirect(`${path}${path.includes("?") ? "&" : "?"}growthError=${growthErrorCode(error)}`);
 }
 
 export async function saveRankSettingsAction(formData: FormData) {
