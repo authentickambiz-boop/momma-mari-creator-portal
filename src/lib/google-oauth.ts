@@ -138,6 +138,55 @@ export async function readWatchCreatorCookie(value: string | undefined) {
   return parts[0];
 }
 
+const BRIDGE_STATE_COOKIE = "mm_gmail_bridge";
+const BRIDGE_CREATOR_COOKIE = "mm_gmail_bridge_creator";
+
+/** Brand-inbox connect is read-only. It does not ask for compose, send, or full mail access. */
+export function gmailBridgeStateCookieName() {
+  return BRIDGE_STATE_COOKIE;
+}
+
+export function gmailBridgeCreatorCookieName() {
+  return BRIDGE_CREATOR_COOKIE;
+}
+
+export function isGmailBridgeState(state: string | null) {
+  return Boolean(state?.startsWith("gbridge."));
+}
+
+export async function createGmailBridgeOAuthState() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const nonce = bytesToBase64Url(bytes);
+  const exp = Date.now() + 10 * 60 * 1000;
+  const payload = `gbridge.${nonce}.${exp}`;
+  return `${payload}.${await sign(payload)}`;
+}
+
+export async function verifyGmailBridgeOAuthState(cookie: string | undefined, returned: string | null) {
+  if (!cookie || !returned || cookie !== returned || !cookie.startsWith("gbridge.")) return false;
+  const parts = cookie.split(".");
+  if (parts.length !== 4) return false;
+  const payload = `${parts[0]}.${parts[1]}.${parts[2]}`;
+  const expected = await sign(payload);
+  if (expected !== parts[3]) return false;
+  return Number(parts[2]) > Date.now();
+}
+
+export function googleGmailBridgeAuthUrl(state: string, loginHint: string) {
+  const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  url.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID ?? "");
+  url.searchParams.set("redirect_uri", googleRedirectUri());
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", GMAIL_READONLY_SCOPE);
+  url.searchParams.set("include_granted_scopes", "false");
+  url.searchParams.set("access_type", "offline");
+  url.searchParams.set("prompt", "consent");
+  url.searchParams.set("login_hint", loginHint);
+  url.searchParams.set("state", state);
+  return url.toString();
+}
+
 export function googleGmailAuthUrl(state: string, loginHint: string) {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID ?? "");

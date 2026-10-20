@@ -4,6 +4,7 @@ import { driveConnectionState, driveConnectHref, gmailConnectHref } from "@/lib/
 import { canManageCreatorAccounts, mappedConnectionNote, storedConnectionStatus } from "@/lib/account-connection-status";
 import { loadPortal } from "@/lib/current-user";
 import { withBasePath } from "@/lib/format";
+import { gmailBridgeConnectHref, gmailSyncEnabled, gmailSyncStatusLine } from "@/lib/gmail-bridge";
 import { WATCH_MAILBOXES } from "@/lib/gmail-push";
 import { emailSetupFor, gmailConnectionState } from "@/lib/onboarding";
 
@@ -63,6 +64,25 @@ export default async function ConnectPage({
       {gmailError ? <p className="private-note">{gmailError}</p> : null}
       {driveNote ? <p className={params.drive === "connected" ? "note" : "private-note"}>{driveNote}</p> : null}
       {accountNote ? <p className={params.account === "disconnected" ? "note" : "private-note"}>{accountNote}</p> : null}
+      <section className="card" style={{ marginBottom: 16 }}>
+        <h2>Brand inbox</h2>
+        <p className="note">{gmailSyncStatusLine(portal.viewer.role)} The connect button asks Google for read-only access. It does not send mail.</p>
+        {!gmailSyncEnabled() ? <p className="note">Live sync is off.</p> : null}
+        {portal.viewer.role === "manager" ? <p className="note">You can see whether an inbox is connected. You do not get the creator's login.</p> : null}
+        {creators.map((creator) => {
+          const href = gmailBridgeConnectHref(portal.viewer, creator.id);
+          if (!href) return null;
+          return (
+            <div className="connect" key={`bridge-${creator.id}`}>
+              <div>
+                <b>{creator.name}</b>
+                <div className="note">Read-only Gmail for brand threads.</div>
+              </div>
+              <a className="btn" href={href}>Connect Gmail (read only)</a>
+            </div>
+          );
+        })}
+      </section>
       {watched.length > 0 ? (
         <section className="card" style={{ marginBottom: 16 }}>
           <h2>Watched inboxes</h2>

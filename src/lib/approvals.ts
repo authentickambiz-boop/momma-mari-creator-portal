@@ -30,6 +30,7 @@ export function isApprovalGate(value: string): value is ApprovalGate {
 }
 
 export function approvalGateLabel(id: string) {
+  if (id === "brand_reply") return "Brand reply";
   return APPROVAL_GATES.find((gate) => gate.id === id)?.label ?? id;
 }
 
@@ -228,6 +229,9 @@ export async function reviewApproval(
   }
   const row = await loadApproval(db, input.approvalId);
   if (!row) return { ok: false, status: 404, error: "Email not found." };
+  if (row.gate === "brand_reply" && input.actorRole !== "admin") {
+    return { ok: false, status: 403, error: "Only the owner can approve a brand reply. Nothing was sent." };
+  }
   if (input.actorRole === "manager") {
     const dealRows = await db.select().from(deals).where(eq(deals.id, row.dealId));
     const deal = dealRows[0];
@@ -336,6 +340,9 @@ export async function markApprovalSent(
   if (!messageId) return { ok: false, status: 400, error: "messageId is required." };
   const row = await loadApproval(db, approvalId);
   if (!row) return { ok: false, status: 404, error: "Email not found." };
+  if (row.gate === "brand_reply") {
+    return { ok: false, status: 409, error: "This reply stays a draft. The portal does not send it." };
+  }
   if (row.status !== "approved") {
     return { ok: false, status: 409, error: "This email is not approved to send." };
   }
@@ -399,6 +406,7 @@ export async function listSendableApprovals(db: PortalDb): Promise<SendableAppro
   const dealById = new Map(dealRows.map((deal) => [deal.id, deal]));
   const creatorById = new Map(creatorRows.map((creator) => [creator.id, creator]));
   return rows.flatMap((row) => {
+    if (row.gate === "brand_reply") return [];
     const deal = dealById.get(row.dealId);
     if (!deal) return [];
     const creator = creatorById.get(deal.creatorId);

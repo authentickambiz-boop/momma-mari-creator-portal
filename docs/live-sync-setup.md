@@ -190,6 +190,37 @@ Two other bot calls:
 - `PUT /api/bot/brand-crm` with JSON `{ "domain", "contactEmail", "brand", "outcome", "ratePaidCents", "nextFollowUp" }`. The same domain and contact email update one row.
 - `POST /api/bot/deals/sync` with JSON `{ "deals": [ ... ] }`. Each item is the same shape as the single-deal upsert. A new deal stays hidden until you publish it, even if the payload asks to show it. The response is `{ "results": [ { "id", "ok", "status", "error" } ] }`. One bad item does not cancel the rest. Minimums and internal quotes are not returned, and they are not written onto fields a creator can see.
 
+## 12. Each creator's brand inbox
+
+The two watched inboxes above keep working as they do today. A separate switch covers every creator who connects her own Gmail.
+
+Leave `GMAIL_SYNC_ENABLED` empty until you want that sync. The portal does not read those inboxes while it is empty. Set it to the string `true` only after the steps below are done, then redeploy.
+
+1. On the OAuth consent screen, keep `https://www.googleapis.com/auth/gmail.readonly`. Do not add `gmail.send`, `gmail.modify`, or `https://mail.google.com/`. The bridge button does not ask for `gmail.compose`.
+2. Add each creator who will connect as a test user while the app is in Testing.
+3. `TOKEN_ENCRYPTION_KEY` stays the key already set on Webflow Cloud. Do not rotate it. If it is empty, connect does not start.
+4. The same Pub/Sub topic, push subscription, and service account from steps 3–5 cover these inboxes once sync is on. The daily watch job in step 9 renews them too.
+5. Add a second Cloud Scheduler job so a missed push still gets read:
+   - Name: `gmail-inbox-sync`
+   - Frequency: `*/15 * * * *`. Time zone: `America/New_York`.
+   - URL: `https://mommamari.com/portal/api/cron/gmail-sync`
+   - Method: **POST**
+   - Header: `Authorization` = `Bearer YOUR_GMAIL_WATCH_CRON_SECRET` (the same secret as the watch job)
+6. A creator (or you, the owner) opens **Deal inbox** or **Connect accounts** and uses **Connect Gmail (read only)**. A manager does not get that button and does not get her password or token.
+7. Brand threads show in **Deal inbox**. A reply is saved as a draft for you to approve. The portal does not send it.
+
+| Name | Value | Secret |
+| --- | --- | --- |
+| `GMAIL_SYNC_ENABLED` | `true` only when you want live sync. Leave empty until then. | no |
+| `GMAIL_WATCH_CRON_SECRET` | the same secret already used for watch renewal | yes |
+| `GMAIL_WATCH_TOPIC` | the topic from step 3 | no |
+| `GMAIL_PUSH_AUDIENCE` | `https://mommamari.com/portal/api/gmail/push` | no |
+| `GMAIL_PUSH_SERVICE_ACCOUNT` | the push service account from step 4 | no |
+| `TOKEN_ENCRYPTION_KEY` | the existing 64 hex character key. Do not rotate it here. | yes |
+| `GOOGLE_CLIENT_ID` | the existing OAuth web client | no |
+| `GOOGLE_CLIENT_SECRET` | that client's secret | yes |
+| `APP_BASE_URL` | `https://mommamari.com/portal` | no |
+
 ## Cost
 
 [Pub/Sub](https://cloud.google.com/pubsub/pricing) includes the first 10 GiB of message throughput each month at no charge. A Gmail notice is a few hundred bytes. A normal month of brand mail stays inside that free tier. Expected Pub/Sub cost is **$0**.

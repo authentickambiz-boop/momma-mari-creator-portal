@@ -558,6 +558,8 @@ Sign-in stays on `openid email profile`. **Connect your email** is a second Goog
 
 Watched brand inboxes (MariClare and AuthenticKam) are a separate read-only setup. The steps, the Pub/Sub topic, and the Webflow secrets are in `docs/live-sync-setup.md`. That path does not send mail.
 
+Each creator can also connect her own Gmail from **Deal inbox** or **Connect accounts**. That button asks only for `gmail.readonly`. The refresh token is encrypted with `TOKEN_ENCRYPTION_KEY`. Live sync stays off until `GMAIL_SYNC_ENABLED` is the string `true`. While it is off, nothing is read from that inbox. When it is on, brand threads show in her deal inbox. Personal mail is left out. A reply is a draft on the approval queue until Kamron approves it. The portal does not send it. A manager can read threads for creators assigned to her and never receives the creator's login or token.
+
 ## Google Drive
 
 Uploads need one of these. Do not commit either value.

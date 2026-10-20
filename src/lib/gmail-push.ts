@@ -5,6 +5,7 @@ import { setDealStage } from "./deal-stage";
 import { normalizeEmail, nowIso, safeEqual } from "./format";
 import { clearMailboxReconnect, gmailConnectionState, mailboxReconnectReason, markMailboxNeedsReconnect } from "./onboarding";
 import { getDealStage } from "./stages";
+import { gmailSyncEnabled } from "./gmail-sync-flag";
 import { revokeGoogleToken, type GoogleTokenRevoker } from "./google-oauth";
 import { decryptToken } from "./token-crypto";
 
@@ -55,6 +56,16 @@ export function mailboxForCreator(creatorId: string) {
 export function creatorForMailbox(email: string) {
   const normalized = normalizeEmail(email);
   return WATCH_MAILBOXES.find((box) => box.email === normalized) ?? null;
+}
+
+async function mailboxForIngest(db: PortalDb, mailbox: string) {
+  const watched = creatorForMailbox(mailbox);
+  if (watched) return { ...watched, strict: false };
+  if (!gmailSyncEnabled()) return null;
+  const rows = await db.select().from(creators).where(eq(creators.gmailEmail, mailbox));
+  const row = rows.find((item) => item.gmailRefreshToken);
+  if (!row) return null;
+  return { email: mailbox, creatorId: row.id, label: row.name, strict: true };
 }
 
 export function senderEmail(from: string) {
@@ -436,6 +447,23 @@ async function dealByThread(db: PortalDb, threadId: string) {
   return rows[0] ?? null;
 }
 
+/** Match a thread the portal already has, or open one hidden offer. Callers filter personal mail first. */
+export async function openOrMatchBrandDeal(db: PortalDb, creatorId: string, message: GmailHistoryMessage) {
+  const existing = await dealByThread(db, message.threadId);
+  if (existing) return { dealId: existing.id, created: false as const };
+  const dealId = await createHiddenOffer(db, { creatorId, message });
+  return { dealId, created: true as const };
+}
+
+async function rememberBrandThread(
+  db: PortalDb,
+  input: { mailbox: string; creatorId: string; message: GmailHistoryMessage; dealId: string; classification: "deal" | "inquiry" },
+) {
+  if (!gmailSyncEnabled()) return;
+  const { recordBrandMessage } = await import("./gmail-bridge");
+  await recordBrandMessage(db, input);
+}
+
 async function createHiddenOffer(db: PortalDb, input: { creatorId: string; message: GmailHistoryMessage }) {
   const timestamp = nowIso();
   const existing = await db.select({ sortOrder: deals.sortOrder }).from(deals);
@@ -498,6 +526,7 @@ async function applyAddedMessages(
   refs: { id: string; threadId: string }[],
   client: GmailHistoryClient,
   secrets: string[],
+  keep?: (message: GmailHistoryMessage) => Promise<boolean>,
 ) {
   const createdDealIds: string[] = [];
   const matchedDealIds: string[] = [];
@@ -538,6 +567,7 @@ async function applyAddedMessages(
         });
         if (moved.ok && moved.changed) stageMoves.push(threaded.id);
       }
+      if (threaded) await rememberBrandThread(db, { mailbox, creatorId, message, dealId: threaded.id, classification: "deal" });
       await markSeen(db, mailbox, message);
       continue;
     }
@@ -549,6 +579,7 @@ async function applyAddedMessages(
       await db.update(deals).set({ updatedAt: nowIso() }).where(eq(deals.id, threaded.id));
       await addInboxEvent(db, { mailbox, messageId: message.id, threadId: message.threadId, dealId: threaded.id });
       matchedDealIds.push(threaded.id);
+      await rememberBrandThread(db, { mailbox, creatorId, message, dealId: threaded.id, classification: "deal" });
       await markSeen(db, mailbox, message);
       continue;
     }
@@ -557,8 +588,13 @@ async function applyAddedMessages(
       skippedSpam += 1;
       continue;
     }
+    if (keep && !(await keep(message))) {
+      await markSeen(db, mailbox, message);
+      continue;
+    }
     const dealId = await createHiddenOffer(db, { creatorId, message });
     await addInboxEvent(db, { mailbox, messageId: message.id, threadId: message.threadId, dealId });
+    await rememberBrandThread(db, { mailbox, creatorId, message, dealId, classification: "inquiry" });
     createdDealIds.push(dealId);
     await markSeen(db, mailbox, message);
   }
@@ -571,8 +607,15 @@ export async function ingestGmailPush(
   options?: { client?: GmailHistoryClient },
 ) {
   const mailbox = normalizeEmail(note.emailAddress);
-  const mapped = creatorForMailbox(mailbox);
+  const mapped = await mailboxForIngest(db, mailbox);
   if (!mapped) return { status: 200, body: { ok: true, ignored: true } };
+  const keep = mapped.strict
+    ? async (message: GmailHistoryMessage) => {
+      const { isBrandInquiry } = await import("./gmail-bridge");
+      const decision = await isBrandInquiry(db, mapped.creatorId, message, mailbox);
+      return decision.keep && decision.classification !== "not_deal";
+    }
+    : undefined;
   const stored = await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, mailbox));
   const start = stored[0]?.historyId ?? "";
   if (!start) {
@@ -618,7 +661,7 @@ export async function ingestGmailPush(
     } catch (error) {
       return finishReadFailure(db, mapped.creatorId, error, secrets);
     }
-    const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, recent.slice(0, RECENT_INBOX_LIMIT * RECENT_PAGE_LIMIT), client, secrets);
+    const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, recent.slice(0, RECENT_INBOX_LIMIT * RECENT_PAGE_LIMIT), client, secrets, keep);
     if (!applied.ok) return applied.failure;
     await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
     return {
@@ -635,7 +678,7 @@ export async function ingestGmailPush(
       },
     };
   }
-  const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, listed.messages, client, secrets);
+  const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, listed.messages, client, secrets, keep);
   if (!applied.ok) return applied.failure;
   const cursor = listed.partial
     ? laterHistoryId(start, listed.latestHistoryId)
@@ -695,7 +738,17 @@ export async function renewGmailWatches(
   watch: (input: { mailbox: string; refreshToken: string }) => Promise<{ historyId: string; expiration: string }>,
 ) {
   const results: { mailbox: string; ok: boolean; expiration?: string; error?: string; needsReconnect?: boolean }[] = [];
-  for (const box of WATCH_MAILBOXES) {
+  const boxes: { email: string; creatorId: string }[] = WATCH_MAILBOXES.map((box) => ({ email: box.email, creatorId: box.creatorId }));
+  if (gmailSyncEnabled()) {
+    const watched = new Set<string>(WATCH_MAILBOXES.map((box) => box.email));
+    const rows = await db.select().from(creators);
+    for (const row of rows) {
+      const email = normalizeEmail(row.gmailEmail ?? "");
+      if (!email || !row.gmailRefreshToken || watched.has(email)) continue;
+      boxes.push({ email, creatorId: row.id });
+    }
+  }
+  for (const box of boxes) {
     const state = await gmailConnectionState(db, box.creatorId);
     if (!state.cipher || normalizeEmail(state.gmailEmail ?? "") !== box.email) {
       results.push({ mailbox: box.email, ok: false, error: "Mailbox is not connected." });
@@ -786,6 +839,22 @@ async function gmailGet(accessToken: string, path: string) {
     throw new Error(safeGoogleMessage("Gmail read failed", response.status, await readJsonBody(response), [accessToken]));
   }
   return { missing: false as const, json: await response.json() };
+}
+
+/** One attachment. This does not list a folder and it does not send mail. */
+export async function downloadGmailAttachment(refreshToken: string, messageId: string, attachmentId: string) {
+  const accessToken = await refreshGmailAccessToken(refreshToken);
+  const response = await fetch(`${GMAIL_API}/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) return null;
+  const json = await response.json() as { data?: string };
+  if (!json.data) return null;
+  const padded = json.data.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - (json.data.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return { bytes, mimeType: "application/octet-stream" };
 }
 
 /** History and message reads only. This client never calls send. */
@@ -884,6 +953,8 @@ export async function clearCreatorGmail(
   const watched = mailboxForCreator(creatorId);
   if (watched) await db.delete(gmailWatches).where(eq(gmailWatches.mailbox, watched.email));
   await db.delete(gmailWatches).where(eq(gmailWatches.creatorId, creatorId));
+  const { deleteBridgeForCreator } = await import("./gmail-bridge");
+  await deleteBridgeForCreator(db, creatorId);
   return { status: 200 as const, body: { ok: true as const, email: storedEmail, creatorId, cleared: true as const } };
 }
 
