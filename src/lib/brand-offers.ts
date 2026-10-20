@@ -4,7 +4,7 @@ import { campaignAllocations, campaigns, creators, deals } from "@/db/schema";
 import { brandKey, upsertBrandCrm } from "./brand-crm";
 import { latestRanks } from "./creator-rank";
 import { setDealStage } from "./deal-stage";
-import { rulesFor, videoMinimumCents } from "./deal-rules";
+import { dollarsToCents, rulesFor, videoMinimumCents } from "./deal-rules";
 import { agencyTimeZone, formatMoney, nowIso } from "./format";
 import { getDealStage } from "./stages";
 import type { Viewer } from "./types";
@@ -29,6 +29,21 @@ export function offerContactEmail(value: string | null | undefined): { ok: true;
     return { ok: false, error: "Use a real contact email, or leave it blank. Nothing was emailed." };
   }
   return { ok: true, email: trimmed };
+}
+
+export const OFFER_BUDGET_ERROR = "Enter each budget in dollars, like 500, or leave it blank.";
+
+/** Blank budgets are skipped. A budget that is not dollars is refused, so that creator is not dropped. */
+export function offerBudgetsFromRaw(rows: { creatorId: string; raw: string }[]): { ok: true; budgets: OfferBudget[] } | { ok: false; error: string } {
+  const budgets: OfferBudget[] = [];
+  for (const row of rows) {
+    const raw = row.raw.trim();
+    if (!raw) continue;
+    const amountCents = dollarsToCents(raw);
+    if (amountCents == null) return { ok: false, error: OFFER_BUDGET_ERROR };
+    budgets.push({ creatorId: row.creatorId, amountCents });
+  }
+  return { ok: true, budgets };
 }
 
 export type BrandOfferInput = {

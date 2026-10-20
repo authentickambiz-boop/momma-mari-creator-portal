@@ -180,8 +180,7 @@ export async function addBrandCrmEntry(
   if (input.kind === "response" && !isBrandResponse(input.response ?? "")) {
     return { ok: false, status: 400, error: "Choose interested, declined, no reply, or negotiating." };
   }
-  const known = await db.select({ brand: deals.brand }).from(deals);
-  if (!known.some((deal) => brandKey(deal.brand) === key)) {
+  if (!(await brandAlreadyListed(db, key))) {
     return { ok: false, status: 404, error: "That brand is not on a deal yet." };
   }
   const id = crypto.randomUUID();
@@ -197,6 +196,18 @@ export async function addBrandCrmEntry(
     createdAt: nowIso(),
   });
   return { ok: true, id };
+}
+
+/** A deal, a saved inquiry or offer, or an offer campaign is enough. This does not change any deal row. */
+async function brandAlreadyListed(db: PortalDb, key: string) {
+  const [dealRows, entries, offerRows] = await Promise.all([
+    db.select({ brand: deals.brand }).from(deals),
+    db.select({ brandKey: brandCrmEntries.brandKey }).from(brandCrmEntries),
+    db.select({ brand: campaigns.brand, kind: campaigns.kind }).from(campaigns),
+  ]);
+  return dealRows.some((deal) => brandKey(deal.brand) === key)
+    || entries.some((row) => row.brandKey === key)
+    || offerRows.some((row) => row.kind === "offer" && brandKey(row.brand) === key);
 }
 
 /** A public brand inquiry. It is stored on the brand list and nothing is emailed. */
