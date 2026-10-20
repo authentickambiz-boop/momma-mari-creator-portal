@@ -27,6 +27,7 @@ export default async function BrandsPage({ searchParams }: { searchParams: Promi
     >
       {params.saved ? <p className="note">Saved.</p> : null}
       {params.brandError ? <p className="private-note">{params.brandError}</p> : null}
+      {list.brands.length === 0 ? <p className="note">No brands on this list yet.</p> : null}
       <div className="stack">
         {list.brands.map((card) => (
           <article key={card.key} className="card">

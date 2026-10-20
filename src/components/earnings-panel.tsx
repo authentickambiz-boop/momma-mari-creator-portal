@@ -46,6 +46,7 @@ export function EarningsPanel({
       </div>
       <div className="card">
         <div className="sec-title">Money by deal</div>
+        {visible.length === 0 ? <p className="note">No deals on this list yet. Nothing is paid from this page.</p> : null}
         <div style={{ overflowX: "auto" }}>
           <table>
             <thead>
