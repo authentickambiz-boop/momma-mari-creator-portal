@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { campaignAllocations, campaigns, creators, deals } from "@/db/schema";
-import { brandKey, upsertBrandCrm } from "./brand-crm";
+import { brandKey, followUpValue, upsertBrandCrm } from "./brand-crm";
 import { latestRanks } from "./creator-rank";
 import { setDealStage } from "./deal-stage";
 import { dollarsToCents, rulesFor, videoMinimumCents } from "./deal-rules";
@@ -152,6 +152,8 @@ export async function createBrandOffer(db: PortalDb, viewer: Viewer, input: Bran
   if (!budgets.length) return { ok: false as const, error: "Enter a budget for at least one creator." };
   const contact = offerContactEmail(input.contactEmail);
   if (!contact.ok) return { ok: false as const, error: contact.error };
+  const follow = followUpValue(input.nextFollowUp);
+  if (!follow.ok) return { ok: false as const, error: follow.error };
   const { matches, flag } = await matchBrandOffer(db, { deliverables, budgets });
   const timestamp = nowIso();
   const id = crypto.randomUUID();
@@ -173,7 +175,7 @@ export async function createBrandOffer(db: PortalDb, viewer: Viewer, input: Bran
     contactName,
     contactEmail: contact.email,
     offerFlag: flag,
-    nextFollowUp: input.nextFollowUp?.trim() || null,
+    nextFollowUp: follow.value,
     kind: "offer",
   });
   const amounts = new Map(budgets.map((row) => [row.creatorId, row.amountCents]));
@@ -194,7 +196,7 @@ export async function createBrandOffer(db: PortalDb, viewer: Viewer, input: Bran
       creatorId: match.creatorId,
       ratePaidCents: amounts.get(match.creatorId) ?? match.amountCents,
       outcome: "offered",
-      nextFollowUp: input.nextFollowUp?.trim() || null,
+      nextFollowUp: follow.value,
       contactName,
       contactEmail: contact.email,
       actorName: viewer.name,
@@ -207,7 +209,7 @@ export async function createBrandOffer(db: PortalDb, viewer: Viewer, input: Bran
       creatorId: null,
       ratePaidCents: null,
       outcome: offerFlagLabel(flag),
-      nextFollowUp: input.nextFollowUp?.trim() || null,
+      nextFollowUp: follow.value,
       contactName,
       contactEmail: contact.email,
       actorName: viewer.name,
