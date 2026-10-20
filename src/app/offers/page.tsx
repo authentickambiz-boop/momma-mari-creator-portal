@@ -34,7 +34,7 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
       {offerError ? <p className="private-note">{offerError}</p> : null}
       {creatorView ? (
         <div className="stack">
-          {inbox.length === 0 ? <p className="note">No brand offers in your inbox.</p> : null}
+          {inbox.length === 0 ? <p className="note empty">No brand offers in your inbox.</p> : null}
           {inbox.map((offer) => (
             <article key={offer.id} className="card stack">
               <b>{offer.brand}</b>
@@ -85,7 +85,7 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
                 <p>{offer.deliverables.join(", ")} · {offer.platforms.join(", ")}</p>
                 <p>{offer.startsOn || "Start TBD"} to {offer.endsOn || "end TBD"}{offer.nextFollowUp ? ` · Follow-up ${offer.nextFollowUp}` : ""}</p>
                 {offer.flagLabel ? <p className="callout"><b>{offer.flagLabel}</b>{offer.flag === "pitch_retainer" ? " Momma Mari marketing services." : ""}</p> : null}
-                {offer.recipients.length === 0 ? <p className="note">No creator inbox received this. {offerFlagLabel(offer.flag) ?? ""}</p> : null}
+                {offer.recipients.length === 0 ? <p className="note empty">No creator inbox received this. {offerFlagLabel(offer.flag) ?? ""}</p> : null}
                 <ul>
                   {offer.recipients.map((person) => (
                     <li key={person.id}>

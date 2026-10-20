@@ -51,7 +51,7 @@ export default async function ReferralsPage({
         </section>
         <section className="card">
           <div className="sec-title">People she referred</div>
-          {rows.length === 0 ? <p className="note">No referrals yet. Nothing is paid.</p> : null}
+          {rows.length === 0 ? <p className="note empty">No referrals yet. Nothing is paid.</p> : null}
           <ul>
             {rows.map((row) => (
               <li key={row.id}>{row.referredName} · {row.referredEmail}</li>

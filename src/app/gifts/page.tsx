@@ -67,7 +67,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
       {portal.viewer.role === "admin" ? (
         <div className="card stack" id="gift-overdue" style={{ marginBottom: 14 }}>
           <div className="sec-title">Overdue</div>
-          {overdue.length === 0 ? <p className="note">No overdue videos.</p> : null}
+          {overdue.length === 0 ? <p className="note empty">No overdue videos.</p> : null}
           {overdue.map((row) => (
             <article key={row.id} className="choice stack">
               <b>{row.product}</b>
@@ -106,7 +106,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
       ) : null}
 
       <div className="stack">
-        {board.length === 0 ? <p className="note">No free products yet. Nothing is charged.</p> : null}
+        {board.length === 0 ? <p className="note empty">No free products yet. Nothing is charged.</p> : null}
         {board.map((offer) => (
           <article key={offer.id} className="card stack" id={`gift-${offer.id}`}>
             <b>{offer.product}</b>
@@ -137,7 +137,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
               </form>
             ) : null}
             {portal.viewer.role === "admin" ? (
-              offer.applicants.length === 0 ? <p className="note">No one has applied. Nothing is charged.</p> : offer.applicants.map((row) => (
+              offer.applicants.length === 0 ? <p className="note empty">No one has applied. Nothing is charged.</p> : offer.applicants.map((row) => (
                 <div key={row.id} className="choice stack">
                   <b>{row.name}</b>
                   <p className="note">{row.label} · terms {row.termsVersion} · accepted {row.termsAcceptedAt}</p>

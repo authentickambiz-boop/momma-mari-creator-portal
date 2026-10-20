@@ -88,7 +88,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     >
       <CheckoutSuccessNote checkout={params.checkout} />
       {inviteErrorNote(params.invite) ? <p className="private-note">{inviteErrorNote(params.invite)}</p> : null}
-      {params.noticeError ? <p className="note">{noticeErrorNote(params.noticeError) ?? "That notice was not dismissed. Nothing was changed."}</p> : null}
+      {params.noticeError ? <p className="note alert" role="alert">{noticeErrorNote(params.noticeError) ?? "That notice was not dismissed. Nothing was changed."}</p> : null}
       {platformInvites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} />)}
       {offersWaiting.length > 0 ? (
         <div className="callout">
@@ -133,7 +133,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           assistant={selected?.nextStep ?? null}
         />
       ) : null}
-      {creatorHome && creatorNeed.length === 0 ? <p className="note">Nothing needs you this week.</p> : null}
+      {creatorHome && creatorNeed.length === 0 ? <p className="note empty">Nothing needs you this week.</p> : null}
       {creatorNeed.length > 0 ? (
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="sec-title">Needs you</div>

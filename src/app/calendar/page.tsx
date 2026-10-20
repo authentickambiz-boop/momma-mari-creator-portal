@@ -26,7 +26,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {calendarError ? <p className="private-note">{calendarError}</p> : null}
-      {dates.length === 0 ? <p className="note">No due dates yet.</p> : null}
+      {dates.length === 0 ? <p className="note empty">No due dates yet.</p> : null}
       {dates.length > 0 ? (
         <div className="card">
           <table>

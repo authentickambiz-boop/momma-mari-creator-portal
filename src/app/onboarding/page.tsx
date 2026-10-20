@@ -68,12 +68,12 @@ export default async function OnboardingPage({
       }
     >
       <CheckoutSuccessNote checkout={params.checkout} />
-      {gmailError ? <p className="private-note">{gmailError}</p> : null}
-      {finishNote && !wizardOpen ? <p className="private-note">{finishNote}</p> : null}
+      {gmailError ? <p className="private-note" role="alert">{gmailError}</p> : null}
+      {finishNote && !wizardOpen ? <p className="private-note" role="alert">{finishNote}</p> : null}
       {params.connected === "1" ? <p className="callout">Email connected. Finish the questions below.</p> : null}
       {params.done === "1" ? <p className="callout">You&apos;re set. Kamron has &quot;New creator ready for bot&quot; and will set the bot up with you.</p> : null}
       {params.hosted === "1" ? <p className="callout">Kamron has your hosted-email request. You can finish the profile while that address is set up.</p> : null}
-      {!creator ? <p className="note">Pick a creator to see her profile.</p> : null}
+      {!creator ? <p className="note empty">Pick a creator to see her profile.</p> : null}
       {creator && !choice && own && !profile?.finishedAt ? <EmailSetupForm error={params.emailError ?? null} /> : null}
       {creator && !choice && !own ? <p className="note">{creator.name} chooses her email setup from her own sign-in.</p> : null}
       {creator && choice === "business" && !connection?.connected ? (

@@ -24,7 +24,7 @@ function ApplicationsCard({ applications, note }: { applications: CreatorApplica
       <div className="sec-title">Applications</div>
       <p className="note">New applications show up here. Nothing is emailed. Paid signup is not wired. Stripe stays off. Nothing is charged.</p>
       {note ? <p className="note">{note}</p> : null}
-      {applications.length === 0 ? <p>No applications yet.</p> : null}
+      {applications.length === 0 ? <p className="note empty">No applications yet.</p> : null}
       {applications.map((application) => (
         <div key={application.id} className="card" style={{ marginTop: 10 }}>
           <p><b>{application.name}</b> · {application.status}</p>
@@ -59,7 +59,7 @@ function FulfillmentCard({ orders, enabled }: { orders: Awaited<ReturnType<typeo
       {enabled ? (
         <>
           <p className="note">Paid one-time orders wait here. A bot claims one, then delivers a file or a link. Delivered work carries the Momma Mari logo and {BRAND_CREDIT}.</p>
-          {orders.length === 0 ? <p>No orders yet.</p> : (
+          {orders.length === 0 ? <p className="note empty">No orders yet.</p> : (
             <table className="fulfillment-table">
               <thead><tr><th>Creator</th><th>Product</th><th>Status</th><th>Created</th><th>Due</th></tr></thead>
               <tbody>
@@ -88,7 +88,7 @@ function SignedCreatorsCard({ people }: { people: Awaited<ReturnType<typeof list
     <div className="card" style={{ marginTop: 14 }}>
       <div className="sec-title">Signed creators</div>
       <p className="note">A signed creator gets media kits, rate cards, contract reviews, and starter kits included. {memberServiceIncluded(MEMBER_ONE_TIME_PERCENT_OFF.business) ? "An active Business member gets the same services included." : `Business members get ${MEMBER_ONE_TIME_PERCENT_OFF.business}% off.`} The request goes to the queue and does not open Checkout. Plus members get {MEMBER_ONE_TIME_PERCENT_OFF.plus}% off. Pro members get {MEMBER_ONE_TIME_PERCENT_OFF.pro}% off.</p>
-      {people.length === 0 ? <p>No creators yet.</p> : (
+      {people.length === 0 ? <p className="note empty">No creators yet.</p> : (
         <table>
           <thead><tr><th>Creator</th><th>Contract</th><th></th></tr></thead>
           <tbody>
@@ -136,7 +136,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <PortalFrame viewer={portal.viewer} tab="dashboard" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Dashboard</h1>}>
         {notices}
         {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
-        {signedNote ? <p className="private-note">{signedNote}</p> : null}
+        {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
         <p className="note">Pipeline value, commission, and win rate stay on the owner&apos;s sign-in.</p>
       </PortalFrame>
     );
@@ -154,7 +154,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <PortalFrame viewer={portal.viewer} tab="dashboard" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Dashboard</h1>}>
         {notices}
         {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
-        {signedNote ? <p className="private-note">{signedNote}</p> : null}
+        {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
         <ApplicationsCard applications={applications} note={applyNote} />
         <FulfillmentCard orders={orders} enabled={paymentsOn} />
         <SignedCreatorsCard people={signing} />
@@ -172,7 +172,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     >
       {notices}
       {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
-      {signedNote ? <p className="private-note">{signedNote}</p> : null}
+      {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
       <ApplicationsCard applications={applications} note={applyNote} />
       <FulfillmentCard orders={orders} enabled={paymentsOn} />
       <SignedCreatorsCard people={signing} />
