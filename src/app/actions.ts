@@ -15,6 +15,7 @@ import { clearSafetyHold } from "@/lib/safety";
 import { draftMonthlyReport, reportErrorCode } from "@/lib/report";
 import { recordReferral, setReferralPerk } from "@/lib/referrals";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
+import { reviewErrorCode } from "@/lib/review-notes";
 import { setDealStage } from "@/lib/deal-stage";
 import { confirmLivePost, confirmProductReceived, markPayment, paymentErrorCode, saveShipment, submitLivePosts } from "@/lib/fulfillment";
 import { isEmailSetup } from "@/lib/email-setup";
@@ -172,16 +173,7 @@ export async function reviewDraftAction(formData: FormData) {
     actorEmail: viewer.email,
     actorRole: viewer.role,
   });
-  if (!result.ok) {
-    const code = result.error.includes("held for Kamron")
-      ? "held"
-      : result.status === 400 && result.error.includes("brand email")
-        ? "email"
-        : result.status === 400
-          ? "note"
-          : "1";
-    redirect(`${back}${query ? "&" : "?"}reviewError=${code}`);
-  }
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}reviewError=${reviewErrorCode(result.error)}`);
   redirect(back);
 }
 
