@@ -301,6 +301,54 @@ export const RATE_FIELDS = [
   "Blog post",
 ] as const;
 
+/** Reads the same field names the signup form posts. Every rate and handle on that form is kept. */
+export function questionnaireFieldPatch(
+  step: string,
+  value: (name: string) => string,
+  values: (name: string) => string[],
+): Partial<QuestionnaireAnswers> {
+  const patch: Partial<QuestionnaireAnswers> = {};
+  if (step === "niches") patch.niches = values("niches");
+  if (step === "platforms") {
+    patch.platforms = values("platforms");
+    patch.handles = Object.fromEntries(PLATFORM_OPTIONS.map((platform) => [platform, value(`handle${platform}`)]));
+  }
+  if (step === "audience") {
+    patch.audienceSize = value("audienceSize");
+    patch.audienceAge = value("audienceAge");
+    patch.genderSplit = value("genderSplit");
+    patch.locations = values("locations");
+  }
+  if (step === "formats") patch.formats = values("formats");
+  if (step === "frequency") patch.frequency = value("frequency");
+  if (step === "rates") {
+    patch.rates = Object.fromEntries(RATE_FIELDS.map((field) => [field, value(`rate${field}`)]));
+    patch.minVideo = value("minVideo");
+    patch.typicalRate = value("typicalRate");
+    patch.maxSponsored = value("maxSponsored");
+    patch.willDo = values("willDo");
+    patch.wontDo = values("wontDo");
+    patch.acceptGifted = value("acceptGifted");
+    patch.acceptCommissionOnly = value("acceptCommissionOnly");
+  }
+  if (step === "brands") {
+    patch.brands = values("brands");
+    patch.blocked = values("blocked");
+  }
+  if (step === "kids") {
+    patch.kidAges = values("kidAges");
+    patch.kidsConfirm = value("kidsConfirm") === "1";
+  }
+  if (step === "camera") patch.onCamera = value("onCamera");
+  if (step === "availability") {
+    patch.availability = value("availability");
+    patch.turnaround = value("turnaround");
+  }
+  if (step === "shipping") patch.shipping = value("shipping");
+  if (step === "languages") patch.languages = values("languages");
+  return patch;
+}
+
 export function stepProblem(step: QuestionStepId, answers: QuestionnaireAnswers) {
   if (step === "niches" && answers.niches.length === 0) return "Pick at least one niche.";
   if (step === "platforms" && answers.platforms.length === 0) return "Pick at least one platform.";

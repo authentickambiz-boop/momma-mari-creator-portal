@@ -68,7 +68,8 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           <p key={row.id}>{names.get(row.creatorId ?? "") ?? "Creator"}{priced ? ` · ${formatMoney(row.amountCents)}` : ""}</p>
         )) : <p className="note">No creators are assigned yet.</p>}
         {commission != null ? <p>Projected commission {formatMoney(commission)} (20%)</p> : null}
-        {portal.viewer.role === "admin" && ranked.length > 0 ? (
+        {campaign.kind === "offer" ? <p className="note">This is a brand offer. <Link href="/offers">Open brand offers</Link> to change who receives it.</p> : null}
+        {campaign.kind !== "offer" && portal.viewer.role === "admin" && ranked.length > 0 ? (
           <form action={allocateCampaignAction} className="stack">
             <input type="hidden" name="campaignId" value={campaign.id} />
             <label>
@@ -82,14 +83,14 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           </form>
         ) : null}
       </div>
-      {portal.viewer.role === "admin" && !rosterHasAFit(ranked) && !campaign.openOutside ? (
+      {campaign.kind !== "offer" && portal.viewer.role === "admin" && !rosterHasAFit(ranked) && !campaign.openOutside ? (
         <form action={markOutsideAction} className="card stack" style={{ marginTop: 14 }}>
           <input type="hidden" name="campaignId" value={campaign.id} />
           <p>No roster creator clears her rules for this budget. You can use it as a recruiting offer.</p>
           <button className="btn" type="submit">Open to outside creators</button>
         </form>
       ) : null}
-      {portal.viewer.role === "admin" && campaign.openOutside ? (
+      {campaign.kind !== "offer" && portal.viewer.role === "admin" && campaign.openOutside ? (
         <form action={queueOutsideOfferAction} className="card stack" style={{ marginTop: 14 }}>
           <input type="hidden" name="campaignId" value={campaign.id} />
           <div className="sec-title">Recruiting offer</div>

@@ -3,21 +3,19 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
-import { createBrandOffer, respondToOffer } from "@/lib/brand-offers";
-import { dollarsToCents } from "@/lib/deal-rules";
+import { createBrandOffer, offerBudgetsFromRaw, respondToOffer } from "@/lib/brand-offers";
 
 export async function createBrandOfferAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer) redirect("/login");
   const db = await getDb();
   const creatorIds = formData.getAll("creatorId").map((value) => String(value));
-  const budgets = creatorIds.flatMap((creatorId) => {
-    const raw = String(formData.get(`budget-${creatorId}`) ?? "").trim();
-    if (!raw) return [];
-    const amountCents = dollarsToCents(raw);
-    if (amountCents == null) return [{ creatorId, amountCents: -1 }];
-    return [{ creatorId, amountCents }];
-  });
+  const parsed = offerBudgetsFromRaw(creatorIds.map((creatorId) => ({
+    creatorId,
+    raw: String(formData.get(`budget-${creatorId}`) ?? ""),
+  })));
+  if (!parsed.ok) redirect(`/offers?offerError=${encodeURIComponent(parsed.error)}`);
+  const budgets = parsed.budgets;
   const result = await createBrandOffer(db, viewer, {
     brand: String(formData.get("brand") ?? ""),
     contactName: String(formData.get("contactName") ?? ""),

@@ -16,14 +16,12 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Before merge
 
 1. Read `docs/overnight-log.md` for the open pull requests.
-2. Already on `main`: `#41` (`da74005`), `#42` (`4d53916`), `#46` (`08655f5`), `#43` (`bc51ed7`), `#44` (`8349259`), `#48` (`3df3b46`), `#47` (`73950a6`), `#50` (`4ee1322`), `#51` (`02574a4`), `#49` (`709d83a`), `#52` (`d497e50`), `#53` (`4af6c94`), `#54` (`2a50833`), `#55` (`5ecdc2b`), `#56` (`428cad4`), `#57` (`e7a5dc0`), `#58` (`f12169b`), `#59` (`f84722f`), `#60` (`8a55515`), and `#62` (`ed05211`). Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. A dead Gmail inbox is already acknowledged. A missing message, a draft, and internal mail do not stall the cursor. Watch renewal keeps the history cursor. History pages are followed. Newsletters and spam do not open a new deal. Phone forms stack, and long checkbox labels stay on the phone page. Public pages hide creator chat and show a roster count. The dashboard, brand offers, campaign budgets, and Free products say what they do. A reply draft, a rate, and saved dates show a note on the deal. Connect, Access, campaigns, and a quiet creator week say what happened. Stripe stays off. Free products and Access are on `main`.
-3. `#45` still has no file changes versus current `main` (`ed05211`). The phone scrolling and the Connect accounts tab already shipped inside `#47`. Leave `#45` open for Kamron to close.
-4. Merge `#61` (a second inbox page when history has expired, up to 40 messages). It edits the Gmail watch and does not edit these docs. Mail older than those 40 messages is still not recovered. Nothing is sent.
-5. Merge `#63` (an empty earnings, rank, report, manager, or brand list says so; the error page links back to deals; a phone keeps the active tab in view). It does not edit these docs. Nothing is emailed, paid, or charged.
-6. Merge `#64` (Settings, deal rules, a profile, the calendar, prospects, analytics, a pod, a media kit, and usage rights say a save did not email anyone). It does not edit these docs. Nothing is paid or charged.
-7. Merge `#65` (Support says there are no notes yet, and an unknown billing code says nothing was charged). This checklist is only in that pull request.
-8. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
-9. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file.
+2. Already on `main` (`cd2c74c`): `#41` through `#72`, except `#45`. The newest of those are `#68` (`1361a90`), `#69` (`66f14da`), `#70` (`1c4849d`), `#71` (`da6210e`), and `#72` (`cd2c74c`). `#61` (`fe295ac`) reads a second inbox page, up to 40 messages. Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. Stripe, BoldSign, and push stay off.
+3. `#45` still has no file changes versus current `main` (`cd2c74c`). Leave it open for Kamron to close.
+4. `#73` is still open. It only changes the note for an unknown Gmail code on onboarding. The merger is handling it. It does not edit these docs.
+5. [#74](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/74) is the launch smoke pass. A brand inquiry can take a response and a contact before any deal exists. Signup keeps every rate and handle the form asks for, including a YouTube minimum and a Twitch handle. A brand-offer budget that is not dollars is refused instead of skipping that creator. `npx tsc --noEmit` is clean. `npm test` is 89 passing.
+6. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
+7. Run the portal tests on `main` again after `#73` merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file.
 
 ## Gmail, still before paid features
 
@@ -45,21 +43,18 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 
 1. Link mommamari.com to `/portal/services`, `/portal/roster`, and `/portal/inquire`, or move those pages onto the marketing site later.
 2. The roster grows when a creator row is added. It shows a name, initials, a public count, and the line “On the Momma Mari roster.” Email, handles, pay, and kids’ ages stay off that page.
-3. Services links to the inquiry form. A brand inquiry shows up on Brands for Kamron. The button saves the contact. It does not send email. Reply from the approval queue when you want a message to go out, from `authentickambiz@gmail.com`.
+3. Services links to the inquiry form. A brand inquiry shows up on Brands for Kamron, and he can save a response or another contact on that card before the brand is on a deal. The button saves the contact. It does not send email. Reply from the approval queue when you want a message to go out, from `authentickambiz@gmail.com`.
 
 ## Still waiting
 
-- Free Products and Access are on `main` via `#47`. The gifted terms are still DRAFT, pending lawyer review. Nothing on that page is charged.
-- Gmail history older than the latest 40 inbox messages is not recovered. `#48` covers the recent inbox, and `#61` reads one more page of 20. A failed later page does not move the cursor.
-- Gmail history pages beyond the first five on one push are retried by Pub/Sub. `#50` is on `main`. The cursor does not jump past unread pages.
-- Newsletters and spam stay off new deals. That shipped in `#53`. `#58` also skips drafts and mail whose From is a watched inbox. That is on `main`.
-- A reply draft, a rate confirmation, and saved dates show a note on the deal. That shipped in `#60`. An empty draft and a rate that is not dollars write nothing. Nothing is emailed or paid. `#61` does not change that.
-- Connect, Access, campaigns, and a quiet creator week say what happened. That shipped in `#62`. An unknown connection says to try again. The one-time bot token is called out. Nothing is emailed or charged.
-- Empty earnings, ranks, reports, managers, and brands say the list is empty once `#63` is merged. Ranking and Brands also say a save did not email anyone. The error page says nothing was emailed or charged and links back to deals. A missing page says nothing was changed. On a phone, the active tab scrolls into view.
-- A save on Settings, deal rules, a profile, the calendar, prospects, analytics, a pod, a media kit, and usage rights says nothing was emailed once `#64` is merged. A media kit and usage rights also say nothing was charged.
-- Support says there are no notes yet once `#65` is merged. An unknown billing code says nothing was charged. Stripe stays off.
-- A brand offer is saved on the creator's portal. The button says Save offer. A `.invalid` contact is refused. Nothing is emailed.
-- A campaign filter that is not a dollar amount stays on the board with an error, instead of being ignored.
-- The dashboard shows the reinvestment error, and a saved target says nothing was paid or billed.
-- The approval-queue email bridge is not built.
-- An attorney still needs to review the e-sign wording.
+- `#45` has no file changes versus `main` (`cd2c74c`). Leave it open for Kamron to close.
+- `#73` is still open. It is a note for an unknown Gmail code on onboarding. Merge it when the hourly merger does. It does not change signup, connect, deals, offers, or the brand list.
+- Reconnect MariClare’s watched inbox (`mmaclamroc@gmail.com`) after deploy. The saved refresh token still fails with `unauthorized_client` until she connects that inbox again. Signing out is not required.
+- Mail older than the latest 40 inbox messages is not recovered. A failed later page does not move the cursor.
+- Cloud Scheduler for `POST /portal/api/cron/gmail-watch` is still a manual step. Leave it until the next brand payment.
+- Leave `STRIPE_ENABLED`, `STRIPE_SECRET_KEY`, `BOLDSIGN_ENABLED`, and `PUSH_ENABLED` empty. Nothing is charged, and creators keep signing on this site.
+- Leave `TOKEN_ENCRYPTION_KEY` as the key already set on Webflow Cloud. Do not rotate it from a pull request.
+- The approval-queue email bridge is not built. Everything that would leave the portal still waits in that queue. The from address stays `authentickambiz@gmail.com`.
+- Have an attorney review the e-sign wording and the gifted terms before relying on them. Those notes stay on the sign page and Free products. Nothing on Free products is charged.
+- Public pages stay under the portal mount (`/portal/services`, `/portal/roster`, `/portal/inquire`) until the Webflow marketing site links to them.
+- Google restricted-scope review (and CASA, if Google requires it) is still outstanding for the Gmail watch.

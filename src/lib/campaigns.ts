@@ -255,6 +255,7 @@ export async function allocateCampaign(
   if (viewer.role !== "admin") return { ok: false as const, error: "Only an owner can split a campaign." };
   const campaign = await campaignById(db, input.campaignId);
   if (!campaign) return { ok: false as const, error: "That campaign is not on the board." };
+  if (campaign.kind === "offer") return { ok: false as const, error: "Brand offers are changed on the offers page." };
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) return { ok: false as const, error: "Enter how much of the budget she gets." };
   const creator = await db.select().from(creators).where(eq(creators.id, input.creatorId));
   if (!creator[0]) return { ok: false as const, error: "That creator is not on the roster." };
@@ -277,6 +278,7 @@ export async function markOpenOutside(db: PortalDb, viewer: Viewer, campaignId: 
   if (viewer.role !== "admin") return { ok: false as const, error: "Only an owner can open a campaign to outside creators." };
   const campaign = await campaignById(db, campaignId);
   if (!campaign) return { ok: false as const, error: "That campaign is not on the board." };
+  if (campaign.kind === "offer") return { ok: false as const, error: "Brand offers are changed on the offers page." };
   const ranked = await rankRoster(db, campaign);
   if (rosterHasAFit(ranked)) return { ok: false as const, error: "A roster creator still fits this campaign." };
   await db.update(campaigns).set({ openOutside: true, updatedAt: nowIso() }).where(eq(campaigns.id, campaignId));
@@ -335,6 +337,7 @@ export async function queueOutsideOffer(
   if (viewer.role !== "admin") return { ok: false as const, error: "Only an owner can queue an outside offer." };
   const campaign = await campaignById(db, input.campaignId);
   if (!campaign) return { ok: false as const, error: "That campaign is not on the board." };
+  if (campaign.kind === "offer") return { ok: false as const, error: "Brand offers are changed on the offers page." };
   if (!campaign.openOutside) return { ok: false as const, error: "This campaign is still for the roster." };
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) return { ok: false as const, error: "Enter the offer amount." };
   const prospectRows = await db.select().from(prospects).where(eq(prospects.id, input.prospectId));
