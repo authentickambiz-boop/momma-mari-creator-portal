@@ -4,12 +4,13 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
 import { dollarsToCents } from "@/lib/deal-rules";
+import { dealNoticeCode } from "@/lib/deal-notice-notes";
 import { askCreatorToConfirmRate, confirmAgreedRate, dealFlagQuery, editDealReview, publishDealReview, rejectDealReview, saveBrandReplyDraft } from "@/lib/deal-review";
 
 function back(dealId: string, error?: string) {
   const query = new URLSearchParams();
   if (dealId) query.set("deal", dealId);
-  if (error) query.set("reviewError", error);
+  if (error) query.set("reviewError", dealNoticeCode(error));
   const suffix = query.toString();
   return suffix ? `/review?${suffix}` : "/review";
 }
@@ -70,7 +71,7 @@ export async function saveReplyDraftAction(formData: FormData) {
   const stay = String(formData.get("back") ?? "");
   const creator = String(formData.get("creator") ?? "");
   if (!result.ok) {
-    if (stay === "deal") redirect(dealFlagQuery({ dealId, creator, replyError: result.error }));
+    if (stay === "deal") redirect(dealFlagQuery({ dealId, creator, replyError: dealNoticeCode(result.error) }));
     redirect(back(dealId, result.error));
   }
   if (stay === "deal") redirect(dealFlagQuery({ dealId, creator, reply: "saved" }));
@@ -86,7 +87,7 @@ export async function askRateAction(formData: FormData) {
   const result = await askCreatorToConfirmRate(db, { dealId: String(formData.get("dealId") ?? ""), actorRole: viewer.role });
   const dealId = String(formData.get("dealId") ?? "");
   const creator = String(formData.get("creator") ?? "");
-  if (!result.ok) redirect(dealFlagQuery({ dealId, creator, rateError: result.error }));
+  if (!result.ok) redirect(dealFlagQuery({ dealId, creator, rateError: dealNoticeCode(result.error) }));
   redirect(dealFlagQuery({ dealId, creator, rate: "asked" }));
 }
 
@@ -101,7 +102,7 @@ export async function confirmRateAction(formData: FormData) {
   });
   const dealId = String(formData.get("dealId") ?? "");
   const creator = String(formData.get("creator") ?? "");
-  if (!result.ok) redirect(dealFlagQuery({ dealId, creator, rateError: result.error }));
+  if (!result.ok) redirect(dealFlagQuery({ dealId, creator, rateError: dealNoticeCode(result.error) }));
   redirect(dealFlagQuery({ dealId, creator, rate: "confirmed" }));
 }
 
@@ -113,7 +114,7 @@ export async function ownerDealFlagsAction(formData: FormData) {
   const dealId = String(formData.get("dealId") ?? "");
   const creator = String(formData.get("creator") ?? "");
   if (dollars && dollarsToCents(dollars) == null) {
-    redirect(dealFlagQuery({ dealId, creator, datesError: "Enter the rate in dollars." }));
+    redirect(dealFlagQuery({ dealId, creator, datesError: dealNoticeCode("Enter the rate in dollars.") }));
   }
   const result = await editDealReview(db, {
     dealId,
@@ -123,6 +124,6 @@ export async function ownerDealFlagsAction(formData: FormData) {
     rushRevision: formData.get("rushRevision") === "1",
     rateCents: dollars ? dollarsToCents(dollars) ?? undefined : undefined,
   });
-  if (!result.ok) redirect(dealFlagQuery({ dealId, creator, datesError: result.error }));
+  if (!result.ok) redirect(dealFlagQuery({ dealId, creator, datesError: dealNoticeCode(result.error) }));
   redirect(dealFlagQuery({ dealId, creator, dates: "saved" }));
 }
