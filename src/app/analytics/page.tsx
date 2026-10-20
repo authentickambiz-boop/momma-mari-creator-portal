@@ -3,6 +3,7 @@ import { AnalyticsPanel } from "@/components/analytics-panel";
 import { SnapshotBoard } from "@/components/analytics-snapshots";
 import { PortalFrame } from "@/components/portal-frame";
 import { analyticsBoard } from "@/lib/analytics-snapshots";
+import { snapshotErrorNote } from "@/lib/snapshot-notes";
 import { loadPortal } from "@/lib/current-user";
 import { PLATFORM_OPTIONS } from "@/lib/niche-catalog";
 import { listDailyMetrics, listPostMetrics } from "@/lib/queries";
@@ -27,7 +28,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       hello={<div className="hello"><div><h1>Analytics</h1><p>Each Monday a snapshot is saved per platform. This card is the latest week, the change from the week before, and the trend. A blank means that number was not shown.</p></div></div>}
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
-      {params.snapshotError ? <p className="private-note">{params.snapshotError}</p> : null}
+      {snapshotErrorNote(params.snapshotError) ? <p className="private-note">{snapshotErrorNote(params.snapshotError)}</p> : null}
       <SnapshotBoard creators={shown} showRevenue={board.showRevenue} />
       {portal.viewer.role === "admin" && portal.viewed ? (
         <form action={saveAnalyticsSnapshotAction} className="card stack" style={{ marginTop: 14 }}>

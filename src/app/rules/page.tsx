@@ -4,6 +4,7 @@ import { TagPicker } from "@/components/tag-picker";
 import { loadPortal } from "@/lib/current-user";
 import { BRAND_OPTIONS, NICHE_CATALOG } from "@/lib/niche-catalog";
 import { canEditRules, canViewRules, DELIVERABLES, pricingFloor, rulesFor, savedRules } from "@/lib/deal-rules";
+import { rulesErrorNote } from "@/lib/rules-notes";
 import { formatMoney } from "@/lib/format";
 
 function dollars(cents: number | undefined) {
@@ -44,7 +45,7 @@ export default async function RulesPage({ searchParams }: { searchParams: Promis
       hello={<div className="hello"><div><h1>Deal rules</h1><p>What {creator.name} will consider. Filled in from her questionnaire and past accepted deals.</p></div></div>}
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
-      {params.rulesError ? <p className="private-note">{params.rulesError}</p> : null}
+      {rulesErrorNote(params.rulesError) ? <p className="private-note">{rulesErrorNote(params.rulesError)}</p> : null}
       {!stored ? <p className="callout">These numbers are a starting point from her questionnaire and past deals. Save them to lock them in.</p> : null}
       <form action={saveDealRulesAction} className="card stack">
         <input type="hidden" name="creatorId" value={creator.id} />

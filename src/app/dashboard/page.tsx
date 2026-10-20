@@ -4,14 +4,16 @@ import { PortalFrame } from "@/components/portal-frame";
 import { ownerDashboard } from "@/lib/campaigns";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
+import { growthErrorNote } from "@/lib/growth-notes";
 import { listPlatformInvites } from "@/lib/platform-invites";
 import { REINVEST_CATEGORIES, reinvestmentSummary } from "@/lib/reinvestment";
 import { getDealStage } from "@/lib/stages";
 
 function DashboardNotices({ growthError, saved }: { growthError?: string; saved?: string }) {
+  const note = growthErrorNote(growthError);
   return (
     <>
-      {growthError ? <p className="private-note">{growthError}</p> : null}
+      {note ? <p className="private-note">{note}</p> : null}
       {saved ? <p className="note">Saved. Nothing was paid or billed.</p> : null}
     </>
   );

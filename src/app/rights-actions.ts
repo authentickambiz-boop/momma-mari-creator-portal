@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
+import { rightsErrorCode } from "@/lib/rights-notes";
 import { saveUsageRights } from "@/lib/usage";
 
 export async function saveUsageRightsAction(formData: FormData) {
@@ -17,6 +18,6 @@ export async function saveUsageRightsAction(formData: FormData) {
     actorEmail: viewer.email,
     actorRole: viewer.role,
   });
-  if (!result.ok) redirect(`/rights?rightsError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/rights?rightsError=${rightsErrorCode(result.error)}`);
   redirect("/rights?saved=1");
 }

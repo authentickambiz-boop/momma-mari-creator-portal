@@ -299,6 +299,12 @@ export async function upsertPayment(db: PortalDb, body: unknown) {
   const paymentStatus = "paymentStatus" in body
     ? (body.paymentStatus === null ? null : String(body.paymentStatus))
     : current?.paymentStatus ?? null;
+  for (const name of ["dueDate", "landedDate", "payoutApprovedOn", "paidOutDate"] as const) {
+    const value = body[name];
+    if (typeof value === "string" && isFakeCalendarDay(value)) {
+      return { status: 400, body: { error: `${name} must be a real day like 2026-11-20.` } };
+    }
+  }
   const basis = landedAmountCents ?? amountOwedCents;
   const share = feeAndPayout(basis);
   const creatorPayoutCents = share.payoutCents;
@@ -335,11 +341,19 @@ export async function upsertPayment(db: PortalDb, body: unknown) {
   return { status: 201, body: { id, creatorSplitPercent: CREATOR_PAYOUT_PERCENT, creatorPayoutCents, paymentStatus } };
 }
 
+/** A real calendar day. 2026-02-31 matches the shape and is still refused. */
+function isCalendarDay(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
 export async function writeDailyAnalytics(db: PortalDb, body: unknown) {
   if (!isRecord(body) || typeof body.date !== "string" || typeof body.platform !== "string") {
     return { status: 400, body: { error: "date (YYYY-MM-DD) and platform are required." } };
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date)) {
+  if (!isCalendarDay(body.date)) {
     return { status: 400, body: { error: "date must be YYYY-MM-DD." } };
   }
   const creator = typeof body.creatorEmail === "string"

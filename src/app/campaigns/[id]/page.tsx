@@ -13,6 +13,7 @@ import {
   rankRoster,
   rosterHasAFit,
 } from "@/lib/campaigns";
+import { campaignErrorNote } from "@/lib/campaign-notes";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
 
@@ -34,6 +35,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
   const priced = canSeeMoney(portal.viewer);
   const commission = canSeeCommission(portal.viewer) ? projectedCommission(allocations.map((row) => row.amountCents)) : null;
   const names = new Map(ranked.map((row) => [row.creatorId, row.name]));
+  const campaignError = campaignErrorNote(query.campaignError);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -44,7 +46,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
     >
       {query.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {query.queued ? <p className="note">The offer is in the approval queue. Nothing was sent.</p> : null}
-      {query.campaignError ? <p className="private-note">{query.campaignError}</p> : null}
+      {campaignError ? <p className="private-note">{campaignError}</p> : null}
       <div className="card">
         <p>{campaign.niches.join(", ") || "Any niche"} · {campaign.platforms.join(", ") || "Any platform"} · {campaign.deliverables.join(", ") || "Deliverables TBD"}</p>
         <p>{campaign.slots} creator slots · {campaign.status}{campaign.openOutside ? " · Open to outside creators" : ""}</p>

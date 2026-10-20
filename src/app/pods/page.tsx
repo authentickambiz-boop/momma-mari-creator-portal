@@ -5,6 +5,7 @@ import { SIZE_BANDS } from "@/lib/creator-rank";
 import { loadPortal } from "@/lib/current-user";
 import { listManagers } from "@/lib/managers";
 import { listPods, suggestPods } from "@/lib/pods";
+import { growthErrorNote } from "@/lib/growth-notes";
 
 export default async function PodsPage({ searchParams }: { searchParams: Promise<{ creator?: string; saved?: string; growthError?: string }> }) {
   const params = await searchParams;
@@ -12,6 +13,7 @@ export default async function PodsPage({ searchParams }: { searchParams: Promise
   const pods = await listPods(portal.db, portal.viewer);
   const suggestion = portal.viewer.role === "admin" ? await suggestPods(portal.db, portal.viewer) : null;
   const managers = portal.viewer.role === "admin" ? await listManagers(portal.db) : [];
+  const growthNote = growthErrorNote(params.growthError);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -20,7 +22,7 @@ export default async function PodsPage({ searchParams }: { searchParams: Promise
       viewedId={portal.viewedId}
       hello={<div className="hello"><div><h1>Pods</h1><p>Creators grouped by niche and size. You only see the pods that belong to your sign-in.</p></div></div>}
     >
-      {params.growthError ? <p className="private-note">{params.growthError}</p> : null}
+      {growthNote ? <p className="private-note">{growthNote}</p> : null}
       <div className="stack">
         {pods.map((pod) => (
           <Link className="card" key={pod.id} href={`/pods/${pod.id}`}>

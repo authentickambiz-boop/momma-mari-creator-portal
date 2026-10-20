@@ -4,10 +4,11 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { approveBenchOffer, joinBench, promoteBench, queueBenchOffer, recordBenchPaid, setBenchScore } from "@/lib/bench";
 import { currentViewer } from "@/lib/current-user";
+import { benchErrorCode } from "@/lib/bench-notes";
 import { dollarsToCents } from "@/lib/deal-rules";
 
 function back(path: string, error: string): never {
-  return redirect(`${path}${path.includes("?") ? "&" : "?"}benchError=${encodeURIComponent(error)}`);
+  return redirect(`${path}${path.includes("?") ? "&" : "?"}benchError=${benchErrorCode(error)}`);
 }
 
 export async function joinBenchAction(formData: FormData) {
