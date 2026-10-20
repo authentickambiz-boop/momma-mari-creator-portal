@@ -60,11 +60,12 @@ export async function moderateProfileAction(formData: FormData) {
   if (!viewer) redirect("/login");
   const db = await getDb();
   const action = formData.get("moderation") === "reset" ? "reset" : "hide";
-  await moderateProfileField(db, viewer, {
+  const result = await moderateProfileField(db, viewer, {
     creatorId: String(formData.get("creatorId") ?? ""),
     field: String(formData.get("field") ?? ""),
     action,
     reason: String(formData.get("reason") ?? ""),
   });
-  redirect("/directory");
+  if (!result.ok) redirect(`/directory?directoryError=${encodeURIComponent(result.error)}`);
+  redirect("/directory?saved=1");
 }
