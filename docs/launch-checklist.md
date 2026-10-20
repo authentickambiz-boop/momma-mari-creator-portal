@@ -16,15 +16,11 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Before merge
 
 1. Read `docs/overnight-log.md` for the open pull requests.
-2. `#41` is already on `main` (`da74005`), including migration `0036`.
-3. Merge `#42` so a dead Gmail inbox is acknowledged and Pub/Sub stops retrying it.
-4. Merge `#43` while Stripe is still off. Confirm Webflow env still has `STRIPE_ENABLED` empty.
-5. Merge `#44` for `/services`, `/roster`, and `/inquire`.
-6. Merge `#45` so creators see Connect accounts. On a phone, wide tables scroll.
-7. Merge `#46` so this checklist and the overnight log are on `main`.
-8. Merge `#47` so Access and Free products are on `main`. It adds migrations `0037` and `0038`. If `#45` is already merged, refresh `#47` first when the tab bar conflicts.
-9. Merge `#48` so an expired Gmail history id backfills the latest 20 inbox messages. If `#42` is already merged, refresh `#48` first when the push handler conflicts.
-10. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`).
+2. `#41` (`da74005`), `#42` (`4d539163`), and `#46` (`08655f54`) are already on `main`. Migration `0036` shipped with `#41`. A dead Gmail inbox is already acknowledged.
+3. Merge `#43`, `#44`, `#45`, and `#48` in any order. Each one keeps its new tests in its own file, so they no longer fight over `tests/portal.test.ts`.
+4. Merge `#47` for Access and Free products. It adds migrations `0037` and `0038`. The only conflict with `#45` is `src/lib/portal-tabs.ts`. Keep `#47`’s copy, whether `#45` lands first or second. That file is the Connect-accounts list plus Free products and Access.
+5. Confirm Webflow env still has `STRIPE_ENABLED` empty after `#43`.
+6. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file once the first of those pull requests lands.
 
 ## Gmail, still before paid features
 
@@ -51,6 +47,6 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Still waiting
 
 - Free Products and Access are in `#47`, waiting to merge. The gifted terms are still DRAFT, pending lawyer review. Nothing on that page is charged.
-- Gmail history older than the latest 20 inbox messages is not recovered. `#48` covers that recent page.
+- Gmail history older than the latest 20 inbox messages is not recovered. `#48` covers that recent page, and it already includes the dead-token acknowledgement from `#42`.
 - The approval-queue email bridge is not built.
 - An attorney still needs to review the e-sign wording.
