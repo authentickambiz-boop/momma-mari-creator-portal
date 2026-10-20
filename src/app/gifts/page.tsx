@@ -12,6 +12,7 @@ import { GIFTED_TERMS_TEXT, GIFTED_TERMS_VERSION } from "@/config/gifted-terms";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
 import { listGiftedBoard, listGiftedOverdue } from "@/lib/gifted";
+import { giftErrorNote } from "@/lib/gift-notes";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ function TermsNote() {
 
 export default async function GiftsPage({ searchParams }: { searchParams: Promise<{ saved?: string; giftsError?: string }> }) {
   const params = await searchParams;
+  const giftsError = giftErrorNote(params.giftsError);
   const portal = await loadPortal(null);
   if (portal.viewer.role === "manager") {
     return (
@@ -53,7 +55,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
         </div>
       }
     >
-      {params.giftsError ? <p className="private-note">{params.giftsError}</p> : null}
+      {giftsError ? <p className="private-note">{giftsError}</p> : null}
       {params.saved === "posted" ? <p className="note">Posted. The brand is tagged as a future paid prospect. Nothing was emailed.</p> : null}
       {params.saved === "applied" ? <p className="note">Applied. Kamron still has to approve you. Nothing was charged.</p> : null}
       {params.saved === "approved" ? <p className="note">Approved. Nothing was charged or emailed.</p> : null}

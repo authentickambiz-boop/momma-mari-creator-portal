@@ -5,6 +5,7 @@ import { GIFTED_TERMS_VERSION } from "@/config/gifted-terms";
 import { getDb } from "@/db/getDb";
 import { dollarsToCents } from "@/lib/deal-rules";
 import { currentViewer } from "@/lib/current-user";
+import { giftErrorCode } from "@/lib/gift-notes";
 import {
   applyForGiftedOffer,
   applyForGiftedOfferByEmail,
@@ -18,7 +19,7 @@ import {
 
 function back(path: string, error?: string, saved?: string) {
   const query = new URLSearchParams();
-  if (error) query.set("giftsError", error);
+  if (error) query.set("giftsError", giftErrorCode(error));
   if (saved) query.set("saved", saved);
   const suffix = query.toString();
   return suffix ? `${path}?${suffix}` : path;
