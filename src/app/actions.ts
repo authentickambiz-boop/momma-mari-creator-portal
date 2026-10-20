@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { reviewApproval } from "@/lib/approvals";
+import { approvalErrorCode } from "@/lib/approval-notes";
 import { canApproveContract, canApproveEmail, canApproveVideo, canChangeDealStage, canCountersign, devLoginEnabled } from "@/lib/authz";
 import { addManager, assignCreatorManagers, setManagerActive, setManagerPermissions } from "@/lib/managers";
 import { teamErrorCode } from "@/lib/team-notes";
@@ -497,7 +498,7 @@ export async function reviewApprovalAction(formData: FormData) {
     actorEmail: viewer.email,
     actorRole: viewer.role,
   });
-  if (!result.ok) redirect(`${back}${query ? "&" : "?"}approvalError=1`);
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}approvalError=${approvalErrorCode(result.error)}`);
   redirect(back);
 }
 
