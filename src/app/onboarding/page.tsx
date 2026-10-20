@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { chooseEmailSetupAction } from "@/app/actions";
+import { CheckoutSuccessNote } from "@/components/checkout-success-note";
 import { EmailSetupForm } from "@/components/email-setup-form";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { PortalFrame } from "@/components/portal-frame";
@@ -25,7 +26,7 @@ const GMAIL_ERRORS: Record<string, string> = {
 export default async function OnboardingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ creator?: string; connected?: string; done?: string; error?: string; gmail?: string; emailError?: string; setup?: string; hosted?: string; step?: string; questionError?: string }>;
+  searchParams: Promise<{ creator?: string; connected?: string; done?: string; error?: string; gmail?: string; emailError?: string; setup?: string; hosted?: string; step?: string; questionError?: string; checkout?: string }>;
 }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
@@ -66,6 +67,7 @@ export default async function OnboardingPage({
         </div>
       }
     >
+      <CheckoutSuccessNote checkout={params.checkout} />
       {gmailError ? <p className="private-note">{gmailError}</p> : null}
       {finishNote && !wizardOpen ? <p className="private-note">{finishNote}</p> : null}
       {params.connected === "1" ? <p className="callout">Email connected. Finish the questions below.</p> : null}

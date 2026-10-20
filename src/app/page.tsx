@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { dismissCreatorNoticeAction, dismissNotificationAction } from "@/app/actions";
+import { CheckoutSuccessNote } from "@/components/checkout-success-note";
 import { DealBoard } from "@/components/deal-board";
 import { HomeDesk } from "@/components/home-desk";
 import { PlatformInviteCard } from "@/components/platform-invite-card";
@@ -19,7 +20,7 @@ import { inviteErrorNote } from "@/lib/invite-notes";
 import { noticeErrorNote } from "@/lib/notice-notes";
 import { listPlatformInvites } from "@/lib/platform-invites";
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string; passed?: string; invite?: string; noticeError?: string }> }) {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string; passed?: string; invite?: string; noticeError?: string; checkout?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
   const deals = await listDealsForViewer(portal.db, portal.viewer, portal.viewedId);
@@ -63,7 +64,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const brandOffers = portal.viewer.role === "creator" ? await listCreatorOffers(portal.db, portal.viewer) : [];
   const platformInvites = creatorHome ? await listPlatformInvites(portal.db, portal.viewer) : [];
   const offersWaiting = brandOffers.filter((offer) => offer.response === "pending" || offer.response === "question");
-  if (quiz && !quiz.finished && !quiz.paused) redirect("/onboarding");
+  if (quiz && !quiz.finished && !quiz.paused) {
+    redirect(params.checkout === "success" ? "/onboarding?checkout=success" : "/onboarding");
+  }
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -83,6 +86,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
       }
     >
+      <CheckoutSuccessNote checkout={params.checkout} />
       {inviteErrorNote(params.invite) ? <p className="private-note">{inviteErrorNote(params.invite)}</p> : null}
       {params.noticeError ? <p className="note">{noticeErrorNote(params.noticeError) ?? "That notice was not dismissed. Nothing was changed."}</p> : null}
       {platformInvites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} />)}

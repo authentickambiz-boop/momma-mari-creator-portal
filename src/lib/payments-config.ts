@@ -1,0 +1,151 @@
+/**
+ * Live Stripe price ids for the creator portal.
+ * The secret key is never stored here. Read it from STRIPE_SECRET_KEY at call time.
+ */
+
+export type BillingInterval = "month" | "year";
+export type OfferInterval = BillingInterval | "one_time";
+export type OfferKind = "subscription" | "one_time";
+export type SubscriptionPlanId = "plus" | "pro" | "business";
+
+export type PaymentPrice = {
+  priceId: string;
+  amountCents: number;
+  currency: "usd";
+  interval: OfferInterval;
+  label: string;
+};
+
+export type PaymentOffer = {
+  id: string;
+  name: string;
+  kind: OfferKind;
+  productId: string;
+  prices: PaymentPrice[];
+};
+
+export const BILLING_PORTAL_FALLBACK_URL = "https://billing.stripe.com/p/login/7sYeV697ndFk1ge0hr18c00";
+
+export const PAYMENT_OFFERS: PaymentOffer[] = [
+  {
+    id: "plus",
+    name: "Plus",
+    kind: "subscription",
+    productId: "prod_VTdB5ZhL2EISRu",
+    prices: [
+      { priceId: "price_1USge24Qt4QNnGtbzVyAvTzx", amountCents: 1900, currency: "usd", interval: "month", label: "$19/mo" },
+      { priceId: "price_1USge14Qt4QNnGtbMn9OrVlO", amountCents: 19000, currency: "usd", interval: "year", label: "$190/yr" },
+    ],
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    kind: "subscription",
+    productId: "prod_VTdCXTD9zLJy1c",
+    prices: [
+      { priceId: "price_1USge14Qt4QNnGtbEdLVLq31", amountCents: 3900, currency: "usd", interval: "month", label: "$39/mo" },
+      { priceId: "price_1USge14Qt4QNnGtbVNVCjxMl", amountCents: 39000, currency: "usd", interval: "year", label: "$390/yr" },
+    ],
+  },
+  {
+    id: "business",
+    name: "Business",
+    kind: "subscription",
+    productId: "prod_VTdDIgUpQfQIDM",
+    prices: [
+      { priceId: "price_1USge14Qt4QNnGtbVilv7y1G", amountCents: 19900, currency: "usd", interval: "month", label: "$199/mo" },
+      { priceId: "price_1USge14Qt4QNnGtbfuda9E0h", amountCents: 199000, currency: "usd", interval: "year", label: "$1,990/yr" },
+    ],
+  },
+  {
+    id: "media_kit_build",
+    name: "Media Kit Build",
+    kind: "one_time",
+    productId: "prod_VTdFlV7vPpOV8r",
+    prices: [
+      { priceId: "price_1USge14Qt4QNnGtbBc2n8AMS", amountCents: 14900, currency: "usd", interval: "one_time", label: "$149" },
+    ],
+  },
+  {
+    id: "rate_card_build",
+    name: "Rate Card Build",
+    kind: "one_time",
+    productId: "prod_VTdFZikKAo5gxC",
+    prices: [
+      { priceId: "price_1USge14Qt4QNnGtbrhvFiG9Z", amountCents: 7900, currency: "usd", interval: "one_time", label: "$79" },
+    ],
+  },
+  {
+    id: "media_kit_bundle",
+    name: "Media Kit + Rate Card Bundle",
+    kind: "one_time",
+    productId: "prod_VTdFAnFv3tosEN",
+    prices: [
+      { priceId: "price_1USge14Qt4QNnGtbbYPnHYlR", amountCents: 19900, currency: "usd", interval: "one_time", label: "$199" },
+    ],
+  },
+  {
+    id: "contract_review",
+    name: "Contract Review",
+    kind: "one_time",
+    productId: "prod_VTdGztC8GOI7te",
+    prices: [
+      { priceId: "price_1USge64Qt4QNnGtbHkGoim98", amountCents: 12500, currency: "usd", interval: "one_time", label: "$125" },
+    ],
+  },
+  {
+    id: "starter_kit_basic",
+    name: "Creator Starter Kit Basic",
+    kind: "one_time",
+    productId: "prod_VTdGZ48TNRphgo",
+    prices: [
+      { priceId: "price_1USge74Qt4QNnGtbk2AI0l8o", amountCents: 14900, currency: "usd", interval: "one_time", label: "$149" },
+    ],
+  },
+  {
+    id: "starter_kit_pro",
+    name: "Creator Starter Kit Pro",
+    kind: "one_time",
+    productId: "prod_VTdGw0hmEhSrFf",
+    prices: [
+      { priceId: "price_1USge14Qt4QNnGtbK1uy1sPg", amountCents: 29900, currency: "usd", interval: "one_time", label: "$299" },
+    ],
+  },
+  {
+    id: "starter_kit_plus",
+    name: "Creator Starter Kit Plus",
+    kind: "one_time",
+    productId: "prod_VTdH2qGBfTyHj7",
+    prices: [
+      { priceId: "price_1USge14Qt4QNnGtbQGHpC9IL", amountCents: 49900, currency: "usd", interval: "one_time", label: "$499" },
+    ],
+  },
+];
+
+export function subscriptionOffers() {
+  return PAYMENT_OFFERS.filter((offer) => offer.kind === "subscription");
+}
+
+export function oneTimeOffers() {
+  return PAYMENT_OFFERS.filter((offer) => offer.kind === "one_time");
+}
+
+export function findOfferPrice(offerId: string, interval: string) {
+  const offer = PAYMENT_OFFERS.find((item) => item.id === offerId);
+  if (!offer) return null;
+  const price = offer.prices.find((item) => item.interval === interval);
+  if (!price) return null;
+  return { offer, price };
+}
+
+export function offerForPriceId(priceId: string) {
+  for (const offer of PAYMENT_OFFERS) {
+    const price = offer.prices.find((item) => item.priceId === priceId);
+    if (price) return { offer, price };
+  }
+  return null;
+}
+
+export function isSubscriptionPlan(value: string | null | undefined): value is SubscriptionPlanId {
+  return value === "plus" || value === "pro" || value === "business";
+}

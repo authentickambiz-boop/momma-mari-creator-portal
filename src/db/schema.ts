@@ -914,7 +914,28 @@ export const creatorAccounts = sqliteTable("creator_accounts", {
   pushNotices: integer("push_notices", { mode: "boolean" }).notNull(),
   quietHours: integer("quiet_hours", { mode: "boolean" }).notNull(),
   communityVisible: integer("community_visible", { mode: "boolean" }).notNull(),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  subscriptionStatus: text("subscription_status"),
+  subscriptionPlan: text("subscription_plan"),
+  subscriptionInterval: text("subscription_interval"),
+  subscriptionEventAt: integer("subscription_event_at"),
   updatedAt: text("updated_at").notNull(),
+});
+
+export const stripeWebhookEvents = sqliteTable("stripe_webhook_events", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const creatorPurchases = sqliteTable("creator_purchases", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  offerId: text("offer_id").notNull(),
+  priceId: text("price_id").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  createdAt: text("created_at").notNull(),
 });
 
 export const brandReplyDrafts = sqliteTable("brand_reply_drafts", {
