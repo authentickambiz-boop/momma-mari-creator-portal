@@ -235,6 +235,17 @@ export async function recordBrandInquiry(
   return { ok: true, id };
 }
 
+/** Empty stays empty. Other wording stays as written. A YYYY-MM-DD value has to be a real day. */
+export function followUpValue(value: string | null | undefined): { ok: true; value: string | null } | { ok: false; status: 400; error: string } {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed || !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return { ok: true, value: trimmed || null };
+  const [year, month, day] = trimmed.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const real = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  if (!real) return { ok: false, status: 400, error: "Use a date like 2026-11-15." };
+  return { ok: true, value: trimmed };
+}
+
 export async function upsertBrandCrm(
   db: PortalDb,
   input: {
@@ -256,6 +267,12 @@ export async function upsertBrandCrm(
   const rows = await db.select().from(brandCrmEntries).where(eq(brandCrmEntries.brandKey, key));
   const existing = rows.find((row) => (row.creatorId ?? null) === creatorId && (row.kind === "offer" || row.kind === "deal"));
   const outcome = input.outcome ?? existing?.outcome ?? null;
+  let nextFollowUp = existing?.nextFollowUp ?? null;
+  if (input.nextFollowUp !== undefined) {
+    const follow = followUpValue(input.nextFollowUp);
+    if (!follow.ok) return follow;
+    nextFollowUp = follow.value;
+  }
   const values = {
     brandKey: key,
     kind: outcome === "closed" ? "deal" : "offer",
@@ -266,7 +283,7 @@ export async function upsertBrandCrm(
     actorName: input.actorName,
     ratePaidCents: input.ratePaidCents !== undefined ? input.ratePaidCents : existing?.ratePaidCents ?? null,
     outcome,
-    nextFollowUp: input.nextFollowUp !== undefined ? input.nextFollowUp : existing?.nextFollowUp ?? null,
+    nextFollowUp,
     creatorId,
     domain: input.domain !== undefined ? cleanDomain(input.domain ?? "") || null : existing?.domain ?? null,
   };
@@ -303,6 +320,8 @@ export async function upsertBrandCrmByDomain(
   const contactEmail = normalizeEmail(input.contactEmail);
   if (!domain || !domain.includes(".")) return { ok: false, status: 400, error: "domain is required." };
   if (!contactEmail.includes("@")) return { ok: false, status: 400, error: "contactEmail is required." };
+  const follow = input.nextFollowUp !== undefined ? followUpValue(input.nextFollowUp) : { ok: true as const, value: null };
+  if (!follow.ok) return follow;
   const rows = await db.select().from(brandCrmEntries);
   const existing = rows.find((row) => cleanDomain(row.domain ?? "") === domain && normalizeEmail(row.contactEmail ?? "") === contactEmail);
   const brand = input.brand?.trim() || existing?.brandKey || domain;
@@ -319,7 +338,7 @@ export async function upsertBrandCrmByDomain(
       actorName: input.actorName,
       ratePaidCents: input.ratePaidCents !== undefined ? input.ratePaidCents : existing.ratePaidCents,
       outcome,
-      nextFollowUp: input.nextFollowUp !== undefined ? input.nextFollowUp : existing.nextFollowUp,
+      nextFollowUp: input.nextFollowUp !== undefined ? follow.value : existing.nextFollowUp,
       creatorId: input.creatorId !== undefined ? input.creatorId : existing.creatorId,
     }).where(eq(brandCrmEntries.id, existing.id));
     return { ok: true, id: existing.id, created: false };
@@ -329,7 +348,7 @@ export async function upsertBrandCrmByDomain(
     creatorId: input.creatorId ?? null,
     ratePaidCents: input.ratePaidCents,
     outcome,
-    nextFollowUp: input.nextFollowUp,
+    nextFollowUp: input.nextFollowUp !== undefined ? follow.value : input.nextFollowUp,
     contactName: input.contactName,
     contactEmail,
     domain,

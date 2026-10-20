@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { devLoginAction } from "@/app/actions";
+import { BrandMark } from "@/components/brand-mark";
 import { getDb } from "@/db/getDb";
 import { devLoginEnabled } from "@/lib/authz";
 import { currentViewer } from "@/lib/current-user";
-import { publicBasePath, withBasePath } from "@/lib/format";
+import { publicBasePath } from "@/lib/format";
 import { googleConfigured } from "@/lib/google-oauth";
 import { listManagers } from "@/lib/managers";
 import { listCreators } from "@/lib/queries";
@@ -27,17 +28,19 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const error = params.error ? ERRORS[params.error] ?? "Sign-in didn't finish. Try again. Nothing was changed." : null;
   const base = publicBasePath();
   return (
-    <div className="login-wrap">
-      <div className="card login-card">
-        <img className="logo-img" src={withBasePath("/momma-logo.png")} alt="" />
-        <h1>Momma Mari</h1>
-        <p className="note">Creator portal. Sign in with the Google account Kamron invited. You&apos;ll only see your own deals.</p>
+    <div className="login-split">
+      <div className="login-pane">
+        <BrandMark sub="Creator portal" />
+        <h1>Welcome back.</h1>
+        <p className="lead">Sign in with the Google account you were invited with. You&apos;ll only see your own deals.</p>
         {error ? <p className="private-note">{error}</p> : null}
         {googleConfigured() ? (
-          <a className="btn" href={`${base}/api/auth/google`}>Continue with Google</a>
+          <a className="btn google" href={`${base}/api/auth/google`}>Continue with Google</a>
         ) : (
           <p className="note">Google sign-in is waiting on a client id and secret. The steps are in the README.</p>
         )}
+        <p className="eyebrow center">New here?</p>
+        <Link className="btn ghost" href="/apply">Apply to join Momma Mari</Link>
         {devLoginEnabled() ? (
           <>
             <div className="sec-title" style={{ marginTop: 18 }}>Practice sign-in</div>
@@ -64,6 +67,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         ) : null}
         <p className="note" style={{ marginTop: 16 }}><Link href="https://mommamari.com">Back to mommamari.com</Link></p>
       </div>
+      <aside className="login-forest">
+        <p className="eyebrow">Your creator portal</p>
+        <h2>Every deal, draft and payout in one place.</h2>
+        <p>Upload drafts from your phone. We handle the brand emails, and nothing goes to a brand without approval.</p>
+      </aside>
     </div>
   );
 }

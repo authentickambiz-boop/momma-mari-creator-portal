@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import { Fraunces, Inter } from "next/font/google";
 import { CommunityPanel } from "@/components/community-panel";
 import { HomeScreen } from "@/components/home-screen";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
+const fraunces = Fraunces({ subsets: ["latin"], display: "swap", variable: "--font-fraunces" });
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +19,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
       <body>
         {children}
         <CommunityPanel />

@@ -7,6 +7,8 @@ const OFFER_ERROR_TEXT = {
   platform: "Add at least one platform.",
   budget: "Enter a budget for at least one creator.",
   dollars: "Enter each budget in dollars, like 500, or leave it blank.",
+  follow: "Use a date like 2026-11-15.",
+  date: "Use a date like 2026-11-01.",
   signin: "Open this from your own sign-in.",
   interest: "Tell Kamron you're interested. Passing and questions stay with him.",
   list: "That offer is not on your list.",
