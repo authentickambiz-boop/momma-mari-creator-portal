@@ -16,7 +16,7 @@ import { draftMonthlyReport, reportErrorCode } from "@/lib/report";
 import { recordReferral, setReferralPerk } from "@/lib/referrals";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
-import { confirmLivePost, confirmProductReceived, markPayment, paymentErrorCode, saveShipment, submitLivePosts } from "@/lib/fulfillment";
+import { confirmLivePost, confirmProductReceived, markPayment, paymentErrorCode, postErrorCode, saveShipment, submitLivePosts } from "@/lib/fulfillment";
 import { isEmailSetup } from "@/lib/email-setup";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
 import { onboardingPlatformId } from "@/lib/onboarding-fields";
@@ -620,10 +620,7 @@ export async function submitLivePostsAction(formData: FormData) {
     actorRole: viewer.role,
     creatorId: viewer.creatorId,
   });
-  if (!result.ok) {
-    const code = result.status === 409 ? "early" : "1";
-    redirect(`${back}${query ? "&" : "?"}postError=${code}`);
-  }
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}postError=${postErrorCode(result.error)}`);
   redirect(back);
 }
 
@@ -639,10 +636,7 @@ export async function confirmLivePostAction(formData: FormData) {
     actorEmail: viewer.email,
     actorRole: viewer.role,
   });
-  if (!result.ok) {
-    const code = result.error.includes("brand email") ? "email" : "1";
-    redirect(`${back}${query ? "&" : "?"}postError=${code}`);
-  }
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}postError=${postErrorCode(result.error)}`);
   redirect(back);
 }
 
