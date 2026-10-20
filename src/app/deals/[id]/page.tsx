@@ -61,7 +61,7 @@ export default async function DealPage({
       ))}
       {query.signed === "1" ? (
         <div className="callout">
-          <b>Your signature is saved.</b>
+          <b>Your signature is saved. Nothing was emailed.</b>
         </div>
       ) : null}
       {query.reply === "saved" ? <p className="note">Draft saved. Nothing was emailed.</p> : null}
