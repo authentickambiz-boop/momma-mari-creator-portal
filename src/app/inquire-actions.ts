@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { recordBrandInquiry } from "@/lib/brand-crm";
+import { inquiryErrorCode } from "@/lib/inquiry-notes";
 
 export async function brandInquiryAction(formData: FormData) {
   const db = await getDb();
@@ -12,6 +13,6 @@ export async function brandInquiryAction(formData: FormData) {
     contactEmail: String(formData.get("email") ?? ""),
     note: String(formData.get("note") ?? ""),
   });
-  if (!result.ok) redirect("/inquire?error=1");
+  if (!result.ok) redirect(`/inquire?error=${inquiryErrorCode(result.error)}`);
   redirect("/inquire?sent=1");
 }
