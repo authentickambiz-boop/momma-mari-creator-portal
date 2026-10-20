@@ -11,6 +11,7 @@ import type { ContractView, SignatureView } from "@/lib/types";
 
 const SIGN_ERRORS: Record<string, string> = {
   boxes: "Check both boxes: agree to sign electronically, and confirm you have read and agree.",
+  counter: "Check both boxes before countersigning.",
   name: "Enter your full legal name.",
   guardian: "A parent or guardian has to sign this contract.",
   content: "Confirm you are the parent or guardian for any minor in this content.",

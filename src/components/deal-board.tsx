@@ -6,6 +6,7 @@ import { CopyText } from "@/components/copy-text";
 import { DealLivePulse } from "@/components/deal-live-pulse";
 import { askRateAction, confirmRateAction, ownerDealFlagsAction, saveReplyDraftAction } from "@/app/review-actions";
 import { commissionLabel, creatorPayoutTracker, lastUpdatedLabel, paymentStatusLabel, paymentStatusTone, shortDate, withBasePath } from "@/lib/format";
+import { contractErrorNote } from "@/lib/contract-notes";
 import { safetyLabel } from "@/lib/safety-shared";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
@@ -747,15 +748,7 @@ function ContractSection({
               <button className="btn" type="submit">Upload contract</button>
             </form>
           ) : null}
-          {contractError === "type" ? <p className="note">Upload a PDF or DOCX under 20 MB.</p> : null}
-          {contractError === "past" ? <p className="note">This deal is already past the contract. Nothing was changed.</p> : null}
-          {contractError === "review" ? <p className="note">This file needs review before signing. Upload a PDF or mark it as DocuSign.</p> : null}
-          {contractError === "changes" ? <p className="note">Mark at least one checklist item as an issue, or write the changes to request.</p> : null}
-          {contractError === "email" ? <p className="note">Add the brand email before asking for changes. The email stays in your queue.</p> : null}
-          {contractError === "signemail" ? <p className="note">Add the brand email before the signed contract can be queued.</p> : null}
-          {contractError === "upload" ? <p className="note">Upload the completed signed PDF.</p> : null}
-          {contractError === "signed" ? <p className="note">This version is already signed.</p> : null}
-          {contractError === "1" ? <p className="note">That contract change was not saved. Nothing was emailed.</p> : null}
+          {contractError ? <p className="note">{contractErrorNote(contractError) ?? "That contract change was not saved. Nothing was emailed."}</p> : null}
           {deal.contracts.map((contract) => {
             const signWindow = deal.workflowStage === "approved_by_agency" || deal.workflowStage === "awaiting_signature";
             const copies = deal.signatures.filter((row) => row.contractId === contract.id);

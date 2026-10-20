@@ -12,6 +12,7 @@ import { approveContract, requestContractRevisions, saveChecklist, saveContract,
 import { countersignContract, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "@/lib/signing";
 import { CONTRACT_CHECKS } from "@/lib/contract-shared";
 import { clearSafetyHold } from "@/lib/safety";
+import { contractErrorCode, signErrorCode } from "@/lib/contract-notes";
 import { draftMonthlyReport, reportErrorCode } from "@/lib/report";
 import { recordReferral, setReferralPerk } from "@/lib/referrals";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
@@ -208,15 +209,6 @@ function contractBack(dealId: string, creator: string) {
   return { query, back: `/deals/${dealId}${query}` };
 }
 
-function contractErrorCode(error: string) {
-  if (error.includes("past the contract")) return "past";
-  if (error.includes("needs review before signing")) return "review";
-  if (error.includes("PDF or DOCX") || error.includes("20 MB")) return "type";
-  if (error.includes("brand email")) return "email";
-  if (error.includes("checklist") || error.includes("changes to request")) return "changes";
-  return "1";
-}
-
 export async function uploadContractAction(formData: FormData) {
   const dealId = String(formData.get("dealId") ?? "");
   const creator = String(formData.get("creator") ?? "");
@@ -313,26 +305,6 @@ async function clientAudit() {
 function signBack(dealId: string, contractId: string, creator: string) {
   const creatorQuery = creator ? `&creator=${encodeURIComponent(creator)}` : "";
   return `/deals/${dealId}/sign?contract=${encodeURIComponent(contractId)}${creatorQuery}`;
-}
-
-function signErrorCode(error: string) {
-  if (error.includes("both boxes")) return "boxes";
-  if (error.includes("full legal name")) return "name";
-  if (error.includes("parent or guardian has to sign")) return "guardian";
-  if (error.includes("minor in this content")) return "content";
-  if (error.includes("Draw your signature")) return "draw";
-  if (error.includes("isn't a PDF")) return "pdf";
-  if (error.includes("doesn't match")) return "mismatch";
-  if (error.includes("signed contract can be queued")) return "signemail";
-  if (error.includes("brand email")) return "email";
-  if (error.includes("was replaced")) return "replaced";
-  if (error.includes("already signed")) return "signed";
-  if (error.includes("already past signing")) return "past";
-  if (error.includes("isn't ready to sign")) return "ready";
-  if (error.includes("only sign your own")) return "own";
-  if (error.includes("needs review")) return "review";
-  if (error.includes("completed signed PDF")) return "upload";
-  return "1";
 }
 
 export async function signContractAction(formData: FormData) {
