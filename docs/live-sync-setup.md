@@ -163,7 +163,7 @@ The same screen covers Google Drive and TikTok, Instagram, Facebook, and YouTube
 ## 10. What the portal does with a message
 
 - The push body is a Pub/Sub envelope. The inner `emailAddress` and `historyId` say which inbox moved.
-- The portal calls Gmail `history.list` from the history id it stored for that inbox. The same history notice does not create a second deal.
+- The portal calls Gmail `history.list` from the history id it stored for that inbox. The same history notice does not create a second deal. If Google returns another page, the portal reads up to 5 pages, files those messages, stores the last history record it actually read, and returns 503 so Pub/Sub retries the rest. It does not jump the cursor to the newest mailbox id while pages are still unread.
 - When Google says that history id has expired, the portal reads the latest 20 inbox messages (`messages.list` on `INBOX`) and files the ones it has not seen. Mail older than that page is not recovered. The history cursor moves only after that read succeeds. A temporary failure reading the inbox returns 503 so Pub/Sub can retry. A dead token (`unauthorized_client` or `invalid_grant`) is acknowledged with 200, the same as any other dead mailbox. The cursor stays put in both cases.
 - A message whose From domain is spam is dropped. The block list is `forceawakens.net`, `qq.com`, `foxmail`, `163.com`, `mail.ru`, and the endings `.live`, `.xyz`, `.mobi`, `.online`, `.cc`, `.shop`, `.work`, `.cloud`.
 - Any other new thread becomes a deal at **Offer received**, hidden from creators until you publish it on the **Review** page. Publishing shares it with that creator. Reject leaves it hidden. Edit and reply drafts on that page are only for you.
