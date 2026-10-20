@@ -42,6 +42,8 @@ export type GmailHistoryClient = {
     messages: { id: string; threadId: string }[];
   }>;
   getMessage: (id: string) => Promise<GmailHistoryMessage>;
+  /** Recent inbox messages used only when history.list says the cursor expired. */
+  listRecent?: () => Promise<{ id: string; threadId: string }[]>;
 };
 
 export function mailboxForCreator(creatorId: string) {
@@ -349,43 +351,21 @@ async function createHiddenOffer(db: PortalDb, input: { creatorId: string; messa
   return id;
 }
 
-export async function ingestGmailPush(
+const RECENT_INBOX_LIMIT = 20;
+
+async function applyAddedMessages(
   db: PortalDb,
-  note: { emailAddress: string; historyId: string },
-  options?: { client?: GmailHistoryClient },
+  mailbox: string,
+  creatorId: string,
+  refs: { id: string; threadId: string }[],
+  client: GmailHistoryClient,
 ) {
-  const mailbox = normalizeEmail(note.emailAddress);
-  const mapped = creatorForMailbox(mailbox);
-  if (!mapped) return { status: 200, body: { ok: true, ignored: true } };
-  const stored = await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, mailbox));
-  const start = stored[0]?.historyId ?? "";
-  if (!start) {
-    await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
-    return { status: 200, body: { ok: true, primed: true, createdDealIds: [] as string[], matchedDealIds: [] as string[], stageMoves: [] as string[] } };
-  }
-  let client = options?.client;
-  if (!client) {
-    const connected = await gmailConnectionState(db, mapped.creatorId);
-    if (!connected.cipher || normalizeEmail(connected.gmailEmail ?? "") !== mailbox) {
-      return { status: 503, body: { error: "Mailbox is not connected." } };
-    }
-    try {
-      client = await gmailReadClient(await decryptToken(connected.cipher));
-    } catch {
-      return { status: 503, body: { error: "Mailbox is not connected." } };
-    }
-  }
-  const listed = await client.listAdded(start);
-  if (listed.expired) {
-    await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
-    return { status: 200, body: { ok: true, expired: true, createdDealIds: [] as string[], matchedDealIds: [] as string[], stageMoves: [] as string[] } };
-  }
   const createdDealIds: string[] = [];
   const matchedDealIds: string[] = [];
   const stageMoves: string[] = [];
   let skippedSpam = 0;
   let skippedDuplicate = 0;
-  for (const ref of listed.messages) {
+  for (const ref of refs) {
     const seen = await db.select().from(gmailSeenMessages).where(eq(gmailSeenMessages.messageId, ref.id));
     if (seen[0]) {
       skippedDuplicate += 1;
@@ -424,11 +404,58 @@ export async function ingestGmailPush(
       await markSeen(db, mailbox, message);
       continue;
     }
-    const dealId = await createHiddenOffer(db, { creatorId: mapped.creatorId, message });
+    const dealId = await createHiddenOffer(db, { creatorId, message });
     await addInboxEvent(db, { mailbox, messageId: message.id, threadId: message.threadId, dealId });
     createdDealIds.push(dealId);
     await markSeen(db, mailbox, message);
   }
+  return { createdDealIds, matchedDealIds, stageMoves, skippedSpam, skippedDuplicate };
+}
+
+export async function ingestGmailPush(
+  db: PortalDb,
+  note: { emailAddress: string; historyId: string },
+  options?: { client?: GmailHistoryClient },
+) {
+  const mailbox = normalizeEmail(note.emailAddress);
+  const mapped = creatorForMailbox(mailbox);
+  if (!mapped) return { status: 200, body: { ok: true, ignored: true } };
+  const stored = await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, mailbox));
+  const start = stored[0]?.historyId ?? "";
+  if (!start) {
+    await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
+    return { status: 200, body: { ok: true, primed: true, createdDealIds: [] as string[], matchedDealIds: [] as string[], stageMoves: [] as string[] } };
+  }
+  let client = options?.client;
+  if (!client) {
+    const connected = await gmailConnectionState(db, mapped.creatorId);
+    if (!connected.cipher || normalizeEmail(connected.gmailEmail ?? "") !== mailbox) {
+      return { status: 503, body: { error: "Mailbox is not connected." } };
+    }
+    try {
+      client = await gmailReadClient(await decryptToken(connected.cipher));
+    } catch {
+      return { status: 503, body: { error: "Mailbox is not connected." } };
+    }
+  }
+  const listed = await client.listAdded(start);
+  if (listed.expired) {
+    if (!client.listRecent) {
+      await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
+      return { status: 200, body: { ok: true, expired: true, backfilled: false, createdDealIds: [] as string[], matchedDealIds: [] as string[], stageMoves: [] as string[] } };
+    }
+    let recent: { id: string; threadId: string }[];
+    try {
+      recent = await client.listRecent();
+    } catch {
+      return { status: 503, body: { error: "Gmail history expired and the recent inbox could not be read." } };
+    }
+    const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, recent.slice(0, RECENT_INBOX_LIMIT), client);
+    await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
+    return { status: 200, body: { ok: true, expired: true, backfilled: true, ...applied } };
+  }
+  const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, listed.messages, client);
+  const { createdDealIds, matchedDealIds, stageMoves, skippedSpam, skippedDuplicate } = applied;
   await saveHistory(db, mailbox, mapped.creatorId, laterHistory(listed.latestHistoryId || start, note.historyId));
   return {
     status: 200,
@@ -566,6 +593,16 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
         }
       }
       return { latestHistoryId: json.historyId ?? startHistoryId, messages };
+    },
+    async listRecent() {
+      const listed = await gmailGet(accessToken, `/messages?labelIds=INBOX&maxResults=${RECENT_INBOX_LIMIT}`);
+      if (listed.missing || !listed.json) return [];
+      const json = listed.json as { messages?: { id?: string; threadId?: string }[] };
+      const messages: { id: string; threadId: string }[] = [];
+      for (const message of json.messages ?? []) {
+        if (message.id && message.threadId) messages.push({ id: message.id, threadId: message.threadId });
+      }
+      return messages;
     },
     async getMessage(id: string) {
       const loaded = await gmailGet(

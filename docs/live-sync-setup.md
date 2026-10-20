@@ -164,13 +164,14 @@ The same screen covers Google Drive and TikTok, Instagram, Facebook, and YouTube
 
 - The push body is a Pub/Sub envelope. The inner `emailAddress` and `historyId` say which inbox moved.
 - The portal calls Gmail `history.list` from the history id it stored for that inbox. The same history notice does not create a second deal.
+- When Google says that history id has expired, the portal reads the latest 20 inbox messages (`messages.list` on `INBOX`) and files the ones it has not seen. Mail older than that page is not recovered. The history cursor moves only after that read succeeds. If the inbox cannot be read, the push returns 503 and the cursor stays put so Pub/Sub can retry.
 - A message whose From domain is spam is dropped. The block list is `forceawakens.net`, `qq.com`, `foxmail`, `163.com`, `mail.ru`, and the endings `.live`, `.xyz`, `.mobi`, `.online`, `.cc`, `.shop`, `.work`, `.cloud`.
 - Any other new thread becomes a deal at **Offer received**, hidden from creators until you publish it on the **Review** page. Publishing shares it with that creator. Reject leaves it hidden. Edit and reply drafts on that page are only for you.
 - A message on a thread the portal already knows updates that deal. It does not open a second deal.
 - A message sent from the inbox itself, on a thread we already have, moves that deal to **Interest sent** when the deal is still in the early offer stages.
 - `mmaclamroc@gmail.com` files under MariClare. `authentickambiz@gmail.com` files under AuthenticKam.
 
-Nothing in this path sends email. The Gmail calls are `users.watch`, `history.list`, and `messages.get` with read-only scope.
+Nothing in this path sends email. The Gmail calls are `users.watch`, `history.list`, `messages.list`, and `messages.get` with read-only scope.
 
 ## 11. The drafting bot
 
