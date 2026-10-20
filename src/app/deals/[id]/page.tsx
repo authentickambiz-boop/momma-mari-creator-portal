@@ -34,6 +34,9 @@ export default async function DealPage({
   const categoryOverride = selected && portal.viewer.role === "admin" ? await categoryOverrideFor(portal.db, selected.id) : false;
   const stageSpecific = dealNoticeSpecific(query.stageError);
   const interestSpecific = dealNoticeSpecific(query.interestError);
+  const releaseNote = query.releaseError
+    ? (dealNoticeSpecific(query.releaseError) ?? "Add the brand's email, then release the offer.")
+    : null;
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -79,6 +82,7 @@ export default async function DealPage({
       {dealNoticeNote(query.datesError) ? <p className="private-note">{dealNoticeNote(query.datesError)}</p> : null}
       {stageSpecific ? <p className="private-note">{stageSpecific}</p> : null}
       {interestSpecific ? <p className="private-note">{interestSpecific}</p> : null}
+      {releaseNote ? <p className="private-note">{releaseNote}</p> : null}
       {selected ? null : (
         <div className="card" style={{ marginBottom: 14 }}>
           <h2>That deal isn&apos;t on your list.</h2>
@@ -117,7 +121,7 @@ export default async function DealPage({
         {...dealPowers(portal.viewer)}
         stageError={Boolean(query.stageError) && !stageSpecific}
         interestError={Boolean(query.interestError) && !interestSpecific}
-        releaseError={query.releaseError ?? null}
+        releaseError={null}
         reviewError={query.reviewError ?? null}
         contractError={query.contractError ?? null}
         productError={query.productError ?? null}

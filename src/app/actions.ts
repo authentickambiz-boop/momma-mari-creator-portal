@@ -134,10 +134,7 @@ export async function releaseOfferAction(formData: FormData) {
     brandEmail: String(formData.get("brandEmail") ?? ""),
     note: String(formData.get("note") ?? ""),
   });
-  if (!result.ok) {
-    const code = result.status === 409 ? "past" : "1";
-    redirect(`${back}${query ? "&" : "?"}releaseError=${code}`);
-  }
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}releaseError=${dealNoticeCode(result.error)}`);
   redirect(back);
 }
 
