@@ -16,15 +16,15 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Before merge
 
 1. Read `docs/overnight-log.md` for the open pull requests.
-2. Already on `main` (`80837aa`): `#41` through `#111`, except `#45` and `#109`. `#110` (`80837aa`) shows the real reason a payment step was refused. `#61` (`fe295ac`) reads a second inbox page, up to 40 messages. Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. Stripe, BoldSign, and push stay off.
+2. Already on `main` (`96e66ee`): `#41` through `#111`, `#114` through `#121`, and `#109`, except `#45`. `#114` (`96e66ee`) is the previous log. `#61` (`fe295ac`) reads a second inbox page, up to 40 messages. Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. Stripe, BoldSign, and push stay off.
 3. `#45` still has no file changes. Leave it open for Kamron to close.
 4. `#73` is on `main`. An unknown Gmail code on onboarding says to try again.
 5. `#74` is on `main`. A brand inquiry can take a response and a contact before any deal exists. Signup keeps every rate and handle the form asks for, including a YouTube minimum and a Twitch handle. A brand-offer budget that is not dollars is refused instead of skipping that creator.
 6. `#75` is on `main`. The members directory will not print wording taken from the link.
 7. `#76` is on `main`. A brand offer is changed on Offers, not by splitting it on the campaign board.
 8. `#77` through `#80` are on `main`. A gifted due date has to be a real day. A manager cannot change a deal for a creator who is not assigned. Access and Free products show a fixed sentence instead of text from the link.
-9. `#81` through `#108`, `#110`, and `#111` are on `main`. Error links use a short code and a fixed sentence. A date shaped like YYYY-MM-DD has to be a real day. A campaign date that is not a real day says "Use a date like 2026-11-01." `npx tsc --noEmit` is clean. `npm test` is 123 passing.
-10. [#109](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/109) is updated onto this main and still open. It shows the real stage, offer-answer, and release sentences, and it keeps the post-date code. [#112](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/112) is the public creator application. [#113](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/113) shows the real reason a live post link was refused. [#115](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/115) through [#122](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/122) show the real reason for tracking, referrals, the team page, approvals, email setup, finishing a profile, a public brand inquiry, and a draft review. Each of those is based on this main and was tested on its own branch.
+9. `#81` through `#111`, `#114` through `#121`, and `#109` are on `main`. Error links use a short code and a fixed sentence. A date shaped like YYYY-MM-DD has to be a real day. A campaign date that is not a real day says "Use a date like 2026-11-01." `npx tsc --noEmit` is clean. `npm test` is 131 passing.
+10. [#112](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/112) stays open for Kamron. It is the public creator application. [#113](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/113) and [#122](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/122) include this main and were retested. [#123](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/123) through [#128](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/128) are still cut from `80837aa`.
 11. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
 
 ## Gmail, still before paid features
@@ -52,8 +52,8 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Still waiting
 
 - `#45` has no file changes. Leave it open for Kamron to close.
-- Current `main` is `#110` (`80837aa`). `npx tsc --noEmit` is clean. `npm test` is 123 passing.
-- `#109`, `#112`, `#113`, and `#115` through `#122` are the open code pull requests. `#114` is this checklist. Each code pull request was tested on its own branch from `80837aa`, not together.
+- Current `main` is `#114` (`96e66ee`). `npx tsc --noEmit` is clean. `npm test` is 131 passing.
+- `#112` stays open for Kamron. `#113` and `#122` include this main. `#123` through `#128` are still from `80837aa`. This checklist is the new log.
 - A campaign date that is not a real day says "Use a date like 2026-11-01." That sentence is on `main` from `#108`.
 - Reconnect MariClare’s watched inbox (`mmaclamroc@gmail.com`) after deploy. The saved refresh token still fails with `unauthorized_client` until she connects that inbox again. Signing out is not required.
 - Mail older than the latest 40 inbox messages is not recovered. A failed later page does not move the cursor.
