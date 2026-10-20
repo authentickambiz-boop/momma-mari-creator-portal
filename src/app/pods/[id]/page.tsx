@@ -40,7 +40,7 @@ export default async function PodPage({ params, searchParams }: { params: Promis
       viewedId={portal.viewedId}
       hello={<div className="hello"><div><h1>{pod.name}</h1><p>{pod.niche} · {pod.sizeBand} · {pod.managerName}. The pod room is private to these creators.</p></div></div>}
     >
-      {query.saved ? <p className="note">Saved.</p> : null}
+      {query.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {query.growthError ? <p className="private-note">{query.growthError}</p> : null}
       <div className="card">
         <div className="sec-title">Creators</div>

@@ -17,7 +17,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const setup = creator ? await emailSetupFor(portal.db, creator.id) : null;
   return (
     <PortalFrame viewer={portal.viewer} tab="settings" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>Settings</h1><p>Connected accounts and the notices you want.</p></div>}>
-      {params.saved ? <p className="note">Saved.</p> : null}
+      {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {params.settingsError ? <p className="private-note">{params.settingsError}</p> : null}
       <div className="card stack">
         <div className="sec-title">Connected accounts</div>

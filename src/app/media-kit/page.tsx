@@ -25,7 +25,7 @@ export default async function MediaKitPage({ searchParams }: { searchParams: Pro
   const zernio = zernioStatsEnabled();
   return (
     <PortalFrame viewer={portal.viewer} tab="kit" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>Media kit</h1><p>Stats are typed in by hand. {zernio ? "Zernio stats are on for this portal." : "Zernio is off, so nothing is pulled in."}</p></div>}>
-      {params.saved ? <p className="note">Saved.</p> : null}
+      {params.saved ? <p className="note">Saved. Nothing was emailed or charged.</p> : null}
       {kit?.published && kit.slug ? <p className="note">Share <a href={withBasePath(`/kit/${kit.slug}`)}>{withBasePath(`/kit/${kit.slug}`)}</a></p> : null}
       {params.kitError ? <p className="private-note">{params.kitError}</p> : null}
       <SnapshotBoard creators={board.creators} showRevenue={false} />

@@ -34,7 +34,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const savedBrands = savedList(profile?.brands);
   return (
     <PortalFrame viewer={portal.viewer} tab="profile" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>My profile</h1><p>Hidden until you turn it on. Others only see the fields you check.</p></div>}>
-      {params.saved ? <p className="note">Saved.</p> : null}
+      {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {params.profileError ? <p className="private-note">{params.profileError}</p> : null}
       <div className="card">
         <div className="sec-title">How others see me</div>
