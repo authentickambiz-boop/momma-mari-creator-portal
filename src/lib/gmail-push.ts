@@ -304,6 +304,19 @@ function canMarkInterestSent(stageId: string | null) {
   return order != null && order < 4;
 }
 
+/** A dead refresh token will not start working if Pub/Sub retries it. */
+function permanentMailboxFailure(message: string) {
+  return message.includes("unauthorized_client") || message.includes("invalid_grant");
+}
+
+function pushReadFailure(error: unknown, secrets: string[]) {
+  const message = describeWatchFailure(error, secrets);
+  if (permanentMailboxFailure(message)) {
+    return { status: 200 as const, body: { ok: false as const, permanent: true as const, error: message } };
+  }
+  return { status: 503 as const, body: { ok: false as const, error: message } };
+}
+
 async function dealByThread(db: PortalDb, threadId: string) {
   if (!threadId) return null;
   const rows = await db.select().from(deals).where(eq(deals.gmailThreadId, threadId));
@@ -364,18 +377,27 @@ export async function ingestGmailPush(
     return { status: 200, body: { ok: true, primed: true, createdDealIds: [] as string[], matchedDealIds: [] as string[], stageMoves: [] as string[] } };
   }
   let client = options?.client;
+  const secrets: string[] = [];
   if (!client) {
     const connected = await gmailConnectionState(db, mapped.creatorId);
+    if (connected.cipher) secrets.push(connected.cipher);
     if (!connected.cipher || normalizeEmail(connected.gmailEmail ?? "") !== mailbox) {
-      return { status: 503, body: { error: "Mailbox is not connected." } };
+      return { status: 200, body: { ok: false as const, acknowledged: true as const, error: "Mailbox is not connected." } };
     }
     try {
-      client = await gmailReadClient(await decryptToken(connected.cipher));
-    } catch {
-      return { status: 503, body: { error: "Mailbox is not connected." } };
+      const refreshToken = await decryptToken(connected.cipher);
+      secrets.push(refreshToken);
+      client = await gmailReadClient(refreshToken);
+    } catch (error) {
+      return pushReadFailure(error, secrets);
     }
   }
-  const listed = await client.listAdded(start);
+  let listed: Awaited<ReturnType<GmailHistoryClient["listAdded"]>>;
+  try {
+    listed = await client.listAdded(start);
+  } catch (error) {
+    return pushReadFailure(error, secrets);
+  }
   if (listed.expired) {
     await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
     return { status: 200, body: { ok: true, expired: true, createdDealIds: [] as string[], matchedDealIds: [] as string[], stageMoves: [] as string[] } };
@@ -391,7 +413,16 @@ export async function ingestGmailPush(
       skippedDuplicate += 1;
       continue;
     }
-    const message = await client.getMessage(ref.id);
+    let message: GmailHistoryMessage;
+    try {
+      message = await client.getMessage(ref.id);
+    } catch (error) {
+      return pushReadFailure(error, secrets);
+    }
+    if (!message.threadId) {
+      await markSeen(db, mailbox, message);
+      continue;
+    }
     if (isSpamSender(message.from)) {
       await markSeen(db, mailbox, message);
       skippedSpam += 1;
