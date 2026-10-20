@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AccountMenu } from "@/components/account-menu";
+import { TabRow } from "@/components/tab-row";
 import { accountMenuItems } from "@/lib/creator-home";
 import { withBasePath } from "@/lib/format";
 import { visiblePortalTabs, type PortalTab } from "@/lib/portal-tabs";
@@ -60,13 +61,13 @@ export function PortalFrame({
             </Link>
           </div>
         ) : null}
-        <nav className="tabs">
+        <TabRow>
           {tabs.map((item) => (
             <Link key={item.id} href={`${item.href}${query(viewedId)}`} className={item.id === tab ? "on" : ""}>
               {item.label}
             </Link>
           ))}
-        </nav>
+        </TabRow>
         {viewer.role === "admin" && viewedId !== "all" ? (
           <div className="admin-banner">
             You&apos;re signed in as Kamron. This is {creators.find((creator) => creator.id === viewedId)?.name}&apos;s portal.

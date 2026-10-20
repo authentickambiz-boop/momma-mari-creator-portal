@@ -48,6 +48,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
           <button className="btn" type="submit">Add manager</button>
         </form>
       </div>
+      {managers.length === 0 ? <p className="note">No managers yet.</p> : null}
       {managers.map((manager) => (
         <div className="card" key={manager.id} style={{ marginBottom: 14 }}>
           <h2>{manager.name}</h2>

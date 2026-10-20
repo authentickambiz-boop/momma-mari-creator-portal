@@ -26,11 +26,12 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
       viewedId={portal.viewedId}
       hello={<div className="hello"><div><h1>Ranking</h1><p>A 0 to 100 score for who should see the best-fit deals first. Only your sign-in can see this.</p></div></div>}
     >
-      {params.saved ? <p className="note">Saved.</p> : null}
+      {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {params.growthError ? <p className="private-note">{params.growthError}</p> : null}
       <div className="card">
         <div className="sec-title">Leaderboard</div>
         <p className="note">Updates {settings.cadence}. Fit still decides who can take a campaign. Rank only sorts the creators who clear that gate.</p>
+        {board.rows.length === 0 ? <p className="note">No ranks yet. Nothing is emailed.</p> : null}
         <table>
           <thead><tr><th>Rank</th><th>Creator</th><th>Score</th><th>Tier</th></tr></thead>
           <tbody>

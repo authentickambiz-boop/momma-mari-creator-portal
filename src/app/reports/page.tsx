@@ -55,6 +55,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <button className="btn" type="submit">Build report</button>
       </form>
       <div className="stack" style={{ marginTop: 14 }}>
+        {reports.length === 0 ? <p className="note">No reports yet. Nothing is emailed.</p> : null}
         {reports.map((report) => (
           <div className="card" key={report.id}>
             <b>{report.title}</b>

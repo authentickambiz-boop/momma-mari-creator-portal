@@ -639,7 +639,8 @@ textarea {
     z-index: 4;
     background: var(--cream);
     margin: 0 0 12px;
-    padding: 8px 0;
+    padding: 8px 16px 8px 0;
+    scroll-padding-inline: 16px;
   }
   nav.tabs a { min-height: 44px; display: inline-flex; align-items: center; flex: none; }
   .switcher a, .btn, .avatar, .community-fab { min-height: 44px; }
