@@ -6,6 +6,7 @@ import { getDb } from "@/db/getDb";
 import { reviewApproval } from "@/lib/approvals";
 import { canApproveContract, canApproveEmail, canApproveVideo, canChangeDealStage, canCountersign, devLoginEnabled } from "@/lib/authz";
 import { addManager, assignCreatorManagers, setManagerActive, setManagerPermissions } from "@/lib/managers";
+import { teamErrorCode } from "@/lib/team-notes";
 import { currentViewer } from "@/lib/current-user";
 import { logOfferScreening, recordCreatorInterest, releaseOffer } from "@/lib/creator-interest";
 import { approveContract, requestContractRevisions, saveChecklist, saveContract, setSigningFormat } from "@/lib/contracts";
@@ -516,7 +517,7 @@ export async function addManagerAction(formData: FormData) {
       canPriceDeals: formData.get("canPriceDeals") === "1",
     },
   });
-  if (!result.ok) redirect("/team?teamError=1");
+  if (!result.ok) redirect(`/team?teamError=${teamErrorCode(result.error)}`);
   redirect("/team");
 }
 
@@ -524,11 +525,12 @@ export async function setManagerActiveAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer || viewer.role !== "admin") redirect("/login");
   const db = await getDb();
-  await setManagerActive(db, {
+  const result = await setManagerActive(db, {
     actorRole: "admin",
     managerId: String(formData.get("managerId") ?? ""),
     active: formData.get("active") === "1",
   });
+  if (!result.ok) redirect(`/team?teamError=${teamErrorCode(result.error)}`);
   redirect("/team");
 }
 
@@ -536,7 +538,7 @@ export async function setManagerPermissionsAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer || viewer.role !== "admin") redirect("/login");
   const db = await getDb();
-  await setManagerPermissions(db, {
+  const result = await setManagerPermissions(db, {
     actorRole: "admin",
     managerId: String(formData.get("managerId") ?? ""),
     permissions: {
@@ -547,6 +549,7 @@ export async function setManagerPermissionsAction(formData: FormData) {
       canPriceDeals: formData.get("canPriceDeals") === "1",
     },
   });
+  if (!result.ok) redirect(`/team?teamError=${teamErrorCode(result.error)}`);
   redirect("/team");
 }
 
@@ -562,7 +565,7 @@ export async function assignManagersAction(formData: FormData) {
     primaryManagerId: primary || null,
     backupManagerId: backup || null,
   });
-  if (!result.ok) redirect("/team?teamError=1");
+  if (!result.ok) redirect(`/team?teamError=${teamErrorCode(result.error)}`);
   redirect("/team");
 }
 
