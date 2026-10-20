@@ -2,6 +2,7 @@ import Link from "next/link";
 import { approveBenchOfferAction, promoteBenchAction, queueBenchOfferAction, recordBenchPaidAction, setBenchScoreAction } from "@/app/bench-actions";
 import { PortalFrame } from "@/components/portal-frame";
 import { leftoverCampaigns, listBench, listBenchOffers } from "@/lib/bench";
+import { benchErrorNote } from "@/lib/bench-notes";
 import { listFlaggedOffers } from "@/lib/brand-offers";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
@@ -30,7 +31,7 @@ export default async function BenchPage({ searchParams }: { searchParams: Promis
       hello={<div className="hello"><div><h1>Bench</h1><p>UGC and micro creators join free. They only see leftover jobs, and you approve each one. The 20% applies only when a job is paid.</p></div></div>}
     >
       {params.saved ? <p className="note">Saved. Nothing was sent or charged.</p> : null}
-      {params.benchError ? <p className="private-note">{params.benchError}</p> : null}
+      {benchErrorNote(params.benchError) ? <p className="private-note">{benchErrorNote(params.benchError)}</p> : null}
       <p className="note">Share <Link href="/bench/join">the free join page</Link>. There is no fee and no subscription.</p>
       <div className="stack">
         {people.map((person) => (
