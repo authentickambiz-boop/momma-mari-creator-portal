@@ -657,8 +657,14 @@ function ProductAndPosts({
             </form>
           ) : null}
           {paymentError === "early" ? <p className="note">Post the video before invoicing the brand. Nothing was changed.</p> : null}
+          {paymentError === "paid" ? <p className="note">This deal is already paid. Nothing was changed.</p> : null}
+          {paymentError === "marked" ? <p className="note">That payment step is already marked.</p> : null}
+          {paymentError === "invoice" ? <p className="note">Mark the brand invoice before marking the brand paid.</p> : null}
+          {paymentError === "brand" ? <p className="note">Mark the brand paid before marking the creator payout pending.</p> : null}
+          {paymentError === "payout" ? <p className="note">Mark the creator payout pending before marking the creator paid.</p> : null}
+          {paymentError === "step" ? <p className="note">That is not a payment step.</p> : null}
           {paymentError === "order" ? <p className="note">Mark the payment steps in order.</p> : null}
-          {paymentError === "1" ? <p className="note">That payment step was not saved. Nothing was charged.</p> : null}
+          {paymentError && paymentError !== "early" && paymentError !== "paid" && paymentError !== "marked" && paymentError !== "invoice" && paymentError !== "brand" && paymentError !== "payout" && paymentError !== "step" && paymentError !== "order" ? <p className="note">That payment step was not saved. Nothing was charged.</p> : null}
         </>
       ) : null}
       {!isOwner && !canChangeStage && deal.payment ? (

@@ -16,7 +16,7 @@ import { draftMonthlyReport, reportErrorCode } from "@/lib/report";
 import { recordReferral, setReferralPerk } from "@/lib/referrals";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
-import { confirmLivePost, confirmProductReceived, markPayment, saveShipment, submitLivePosts } from "@/lib/fulfillment";
+import { confirmLivePost, confirmProductReceived, markPayment, paymentErrorCode, saveShipment, submitLivePosts } from "@/lib/fulfillment";
 import { isEmailSetup } from "@/lib/email-setup";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
 import { onboardingPlatformId } from "@/lib/onboarding-fields";
@@ -657,10 +657,7 @@ export async function markPaymentAction(formData: FormData) {
     actorEmail: viewer.email,
     actorRole: viewer.role,
   });
-  if (!result.ok) {
-    const code = result.status === 409 ? "early" : result.status === 400 ? "order" : "1";
-    redirect(`${back}${query ? "&" : "?"}paymentError=${code}`);
-  }
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}paymentError=${paymentErrorCode(result.error)}`);
   redirect(back);
 }
 
