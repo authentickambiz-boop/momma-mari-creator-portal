@@ -241,18 +241,42 @@ export async function hideMyProfile(db: PortalDb, actor: ProfileActor): Promise<
   return { ok: true, hidden: true };
 }
 
+const DIRECTORY_ERROR_TEXT = {
+  owner: "Only an owner can hide or reset a profile field.",
+  reason: "Tell the creator why.",
+  field: "Unknown profile field.",
+  missing: "That profile is not set up yet.",
+} as const;
+
+export const DIRECTORY_NOTES: Record<string, string> = {
+  ...DIRECTORY_ERROR_TEXT,
+  "1": "That change was not saved.",
+};
+
+export function directoryErrorCode(error: string) {
+  const match = (Object.keys(DIRECTORY_ERROR_TEXT) as (keyof typeof DIRECTORY_ERROR_TEXT)[])
+    .find((code) => DIRECTORY_ERROR_TEXT[code] === error);
+  return match ?? "1";
+}
+
+/** A code from the URL. Unknown wording becomes the fixed fallback, never the query text. */
+export function directoryErrorNote(code: string | undefined) {
+  if (!code) return null;
+  return DIRECTORY_NOTES[code] ?? DIRECTORY_NOTES["1"];
+}
+
 export async function moderateProfileField(
   db: PortalDb,
   actor: ProfileActor,
   input: { creatorId: string; field: string; action: "hide" | "reset"; reason: string },
 ): Promise<Result<{ done: true }>> {
-  if (actor.role !== "admin") return { ok: false, status: 403, error: "Only an owner can hide or reset a profile field." };
+  if (actor.role !== "admin") return { ok: false, status: 403, error: DIRECTORY_ERROR_TEXT.owner };
   const reason = input.reason.trim();
-  if (!reason) return { ok: false, status: 400, error: "Tell the creator why." };
-  if (!(PROFILE_FIELDS as readonly string[]).includes(input.field)) return { ok: false, status: 400, error: "Unknown profile field." };
+  if (!reason) return { ok: false, status: 400, error: DIRECTORY_ERROR_TEXT.reason };
+  if (!(PROFILE_FIELDS as readonly string[]).includes(input.field)) return { ok: false, status: 400, error: DIRECTORY_ERROR_TEXT.field };
   const field = input.field as ProfileField;
   const rows = await db.select().from(creatorProfiles).where(eq(creatorProfiles.creatorId, input.creatorId));
-  if (!rows[0]) return { ok: false, status: 404, error: "That profile is not set up yet." };
+  if (!rows[0]) return { ok: false, status: 404, error: DIRECTORY_ERROR_TEXT.missing };
   const flag = FIELD_FLAG[field];
   const patch: Record<string, string | boolean | null> = { [flag]: false, updatedAt: nowIso() };
   if (input.action === "reset") {
