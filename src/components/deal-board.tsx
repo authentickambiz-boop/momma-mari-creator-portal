@@ -500,7 +500,6 @@ function DealDetailView({
                     </label>
                     <button className="btn" type="submit" name="decision" value="approved">Approve</button>
                     <button className="btn ghost" type="submit" name="decision" value="changes">Request changes</button>
-                    {reviewError ? <span className="note">{reviewErrorNote(reviewError) ?? "That review was not saved. Nothing was emailed."}</span> : null}
                     {safetyError === "creator" ? <span className="note">You can&apos;t clear a safety hold.</span> : null}
                     {safetyError === "owner" ? <span className="note">Only Kamron can clear a safety hold.</span> : null}
                   </form>
@@ -508,6 +507,7 @@ function DealDetailView({
               </li>
             ))}
           </ul>
+          {reviewError ? <p className="note">{reviewErrorNote(reviewError) ?? "That review was not saved. Nothing was emailed."}</p> : null}
         </div>
       ) : null}
       <UploadBox dealId={deal.id} brand={deal.brand} enabled={deal.uploadEnabled} label={deal.uploadLabel || "Upload your draft"} />
