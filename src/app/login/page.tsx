@@ -24,7 +24,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if (viewer) redirect(await creatorStartPath(db, viewer));
   const creators = devLoginEnabled() ? await listCreators(db) : [];
   const managers = devLoginEnabled() ? (await listManagers(db)).filter((manager) => manager.active) : [];
-  const error = params.error ? ERRORS[params.error] : null;
+  const error = params.error ? ERRORS[params.error] ?? "Sign-in didn't finish. Try again. Nothing was changed." : null;
   const base = publicBasePath();
   return (
     <div className="login-wrap">
