@@ -11,6 +11,7 @@ import { publicBasePath } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
 import { onboardingPlatformId, onboardingPlatformLabel } from "@/lib/onboarding-fields";
 import { emailSetupFor, gmailConnectionState, onboardingForCreator } from "@/lib/onboarding";
+import { finishErrorNote } from "@/lib/finish-notes";
 import { questionErrorNote } from "@/lib/question-notes";
 import { questionnaireFor, stepIndex, type QuestionStepId } from "@/lib/questionnaire";
 
@@ -45,6 +46,10 @@ export default async function OnboardingPage({
   const gmailError = params.gmail ? GMAIL_ERRORS[params.gmail] ?? CONNECTION_RETRY_NOTE : null;
   const choice = setup?.choice ?? null;
   const readyForProfile = Boolean(connection?.connected) || (choice === "hosted" && Boolean(setup?.hostedEmailAddress));
+  const finishNote = params.error
+    ? finishErrorNote(params.error) ?? "That profile was not saved. Add a niche, a content style, rates, and at least one platform."
+    : null;
+  const wizardOpen = Boolean(quiz && !quiz.finished && creator && activeStep === "bot" && !profile?.finishedAt);
   const addOn = STRIPE_CATALOG.hostedCreatorEmail;
   return (
     <PortalFrame
@@ -62,11 +67,12 @@ export default async function OnboardingPage({
       }
     >
       {gmailError ? <p className="private-note">{gmailError}</p> : null}
+      {finishNote && !wizardOpen ? <p className="private-note">{finishNote}</p> : null}
       {params.connected === "1" ? <p className="callout">Email connected. Finish the questions below.</p> : null}
       {params.done === "1" ? <p className="callout">You&apos;re set. Kamron has &quot;New creator ready for bot&quot; and will set the bot up with you.</p> : null}
       {params.hosted === "1" ? <p className="callout">Kamron has your hosted-email request. You can finish the profile while that address is set up.</p> : null}
       {!creator ? <p className="note">Pick a creator to see her profile.</p> : null}
-      {creator && !choice && own && !profile?.finishedAt ? <EmailSetupForm error={params.emailError === "1"} /> : null}
+      {creator && !choice && own && !profile?.finishedAt ? <EmailSetupForm error={params.emailError ?? null} /> : null}
       {creator && !choice && !own ? <p className="note">{creator.name} chooses her email setup from her own sign-in.</p> : null}
       {creator && choice === "business" && !connection?.connected ? (
         <div className="card">
@@ -111,7 +117,7 @@ export default async function OnboardingPage({
             <OnboardingWizard
               creatorName={creator.name}
               suggestedBotName={`${creator.name} Bot`}
-              error={params.error === "1" && readyForProfile}
+              error={params.error ?? null}
               emailReady={readyForProfile}
               niches={quiz.answers.niches}
               platforms={quiz.answers.platforms.filter((item) => onboardingPlatformId(item)).map((item) => onboardingPlatformLabel(onboardingPlatformId(item) ?? item))}
