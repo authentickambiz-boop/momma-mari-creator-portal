@@ -621,4 +621,7 @@ textarea {
   .stage-form { flex-direction: column; align-items: stretch; }
   .stage-form input, .stage-form select, .stage-form textarea { width: 100%; max-width: 100%; }
   .connect { flex-wrap: wrap; align-items: flex-start; }
+  .public-head { align-items: flex-start; }
+  .wrap:has(.public-head) > h1,
+  .wrap:has(.public-head) > p { overflow-wrap: anywhere; }
 }
