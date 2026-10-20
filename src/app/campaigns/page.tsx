@@ -54,7 +54,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
         )) : <p className="note">No campaigns match that filter.</p>}
       </div>
       {portal.viewer.role === "admin" ? (
-        <p className="note"><Link href="/offers">Send a brand offer</Link> when you have a budget for each creator.</p>
+        <p className="note"><Link href="/offers">Save a brand offer</Link> when you have a budget for each creator. Nothing is emailed.</p>
       ) : null}
       {portal.viewer.role === "admin" ? (
         <form action={saveCampaignAction} className="card stack" style={{ marginTop: 14 }}>

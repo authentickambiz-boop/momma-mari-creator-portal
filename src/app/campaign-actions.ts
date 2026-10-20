@@ -11,7 +11,7 @@ import {
   saveCampaign,
 } from "@/lib/campaigns";
 import { currentViewer } from "@/lib/current-user";
-import { dollarsToCents } from "@/lib/deal-rules";
+import { budgetFilterText, dollarsToCents } from "@/lib/deal-rules";
 
 function tags(formData: FormData, name: string) {
   return formData.getAll(name).map((value) => String(value).trim()).filter(Boolean);
@@ -24,11 +24,25 @@ export async function filterCampaignsAction(formData: FormData) {
   const platform = String(formData.get("platform") ?? "").trim();
   const min = String(formData.get("min") ?? "").trim();
   const max = String(formData.get("max") ?? "").trim();
+  const minBudget = budgetFilterText(min);
+  if (!minBudget.ok) {
+    const failed = new URLSearchParams();
+    if (creator) failed.set("creator", creator);
+    failed.set("campaignError", minBudget.error);
+    redirect(`/campaigns?${failed.toString()}`);
+  }
+  const maxBudget = budgetFilterText(max);
+  if (!maxBudget.ok) {
+    const failed = new URLSearchParams();
+    if (creator) failed.set("creator", creator);
+    failed.set("campaignError", maxBudget.error);
+    redirect(`/campaigns?${failed.toString()}`);
+  }
   if (creator) params.set("creator", creator);
   if (niche) params.set("niche", niche);
   if (platform) params.set("platform", platform);
-  if (min) params.set("min", min);
-  if (max) params.set("max", max);
+  if (minBudget.text) params.set("min", minBudget.text);
+  if (maxBudget.text) params.set("max", maxBudget.text);
   redirect(`/campaigns?${params.toString()}`);
 }
 

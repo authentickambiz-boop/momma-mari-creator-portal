@@ -20,6 +20,17 @@ export function offerFlagLabel(flag: string | null) {
 
 export type OfferBudget = { creatorId: string; amountCents: number };
 
+export function offerContactEmail(value: string | null | undefined): { ok: true; email: string | null } | { ok: false; error: string } {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return { ok: true, email: null };
+  const lowered = trimmed.toLowerCase();
+  const missingAt = !lowered.includes("@") || lowered.startsWith("@") || lowered.endsWith("@");
+  if (missingAt || lowered.endsWith(".invalid") || /\s/.test(trimmed)) {
+    return { ok: false, error: "Use a real contact email, or leave it blank. Nothing was emailed." };
+  }
+  return { ok: true, email: trimmed };
+}
+
 export type BrandOfferInput = {
   brand: string;
   contactName: string;
@@ -124,6 +135,8 @@ export async function createBrandOffer(db: PortalDb, viewer: Viewer, input: Bran
   if (!deliverables.length) return { ok: false as const, error: "Add at least one deliverable." };
   if (!platforms.length) return { ok: false as const, error: "Add at least one platform." };
   if (!budgets.length) return { ok: false as const, error: "Enter a budget for at least one creator." };
+  const contact = offerContactEmail(input.contactEmail);
+  if (!contact.ok) return { ok: false as const, error: contact.error };
   const { matches, flag } = await matchBrandOffer(db, { deliverables, budgets });
   const timestamp = nowIso();
   const id = crypto.randomUUID();
@@ -143,7 +156,7 @@ export async function createBrandOffer(db: PortalDb, viewer: Viewer, input: Bran
     openOutside: false,
     updatedAt: timestamp,
     contactName,
-    contactEmail: input.contactEmail?.trim() || null,
+    contactEmail: contact.email,
     offerFlag: flag,
     nextFollowUp: input.nextFollowUp?.trim() || null,
     kind: "offer",
@@ -168,7 +181,7 @@ export async function createBrandOffer(db: PortalDb, viewer: Viewer, input: Bran
       outcome: "offered",
       nextFollowUp: input.nextFollowUp?.trim() || null,
       contactName,
-      contactEmail: input.contactEmail,
+      contactEmail: contact.email,
       actorName: viewer.name,
       note: "Brand offer sent to her portal.",
     });
@@ -181,7 +194,7 @@ export async function createBrandOffer(db: PortalDb, viewer: Viewer, input: Bran
       outcome: offerFlagLabel(flag),
       nextFollowUp: input.nextFollowUp?.trim() || null,
       contactName,
-      contactEmail: input.contactEmail,
+      contactEmail: contact.email,
       actorName: viewer.name,
       note: flag === "commission_trainee" ? COMMISSION_TRAINEE : `${PITCH_RETAINER}. Momma Mari marketing services.`,
     });

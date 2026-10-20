@@ -94,6 +94,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
           <label>Photos, one link per line<textarea name="photos" required placeholder="https://example.com/glow.jpg" /></label>
           <label>Required video<input name="deliverable" required placeholder="1 TikTok" /></label>
           <label>Due date<input name="dueOn" required placeholder="2026-11-20" /></label>
+          <p className="note">Use a date like 2026-11-20.</p>
           <label>Retail value, dollars<input name="retail" required inputMode="decimal" placeholder="24" /></label>
           <p className="note">This does not email the brand and does not charge anyone.</p>
           <button className="btn" type="submit">Post free product</button>

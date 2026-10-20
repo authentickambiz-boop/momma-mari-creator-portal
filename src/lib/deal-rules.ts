@@ -111,6 +111,13 @@ export function dollarsToCents(value: string) {
   return Math.round(amount * 100);
 }
 
+export function budgetFilterText(value: string): { ok: true; text: string } | { ok: false; error: string } {
+  const trimmed = value.trim();
+  if (!trimmed) return { ok: true, text: "" };
+  if (dollarsToCents(trimmed) == null) return { ok: false, error: "Enter the budget in dollars, like 500." };
+  return { ok: true, text: trimmed };
+}
+
 export function deliverableKind(text: string): DeliverableId | null {
   const value = text.toLowerCase();
   if (value.includes("bundle")) return "bundle";
