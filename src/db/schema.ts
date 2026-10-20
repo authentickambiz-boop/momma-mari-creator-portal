@@ -974,6 +974,88 @@ export const supportMessages = sqliteTable("support_messages", {
   createdAt: text("created_at").notNull(),
 });
 
+export const capabilityGrants = sqliteTable("capability_grants", {
+  id: text("id").primaryKey(),
+  subjectType: text("subject_type").notNull(),
+  subjectId: text("subject_id").notNull(),
+  capability: text("capability").notNull(),
+  level: text("level").notNull(),
+  trainingJson: text("training_json").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const capabilityAudit = sqliteTable("capability_audit", {
+  id: text("id").primaryKey(),
+  actorEmail: text("actor_email").notNull(),
+  actorRole: text("actor_role").notNull(),
+  subjectType: text("subject_type"),
+  subjectId: text("subject_id"),
+  capability: text("capability"),
+  action: text("action").notNull(),
+  detail: text("detail"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const capabilityDrafts = sqliteTable("capability_drafts", {
+  id: text("id").primaryKey(),
+  subjectType: text("subject_type").notNull(),
+  subjectId: text("subject_id").notNull(),
+  capability: text("capability").notNull(),
+  level: text("level").notNull(),
+  actorEmail: text("actor_email").notNull(),
+  summary: text("summary").notNull(),
+  effectJson: text("effect_json").notNull(),
+  status: text("status").notNull(),
+  reviewedBy: text("reviewed_by"),
+  reviewedAt: text("reviewed_at"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const giftedOffers = sqliteTable("gifted_offers", {
+  id: text("id").primaryKey(),
+  brand: text("brand").notNull(),
+  product: text("product").notNull(),
+  photosJson: text("photos_json").notNull(),
+  deliverable: text("deliverable").notNull(),
+  dueOn: text("due_on").notNull(),
+  retailValueCents: integer("retail_value_cents").notNull(),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const giftedApplications = sqliteTable("gifted_applications", {
+  id: text("id").primaryKey(),
+  offerId: text("offer_id").notNull(),
+  creatorId: text("creator_id"),
+  benchId: text("bench_id"),
+  status: text("status").notNull(),
+  termsVersion: text("terms_version").notNull(),
+  termsAcceptedAt: text("terms_accepted_at").notNull(),
+  postUrl: text("post_url"),
+  appliedAt: text("applied_at").notNull(),
+  approvedAt: text("approved_at"),
+  shippedAt: text("shipped_at"),
+  deliveredAt: text("delivered_at"),
+  postedAt: text("posted_at"),
+  overdueAt: text("overdue_at"),
+  chargedAt: text("charged_at"),
+  amountOwedCents: integer("amount_owed_cents"),
+  findersFeeCents: integer("finders_fee_cents"),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const botTokens = sqliteTable("bot_tokens", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  tokenHint: text("token_hint").notNull(),
+  revealOnce: text("reveal_once"),
+  active: integer("active", { mode: "boolean" }).notNull(),
+  createdAt: text("created_at").notNull(),
+  revokedAt: text("revoked_at"),
+});
+
 export const analyticsSnapshots = sqliteTable(
   "analytics_snapshots",
   {

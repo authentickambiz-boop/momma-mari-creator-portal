@@ -98,6 +98,8 @@ Content-Type: application/json
 
 A missing or wrong token returns `401`. If `BOT_API_TOKEN` is unset, every bot route returns `503`.
 
+Scoped bot tokens are separate. Kamron creates them on Access, and each one is stored only as a hash. `POST /api/bot/act` accepts the master token or a scoped token. A scoped token can negotiate, review contracts, do outreach, draft replies, or approve deals only at the level granted on that page. Draft-only and act-with-approval wait for Kamron. The other bot routes still require the master token. Managers never receive creator account credentials.
+
 Examples below use the local server. On the live site, change the host to `https://mommamari.com/portal` (the mount path is already in that origin; do not add `/portal` twice).
 
 ### List drafts since a timestamp
@@ -634,6 +636,10 @@ Do this in Webflow. Nothing in this repo publishes the site.
 10. Sign in as Kamron, confirm MariClare's six deals, and confirm Grail is visible only to the admin. Then sign in as MariClare and confirm Grail is absent.
 
 Local `next dev` serves the app at `/`, not at `/portal`. That is expected. The mount path exists only on Webflow Cloud.
+
+## Free products
+
+Gifted brand offers live on Free products. A creator, including someone new or on the free bench, can apply only after accepting the terms. The wording is in `src/config/gifted-terms.ts`, marked DRAFT, pending lawyer review. Missing the video after the product arrives flags the retail cost plus a $50 finder's fee. Nothing is charged. Stripe is a later step. The brand is tagged "future paid prospect" on the brand list.
 
 ## Security notes
 
