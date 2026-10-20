@@ -261,7 +261,7 @@ function DealDetailView({
           </label>
           <button className="btn" type="submit" name="decision" value="interested">I&apos;m interested</button>
           <p className="note">This is before negotiation. Kamron handles the rate with the brand.</p>
-          {interestError ? <span className="note">That choice was not saved.</span> : null}
+          {interestError ? <span className="note">That choice was not saved. Nothing was emailed.</span> : null}
         </form>
       ) : null}
       {deal.interest && !canChangeStage ? (
@@ -348,7 +348,7 @@ function DealDetailView({
           </label>
           <input type="text" name="note" placeholder="Note only you see" aria-label="Private note" />
           <button className="btn" type="submit">Update stage</button>
-          {stageError ? <span className="note">That stage was not saved.</span> : null}
+          {stageError ? <span className="note">That stage was not saved. Nothing was changed.</span> : null}
         </form>
       ) : null}
       {canChangeStage && deal.offerReleased ? (
@@ -502,7 +502,7 @@ function DealDetailView({
                     {reviewError === "note" ? <span className="note">Tell her what to fix before sending it back.</span> : null}
                     {reviewError === "email" ? <span className="note">Add the brand email before approving. The email stays in your queue.</span> : null}
                     {reviewError === "held" ? <span className="note">This draft is held for Kamron. Nothing was sent to the brand.</span> : null}
-                    {reviewError && reviewError !== "note" && reviewError !== "email" && reviewError !== "held" ? <span className="note">That review was not saved.</span> : null}
+                    {reviewError && reviewError !== "note" && reviewError !== "email" && reviewError !== "held" ? <span className="note">That review was not saved. Nothing was emailed.</span> : null}
                     {safetyError === "creator" ? <span className="note">You can&apos;t clear a safety hold.</span> : null}
                     {safetyError === "owner" ? <span className="note">Only Kamron can clear a safety hold.</span> : null}
                   </form>
@@ -592,7 +592,7 @@ function ProductAndPosts({
         </form>
       ) : null}
       {productError === "past" ? <p className="note">This deal is already past the product. Nothing was changed.</p> : null}
-      {productError === "1" ? <p className="note">That tracking was not saved.</p> : null}
+      {productError === "1" ? <p className="note">That tracking was not saved. Nothing was changed.</p> : null}
 
       <div className="sec-title" style={{ marginTop: 14 }}>Live posts</div>
       {deal.livePosts.length === 0 ? <p className="note">No live links yet.</p> : null}
@@ -638,7 +638,7 @@ function ProductAndPosts({
       ) : null}
       {postError === "early" ? <p className="note">This video isn&apos;t approved for posting yet. Nothing was changed.</p> : null}
       {postError === "email" ? <p className="note">Add the brand email before the post links can be queued.</p> : null}
-      {postError === "1" ? <p className="note">That post was not saved.</p> : null}
+      {postError === "1" ? <p className="note">That post was not saved. Nothing was emailed.</p> : null}
 
       {isOwner && deal.canMarkPayment ? (
         <>
@@ -658,7 +658,7 @@ function ProductAndPosts({
           ) : null}
           {paymentError === "early" ? <p className="note">Post the video before invoicing the brand. Nothing was changed.</p> : null}
           {paymentError === "order" ? <p className="note">Mark the payment steps in order.</p> : null}
-          {paymentError === "1" ? <p className="note">That payment step was not saved.</p> : null}
+          {paymentError === "1" ? <p className="note">That payment step was not saved. Nothing was charged.</p> : null}
         </>
       ) : null}
       {!isOwner && !canChangeStage && deal.payment ? (
@@ -749,7 +749,7 @@ function ContractSection({
           {contractError === "signemail" ? <p className="note">Add the brand email before the signed contract can be queued.</p> : null}
           {contractError === "upload" ? <p className="note">Upload the completed signed PDF.</p> : null}
           {contractError === "signed" ? <p className="note">This version is already signed.</p> : null}
-          {contractError === "1" ? <p className="note">That contract change was not saved.</p> : null}
+          {contractError === "1" ? <p className="note">That contract change was not saved. Nothing was emailed.</p> : null}
           {deal.contracts.map((contract) => {
             const signWindow = deal.workflowStage === "approved_by_agency" || deal.workflowStage === "awaiting_signature";
             const copies = deal.signatures.filter((row) => row.contractId === contract.id);
