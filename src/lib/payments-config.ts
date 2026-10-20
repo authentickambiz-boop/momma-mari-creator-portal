@@ -26,6 +26,11 @@ export type PaymentOffer = {
 
 export const BILLING_PORTAL_FALLBACK_URL = "https://billing.stripe.com/p/login/7sYeV697ndFk1ge0hr18c00";
 
+/** Checkout, the billing portal, and the fulfillment queue run only when this is the string "true". */
+export function paymentsEnabled() {
+  return process.env.PAYMENTS_ENABLED === "true";
+}
+
 export const PAYMENT_OFFERS: PaymentOffer[] = [
   {
     id: "plus",

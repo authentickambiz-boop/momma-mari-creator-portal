@@ -265,7 +265,7 @@ describe("creator checkout", { concurrency: 1 }, () => {
     assert.match(source("src/app/onboarding/page.tsx"), /CheckoutSuccessNote/);
     assert.match(source("src/app/api/stripe/webhook/route.ts"), /handleStripeWebhook/);
     assert.match(source("src/lib/payments.ts"), /process\.env\.STRIPE_SECRET_KEY/);
-    assert.match(source("src/lib/payments.ts"), /PAYMENTS_ENABLED === "true"/);
+    assert.match(source("src/lib/payments-config.ts"), /PAYMENTS_ENABLED === "true"/);
     for (const file of ["src/lib/payments.ts", "src/lib/payments-config.ts", "src/app/billing/page.tsx", ".env.example"]) {
       assert.equal(source(file).includes("sk_live"), false);
       assert.equal(source(file).includes("rk_live"), false);

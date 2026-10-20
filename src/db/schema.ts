@@ -938,6 +938,21 @@ export const creatorPurchases = sqliteTable("creator_purchases", {
   createdAt: text("created_at").notNull(),
 });
 
+export const fulfillmentOrders = sqliteTable("fulfillment_orders", {
+  id: text("id").primaryKey(),
+  purchaseId: text("purchase_id").notNull().unique(),
+  creatorId: text("creator_id").notNull(),
+  product: text("product").notNull(),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+  dueOn: text("due_on").notNull(),
+  claimedAt: text("claimed_at"),
+  deliveredAt: text("delivered_at"),
+  deliveryUrl: text("delivery_url"),
+  deliveryFilename: text("delivery_filename"),
+  deliveryBody: text("delivery_body"),
+});
+
 export const brandReplyDrafts = sqliteTable("brand_reply_drafts", {
   dealId: text("deal_id").primaryKey(),
   body: text("body").notNull(),

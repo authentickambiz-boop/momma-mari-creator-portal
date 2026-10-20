@@ -4,15 +4,19 @@ import type { PortalDb } from "@/db";
 import { creatorAccounts, creatorPurchases, stripeWebhookEvents } from "@/db/schema";
 import { blankCreatorAccount } from "./creator-home";
 import { appBaseUrl, nowIso, publicBasePath } from "./format";
+import { queueFulfillmentOrder } from "./fulfillment-orders";
 import {
   BILLING_PORTAL_FALLBACK_URL,
   findOfferPrice,
   isSubscriptionPlan,
   offerForPriceId,
+  paymentsEnabled,
   type BillingInterval,
   type SubscriptionPlanId,
 } from "./payments-config";
 import { findCreatorByEmail, findCreatorById } from "./queries";
+
+export { paymentsEnabled };
 
 const SIGNATURE_TOLERANCE_SECONDS = 300;
 
@@ -30,11 +34,6 @@ type StripeEvent = {
   created: number;
   object: Record<string, unknown>;
 };
-
-/** Checkout and the billing-portal API run only when this is the string "true". */
-export function paymentsEnabled() {
-  return process.env.PAYMENTS_ENABLED === "true";
-}
 
 function stripeSecret() {
   return process.env.STRIPE_SECRET_KEY?.trim() ?? "";
@@ -355,20 +354,30 @@ async function applyCheckout(db: PortalDb, event: StripeEvent) {
   if (!sessionId) return;
   const priceId = metadataString(event.object, "price_id") ?? "";
   const matched = priceId ? offerForPriceId(priceId) : null;
+  const offerId = matched?.offer.id ?? metadataString(event.object, "offer") ?? "unknown";
   const existing = await db.select().from(creatorPurchases).where(eq(creatorPurchases.id, sessionId));
-  if (existing[0]) return;
-  try {
-    await db.insert(creatorPurchases).values({
-      id: sessionId,
-      creatorId,
-      offerId: matched?.offer.id ?? metadataString(event.object, "offer") ?? "unknown",
-      priceId,
-      amountCents: matched?.price.amountCents ?? 0,
-      createdAt: nowIso(),
-    });
-  } catch (error) {
-    if (!isUniqueError(error)) throw error;
+  if (!existing[0]) {
+    try {
+      await db.insert(creatorPurchases).values({
+        id: sessionId,
+        creatorId,
+        offerId,
+        priceId,
+        amountCents: matched?.price.amountCents ?? 0,
+        createdAt: nowIso(),
+      });
+    } catch (error) {
+      if (!isUniqueError(error)) throw error;
+    }
   }
+  const paid = event.type === "checkout.session.async_payment_succeeded" || event.object.payment_status === "paid";
+  if (!paid) return;
+  await queueFulfillmentOrder(db, {
+    purchaseId: sessionId,
+    creatorId,
+    product: offerId,
+    createdAt: new Date(event.created * 1000).toISOString(),
+  });
 }
 
 export async function recordStripeEvent(db: PortalDb, raw: unknown) {
@@ -376,7 +385,7 @@ export async function recordStripeEvent(db: PortalDb, raw: unknown) {
   if (!event) return { ok: false as const, status: 400, error: "That Stripe event was not accepted." };
   const seen = await db.select().from(stripeWebhookEvents).where(eq(stripeWebhookEvents.id, event.id));
   if (seen[0]) return { ok: true as const, duplicate: true };
-  if (event.type === "checkout.session.completed") await applyCheckout(db, event);
+  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") await applyCheckout(db, event);
   if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
     await applySubscription(db, event);
   }

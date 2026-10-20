@@ -3,6 +3,9 @@ import { addReinvestmentAction, saveReinvestTargetAction } from "@/app/growth-ac
 import { PlatformInviteCard } from "@/components/platform-invite-card";
 import { PortalFrame } from "@/components/portal-frame";
 import { ownerDashboard } from "@/lib/campaigns";
+import { BRAND_CREDIT } from "@/lib/branding";
+import { fulfillmentStatusLabel, listFulfillmentOrders } from "@/lib/fulfillment-orders";
+import { paymentsEnabled } from "@/lib/payments";
 import { applyReviewNote, listCreatorApplications, type CreatorApplicationView } from "@/lib/creator-apply";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
@@ -46,6 +49,37 @@ function ApplicationsCard({ applications, note }: { applications: CreatorApplica
   );
 }
 
+function FulfillmentCard({ orders, enabled }: { orders: Awaited<ReturnType<typeof listFulfillmentOrders>>; enabled: boolean }) {
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="sec-title">Fulfillment</div>
+      {enabled ? (
+        <>
+          <p className="note">Paid one-time orders wait here. A bot claims one, then delivers a file or a link. Delivered work carries the Momma Mari logo and {BRAND_CREDIT}.</p>
+          {orders.length === 0 ? <p>No orders yet.</p> : (
+            <table>
+              <thead><tr><th>Creator</th><th>Product</th><th>Status</th><th>Created</th><th>Due</th></tr></thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order.id}>
+                    <td>{order.creatorName}</td>
+                    <td>{order.productName}</td>
+                    <td>{fulfillmentStatusLabel(order.status)}</td>
+                    <td>{order.createdAt.slice(0, 10)}</td>
+                    <td>{order.dueOn}{order.deliveryUrl ? <> · <a href={order.deliveryUrl}>Delivery</a></> : null}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      ) : (
+        <p className="note">Payments are off. One-time orders are not queued, and the bot cannot claim them.</p>
+      )}
+    </div>
+  );
+}
+
 function DashboardNotices({ growthError, saved }: { growthError?: string; saved?: string }) {
   const note = growthErrorNote(growthError);
   return (
@@ -69,10 +103,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <PortalFrame viewer={portal.viewer} tab="dashboard" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Dashboard</h1>}>
         {notices}
         {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
-        <p className="note">Pipeline value, commission, and win rate stay on the owner's sign-in.</p>
+        <p className="note">Pipeline value, commission, and win rate stay on the owner&apos;s sign-in.</p>
       </PortalFrame>
     );
   }
+  const orders = await listFulfillmentOrders(portal.db, portal.viewer);
+  const paymentsOn = paymentsEnabled();
   const dash = await ownerDashboard(portal.db, portal.viewer);
   const applications = await listCreatorApplications(portal.db, portal.viewer);
   const invites = await listPlatformInvites(portal.db, portal.viewer);
@@ -84,6 +120,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         {notices}
         {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
         <ApplicationsCard applications={applications} note={applyNote} />
+        <FulfillmentCard orders={orders} enabled={paymentsOn} />
         <p className="note">{dash.error}</p>
       </PortalFrame>
     );
@@ -99,6 +136,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {notices}
       {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
       <ApplicationsCard applications={applications} note={applyNote} />
+      <FulfillmentCard orders={orders} enabled={paymentsOn} />
       {invites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} showCreator />)}
       <div className="kpi-row">
         <article className="kpi">
