@@ -1,6 +1,6 @@
 # Momma Mari creator portal
 
-Private deal dashboard for creators managed by Momma Mari LLC. Each creator signs in with Google and sees only her own deals, drafts, payments, and analytics. Kamron (`Kamron@mommamari.com`) is the agency admin and can see every creator, including deals still hidden from the creator.
+Private deal dashboard for creators managed by Momma Mari LLC. Public pages at `/services`, `/roster`, and `/inquire` describe the work, list creators from the roster (no email, handle, or pay), and save a brand inquiry onto the brand list. The inquiry form does not send email. Each creator signs in with Google and sees only her own deals, drafts, payments, and analytics. Kamron (`Kamron@mommamari.com`) is the agency admin and can see every creator, including deals still hidden from the creator.
 
 The pilot is a Next.js app prepared for [Webflow Cloud](https://developers.webflow.com/webflow-cloud), mounted at `mommamari.com/portal`. This repository does not deploy itself and does not connect to the Webflow site. The steps at the bottom are what the owner runs once.
 
@@ -97,6 +97,8 @@ Content-Type: application/json
 ```
 
 A missing or wrong token returns `401`. If `BOT_API_TOKEN` is unset, every bot route returns `503`.
+
+Scoped bot tokens are separate. Kamron creates them on Access, and each one is stored only as a hash. `POST /api/bot/act` accepts the master token or a scoped token. A scoped token can negotiate, review contracts, do outreach, draft replies, or approve deals only at the level granted on that page. Draft-only and act-with-approval wait for Kamron. The other bot routes still require the master token. Managers never receive creator account credentials.
 
 Examples below use the local server. On the live site, change the host to `https://mommamari.com/portal` (the mount path is already in that origin; do not add `/portal` twice).
 
@@ -551,7 +553,7 @@ Sign-in stays on `openid email profile`. **Connect your email** is a second Goog
 4. A creator signs in and opens **Set up your bot**. She picks one email option:
    - **Recommended:** create a new Gmail used only for brand deals, then connect it. The page lists short steps for making that account.
    - **Personal email:** connect the inbox she already uses. The page says we only process brand-related mail, which the bot sorts and labels.
-   - **Hosted email:** ask Momma Mari to host a business address on `@mommamari.com`. She types a name and sees a preview such as `abby@mommamari.com`. Momma Mari owns the domain and the mailbox. Roster creators are `$79 one-time setup + $15/month`. The public price is `$99 one-time setup + $19/month`. The portal does not charge anyone; Stripe is not connected yet. She can finish her profile without connecting Google.
+   - **Hosted email:** ask Momma Mari to host a business address on `@mommamari.com`. She types a name and sees a preview such as `abby@mommamari.com`. Momma Mari owns the domain and the mailbox. Roster creators are `$79 one-time setup + $15/month`. The public price is `$99 one-time setup + $19/month`. The portal does not charge anyone. Stripe stays off unless `STRIPE_ENABLED` is `true` and `STRIPE_SECRET_KEY` is set. Payment links, incomplete subscriptions, and draft invoices are the only calls, and none of them collect money on their own. She can finish her profile without connecting Google.
 5. Connecting a new or personal Gmail uses **Connect your email**. Finishing the profile writes **New creator ready for bot** on Kamron's home page. Kash Bot reads finished profiles, including `emailSetup`, from `GET /api/bot/onboarding` and creates the bot manually after Kamron says OK.
 
 Watched brand inboxes (MariClare and AuthenticKam) are a separate read-only setup. The steps, the Pub/Sub topic, and the Webflow secrets are in `docs/live-sync-setup.md`. That path does not send mail.
@@ -634,6 +636,10 @@ Do this in Webflow. Nothing in this repo publishes the site.
 10. Sign in as Kamron, confirm MariClare's six deals, and confirm Grail is visible only to the admin. Then sign in as MariClare and confirm Grail is absent.
 
 Local `next dev` serves the app at `/`, not at `/portal`. That is expected. The mount path exists only on Webflow Cloud.
+
+## Free products
+
+Gifted brand offers live on Free products. A creator, including someone new or on the free bench, can apply only after accepting the terms. The wording is in `src/config/gifted-terms.ts`, marked DRAFT, pending lawyer review. Missing the video after the product arrives flags the retail cost plus a $50 finder's fee. Nothing is charged. Stripe is a later step. The brand is tagged "future paid prospect" on the brand list.
 
 ## Security notes
 
