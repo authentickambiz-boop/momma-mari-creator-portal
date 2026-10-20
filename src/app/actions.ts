@@ -29,6 +29,7 @@ import { isEmailSetup } from "@/lib/email-setup";
 import { emailSetupErrorCode } from "@/lib/email-setup-notes";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
 import { finishErrorCode } from "@/lib/finish-notes";
+import { noticeErrorCode } from "@/lib/notice-notes";
 import { onboardingPlatformId } from "@/lib/onboarding-fields";
 import { creatorStartPath, saveQuestionnaireStep } from "@/lib/questionnaire";
 import { resolveLogin } from "@/lib/queries";
@@ -442,10 +443,11 @@ export async function dismissNotificationAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer || (viewer.role !== "admin" && viewer.role !== "manager")) redirect("/login");
   const db = await getDb();
-  await dismissNotification(db, String(formData.get("id") ?? ""), {
+  const result = await dismissNotification(db, String(formData.get("id") ?? ""), {
     role: viewer.role,
     managerId: viewer.managerId,
   });
+  if (!result.ok) redirect(`/?noticeError=${noticeErrorCode(result.error)}`);
   redirect("/");
 }
 
