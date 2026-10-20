@@ -11,6 +11,7 @@ import {
 import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
 import { collabLift, listGoals, listPodDates, listShoutouts, podById, podCollabs, podMetricRows } from "@/lib/pods";
+import { growthErrorNote } from "@/lib/growth-notes";
 
 export default async function PodPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ creator?: string; saved?: string; growthError?: string }> }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
@@ -32,6 +33,7 @@ export default async function PodPage({ params, searchParams }: { params: Promis
   const maxFollowers = Math.max(1, ...metrics.map((row) => row.followers));
   const lift = collabLift(metrics);
   const staff = portal.viewer.role === "admin" || portal.viewer.role === "manager";
+  const growthNote = growthErrorNote(query.growthError);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -41,7 +43,7 @@ export default async function PodPage({ params, searchParams }: { params: Promis
       hello={<div className="hello"><div><h1>{pod.name}</h1><p>{pod.niche} · {pod.sizeBand} · {pod.managerName}. The pod room is private to these creators.</p></div></div>}
     >
       {query.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
-      {query.growthError ? <p className="private-note">{query.growthError}</p> : null}
+      {growthNote ? <p className="private-note">{growthNote}</p> : null}
       <div className="card">
         <div className="sec-title">Creators</div>
         <p>{pod.memberIds.map((memberId) => names.get(memberId) ?? memberId).join(", ")}</p>
