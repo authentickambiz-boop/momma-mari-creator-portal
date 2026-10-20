@@ -5,6 +5,7 @@ import { getDb } from "@/db/getDb";
 import { RANK_FIELDS, refreshRanks, saveRankInputs, saveRankSettings, emptyInputs, type RankFieldId } from "@/lib/creator-rank";
 import { currentViewer } from "@/lib/current-user";
 import { saveOwnerSnapshot } from "@/lib/analytics-snapshots";
+import { snapshotErrorCode } from "@/lib/snapshot-notes";
 import { dollarsToCents } from "@/lib/deal-rules";
 import { addCollab, addGoal, addPodDate, addShoutout, markCollabPosted, pairCollab, recordPodMetric, savePod, setGoalProgress } from "@/lib/pods";
 import { createRankReport, type ReportChoices, type ReportLevel } from "@/lib/rank-reports";
@@ -75,7 +76,7 @@ export async function saveAnalyticsSnapshotAction(formData: FormData) {
     merge: true,
   });
   const backTo = `/analytics?creator=${encodeURIComponent(creatorId)}`;
-  if (!result.ok) redirect(`${backTo}&snapshotError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`${backTo}&snapshotError=${snapshotErrorCode(result.error)}`);
   redirect(`${backTo}&saved=1`);
 }
 
