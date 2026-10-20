@@ -47,7 +47,7 @@ Kamron merges. This log does not merge anything.
 | [#77](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/77) | `cursor/gift-due-date-e39d` | A gifted due date has to be a real calendar day. February 31 is refused. Apply, approve, and ship still work for a real day. | Open. Test file `tests/gift-due-date.test.ts`. |
 | [#78](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/78) | `cursor/manager-assignment-e39d` | A manager with a full grant cannot change a deal for a creator who is not on their list. | Open. Test file `tests/manager-assignment.test.ts`. |
 | [#79](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/79) | `cursor/access-error-codes-e39d` | Access shows a fixed sentence for an error code. A made-up link cannot invent the wording. | Open. Test file `tests/access-error-codes.test.ts`. |
-| This pull request | `cursor/gift-error-codes-e39d` | Free products show a fixed sentence for an error code. A made-up link cannot invent the wording. These docs are in this pull request. | Open, based on `main` (`5a6e433`). Test file `tests/gift-error-codes.test.ts`. `npx tsc --noEmit` clean. `npm test` 93 passing. |
+| [#80](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/80) | `cursor/gift-error-codes-e39d` | Free products show a fixed sentence for an error code. A made-up link cannot invent the wording. These docs are in this pull request. | Open, based on `main` (`5a6e433`). Test file `tests/gift-error-codes.test.ts`. `npx tsc --noEmit` clean. `npm test` 93 passing. |
 
 `#43`, `#44`, `#47`, and `#48` are on `main`. New tests stay in their own `tests/<topic>.test.ts` files. `npm test` runs `tests/*.test.ts`. The shared helpers are `tests/harness.ts`.
 
@@ -66,7 +66,7 @@ What is still left before launch:
 
 - `#45` still has no file changes. Leave it open for Kamron to close. Do not merge it from here.
 - `#61` through `#76` are on `main`. Current `main` is `#76` (`5a6e433`). `#73` (`8b025b6`), `#74` (`6aebbc8`), `#75` (`02f60a5`), and `#76` (`5a6e433`) landed together. `npx tsc --noEmit` is clean on that main plus this pull request. `npm test` is 93 passing. No combined test failure showed up.
-- `#77`, `#78`, and `#79` are open. Merge them when the hourly merger does. They do not edit these docs.
+- `#77`, `#78`, `#79`, and `#80` are open. Merge them when the hourly merger does. `#80` is the one that edits these docs.
 - New tests go in a new `tests/<topic>.test.ts` that imports `./harness`. Do not append to `tests/portal.test.ts`.
 - Reconnect MariClare’s watched inbox (`mmaclamroc@gmail.com`) after deploy. The current refresh token fails with `unauthorized_client` until a new token is saved. `#42` keeps Pub/Sub from retrying that dead inbox in the meantime. `#55` also marks needs-reconnect when a push hits that dead token.
 - Mail older than the latest 40 inbox messages is still not recovered. `#48` covers the recent inbox when history has expired. `#61` follows one more page of 20.

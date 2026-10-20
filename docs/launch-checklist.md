@@ -22,7 +22,7 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 5. `#74` is on `main`. A brand inquiry can take a response and a contact before any deal exists. Signup keeps every rate and handle the form asks for, including a YouTube minimum and a Twitch handle. A brand-offer budget that is not dollars is refused instead of skipping that creator.
 6. `#75` is on `main`. The members directory will not print wording taken from the link.
 7. `#76` is on `main`. A brand offer is changed on Offers, not by splitting it on the campaign board.
-8. [#77](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/77) refuses a gifted due date that is not a real day. [#78](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/78) stops a manager from acting on a creator who is not assigned. [#79](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/79) maps Access errors to fixed sentences. This pull request does the same for Free products. `npx tsc --noEmit` is clean. `npm test` is 93 passing.
+8. [#77](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/77) refuses a gifted due date that is not a real day. [#78](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/78) stops a manager from acting on a creator who is not assigned. [#79](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/79) maps Access errors to fixed sentences. [#80](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/80) does the same for Free products. `npx tsc --noEmit` is clean. `npm test` is 93 passing.
 9. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
 
 ## Gmail, still before paid features
@@ -50,7 +50,7 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Still waiting
 
 - `#45` has no file changes. Leave it open for Kamron to close.
-- `#73` through `#76` are on `main` (`5a6e433`). `#77`, `#78`, and `#79` are open for the hourly merger. A gifted due date must be a real day. A manager cannot change a deal for a creator who is not on their list. Access and Free products show a fixed sentence instead of text from the link.
+- `#73` through `#76` are on `main` (`5a6e433`). `#77`, `#78`, `#79`, and `#80` are open for the hourly merger. A gifted due date must be a real day. A manager cannot change a deal for a creator who is not on their list. Access and Free products show a fixed sentence instead of text from the link.
 - The campaign board still prints `campaignError` from the link. That is the same kind of hole the directory, Access, and Free products no longer have.
 - Reconnect MariClare’s watched inbox (`mmaclamroc@gmail.com`) after deploy. The saved refresh token still fails with `unauthorized_client` until she connects that inbox again. Signing out is not required.
 - Mail older than the latest 40 inbox messages is not recovered. A failed later page does not move the cursor.
