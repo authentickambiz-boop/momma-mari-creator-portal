@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
+import { MEET_HREF, MEET_LABEL } from "@/lib/public-creators";
 
 export function PublicShell({ title, lede, children }: { title: string; lede: string; children: React.ReactNode }) {
   return (
@@ -10,7 +11,7 @@ export function PublicShell({ title, lede, children }: { title: string; lede: st
         <BrandMark sub="Creator management" />
         <nav className="public-nav" aria-label="Public">
           <Link href="/services">Services</Link>
-          <Link href="/roster">Creators</Link>
+          <Link href={MEET_HREF}>{MEET_LABEL}</Link>
           <Link href="/inquire">Work with us</Link>
           <Link href="/apply">Apply</Link>
           <Link href="/login">Creator login</Link>

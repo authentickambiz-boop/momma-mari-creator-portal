@@ -615,6 +615,21 @@ form.stack > label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"
 .public-nav { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .public-nav a { min-height: 44px; display: inline-flex; align-items: center; color: var(--ink); font-weight: 650; }
 .public-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.meet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: stretch; }
+.meet-card { display: flex; flex-direction: column; gap: 8px; }
+.meet-card h2 { color: #1F3B2D; }
+.meet-card h3 { font-size: 18px; color: #1F3B2D; margin-top: 4px; }
+.meet-photo { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 16px; background: var(--sand); }
+.meet-fallback { width: 72px; height: 72px; }
+.meet-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 8px 0; }
+.meet-metrics div { background: #E7EEE8; border-radius: 12px; padding: 10px 12px; }
+.meet-metrics dt { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-family: var(--body); }
+.meet-metrics dd { margin: 2px 0 0; font-family: var(--heading); font-size: 22px; color: #1F3B2D; }
+.meet-audience { list-style: none; padding: 0; margin: 8px 0; }
+.meet-audience li { margin: 2px 0; }
+.meet-audience span { font-weight: 650; color: #B4532F; }
+.meet-platform { border-top: 1px solid var(--line); padding-top: 10px; }
+.meet-card .btn.accent { margin-top: auto; align-self: flex-start; background: #B4532F; }
 .public-grid .card h2 { font-family: var(--heading); font-size: 22px; margin: 8px 0; overflow-wrap: anywhere; }
 .public-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 650; }
 .public-form input, .public-form textarea { width: 100%; max-width: 100%; }
@@ -767,6 +782,8 @@ textarea:focus {
   .connect-actions form,
   .connect-actions > .btn { flex: 1 1 8rem; }
   .connect-actions .btn { flex: 1 1 8rem; text-align: center; width: 100%; }
+  .meet-grid { grid-template-columns: 1fr; }
+  .meet-card .btn.accent { width: 100%; }
   .public-head { align-items: flex-start; }
   .wrap:has(.public-head) > h1,
   .wrap:has(.public-head) > p { overflow-wrap: anywhere; }
