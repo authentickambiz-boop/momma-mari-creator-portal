@@ -12,7 +12,7 @@ import { approveContract, requestContractRevisions, saveChecklist, saveContract,
 import { countersignContract, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "@/lib/signing";
 import { CONTRACT_CHECKS } from "@/lib/contract-shared";
 import { clearSafetyHold } from "@/lib/safety";
-import { draftMonthlyReport } from "@/lib/report";
+import { draftMonthlyReport, reportErrorCode } from "@/lib/report";
 import { recordReferral, setReferralPerk } from "@/lib/referrals";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
@@ -41,10 +41,7 @@ export async function draftReportAction(formData: FormData) {
     actorEmail: viewer.email,
     actorRole: viewer.role,
   });
-  if (!result.ok) {
-    const code = result.status === 409 ? "queued" : "1";
-    redirect(`${back}&reportError=${code}`);
-  }
+  if (!result.ok) redirect(`${back}&reportError=${reportErrorCode(result.error)}`);
   redirect(`${back}&drafted=1`);
 }
 
