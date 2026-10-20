@@ -17,6 +17,7 @@ const CAMPAIGN_ERROR_TEXT = {
   closed: "This campaign is still for the roster.",
   amount: "Enter the offer amount.",
   prospect: "That prospect is not on the list.",
+  date: "Use a date like 2026-11-01.",
 } as const;
 
 export const CAMPAIGN_NOTES: Record<string, string> = {

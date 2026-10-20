@@ -23,6 +23,8 @@ describe("campaign error codes", { concurrency: 1 }, () => {
     assert.equal(campaignErrorCode("Enter the budget in dollars, like 500."), "filter");
     assert.equal(campaignErrorCode("Brand offers are changed on the offers page."), "offer");
     assert.equal(campaignErrorCode("That split is over the campaign budget."), "over");
+    assert.equal(campaignErrorCode("Use a date like 2026-11-01."), "date");
+    assert.equal(campaignErrorNote("date"), "Use a date like 2026-11-01.");
     assert.equal(campaignErrorCode("anything else"), "1");
     assert.equal(campaignErrorNote("offer"), "Brand offers are changed on the offers page.");
     assert.equal(campaignErrorNote("1"), "That was not saved.");
