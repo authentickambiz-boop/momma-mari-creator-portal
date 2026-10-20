@@ -23,7 +23,8 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 6. Merge `#45` so creators see Connect accounts. On a phone, wide tables scroll.
 7. Merge `#46` so this checklist and the overnight log are on `main`.
 8. Merge `#47` so Access and Free products are on `main`. It adds migrations `0037` and `0038`. If `#45` is already merged, refresh `#47` first when the tab bar conflicts.
-9. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`).
+9. Merge `#48` so an expired Gmail history id backfills the latest 20 inbox messages. If `#42` is already merged, refresh `#48` first when the push handler conflicts.
+10. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`).
 
 ## Gmail, still before paid features
 
@@ -50,6 +51,6 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Still waiting
 
 - Free Products and Access are in `#47`, waiting to merge. The gifted terms are still DRAFT, pending lawyer review. Nothing on that page is charged.
-- Gmail history gaps are not backfilled.
+- Gmail history older than the latest 20 inbox messages is not recovered. `#48` covers that recent page.
 - The approval-queue email bridge is not built.
 - An attorney still needs to review the e-sign wording.
