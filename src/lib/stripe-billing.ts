@@ -13,6 +13,22 @@ export function stripeLiveEnabled() {
   return process.env.STRIPE_ENABLED === "true" && Boolean(process.env.STRIPE_SECRET_KEY?.trim());
 }
 
+const STRIPE_STATUS_NOTES: Record<string, string> = {
+  off: "Stripe is off. Nothing was charged.",
+  error: "That payment link was not created. Nothing was charged.",
+  ready: "Stripe prepared a payment link. The customer is not charged until they pay it.",
+  creator_only: "Payment links are prepared from the creator's own sign-in.",
+};
+
+export function stripeStatusNote(code: string | undefined, live = stripeLiveEnabled()) {
+  if (!code) return null;
+  const known = STRIPE_STATUS_NOTES[code];
+  if (known) return known;
+  return live
+    ? "That payment link was not created. Nothing was charged."
+    : "Stripe is off. Nothing was charged.";
+}
+
 function redact(message: string, secret: string) {
   const cleaned = secret ? message.split(secret).join("[redacted]") : message;
   return cleaned.slice(0, 200);

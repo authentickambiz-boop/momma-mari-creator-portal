@@ -2,20 +2,13 @@ import { prepareHostedEmailLinkAction } from "@/app/billing-actions";
 import { PortalFrame } from "@/components/portal-frame";
 import { readOwnAccount } from "@/lib/creator-home";
 import { loadPortal } from "@/lib/current-user";
-import { stripeLiveEnabled } from "@/lib/stripe-billing";
-
-const STRIPE_NOTES: Record<string, string> = {
-  off: "Stripe is off. Nothing was charged.",
-  error: "That payment link was not created. Nothing was charged.",
-  ready: "Stripe prepared a payment link. The customer is not charged until they pay it.",
-  creator_only: "Payment links are prepared from the creator's own sign-in.",
-};
+import { stripeLiveEnabled, stripeStatusNote } from "@/lib/stripe-billing";
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ stripe?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(null);
   const account = await readOwnAccount(portal.db, portal.viewer);
-  const stripeNote = params.stripe ? STRIPE_NOTES[params.stripe] : null;
+  const stripeNote = stripeStatusNote(params.stripe);
   const stripeOn = stripeLiveEnabled();
   return (
     <PortalFrame viewer={portal.viewer} tab="billing" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>Billing and usage</h1><p>Your plan only. Stripe stays off until live keys exist, so nothing is charged.</p></div>}>
