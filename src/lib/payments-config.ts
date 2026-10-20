@@ -154,3 +154,47 @@ export function offerForPriceId(priceId: string) {
 export function isSubscriptionPlan(value: string | null | undefined): value is SubscriptionPlanId {
   return value === "plus" || value === "pro" || value === "business";
 }
+
+/**
+ * Percent off one-time services for a member in good standing.
+ * 100 means the service is included: no Checkout session, straight to the fulfillment queue.
+ * Change these numbers here. Do not copy them into Checkout or the billing page.
+ */
+export const MEMBER_ONE_TIME_PERCENT_OFF: Record<SubscriptionPlanId, number> = {
+  plus: 10,
+  pro: 20,
+  business: 100,
+};
+
+const MEMBER_STATUSES = new Set(["active", "trialing"]);
+
+export function memberOneTimePercent(plan: string | null | undefined, status: string | null | undefined) {
+  if (!isSubscriptionPlan(plan) || !status || !MEMBER_STATUSES.has(status)) return 0;
+  const percent = MEMBER_ONE_TIME_PERCENT_OFF[plan];
+  if (!Number.isInteger(percent) || percent < 0 || percent > 100) return 0;
+  return percent;
+}
+
+export function memberServiceIncluded(percentOff: number) {
+  return percentOff >= 100;
+}
+
+export function memberPriceCents(amountCents: number, percentOff: number) {
+  if (percentOff <= 0) return amountCents;
+  if (memberServiceIncluded(percentOff)) return 0;
+  return Math.max(0, amountCents - Math.round((amountCents * percentOff) / 100));
+}
+
+export function memberCouponId(plan: SubscriptionPlanId, percentOff: number) {
+  return `portal_${plan}_${percentOff}`;
+}
+
+export function oneTimeMemberNote() {
+  const plus = MEMBER_ONE_TIME_PERCENT_OFF.plus;
+  const pro = MEMBER_ONE_TIME_PERCENT_OFF.pro;
+  const business = MEMBER_ONE_TIME_PERCENT_OFF.business;
+  const businessLine = memberServiceIncluded(business)
+    ? "Business members get them included."
+    : `Business members get ${business}% off.`;
+  return `Plus members get ${plus}% off one-time services. Pro members get ${pro}% off. ${businessLine}`;
+}

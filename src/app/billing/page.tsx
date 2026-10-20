@@ -3,8 +3,8 @@ import { BillingOffers } from "@/components/billing-offers";
 import { PortalFrame } from "@/components/portal-frame";
 import { readOwnAccount } from "@/lib/creator-home";
 import { loadPortal } from "@/lib/current-user";
-import { checkoutStatusNote, paymentsEnabled, readCreatorBilling } from "@/lib/payments";
-import { oneTimeOffers, subscriptionOffers } from "@/lib/payments-config";
+import { checkoutStatusNote, oneTimePriceNote, paymentsEnabled, readCreatorBilling } from "@/lib/payments";
+import { memberOneTimePercent, memberServiceIncluded, oneTimeMemberNote, oneTimeOffers, subscriptionOffers } from "@/lib/payments-config";
 import { stripeLiveEnabled, stripeStatusNote } from "@/lib/stripe-billing";
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ stripe?: string; checkout?: string }> }) {
@@ -21,11 +21,17 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     name: offer.name,
     prices: offer.prices.flatMap((price) => price.interval === "month" || price.interval === "year" ? [{ interval: price.interval, label: price.label }] : []),
   }));
-  const kits = oneTimeOffers().map((offer) => ({
-    id: offer.id,
-    name: offer.name,
-    label: offer.prices[0]?.label ?? "",
-  }));
+  const memberPercent = memberOneTimePercent(billing?.subscriptionPlan, billing?.subscriptionStatus);
+  const kits = oneTimeOffers().map((offer) => {
+    const price = offer.prices[0];
+    const label = price?.label ?? "";
+    return {
+      id: offer.id,
+      name: offer.name,
+      priceNote: oneTimePriceNote(label, price?.amountCents ?? 0, memberPercent),
+      included: memberServiceIncluded(memberPercent),
+    };
+  });
   return (
     <PortalFrame viewer={portal.viewer} tab="billing" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>Billing and usage</h1><p>Your plan only. Checkout stays off until payments are turned on, so nothing is charged from those buttons.</p></div>}>
       {stripeNote ? <p className="note">{stripeNote}</p> : null}
@@ -58,7 +64,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
               {account.warning ? <p className="private-note">{account.warning}</p> : null}
             </div>
           </div>
-          {portal.viewer.role === "creator" ? <BillingOffers enabled={paymentsOn} plans={plans} kits={kits} /> : null}
+          {portal.viewer.role === "creator" ? <BillingOffers enabled={paymentsOn} plans={plans} kits={kits} memberNote={oneTimeMemberNote()} /> : null}
         </>
       ) : (
         <p className="note">Billing is on each creator&apos;s own sign-in. This page does not list anyone else&apos;s plan or credits.</p>

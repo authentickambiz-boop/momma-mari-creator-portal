@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
-import { createBillingPortalSession, createCheckoutSession, paymentsEnabled, readCreatorBilling } from "@/lib/payments";
+import { beginCreatorCheckout, createBillingPortalSession, paymentsEnabled, readCreatorBilling } from "@/lib/payments";
 import { createPaymentLink, stripeLiveEnabled } from "@/lib/stripe-billing";
 
 export async function prepareHostedEmailLinkAction() {
@@ -18,17 +18,18 @@ export async function prepareHostedEmailLinkAction() {
 export async function startCheckoutAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer || viewer.role !== "creator" || !viewer.creatorId) redirect("/billing?checkout=creator_only");
-  if (!paymentsEnabled()) redirect("/billing?checkout=off");
   const db = await getDb();
   const billing = await readCreatorBilling(db, viewer.creatorId);
-  const result = await createCheckoutSession({
+  const result = await beginCreatorCheckout(db, {
     offerId: String(formData.get("offer") ?? ""),
     interval: String(formData.get("interval") ?? ""),
     email: viewer.email,
     creatorId: viewer.creatorId,
     customerId: billing.stripeCustomerId,
+    memberPlan: billing.subscriptionPlan,
+    memberStatus: billing.subscriptionStatus,
   });
-  if (!result.ok) redirect("/billing?checkout=error");
+  if (!result.ok) redirect(result.status === 503 || !paymentsEnabled() ? "/billing?checkout=off" : "/billing?checkout=error");
   redirect(result.url);
 }
 

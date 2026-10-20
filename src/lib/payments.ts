@@ -3,12 +3,16 @@ import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { creatorAccounts, creatorPurchases, stripeWebhookEvents } from "@/db/schema";
 import { blankCreatorAccount } from "./creator-home";
-import { appBaseUrl, nowIso, publicBasePath } from "./format";
+import { appBaseUrl, formatMoney, nowIso, publicBasePath } from "./format";
 import { queueFulfillmentOrder } from "./fulfillment-orders";
 import {
   BILLING_PORTAL_FALLBACK_URL,
   findOfferPrice,
   isSubscriptionPlan,
+  memberCouponId,
+  memberOneTimePercent,
+  memberPriceCents,
+  memberServiceIncluded,
   offerForPriceId,
   paymentsEnabled,
   type BillingInterval,
@@ -23,7 +27,7 @@ const SIGNATURE_TOLERANCE_SECONDS = 300;
 type FetchLike = (input: string, init: { method: string; headers: Record<string, string>; body: string }) => Promise<Response>;
 
 export type CheckoutResult =
-  | { ok: true; url: string; calledStripe: true }
+  | { ok: true; url: string; calledStripe: boolean }
   | { ok: false; status: number; error: string; calledStripe: boolean };
 
 export type PortalSessionResult = { url: string; calledStripe: boolean };
@@ -84,18 +88,29 @@ export function subscriptionSummary(input: { plan: string | null; interval: stri
   return [name, period, status].filter(Boolean).join(" · ");
 }
 
+export function oneTimePriceNote(label: string, amountCents: number, percentOff: number) {
+  if (memberServiceIncluded(percentOff)) return "Included with your plan. Nothing is charged.";
+  if (percentOff > 0) return `${label} list. You pay ${formatMoney(memberPriceCents(amountCents, percentOff))}.`;
+  return label;
+}
+
 export function checkoutStatusNote(code: string | undefined) {
   if (code === "success") return "Checkout finished. Your plan updates when Stripe confirms it. Nothing was emailed.";
+  if (code === "included") return "Included with your plan. It is in the fulfillment queue. Nothing was charged.";
   if (code === "off") return "Payments are off. Nothing was charged.";
   if (code === "error") return "Checkout did not start. Nothing was charged.";
   if (code === "creator_only") return "Checkout starts from the creator's own sign-in.";
   return null;
 }
 
-async function stripePost(path: string, params: URLSearchParams, fetchImpl: FetchLike): Promise<CheckoutResult> {
+type StripeJson = { id?: string; url?: string | null; error?: { message?: string; code?: string } };
+
+async function stripeForm(path: string, params: URLSearchParams, fetchImpl: FetchLike): Promise<
+  { ok: true; json: StripeJson; calledStripe: true } | { ok: false; status: number; error: string; json: StripeJson | null; calledStripe: boolean }
+> {
   const secret = stripeSecret();
   if (!paymentsEnabled() || !secret) {
-    return { ok: false, status: 503, error: "Payments are off. Nothing was charged.", calledStripe: false };
+    return { ok: false, status: 503, error: "Payments are off. Nothing was charged.", json: null, calledStripe: false };
   }
   let response: Response;
   try {
@@ -108,23 +123,54 @@ async function stripePost(path: string, params: URLSearchParams, fetchImpl: Fetc
       body: params.toString(),
     });
   } catch {
-    return { ok: false, status: 502, error: "Stripe did not respond. Nothing was charged.", calledStripe: true };
+    return { ok: false, status: 502, error: "Stripe did not respond. Nothing was charged.", json: null, calledStripe: true };
   }
-  const json = await response.json().catch(() => null) as { id?: string; url?: string | null; error?: { message?: string } } | null;
-  if (!response.ok || !json?.id || !json.url) {
-    const detail = json?.error?.message?.trim() || "Stripe did not start that session.";
-    return { ok: false, status: 502, error: redact(detail, secret), calledStripe: true };
+  const json = await response.json().catch(() => null) as StripeJson | null;
+  if (!response.ok || !json?.id) {
+    const detail = json?.error?.message?.trim() || "Stripe did not accept that request.";
+    return { ok: false, status: response.ok ? 502 : response.status, error: redact(detail, secret), json, calledStripe: true };
   }
-  return { ok: true, url: json.url, calledStripe: true };
+  return { ok: true, json, calledStripe: true };
 }
 
+async function stripePost(path: string, params: URLSearchParams, fetchImpl: FetchLike): Promise<CheckoutResult> {
+  const result = await stripeForm(path, params, fetchImpl);
+  if (!result.ok) return { ok: false, status: result.status, error: result.error, calledStripe: result.calledStripe };
+  if (!result.json.url) return { ok: false, status: 502, error: "Stripe did not start that session.", calledStripe: true };
+  return { ok: true, url: result.json.url, calledStripe: true };
+}
+
+async function ensureMemberCoupon(plan: SubscriptionPlanId, percentOff: number, fetchImpl: FetchLike) {
+  const name = findOfferPrice(plan, "month")?.offer.name ?? plan;
+  const params = new URLSearchParams();
+  params.set("id", memberCouponId(plan, percentOff));
+  params.set("percent_off", String(percentOff));
+  params.set("duration", "forever");
+  params.set("name", `${name} member ${percentOff} percent off one-time services`);
+  const result = await stripeForm("coupons", params, fetchImpl);
+  if (result.ok) return { ok: true as const, calledStripe: true as const };
+  const code = result.json?.error?.code ?? "";
+  if (code === "resource_already_exists" || /already exists/i.test(result.error)) {
+    return { ok: true as const, calledStripe: true as const };
+  }
+  return { ok: false as const, status: result.status, error: result.error, calledStripe: result.calledStripe };
+}
+
+const PAYMENTS_OFF = { ok: false as const, status: 503, error: "Payments are off. Nothing was charged.", calledStripe: false as const };
+
 export async function createCheckoutSession(
-  input: { offerId: string; interval: string; email: string; creatorId: string; customerId?: string | null },
+  input: {
+    offerId: string;
+    interval: string;
+    email: string;
+    creatorId: string;
+    customerId?: string | null;
+    memberPlan?: string | null;
+    memberStatus?: string | null;
+  },
   fetchImpl: FetchLike = fetch,
 ): Promise<CheckoutResult> {
-  if (!paymentsEnabled() || !stripeSecret()) {
-    return { ok: false, status: 503, error: "Payments are off. Nothing was charged.", calledStripe: false };
-  }
+  if (!paymentsEnabled() || !stripeSecret()) return PAYMENTS_OFF;
   const selected = findOfferPrice(input.offerId, input.interval);
   const email = input.email.trim();
   const creatorId = input.creatorId.trim();
@@ -135,6 +181,10 @@ export async function createCheckoutSession(
     return { ok: false, status: 400, error: "A creator email is required.", calledStripe: false };
   }
   const { offer, price } = selected;
+  const percentOff = offer.kind === "one_time" ? memberOneTimePercent(input.memberPlan, input.memberStatus) : 0;
+  if (offer.kind === "one_time" && memberServiceIncluded(percentOff)) {
+    return { ok: false, status: 400, error: "That service is included with the plan. It does not go through Checkout.", calledStripe: false };
+  }
   const urls = checkoutReturnUrls();
   const customerId = input.customerId?.trim() ?? "";
   const params = new URLSearchParams();
@@ -148,6 +198,12 @@ export async function createCheckoutSession(
   params.set("metadata[offer]", offer.id);
   params.set("metadata[interval]", price.interval);
   params.set("metadata[price_id]", price.priceId);
+  if (percentOff > 0 && isSubscriptionPlan(input.memberPlan)) {
+    const coupon = await ensureMemberCoupon(input.memberPlan, percentOff, fetchImpl);
+    if (!coupon.ok) return { ok: false, status: coupon.status, error: coupon.error, calledStripe: coupon.calledStripe };
+    params.set("discounts[0][coupon]", memberCouponId(input.memberPlan, percentOff));
+    params.set("metadata[member_percent]", String(percentOff));
+  }
   if (offer.kind === "subscription" && isSubscriptionPlan(offer.id)) {
     params.set("metadata[plan]", offer.id);
     params.set("subscription_data[metadata][creator_id]", creatorId);
@@ -163,6 +219,56 @@ export async function createCheckoutSession(
     if (offer.kind === "one_time") params.set("customer_creation", "always");
   }
   return stripePost("checkout/sessions", params, fetchImpl);
+}
+
+async function grantIncludedService(
+  db: PortalDb,
+  input: { offerId: string; priceId: string; creatorId: string },
+): Promise<CheckoutResult> {
+  if (!paymentsEnabled()) return PAYMENTS_OFF;
+  const purchaseId = `included_${crypto.randomUUID()}`;
+  await db.insert(creatorPurchases).values({
+    id: purchaseId,
+    creatorId: input.creatorId,
+    offerId: input.offerId,
+    priceId: input.priceId,
+    amountCents: 0,
+    createdAt: nowIso(),
+  });
+  const queued = await queueFulfillmentOrder(db, {
+    purchaseId,
+    creatorId: input.creatorId,
+    product: input.offerId,
+  });
+  if (!queued.queued) return PAYMENTS_OFF;
+  return { ok: true, url: "/billing?checkout=included", calledStripe: false };
+}
+
+export async function beginCreatorCheckout(
+  db: PortalDb,
+  input: {
+    offerId: string;
+    interval: string;
+    email: string;
+    creatorId: string;
+    customerId?: string | null;
+    memberPlan?: string | null;
+    memberStatus?: string | null;
+  },
+  fetchImpl: FetchLike = fetch,
+): Promise<CheckoutResult> {
+  if (!paymentsEnabled()) return PAYMENTS_OFF;
+  const selected = findOfferPrice(input.offerId, input.interval);
+  if (!selected || !input.creatorId.trim()) return { ok: false, status: 400, error: "That plan is not available.", calledStripe: false };
+  const percentOff = selected.offer.kind === "one_time" ? memberOneTimePercent(input.memberPlan, input.memberStatus) : 0;
+  if (selected.offer.kind === "one_time" && memberServiceIncluded(percentOff)) {
+    return grantIncludedService(db, {
+      offerId: selected.offer.id,
+      priceId: selected.price.priceId,
+      creatorId: input.creatorId.trim(),
+    });
+  }
+  return createCheckoutSession(input, fetchImpl);
 }
 
 export async function createBillingPortalSession(
@@ -355,6 +461,10 @@ async function applyCheckout(db: PortalDb, event: StripeEvent) {
   const priceId = metadataString(event.object, "price_id") ?? "";
   const matched = priceId ? offerForPriceId(priceId) : null;
   const offerId = matched?.offer.id ?? metadataString(event.object, "offer") ?? "unknown";
+  const reportedTotal = event.object.amount_total;
+  const amountCents = typeof reportedTotal === "number" && Number.isInteger(reportedTotal) && reportedTotal >= 0
+    ? reportedTotal
+    : matched?.price.amountCents ?? 0;
   const existing = await db.select().from(creatorPurchases).where(eq(creatorPurchases.id, sessionId));
   if (!existing[0]) {
     try {
@@ -363,7 +473,7 @@ async function applyCheckout(db: PortalDb, event: StripeEvent) {
         creatorId,
         offerId,
         priceId,
-        amountCents: matched?.price.amountCents ?? 0,
+        amountCents,
         createdAt: nowIso(),
       });
     } catch (error) {

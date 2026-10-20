@@ -57,7 +57,7 @@ function FulfillmentCard({ orders, enabled }: { orders: Awaited<ReturnType<typeo
         <>
           <p className="note">Paid one-time orders wait here. A bot claims one, then delivers a file or a link. Delivered work carries the Momma Mari logo and {BRAND_CREDIT}.</p>
           {orders.length === 0 ? <p>No orders yet.</p> : (
-            <table>
+            <table className="fulfillment-table">
               <thead><tr><th>Creator</th><th>Product</th><th>Status</th><th>Created</th><th>Due</th></tr></thead>
               <tbody>
                 {orders.map((order) => (

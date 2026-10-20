@@ -5,7 +5,7 @@ import { startCheckoutAction } from "@/app/billing-actions";
 
 type PlanPrice = { interval: "month" | "year"; label: string };
 type PlanOffer = { id: string; name: string; prices: PlanPrice[] };
-type KitOffer = { id: string; name: string; label: string };
+type KitOffer = { id: string; name: string; priceNote: string; included: boolean };
 
 function ComingSoon() {
   return <button className="btn" type="button" disabled>Coming soon</button>;
@@ -40,12 +40,12 @@ function KitCard({ kit, enabled }: { kit: KitOffer; enabled: boolean }) {
     <article className="card">
       <div className="sec-title">One-time</div>
       <b>{kit.name}</b>
-      <p className="note">{kit.label}</p>
+      <p className="note">{kit.priceNote}</p>
       {enabled ? (
         <form action={startCheckoutAction}>
           <input type="hidden" name="offer" value={kit.id} />
           <input type="hidden" name="interval" value="one_time" />
-          <button className="btn" type="submit">Buy</button>
+          <button className="btn" type="submit">{kit.included ? "Request" : "Buy"}</button>
         </form>
       ) : (
         <ComingSoon />
@@ -58,10 +58,12 @@ export function BillingOffers({
   enabled,
   plans,
   kits,
+  memberNote,
 }: {
   enabled: boolean;
   plans: PlanOffer[];
   kits: KitOffer[];
+  memberNote: string;
 }) {
   return (
     <>
@@ -71,6 +73,7 @@ export function BillingOffers({
         {plans.map((plan) => <PlanCard key={plan.id} plan={plan} enabled={enabled} />)}
       </div>
       <div className="sec-title">Kits and one-time</div>
+      <p className="note">{memberNote}</p>
       <div className="offer-grid">
         {kits.map((kit) => <KitCard key={kit.id} kit={kit} enabled={enabled} />)}
       </div>
