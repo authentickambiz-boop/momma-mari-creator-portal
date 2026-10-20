@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
 import { disconnectCreatorAccount } from "@/lib/account-connections";
+import { settingsErrorCode, supportErrorCode } from "@/lib/account-notes";
 import { saveOwnSettings, submitSupportMessage } from "@/lib/creator-home";
 
 export async function saveSettingsAction(formData: FormData) {
@@ -16,7 +17,7 @@ export async function saveSettingsAction(formData: FormData) {
     quietHours: formData.get("quietHours") === "1",
     communityVisible: formData.get("communityVisible") === "1",
   });
-  if (!result.ok) redirect(`/settings?settingsError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/settings?settingsError=${settingsErrorCode(result.error)}`);
   redirect("/settings?saved=1");
 }
 
@@ -28,7 +29,7 @@ export async function submitSupportAction(formData: FormData) {
     subject: String(formData.get("subject") ?? ""),
     body: String(formData.get("body") ?? ""),
   });
-  if (!result.ok) redirect(`/support?supportError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/support?supportError=${supportErrorCode(result.error)}`);
   redirect("/support?saved=1");
 }
 
