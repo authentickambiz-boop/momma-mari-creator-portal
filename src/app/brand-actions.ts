@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { addBrandCrmEntry } from "@/lib/brand-crm";
+import { brandErrorCode } from "@/lib/brand-notes";
 import { currentViewer } from "@/lib/current-user";
 import { getDb } from "@/db/getDb";
 
@@ -19,6 +20,6 @@ export async function addBrandCrmEntryAction(formData: FormData) {
     actorRole: viewer.role,
     actorName: viewer.name,
   });
-  if (!result.ok) redirect(`/brands?brandError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/brands?brandError=${brandErrorCode(result.error)}`);
   redirect("/brands?saved=1");
 }
