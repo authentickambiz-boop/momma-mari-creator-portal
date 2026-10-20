@@ -1,7 +1,9 @@
+import { approveCreatorApplicationAction, declineCreatorApplicationAction } from "@/app/apply-actions";
 import { addReinvestmentAction, saveReinvestTargetAction } from "@/app/growth-actions";
 import { PlatformInviteCard } from "@/components/platform-invite-card";
 import { PortalFrame } from "@/components/portal-frame";
 import { ownerDashboard } from "@/lib/campaigns";
+import { applyReviewNote, listCreatorApplications, type CreatorApplicationView } from "@/lib/creator-apply";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
 import { growthErrorNote } from "@/lib/growth-notes";
@@ -9,6 +11,40 @@ import { inviteErrorNote } from "@/lib/invite-notes";
 import { listPlatformInvites } from "@/lib/platform-invites";
 import { REINVEST_CATEGORIES, reinvestmentSummary } from "@/lib/reinvestment";
 import { getDealStage } from "@/lib/stages";
+
+function ApplicationsCard({ applications, note }: { applications: CreatorApplicationView[]; note: string | null }) {
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="sec-title">Applications</div>
+      <p className="note">New applications show up here. Nothing is emailed. Paid signup is not wired. Stripe stays off. Nothing is charged.</p>
+      {note ? <p className="note">{note}</p> : null}
+      {applications.length === 0 ? <p>No applications yet.</p> : null}
+      {applications.map((application) => (
+        <div key={application.id} className="card" style={{ marginTop: 10 }}>
+          <p><b>{application.name}</b> · {application.status}</p>
+          <p>{application.email}</p>
+          <p>Handles: {application.handles}</p>
+          <p>Followers: {application.followers}</p>
+          <p>Niche: {application.niche}</p>
+          {application.rates ? <p>Rates: {application.rates}</p> : <p className="note">No rates given.</p>}
+          <p>{application.message}</p>
+          {application.status === "pending" ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <form action={approveCreatorApplicationAction}>
+                <input type="hidden" name="id" value={application.id} />
+                <button className="btn" type="submit">Approve</button>
+              </form>
+              <form action={declineCreatorApplicationAction}>
+                <input type="hidden" name="id" value={application.id} />
+                <button className="btn ghost" type="submit">Decline</button>
+              </form>
+            </div>
+          ) : application.invitedAt ? <p className="note">She can sign in with this email. Nothing was emailed.</p> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function DashboardNotices({ growthError, saved }: { growthError?: string; saved?: string }) {
   const note = growthErrorNote(growthError);
@@ -20,11 +56,14 @@ function DashboardNotices({ growthError, saved }: { growthError?: string; saved?
   );
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ creator?: string; growthError?: string; saved?: string; invite?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ creator?: string; growthError?: string; saved?: string; invite?: string; apply?: string; applyError?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
   const inviteNote = inviteErrorNote(params.invite);
   const notices = <DashboardNotices growthError={params.growthError} saved={params.saved} />;
+  const applyNote = params.apply === "approved" || params.apply === "declined"
+    ? applyReviewNote(params.apply)
+    : applyReviewNote(params.applyError);
   if (portal.viewer.role !== "admin") {
     return (
       <PortalFrame viewer={portal.viewer} tab="dashboard" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Dashboard</h1>}>
@@ -35,6 +74,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     );
   }
   const dash = await ownerDashboard(portal.db, portal.viewer);
+  const applications = await listCreatorApplications(portal.db, portal.viewer);
   const invites = await listPlatformInvites(portal.db, portal.viewer);
   const month = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
   const reinvest = await reinvestmentSummary(portal.db, portal.viewer, month);
@@ -43,6 +83,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <PortalFrame viewer={portal.viewer} tab="dashboard" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Dashboard</h1>}>
         {notices}
         {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
+        <ApplicationsCard applications={applications} note={applyNote} />
         <p className="note">{dash.error}</p>
       </PortalFrame>
     );
@@ -57,6 +98,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     >
       {notices}
       {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
+      <ApplicationsCard applications={applications} note={applyNote} />
       {invites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} showCreator />)}
       <div className="card">
         <div className="sec-title">Pipeline</div>

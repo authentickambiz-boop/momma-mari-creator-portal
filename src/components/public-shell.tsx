@@ -10,6 +10,7 @@ export function PublicShell({ title, lede, children }: { title: string; lede: st
           <Link href="/services">Services</Link>
           <Link href="/roster">Creators</Link>
           <Link href="/inquire">Work with us</Link>
+          <Link href="/apply">Apply</Link>
           <Link href="/login">Creator login</Link>
         </nav>
       </header>

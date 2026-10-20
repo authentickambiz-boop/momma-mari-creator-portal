@@ -1045,6 +1045,29 @@ export const giftedApplications = sqliteTable("gifted_applications", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const creatorApplicationAttempts = sqliteTable("creator_application_attempts", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  ip: text("ip").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const creatorApplications = sqliteTable("creator_applications", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  handles: text("handles").notNull(),
+  followers: text("followers").notNull(),
+  niche: text("niche").notNull(),
+  rates: text("rates"),
+  message: text("message").notNull(),
+  status: text("status").notNull(),
+  creatorId: text("creator_id"),
+  invitedAt: text("invited_at"),
+  createdAt: text("created_at").notNull(),
+  reviewedAt: text("reviewed_at"),
+});
+
 export const botTokens = sqliteTable("bot_tokens", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

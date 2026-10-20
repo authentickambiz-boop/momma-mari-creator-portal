@@ -16,6 +16,12 @@ On a desktop that link is visible next to Apply Now. Inside the `@media screen a
 
 Change: in that 767px block, remove `display: none` from `.availability-button.creator-login` so the phone menu shows Creator login. Leave the href as `/portal/login`. The full address is https://mommamari.com/portal/login.
 
+## Apply as a Creator
+
+That button is not in this repo. On the Webflow marketing site, "Apply as a Creator" (and the form on https://mommamari.com/creators) points at the old Jotform `https://form.jotform.com/262870913967067`. "Apply Now" on the homepage goes to `/creators`, which is that same Webflow page.
+
+In the Webflow Designer, change those links to `https://mommamari.com/portal/apply`. The portal page is already the application. Do not leave the Jotform in place.
+
 ## Shared look (already on the marketing site)
 
 No other Webflow color or font change is required. The portal was brought to these existing tokens:
