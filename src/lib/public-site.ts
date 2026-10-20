@@ -3,6 +3,16 @@ import { creators } from "@/db/schema";
 
 export const PUBLIC_ROBOTS = { index: true as const, follow: true as const };
 
+export const PUBLIC_MARKETING_PATHS = ["/services", "/roster", "/inquire"] as const;
+
+/** True for the public marketing pages, with or without the portal mount prefix. */
+export function isPublicMarketingPath(pathname: string, basePath = "") {
+  const base = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
+  const stripped = base && pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
+  const path = (stripped.split("?")[0] || "/").replace(/\/+$/, "") || "/";
+  return (PUBLIC_MARKETING_PATHS as readonly string[]).includes(path);
+}
+
 export const SERVICES = [
   {
     title: "Brand partnerships",
