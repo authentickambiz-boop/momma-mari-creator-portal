@@ -6,7 +6,7 @@ export function AnalyticsPanel({ creator, daily, posts }: { creator: CreatorProf
   const summary = summarizeAnalytics(daily, posts);
   if (summary.daily.length === 0) {
     return (
-      <div className="card">
+      <div className="card empty-state">
         <h3>No analytics yet</h3>
         <p className="note">
           Daily numbers show up here after accounts are connected. The bot writes one row per platform per day.
@@ -59,7 +59,7 @@ export function AnalyticsPanel({ creator, daily, posts }: { creator: CreatorProf
       </div>
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec-title">Top posts {summary.exampleMode ? <span className="example">EXAMPLE</span> : null}</div>
-        {summary.posts.length === 0 ? <p className="note">No posts recorded yet.</p> : (
+        {summary.posts.length === 0 ? <p className="note empty">No posts recorded yet.</p> : (
           <table>
             <thead><tr><th>Post</th><th>Platform</th><th>Views</th><th>Saves</th></tr></thead>
             <tbody>

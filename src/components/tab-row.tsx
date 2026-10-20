@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-export function TabRow({ children }: { children: React.ReactNode }) {
+export function TabRow({ children, label = "Sections" }: { children: React.ReactNode; label?: string }) {
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     const current = ref.current?.querySelector("a.on");
@@ -10,7 +10,7 @@ export function TabRow({ children }: { children: React.ReactNode }) {
     current.scrollIntoView({ inline: "nearest", block: "nearest" });
   }, []);
   return (
-    <nav className="tabs" ref={ref}>
+    <nav className="tabs" ref={ref} aria-label={label}>
       {children}
     </nav>
   );

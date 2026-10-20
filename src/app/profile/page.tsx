@@ -45,7 +45,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         {preview ? (
           <p>{preview.displayName}{preview.joined ? ` · Joined ${preview.joined}` : ""}{preview.bio ? ` · ${preview.bio}` : ""}</p>
         ) : (
-          <p className="note">Nothing is public yet.</p>
+          <p className="note empty">Nothing is public yet.</p>
         )}
         <form action={hideProfileAction}>
           <button className="btn ghost" type="submit">Hide</button>

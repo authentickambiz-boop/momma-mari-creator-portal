@@ -58,7 +58,7 @@ export default async function BenchPage({ searchParams }: { searchParams: Promis
             ) : null}
           </div>
         ))}
-        {people.length ? null : <p className="note">Nobody is on the bench yet.</p>}
+        {people.length ? null : <p className="note empty">Nobody is on the bench yet.</p>}
       </div>
       {flagged.length > 0 ? (
         <div className="card" style={{ marginTop: 14 }}>

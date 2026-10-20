@@ -45,7 +45,7 @@ export default async function ReportPage({
           <section className="card">
             <div className="sec-title">Earnings</div>
             <p>Your cut sent: {report.earnings.paidLabel}</p>
-            {report.earnings.dealsPaid.length === 0 ? <p className="note">No cut was sent this month.</p> : null}
+            {report.earnings.dealsPaid.length === 0 ? <p className="note empty">No cut was sent this month.</p> : null}
             <ul>
               {report.earnings.dealsPaid.map((row) => (
                 <li key={row.brand}>{row.brand}: {row.payoutLabel}</li>
@@ -54,7 +54,7 @@ export default async function ReportPage({
           </section>
           <section className="card">
             <div className="sec-title">Deals</div>
-            {report.deals.length === 0 ? <p className="note">No deals moved this month.</p> : null}
+            {report.deals.length === 0 ? <p className="note empty">No deals moved this month.</p> : null}
             <ul>
               {report.deals.map((row) => (
                 <li key={row.brand}>{row.brand}: {row.stageLabel}</li>

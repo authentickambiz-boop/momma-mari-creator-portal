@@ -19,7 +19,7 @@ export default async function RulesPage({ searchParams }: { searchParams: Promis
   if (!creator || portal.viewer.role === "creator") {
     return (
       <PortalFrame viewer={portal.viewer} tab="rules" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Deal rules</h1>}>
-        <p className="note">Pick a creator. Deal rules stay with the owner and her managers.</p>
+        <p className="note empty">Pick a creator. Deal rules stay with the owner and her managers.</p>
       </PortalFrame>
     );
   }

@@ -21,7 +21,7 @@ export default async function BenchPortfolioPage({ params }: { params: Promise<{
           <li key={sample.title}>{sample.title}</li>
         ))}
       </ul>
-      {person.samples.length ? null : <p className="note">No samples yet.</p>}
+      {person.samples.length ? null : <p className="note empty">No samples yet.</p>}
     </main>
   );
 }

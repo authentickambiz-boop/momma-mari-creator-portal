@@ -26,7 +26,7 @@ export default async function GiftedBenchApplyPage({ searchParams }: { searchPar
         <p style={{ whiteSpace: "pre-wrap" }}>{GIFTED_TERMS_TEXT}</p>
         <p className="note">Version {GIFTED_TERMS_VERSION}. Have an attorney review this wording before you rely on it.</p>
       </div>
-      {board.length === 0 ? <p className="note">No free products yet. Nothing is charged.</p> : null}
+      {board.length === 0 ? <p className="note empty">No free products yet. Nothing is charged.</p> : null}
       <div className="stack">
         {board.map((offer) => (
           <form key={offer.id} action={applyGiftedByEmailAction} className="card stack">

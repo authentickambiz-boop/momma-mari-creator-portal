@@ -43,7 +43,7 @@ export default async function ProspectsPage({ searchParams }: { searchParams: Pr
             ))}
           </tbody>
         </table>
-        {rows.length ? null : <p className="note">No prospects yet.</p>}
+        {rows.length ? null : <p className="note empty">No prospects yet.</p>}
       </div>
       <form action={addProspectAction} className="card stack" style={{ marginTop: 14 }}>
         <div className="sec-title">Add a prospect</div>

@@ -30,6 +30,7 @@ export function PortalFrame({
   const homeHref = staff ? `/${query(viewedId === "all" ? "mariclare" : viewedId)}` : "/";
   return (
     <>
+      <a className="skip" href="#main">Skip to content</a>
       <div className="demo-bar">
         Pilot. MariClare&apos;s deals are seed data from her inbox as of Oct 17, 2026. TBD means the emails don&apos;t say yet.
       </div>
@@ -40,7 +41,7 @@ export function PortalFrame({
         </Link>
         <TabRow>
           {tabs.map((item) => (
-            <Link key={item.id} href={`${item.href}${query(viewedId)}`} className={item.id === tab ? "on" : ""}>
+            <Link key={item.id} href={`${item.href}${query(viewedId)}`} className={item.id === tab ? "on" : ""} aria-current={item.id === tab ? "page" : undefined}>
               {item.label}
             </Link>
           ))}
@@ -53,16 +54,16 @@ export function PortalFrame({
           <AccountMenu initials={viewer.initials || viewer.name.slice(0, 1)} items={menu} />
         </div>
       </aside>
-      <div className="portal-main wrap">
+      <main id="main" className="portal-main wrap">
         {hello}
         {staff ? (
-          <div className="switcher">
+          <div className="switcher" role="navigation" aria-label="Creators">
             {creators.map((creator) => (
-              <Link key={creator.id} href={`${tab === "deals" ? "/" : `/${tab}`}${query(creator.id)}`} className={viewedId === creator.id ? "on" : ""}>
+              <Link key={creator.id} href={`${tab === "deals" ? "/" : `/${tab}`}${query(creator.id)}`} className={viewedId === creator.id ? "on" : ""} aria-current={viewedId === creator.id ? "page" : undefined}>
                 {creator.name}
               </Link>
             ))}
-            <Link href={`${tab === "deals" ? "/" : `/${tab}`}?creator=all`} className={viewedId === "all" ? "on" : ""}>
+            <Link href={`${tab === "deals" ? "/" : `/${tab}`}?creator=all`} className={viewedId === "all" ? "on" : ""} aria-current={viewedId === "all" ? "page" : undefined}>
               {viewer.role === "manager" ? "My creators" : "All creators"}
             </Link>
           </div>
@@ -74,7 +75,7 @@ export function PortalFrame({
           </div>
         ) : null}
         {children}
-      </div>
+      </main>
       </div>
     </>
   );

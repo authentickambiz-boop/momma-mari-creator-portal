@@ -22,7 +22,7 @@ export default async function RightsPage({ searchParams }: { searchParams: Promi
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed or charged.</p> : null}
       {rightsErrorNote(params.rightsError) ? <p className="private-note">{rightsErrorNote(params.rightsError)}</p> : null}
-      {cards.length === 0 ? <p className="note">No usage windows yet.</p> : null}
+      {cards.length === 0 ? <p className="note empty">No usage windows yet.</p> : null}
       {cards.length > 0 ? (
         <div className="card">
           <table>

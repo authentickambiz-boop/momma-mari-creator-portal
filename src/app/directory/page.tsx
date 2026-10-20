@@ -19,7 +19,7 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Pr
     >
       {params.saved === "1" ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {directoryError ? <p className="private-note">{directoryError} Nothing was emailed.</p> : null}
-      {cards.length === 0 ? <p className="note">No public profiles yet. Nothing is emailed.</p> : null}
+      {cards.length === 0 ? <p className="note empty">No public profiles yet. Nothing is emailed.</p> : null}
       <div className="stack">
         {cards.map((card) => (
           <article key={card.creatorId} className="card">

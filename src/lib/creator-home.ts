@@ -101,7 +101,7 @@ export function billingWarning(warning: "80" | "100" | null) {
 
 type AccountRow = typeof creatorAccounts.$inferSelect;
 
-function defaultAccount(creatorId: string): AccountRow {
+export function blankCreatorAccount(creatorId: string): AccountRow {
   return {
     creatorId,
     plan: "Core",
@@ -112,6 +112,12 @@ function defaultAccount(creatorId: string): AccountRow {
     pushNotices: false,
     quietHours: true,
     communityVisible: true,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
+    subscriptionStatus: null,
+    subscriptionPlan: null,
+    subscriptionInterval: null,
+    subscriptionEventAt: null,
     updatedAt: nowIso(),
   };
 }
@@ -119,7 +125,7 @@ function defaultAccount(creatorId: string): AccountRow {
 export async function readOwnAccount(db: PortalDb, viewer: Viewer) {
   if (viewer.role !== "creator" || !viewer.creatorId) return null;
   const rows = await db.select().from(creatorAccounts).where(eq(creatorAccounts.creatorId, viewer.creatorId));
-  const row = rows[0] ?? defaultAccount(viewer.creatorId);
+  const row = rows[0] ?? blankCreatorAccount(viewer.creatorId);
   const usage = billingUsage({ tier: row.aiTier, used: row.aiCreditsUsed });
   return {
     creatorId: viewer.creatorId,
@@ -143,7 +149,7 @@ export async function saveOwnSettings(
   if (viewer.role !== "creator" || !viewer.creatorId) {
     return { ok: false as const, status: 403, error: "Settings for notices are on the creator's own sign-in." };
   }
-  const current = (await db.select().from(creatorAccounts).where(eq(creatorAccounts.creatorId, viewer.creatorId)))[0] ?? defaultAccount(viewer.creatorId);
+  const current = (await db.select().from(creatorAccounts).where(eq(creatorAccounts.creatorId, viewer.creatorId)))[0] ?? blankCreatorAccount(viewer.creatorId);
   const next = {
     ...current,
     emailNotices: input.emailNotices,

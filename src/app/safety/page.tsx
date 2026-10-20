@@ -41,7 +41,7 @@ export default async function SafetyPage({
           <p className="note">Nothing is sent to the brand while a flag is held. Only Kamron can clear a hold.</p>
           {params.cleared === "1" ? <p className="note">Hold cleared. Nothing was sent to the brand.</p> : null}
           {params.safetyError ? <p className="note">{safetyErrorNote(params.safetyError) ?? "That hold was not cleared. Nothing was sent to the brand."}</p> : null}
-          {holds.length === 0 ? <p className="note">No drafts are held.</p> : null}
+          {holds.length === 0 ? <p className="note empty">No drafts are held.</p> : null}
           {holds.map((hold) => (
             <div key={hold.draftId} className="box">
               <div>

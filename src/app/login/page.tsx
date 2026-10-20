@@ -30,11 +30,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const base = publicBasePath();
   return (
     <div className="login-split">
-      <div className="login-pane">
+      <a className="skip" href="#signin">Skip to sign in</a>
+      <div className="login-pane" id="signin">
         <BrandMark sub="Creator portal" />
         <h1>Welcome back.</h1>
         <p className="lead">Sign in with the Google account you were invited with. You&apos;ll only see your own deals.</p>
-        {error ? <p className="private-note">{error}</p> : null}
+        {error ? <p className="private-note" role="alert">{error}</p> : null}
         {showApplyHint ? <p className="note">If you are new, apply to join Momma Mari. Kamron reviews each application. Nothing is emailed.</p> : null}
         <Link className="btn" href="/apply">New creator? Apply to join Momma Mari</Link>
         {googleConfigured() ? (
@@ -42,8 +43,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         ) : (
           <p className="note">Google sign-in is waiting on a client id and secret. The steps are in the README.</p>
         )}
-        <p className="eyebrow center">New here?</p>
-        <Link className="btn ghost" href="/apply">Apply to join Momma Mari</Link>
         {devLoginEnabled() ? (
           <>
             <div className="sec-title" style={{ marginTop: 18 }}>Practice sign-in</div>
@@ -62,7 +61,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               {creators.map((creator) => (
                 <form key={creator.id} action={devLoginAction}>
                   <input type="hidden" name="email" value={creator.email} />
-                  <button className="btn" type="submit">Continue as {creator.name}</button>
+                  <button className="btn ghost" type="submit">Continue as {creator.name}</button>
                 </form>
               ))}
             </div>

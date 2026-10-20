@@ -71,7 +71,7 @@ export function HomeDesk({
             <h2>Your brand deals</h2>
             <a href="#deals">View all</a>
           </div>
-          {rows.length === 0 ? <p className="note">No deals on this list yet.</p> : rows.map((deal) => {
+          {rows.length === 0 ? <p className="note empty">No deals on this list yet.</p> : rows.map((deal) => {
             const marks = progressMarks(deal.workflowStage);
             return (
               <Link key={deal.id} href={`/deals/${deal.id}`} className="progress-row">

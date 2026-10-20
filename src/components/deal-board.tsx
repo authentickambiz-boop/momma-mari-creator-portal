@@ -86,7 +86,7 @@ export function DealBoard({
       <div className="list">
         <div className="sec-title">Your deals</div>
         {deals.length === 0 ? (
-          <div className="card">
+          <div className="card empty-state">
             <b>No deals on your list yet.</b>
             <p className="note">When a brand says yes, Kamron turns the deal on here. Negotiation notes stay off this page until then.</p>
           </div>
@@ -143,7 +143,7 @@ export function DealBoard({
             signerError={signerError}
           />
         ) : (
-          <p className="note">Pick a deal to see the brief, the feedback, and where to upload.</p>
+          <p className="note empty">Pick a deal to see the brief, the feedback, and where to upload.</p>
         )}
       </div>
     </div>
@@ -272,7 +272,7 @@ function DealDetailView({
           </label>
           <button className="btn" type="submit" name="decision" value="interested">I&apos;m interested</button>
           <p className="note">This is before negotiation. Kamron handles the rate with the brand.</p>
-          {interestError ? <span className="note">That choice was not saved. Nothing was emailed.</span> : null}
+          {interestError ? <span className="note alert" role="alert">That choice was not saved. Nothing was emailed.</span> : null}
         </form>
       ) : null}
       {deal.interest && !canChangeStage ? (
@@ -359,7 +359,7 @@ function DealDetailView({
           </label>
           <input type="text" name="note" placeholder="Note only you see" aria-label="Private note" />
           <button className="btn" type="submit">Update stage</button>
-          {stageError ? <span className="note">That stage was not saved. Nothing was changed.</span> : null}
+          {stageError ? <span className="note alert" role="alert">That stage was not saved. Nothing was changed.</span> : null}
         </form>
       ) : null}
       {canChangeStage && deal.offerReleased ? (
@@ -511,21 +511,21 @@ function DealDetailView({
                     </label>
                     <button className="btn" type="submit" name="decision" value="approved">Approve</button>
                     <button className="btn ghost" type="submit" name="decision" value="changes">Request changes</button>
-                    {safetyError === "creator" ? <span className="note">You can&apos;t clear a safety hold.</span> : null}
-                    {safetyError === "owner" ? <span className="note">Only Kamron can clear a safety hold.</span> : null}
-                    {reviewError === "note" ? <span className="note">Tell her what to fix before sending it back.</span> : null}
-                    {reviewError === "email" ? <span className="note">Add the brand email before approving. The email stays in your queue.</span> : null}
-                    {reviewError === "held" ? <span className="note">This draft is held for Kamron. Nothing was sent to the brand.</span> : null}
-                    {reviewError && reviewError !== "note" && reviewError !== "email" && reviewError !== "held" ? <span className="note">That review was not saved. Nothing was emailed.</span> : null}
+                    {safetyError === "creator" ? <span className="note alert" role="alert">You can&apos;t clear a safety hold.</span> : null}
+                    {safetyError === "owner" ? <span className="note alert" role="alert">Only Kamron can clear a safety hold.</span> : null}
+                    {reviewError === "note" ? <span className="note alert" role="alert">Tell her what to fix before sending it back.</span> : null}
+                    {reviewError === "email" ? <span className="note alert" role="alert">Add the brand email before approving. The email stays in your queue.</span> : null}
+                    {reviewError === "held" ? <span className="note alert" role="alert">This draft is held for Kamron. Nothing was sent to the brand.</span> : null}
+                    {reviewError && reviewError !== "note" && reviewError !== "email" && reviewError !== "held" ? <span className="note alert" role="alert">That review was not saved. Nothing was emailed.</span> : null}
                   </form>
                 ) : null}
               </li>
             ))}
           </ul>
-          {reviewError ? <p className="note">{reviewErrorNote(reviewError) ?? "That review was not saved. Nothing was emailed."}</p> : null}
+          {reviewError ? <p className="note alert" role="alert">{reviewErrorNote(reviewError) ?? "That review was not saved. Nothing was emailed."}</p> : null}
         </div>
       ) : null}
-      {safetyError ? <p className="note">{safetyErrorNote(safetyError) ?? "That hold was not cleared. Nothing was sent to the brand."}</p> : null}
+      {safetyError ? <p className="note alert" role="alert">{safetyErrorNote(safetyError) ?? "That hold was not cleared. Nothing was sent to the brand."}</p> : null}
       <UploadBox dealId={deal.id} brand={deal.brand} enabled={deal.uploadEnabled} label={deal.uploadLabel || "Upload your draft"} />
     </>
   );
@@ -581,7 +581,7 @@ function ProductAndPosts({
           )}
         </p>
       ) : (
-        <p className="note">No tracking yet.</p>
+        <p className="note empty">No tracking yet.</p>
       )}
       {canChangeStage ? (
         <form action={saveShipmentAction} className="stage-form">
@@ -605,10 +605,10 @@ function ProductAndPosts({
           <button className="btn" type="submit">I got it</button>
         </form>
       ) : null}
-      {productError ? <p className="note">{productErrorNote(productError) ?? "That tracking was not saved. Nothing was changed."}</p> : null}
+      {productError ? <p className="note alert" role="alert">{productErrorNote(productError) ?? "That tracking was not saved. Nothing was changed."}</p> : null}
 
       <div className="sec-title" style={{ marginTop: 14 }}>Live posts</div>
-      {deal.livePosts.length === 0 ? <p className="note">No live links yet.</p> : null}
+      {deal.livePosts.length === 0 ? <p className="note empty">No live links yet.</p> : null}
       <ul>
         {deal.livePosts.map((post) => (
           <li key={post.id}>
@@ -649,7 +649,7 @@ function ProductAndPosts({
           <button className="btn" type="submit">Submit live post</button>
         </form>
       ) : null}
-      {postError ? <p className="note">{postErrorNote(postError) ?? "That post was not saved. Nothing was emailed."}</p> : null}
+      {postError ? <p className="note alert" role="alert">{postErrorNote(postError) ?? "That post was not saved. Nothing was emailed."}</p> : null}
 
       {isOwner && deal.canMarkPayment ? (
         <>
@@ -667,15 +667,15 @@ function ProductAndPosts({
               <button className="btn" type="submit" name="paymentStatus" value={nextStatus}>{nextLabel[nextStatus]}</button>
             </form>
           ) : null}
-          {paymentError === "early" ? <p className="note">Post the video before invoicing the brand. Nothing was changed.</p> : null}
-          {paymentError === "paid" ? <p className="note">This deal is already paid. Nothing was changed.</p> : null}
-          {paymentError === "marked" ? <p className="note">That payment step is already marked.</p> : null}
-          {paymentError === "invoice" ? <p className="note">Mark the brand invoice before marking the brand paid.</p> : null}
-          {paymentError === "brand" ? <p className="note">Mark the brand paid before marking the creator payout pending.</p> : null}
-          {paymentError === "payout" ? <p className="note">Mark the creator payout pending before marking the creator paid.</p> : null}
-          {paymentError === "step" ? <p className="note">That is not a payment step.</p> : null}
-          {paymentError === "order" ? <p className="note">Mark the payment steps in order.</p> : null}
-          {paymentError && paymentError !== "early" && paymentError !== "paid" && paymentError !== "marked" && paymentError !== "invoice" && paymentError !== "brand" && paymentError !== "payout" && paymentError !== "step" && paymentError !== "order" ? <p className="note">That payment step was not saved. Nothing was charged.</p> : null}
+          {paymentError === "early" ? <p className="note alert" role="alert">Post the video before invoicing the brand. Nothing was changed.</p> : null}
+          {paymentError === "paid" ? <p className="note alert" role="alert">This deal is already paid. Nothing was changed.</p> : null}
+          {paymentError === "marked" ? <p className="note alert" role="alert">That payment step is already marked.</p> : null}
+          {paymentError === "invoice" ? <p className="note alert" role="alert">Mark the brand invoice before marking the brand paid.</p> : null}
+          {paymentError === "brand" ? <p className="note alert" role="alert">Mark the brand paid before marking the creator payout pending.</p> : null}
+          {paymentError === "payout" ? <p className="note alert" role="alert">Mark the creator payout pending before marking the creator paid.</p> : null}
+          {paymentError === "step" ? <p className="note alert" role="alert">That is not a payment step.</p> : null}
+          {paymentError === "order" ? <p className="note alert" role="alert">Mark the payment steps in order.</p> : null}
+          {paymentError && paymentError !== "early" && paymentError !== "paid" && paymentError !== "marked" && paymentError !== "invoice" && paymentError !== "brand" && paymentError !== "payout" && paymentError !== "step" && paymentError !== "order" ? <p className="note alert" role="alert">That payment step was not saved. Nothing was charged.</p> : null}
         </>
       ) : null}
       {!isOwner && !canChangeStage && deal.payment ? (
@@ -740,7 +740,7 @@ function ContractSection({
             </label>
             <button className="btn ghost" type="submit">Save signer</button>
           </form>
-          {signerError ? <p className="note">{signerErrorNote(signerError) ?? "That signer flag was not saved. Nothing was changed."}</p> : null}
+          {signerError ? <p className="note alert" role="alert">{signerErrorNote(signerError) ?? "That signer flag was not saved. Nothing was changed."}</p> : null}
             </>
           ) : null}
           {deal.signerIsMinor ? (
@@ -763,7 +763,7 @@ function ContractSection({
               <button className="btn" type="submit">Upload contract</button>
             </form>
           ) : null}
-          {contractError ? <p className="note">{contractErrorNote(contractError) ?? "That contract change was not saved. Nothing was emailed."}</p> : null}
+          {contractError ? <p className="note alert" role="alert">{contractErrorNote(contractError) ?? "That contract change was not saved. Nothing was emailed."}</p> : null}
           {deal.contracts.map((contract) => {
             const signWindow = deal.workflowStage === "approved_by_agency" || deal.workflowStage === "awaiting_signature";
             const copies = deal.signatures.filter((row) => row.contractId === contract.id);

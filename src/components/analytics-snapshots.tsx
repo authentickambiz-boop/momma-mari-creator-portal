@@ -44,7 +44,7 @@ function Trend({ points }: { points: SnapshotTrendPoint[] }) {
 
 export function SnapshotBoard({ creators, showRevenue }: { creators: CreatorSnapshotCard[]; showRevenue: boolean }) {
   if (!creators.length) {
-    return <div className="card"><p className="note">No creators on this sign-in have a snapshot yet.</p></div>;
+    return <div className="card"><p className="note empty">No creators on this sign-in have a snapshot yet.</p></div>;
   }
   return (
     <div className="stack">
@@ -56,7 +56,7 @@ export function SnapshotBoard({ creators, showRevenue }: { creators: CreatorSnap
             {creator.totalAudience ? `Total audience ${creator.totalAudience}` : "Total audience not shown"}
             {creator.largestPlatform ? ` · Largest platform ${creator.largestPlatform}` : ""}
           </p>
-          {creator.platforms.length ? null : <p className="note">No snapshot yet.</p>}
+          {creator.platforms.length ? null : <p className="note empty">No snapshot yet.</p>}
           <div className="snap-grid">
             {creator.platforms.map((platform) => (
               <article key={platform.platform} className="box">

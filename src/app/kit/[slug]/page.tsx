@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { BrandingFooter } from "@/components/branding-footer";
 import { getDb } from "@/db/getDb";
 import { publicMediaKit } from "@/lib/media-kit";
 
@@ -59,6 +60,7 @@ export default async function PublicKitPage({ params }: { params: Promise<{ slug
         </section>
       ) : null}
       <p className="note">Stats were entered by hand. This page does not show pay or contact details.</p>
+      <BrandingFooter />
     </main>
   );
 }
