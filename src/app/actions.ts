@@ -18,6 +18,7 @@ import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
 import { confirmLivePost, confirmProductReceived, markPayment, paymentErrorCode, saveShipment, submitLivePosts } from "@/lib/fulfillment";
 import { isEmailSetup } from "@/lib/email-setup";
+import { emailSetupErrorCode } from "@/lib/email-setup-notes";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
 import { onboardingPlatformId } from "@/lib/onboarding-fields";
 import { creatorStartPath, saveQuestionnaireStep } from "@/lib/questionnaire";
@@ -444,9 +445,9 @@ export async function chooseEmailSetupAction(formData: FormData) {
     await saveEmailSetup(db, viewer.creatorId, "reset");
     redirect("/onboarding");
   }
-  if (!isEmailSetup(raw)) redirect("/onboarding?emailError=1");
+  if (!isEmailSetup(raw)) redirect("/onboarding?emailError=choice");
   const result = await saveEmailSetup(db, viewer.creatorId, raw, String(formData.get("hostedEmail") ?? ""));
-  if (!result.ok) redirect("/onboarding?emailError=1");
+  if (!result.ok) redirect(`/onboarding?emailError=${emailSetupErrorCode(result.error)}`);
   redirect(raw === "hosted" ? "/onboarding?hosted=1" : "/onboarding?setup=1");
 }
 
