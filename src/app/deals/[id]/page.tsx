@@ -8,6 +8,7 @@ import { loadPortal } from "@/lib/current-user";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
 import { categoryOverrideFor, screeningForDeal } from "@/lib/deal-rules";
 import { listUnreadCreatorNotices } from "@/lib/video-review";
+import { dealNoticeNote } from "@/lib/deal-notice-notes";
 
 export default async function DealPage({
   params,
@@ -65,12 +66,12 @@ export default async function DealPage({
         </div>
       ) : null}
       {query.reply === "saved" ? <p className="note">Draft saved. Nothing was emailed.</p> : null}
-      {query.replyError ? <p className="private-note">{query.replyError}</p> : null}
+      {dealNoticeNote(query.replyError) ? <p className="private-note">{dealNoticeNote(query.replyError)}</p> : null}
       {query.rate === "asked" ? <p className="note">Asked. Nothing was emailed.</p> : null}
       {query.rate === "confirmed" ? <p className="note">Rate confirmed. Nothing was paid.</p> : null}
-      {query.rateError ? <p className="private-note">{query.rateError}</p> : null}
+      {dealNoticeNote(query.rateError) ? <p className="private-note">{dealNoticeNote(query.rateError)}</p> : null}
       {query.dates === "saved" ? <p className="note">Dates saved. Nothing was emailed or paid.</p> : null}
-      {query.datesError ? <p className="private-note">{query.datesError}</p> : null}
+      {dealNoticeNote(query.datesError) ? <p className="private-note">{dealNoticeNote(query.datesError)}</p> : null}
       {selected ? null : (
         <div className="card" style={{ marginBottom: 14 }}>
           <h2>That deal isn&apos;t on your list.</h2>
