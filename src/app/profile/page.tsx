@@ -21,9 +21,11 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const params = await searchParams;
   const portal = await loadPortal(null);
   if (portal.viewer.role !== "creator" || !portal.viewer.creatorId) {
+    const refused = profileErrorNote(params.profileError);
     return (
       <PortalFrame viewer={portal.viewer} tab="directory" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>My profile</h1>}>
         <p className="note">Creators edit their own profile. You can hide a field from Members.</p>
+        {refused ? <p className="private-note">{refused}</p> : null}
       </PortalFrame>
     );
   }

@@ -52,7 +52,8 @@ export async function hideProfileAction() {
   const viewer = await currentViewer();
   if (!viewer) redirect("/login");
   const db = await getDb();
-  await hideMyProfile(db, viewer);
+  const result = await hideMyProfile(db, viewer);
+  if (!result.ok) redirect(`/profile?profileError=${profileErrorCode(result.error)}`);
   redirect("/profile?saved=1");
 }
 
