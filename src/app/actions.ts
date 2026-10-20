@@ -18,6 +18,7 @@ import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
 import { dealNoticeCode } from "@/lib/deal-notice-notes";
 import { confirmLivePost, confirmProductReceived, markPayment, paymentErrorCode, saveShipment, submitLivePosts } from "@/lib/fulfillment";
+import { productErrorCode } from "@/lib/product-notes";
 import { isEmailSetup } from "@/lib/email-setup";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
 import { onboardingPlatformId } from "@/lib/onboarding-fields";
@@ -584,7 +585,7 @@ export async function saveShipmentAction(formData: FormData) {
     actorEmail: viewer.email,
     actorRole: viewer.role,
   });
-  if (!result.ok) redirect(`${back}${query ? "&" : "?"}productError=1`);
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}productError=${productErrorCode(result.error)}`);
   redirect(back);
 }
 
@@ -599,10 +600,7 @@ export async function confirmProductAction(formData: FormData) {
     actorRole: viewer.role,
     creatorId: viewer.creatorId,
   });
-  if (!result.ok) {
-    const code = result.status === 409 ? "past" : "1";
-    redirect(`${back}${query ? "&" : "?"}productError=${code}`);
-  }
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}productError=${productErrorCode(result.error)}`);
   redirect(back);
 }
 
