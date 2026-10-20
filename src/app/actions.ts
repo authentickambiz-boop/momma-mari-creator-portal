@@ -4,8 +4,10 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { reviewApproval } from "@/lib/approvals";
+import { approvalErrorCode } from "@/lib/approval-notes";
 import { canApproveContract, canApproveEmail, canApproveVideo, canChangeDealStage, canCountersign, devLoginEnabled } from "@/lib/authz";
 import { addManager, assignCreatorManagers, setManagerActive, setManagerPermissions } from "@/lib/managers";
+import { teamErrorCode } from "@/lib/team-notes";
 import { currentViewer } from "@/lib/current-user";
 import { logOfferScreening, recordCreatorInterest, releaseOffer } from "@/lib/creator-interest";
 import { approveContract, requestContractRevisions, saveChecklist, saveContract, setSigningFormat } from "@/lib/contracts";
@@ -13,12 +15,16 @@ import { countersignContract, setSignerIsMinor, signContract, uploadBrandSignedC
 import { CONTRACT_CHECKS } from "@/lib/contract-shared";
 import { clearSafetyHold } from "@/lib/safety";
 import { draftMonthlyReport, reportErrorCode } from "@/lib/report";
-import { recordReferral, setReferralPerk } from "@/lib/referrals";
+import { recordReferral, referralErrorCode, setReferralPerk } from "@/lib/referrals";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
+import { dealNoticeCode } from "@/lib/deal-notice-notes";
 import { confirmLivePost, confirmProductReceived, markPayment, paymentErrorCode, saveShipment, submitLivePosts } from "@/lib/fulfillment";
+import { productErrorCode } from "@/lib/product-notes";
 import { isEmailSetup } from "@/lib/email-setup";
+import { emailSetupErrorCode } from "@/lib/email-setup-notes";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
+import { finishErrorCode } from "@/lib/finish-notes";
 import { onboardingPlatformId } from "@/lib/onboarding-fields";
 import { creatorStartPath, saveQuestionnaireStep } from "@/lib/questionnaire";
 import { resolveLogin } from "@/lib/queries";
@@ -62,7 +68,7 @@ export async function setReferralPerkAction(formData: FormData) {
     actorRole: viewer.role,
   });
   const join = back.includes("?") ? "&" : "?";
-  if (!result.ok) redirect(`${back}${join}referralError=perk`);
+  if (!result.ok) redirect(`${back}${join}referralError=${referralErrorCode(result.error)}`);
   redirect(`${back}${join}saved=1`);
 }
 
@@ -80,7 +86,7 @@ export async function recordReferralAction(formData: FormData) {
     actorRole: viewer.role,
     actorCreatorId: viewer.creatorId,
   });
-  if (!result.ok) redirect(`${back}${back.includes("?") ? "&" : "?"}referralError=1`);
+  if (!result.ok) redirect(`${back}${back.includes("?") ? "&" : "?"}referralError=${referralErrorCode(result.error)}`);
   redirect(`${back}${back.includes("?") ? "&" : "?"}saved=1`);
 }
 
@@ -108,7 +114,7 @@ export async function changeDealStageAction(formData: FormData) {
     actorRole: viewer.role,
     note,
   });
-  if (!result.ok) redirect(`${back}${query ? "&" : "?"}stageError=1`);
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}stageError=${dealNoticeCode(result.error)}`);
   if (String(formData.get("workflowStage") ?? "") === "offer_shared") {
     await logOfferScreening(db, { dealId, actorEmail: viewer.email, note });
   }
@@ -130,10 +136,7 @@ export async function releaseOfferAction(formData: FormData) {
     brandEmail: String(formData.get("brandEmail") ?? ""),
     note: String(formData.get("note") ?? ""),
   });
-  if (!result.ok) {
-    const code = result.status === 409 ? "past" : "1";
-    redirect(`${back}${query ? "&" : "?"}releaseError=${code}`);
-  }
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}releaseError=${dealNoticeCode(result.error)}`);
   redirect(back);
 }
 
@@ -151,7 +154,7 @@ export async function creatorInterestAction(formData: FormData) {
     decision,
     note: String(formData.get("note") ?? ""),
   });
-  if (!result.ok) redirect(`/deals/${dealId}?interestError=1`);
+  if (!result.ok) redirect(`/deals/${dealId}?interestError=${dealNoticeCode(result.error)}`);
   if (result.decision === "declined") redirect("/?passed=1");
   redirect(`/deals/${dealId}`);
 }
@@ -444,9 +447,9 @@ export async function chooseEmailSetupAction(formData: FormData) {
     await saveEmailSetup(db, viewer.creatorId, "reset");
     redirect("/onboarding");
   }
-  if (!isEmailSetup(raw)) redirect("/onboarding?emailError=1");
+  if (!isEmailSetup(raw)) redirect("/onboarding?emailError=choice");
   const result = await saveEmailSetup(db, viewer.creatorId, raw, String(formData.get("hostedEmail") ?? ""));
-  if (!result.ok) redirect("/onboarding?emailError=1");
+  if (!result.ok) redirect(`/onboarding?emailError=${emailSetupErrorCode(result.error)}`);
   redirect(raw === "hosted" ? "/onboarding?hosted=1" : "/onboarding?setup=1");
 }
 
@@ -465,7 +468,7 @@ export async function finishOnboardingAction(formData: FormData) {
     favoriteBrands: brands,
     platforms: formData.getAll("platforms").map((value) => onboardingPlatformId(String(value)) ?? String(value)),
   });
-  if (!result.ok) redirect("/onboarding?step=bot&error=1");
+  if (!result.ok) redirect(`/onboarding?step=bot&error=${finishErrorCode(result.error)}`);
   await saveQuestionnaireStep(db, viewer, { step: "bot", skip: false, pause: false, patch: {} });
   redirect("/onboarding?done=1");
 }
@@ -497,7 +500,7 @@ export async function reviewApprovalAction(formData: FormData) {
     actorEmail: viewer.email,
     actorRole: viewer.role,
   });
-  if (!result.ok) redirect(`${back}${query ? "&" : "?"}approvalError=1`);
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}approvalError=${approvalErrorCode(result.error)}`);
   redirect(back);
 }
 
@@ -517,7 +520,7 @@ export async function addManagerAction(formData: FormData) {
       canPriceDeals: formData.get("canPriceDeals") === "1",
     },
   });
-  if (!result.ok) redirect("/team?teamError=1");
+  if (!result.ok) redirect(`/team?teamError=${teamErrorCode(result.error)}`);
   redirect("/team");
 }
 
@@ -525,11 +528,12 @@ export async function setManagerActiveAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer || viewer.role !== "admin") redirect("/login");
   const db = await getDb();
-  await setManagerActive(db, {
+  const result = await setManagerActive(db, {
     actorRole: "admin",
     managerId: String(formData.get("managerId") ?? ""),
     active: formData.get("active") === "1",
   });
+  if (!result.ok) redirect(`/team?teamError=${teamErrorCode(result.error)}`);
   redirect("/team");
 }
 
@@ -537,7 +541,7 @@ export async function setManagerPermissionsAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer || viewer.role !== "admin") redirect("/login");
   const db = await getDb();
-  await setManagerPermissions(db, {
+  const result = await setManagerPermissions(db, {
     actorRole: "admin",
     managerId: String(formData.get("managerId") ?? ""),
     permissions: {
@@ -548,6 +552,7 @@ export async function setManagerPermissionsAction(formData: FormData) {
       canPriceDeals: formData.get("canPriceDeals") === "1",
     },
   });
+  if (!result.ok) redirect(`/team?teamError=${teamErrorCode(result.error)}`);
   redirect("/team");
 }
 
@@ -563,7 +568,7 @@ export async function assignManagersAction(formData: FormData) {
     primaryManagerId: primary || null,
     backupManagerId: backup || null,
   });
-  if (!result.ok) redirect("/team?teamError=1");
+  if (!result.ok) redirect(`/team?teamError=${teamErrorCode(result.error)}`);
   redirect("/team");
 }
 
@@ -586,7 +591,7 @@ export async function saveShipmentAction(formData: FormData) {
     actorEmail: viewer.email,
     actorRole: viewer.role,
   });
-  if (!result.ok) redirect(`${back}${query ? "&" : "?"}productError=1`);
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}productError=${productErrorCode(result.error)}`);
   redirect(back);
 }
 
@@ -601,10 +606,7 @@ export async function confirmProductAction(formData: FormData) {
     actorRole: viewer.role,
     creatorId: viewer.creatorId,
   });
-  if (!result.ok) {
-    const code = result.status === 409 ? "past" : "1";
-    redirect(`${back}${query ? "&" : "?"}productError=${code}`);
-  }
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}productError=${productErrorCode(result.error)}`);
   redirect(back);
 }
 
