@@ -4,6 +4,7 @@ import { GIFTED_TERMS_TEXT, GIFTED_TERMS_VERSION } from "@/config/gifted-terms";
 import { getDb } from "@/db/getDb";
 import { formatMoney } from "@/lib/format";
 import { listGiftedBoard } from "@/lib/gifted";
+import { giftErrorNote } from "@/lib/gift-notes";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ const guest = { email: "", role: "creator" as const, creatorId: null, name: "Ben
 
 export default async function GiftedBenchApplyPage({ searchParams }: { searchParams: Promise<{ saved?: string; giftsError?: string }> }) {
   const params = await searchParams;
+  const giftsError = giftErrorNote(params.giftsError);
   const db = await getDb();
   const board = await listGiftedBoard(db, guest);
   return (
@@ -18,7 +20,7 @@ export default async function GiftedBenchApplyPage({ searchParams }: { searchPar
       <h1>Free products</h1>
       <p>This is for people already on the free bench. Roster creators should sign in and apply from the portal. Kamron approves each person. Nothing is charged.</p>
       {params.saved === "applied" ? <p className="note">Applied. Kamron still has to approve you. Nothing was charged.</p> : null}
-      {params.giftsError ? <p className="private-note">{params.giftsError}</p> : null}
+      {giftsError ? <p className="private-note">{giftsError}</p> : null}
       <div className="callout">
         <b>DRAFT. Pending lawyer review.</b>
         <p style={{ whiteSpace: "pre-wrap" }}>{GIFTED_TERMS_TEXT}</p>
