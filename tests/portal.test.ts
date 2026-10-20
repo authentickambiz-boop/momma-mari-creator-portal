@@ -5772,6 +5772,87 @@ test("gmail watch returns Google's error and leaves secrets out", async () => {
   assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
 });
 
+test("a dead Gmail token is acknowledged and a blank thread does not open a deal", async () => {
+  const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+  const kosblingDrafts = kosblingBefore?.drafts.length;
+  const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+  const dealsBefore = (await db.select().from(deals)).length;
+  const cursorBefore = (await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com")))[0]?.historyId;
+
+  const dead = await ingestGmailPush(db, { emailAddress: "mmaclamroc@gmail.com", historyId: "9900" }, {
+    client: {
+      listAdded: async () => {
+        throw new Error("Gmail token refresh failed (401): unauthorized_client");
+      },
+      getMessage: async () => {
+        throw new Error("should not read a message");
+      },
+    },
+  });
+  assert.equal(dead.status, 200);
+  assert.equal(dead.body.ok, false);
+  if (!("permanent" in dead.body)) throw new Error("expected a permanent failure");
+  assert.equal(dead.body.permanent, true);
+  assert.match(dead.body.error ?? "", /unauthorized_client/);
+  assert.equal(JSON.stringify(dead.body).includes("1//"), false);
+  assert.equal((await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com")))[0]?.historyId, cursorBefore);
+
+  const retry = await ingestGmailPush(db, { emailAddress: "mmaclamroc@gmail.com", historyId: "9910" }, {
+    client: {
+      listAdded: async () => {
+        throw new Error("Gmail read failed (500): backendError");
+      },
+      getMessage: async () => {
+        throw new Error("should not read a message");
+      },
+    },
+  });
+  assert.equal(retry.status, 503);
+  assert.equal(retry.body.ok, false);
+  assert.equal("permanent" in retry.body, false);
+  assert.equal((await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com")))[0]?.historyId, cursorBefore);
+
+  const blank = await ingestGmailPush(db, { emailAddress: "mmaclamroc@gmail.com", historyId: "9920" }, {
+    client: {
+      listAdded: async () => ({ latestHistoryId: "9920", messages: [{ id: "live-blank-thread", threadId: "" }] }),
+      getMessage: async () => ({
+        id: "live-blank-thread",
+        threadId: "",
+        from: "Pat <pat@brand.example>",
+        to: "mmaclamroc@gmail.com",
+        subject: "No thread",
+        labelIds: ["INBOX"],
+      }),
+    },
+  });
+  assert.equal(blank.status, 200);
+  assert.equal(blank.body.ok, true);
+  if (!("createdDealIds" in blank.body)) throw new Error("expected a processed notice");
+  assert.deepEqual(blank.body.createdDealIds, []);
+  assert.equal((await db.select().from(deals).where(eq(deals.id, "mail-live-blank-thread"))).length, 0);
+
+  const saved = await gmailConnectionState(db, "mariclare");
+  await db.update(creators).set({ gmailRefreshToken: null, gmailEmail: null }).where(eq(creators.id, "mariclare"));
+  const quiet = await ingestGmailPush(db, { emailAddress: "mmaclamroc@gmail.com", historyId: "9930" });
+  assert.equal(quiet.status, 200);
+  assert.equal(quiet.body.ok, false);
+  if (!("acknowledged" in quiet.body)) throw new Error("expected an acknowledged disconnect");
+  assert.equal(quiet.body.acknowledged, true);
+  assert.equal(quiet.body.error, "Mailbox is not connected.");
+  assert.equal((await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com")))[0]?.historyId, "9920");
+  await db.update(creators).set({ gmailRefreshToken: saved.cipher, gmailEmail: saved.gmailEmail }).where(eq(creators.id, "mariclare"));
+
+  assert.equal((await db.select().from(deals)).length, dealsBefore);
+  const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+  assert.equal(kosblingAfter?.workflowStage, "draft_due");
+  assert.equal(kosblingAfter?.visibleToCreator, true);
+  assert.equal(kosblingAfter?.brand, "KOSBLING");
+  assert.equal(kosblingAfter?.contact, null);
+  assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
+  assert.equal(kosblingAfter?.contracts.length, 0);
+  assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+});
+
 test("a rejected Gmail token needs a reconnect, and platform invites stay on the home list", async () => {
   const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
   const kosblingDrafts = kosblingBefore?.drafts.length;

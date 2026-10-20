@@ -74,7 +74,7 @@ Pub/Sub will call the portal with a Google ID token. You check that token. The t
 9. Acknowledgement deadline: 30 seconds is enough.
 10. Create the subscription.
 
-The portal returns 401 when the token is missing or does not match that audience and service account. Pub/Sub will retry those. A 200 means the notice was accepted.
+The portal returns 401 when the token is missing or does not match that audience and service account. Pub/Sub will retry those. A 200 means the notice was accepted, including a dead mailbox: `unauthorized_client`, `invalid_grant`, or an inbox that is not connected returns 200 with `"ok": false` so Pub/Sub stops retrying a token that cannot recover. A temporary Google error returns 503 so Pub/Sub tries again. The history cursor stays put on both of those failures. The token is not included.
 
 ## 6. OAuth consent and the two inboxes
 
