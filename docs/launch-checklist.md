@@ -19,7 +19,7 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 2. Already on `main` (`cd2c74c`): `#41` through `#72`, except `#45`. The newest of those are `#68` (`1361a90`), `#69` (`66f14da`), `#70` (`1c4849d`), `#71` (`da6210e`), and `#72` (`cd2c74c`). `#61` (`fe295ac`) reads a second inbox page, up to 40 messages. Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. Stripe, BoldSign, and push stay off.
 3. `#45` still has no file changes versus current `main` (`cd2c74c`). Leave it open for Kamron to close.
 4. `#73` is still open. It only changes the note for an unknown Gmail code on onboarding. The merger is handling it. It does not edit these docs.
-5. This pull request is the launch smoke pass. A brand inquiry can take a response and a contact before any deal exists. Signup keeps every rate and handle the form asks for, including a YouTube minimum and a Twitch handle. A brand-offer budget that is not dollars is refused instead of skipping that creator. `npx tsc --noEmit` is clean. `npm test` is 89 passing.
+5. [#74](https://github.com/authentickambiz-boop/momma-mari-creator-portal/pull/74) is the launch smoke pass. A brand inquiry can take a response and a contact before any deal exists. Signup keeps every rate and handle the form asks for, including a YouTube minimum and a Twitch handle. A brand-offer budget that is not dollars is refused instead of skipping that creator. `npx tsc --noEmit` is clean. `npm test` is 89 passing.
 6. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
 7. Run the portal tests on `main` again after `#73` merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file.
 
