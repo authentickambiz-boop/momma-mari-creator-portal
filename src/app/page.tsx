@@ -111,6 +111,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           ))}
         </div>
       ) : null}
+      {creatorHome && creatorNeed.length === 0 ? <p className="note">Nothing needs you this week.</p> : null}
       {creatorNeed.length > 0 ? (
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="sec-title">Needs you</div>

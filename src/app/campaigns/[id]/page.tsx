@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { allocateCampaignAction, markOutsideAction, queueOutsideOfferAction } from "@/app/campaign-actions";
 import { PortalFrame } from "@/components/portal-frame";
 import {
@@ -41,7 +42,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       viewedId={portal.viewedId}
       hello={<div className="hello"><div><h1>{campaign.brand}</h1><p>{campaign.name}. Roster creators are ranked first, best fit and highest ask at the top.</p></div></div>}
     >
-      {query.saved ? <p className="note">Saved.</p> : null}
+      {query.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {query.queued ? <p className="note">The offer is in the approval queue. Nothing was sent.</p> : null}
       {query.campaignError ? <p className="private-note">{query.campaignError}</p> : null}
       <div className="card">
@@ -52,6 +53,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       </div>
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec-title">Roster match</div>
+        {ranked.length === 0 ? <p className="note">No creator on the roster matches this campaign yet.</p> : null}
         {ranked.map((row) => (
           <p key={row.creatorId}>
             <b>{row.name}</b> · fit <span className="match-score">{row.score}</span> · {row.verdictLabel}
@@ -66,7 +68,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           <p key={row.id}>{names.get(row.creatorId ?? "") ?? "Creator"}{priced ? ` · ${formatMoney(row.amountCents)}` : ""}</p>
         )) : <p className="note">No creators are assigned yet.</p>}
         {commission != null ? <p>Projected commission {formatMoney(commission)} (20%)</p> : null}
-        {portal.viewer.role === "admin" ? (
+        {portal.viewer.role === "admin" && ranked.length > 0 ? (
           <form action={allocateCampaignAction} className="stack">
             <input type="hidden" name="campaignId" value={campaign.id} />
             <label>
@@ -92,14 +94,20 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           <input type="hidden" name="campaignId" value={campaign.id} />
           <div className="sec-title">Recruiting offer</div>
           <p className="note">This writes a draft in Approvals. It is not emailed.</p>
-          <label>
-            Prospect
-            <select name="prospectId">
-              {prospects.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-            </select>
-          </label>
-          <label>Amount<input name="amount" inputMode="decimal" /></label>
-          <button className="btn" type="submit">Queue the offer</button>
+          {prospects.length === 0 ? (
+            <p className="note">Add a prospect before you queue an offer. <Link href="/prospects">Open prospects</Link>. Nothing is emailed.</p>
+          ) : (
+            <>
+              <label>
+                Prospect
+                <select name="prospectId">
+                  {prospects.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+                </select>
+              </label>
+              <label>Amount<input name="amount" inputMode="decimal" /></label>
+              <button className="btn" type="submit">Queue the offer</button>
+            </>
+          )}
           {offers.length ? <p>{offers.length} outside offer{offers.length === 1 ? "" : "s"} queued.</p> : null}
         </form>
       ) : null}
