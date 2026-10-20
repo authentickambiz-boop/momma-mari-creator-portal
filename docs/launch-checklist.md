@@ -16,11 +16,12 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Before merge
 
 1. Read `docs/overnight-log.md` for the open pull requests.
-2. Already on `main`: `#41` (`da74005`), `#42` (`4d53916`), `#46` (`08655f5`), `#43` (`bc51ed7`), `#44` (`8349259`), `#48` (`3df3b46`), `#47` (`73950a6`), `#50` (`4ee1322`), `#51` (`02574a4`), `#49` (`709d83a`), `#52` (`d497e50`), `#53` (`4af6c94`), and `#54` (`2a50833`). Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. A dead Gmail inbox is already acknowledged. History pages are followed. Newsletters and spam do not open a new deal. Phone forms stack. Public pages hide creator chat. Stripe stays off. Free products and Access are on `main`.
-3. `#45` matches current `main` (`2a50833`). The phone scrolling and the Connect accounts tab already shipped inside `#47`. Leave `#45` open for Kamron to close.
-4. Merge `#55` (Gmail watch renewal, duplicate notices, and label changes), `#56` (phone checkbox labels and connect buttons), and `#57` (public roster count, the inquiry link, and this checklist). `#55` edits the Gmail watch. `#56` edits the stylesheet. `#57` edits the public pages and these docs.
-5. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
-6. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file. Current `main` is 70 passing.
+2. Already on `main`: `#41` (`da74005`), `#42` (`4d53916`), `#46` (`08655f5`), `#43` (`bc51ed7`), `#44` (`8349259`), `#48` (`3df3b46`), `#47` (`73950a6`), `#50` (`4ee1322`), `#51` (`02574a4`), `#49` (`709d83a`), `#52` (`d497e50`), `#53` (`4af6c94`), `#54` (`2a50833`), `#55` (`5ecdc2b`), `#56` (`428cad4`), and `#57` (`e7a5dc0`). Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. A dead Gmail inbox is already acknowledged. Watch renewal keeps the history cursor. History pages are followed. Newsletters and spam do not open a new deal. Phone forms stack, and long checkbox labels stay on the phone page. Public pages hide creator chat and show a roster count. Stripe stays off. Free products and Access are on `main`.
+3. `#45` still has no file changes versus current `main` (`e7a5dc0`). The phone scrolling and the Connect accounts tab already shipped inside `#47`. Leave `#45` open for Kamron to close.
+4. Merge `#58` (a deleted Gmail message, a draft, and mail from a watched inbox must not stall the cursor or open a new deal). It edits `src/lib/gmail-push.ts` on top of `#55`. Keep the renewal rules from `#55` and the missing-mail checks from `#58`.
+5. Merge the owner-board polish on `cursor/owner-board-polish-e39d`: dashboard save and error notes, a brand offer that is saved rather than sent, a campaign budget that has to be a dollar amount, and a Free products due-date hint. Nothing is emailed or charged. This checklist is in that same pull request.
+6. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
+7. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file.
 
 ## Gmail, still before paid features
 
@@ -49,6 +50,9 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 - Free Products and Access are on `main` via `#47`. The gifted terms are still DRAFT, pending lawyer review. Nothing on that page is charged.
 - Gmail history older than the latest 20 inbox messages is not recovered. `#48` covers that recent page, and it already includes the dead-token acknowledgement from `#42`.
 - Gmail history pages beyond the first five on one push are retried by Pub/Sub. `#50` is on `main`. The cursor does not jump past unread pages.
-- Newsletters and spam stay off new deals. That shipped in `#53`.
+- Newsletters and spam stay off new deals. That shipped in `#53`. `#58` also skips drafts and mail whose From is a watched inbox, once it is merged.
+- A brand offer is saved on the creator's portal. The button says Save offer. A `.invalid` contact is refused. Nothing is emailed.
+- A campaign filter that is not a dollar amount stays on the board with an error, instead of being ignored.
+- The dashboard shows the reinvestment error, and a saved target says nothing was paid or billed.
 - The approval-queue email bridge is not built.
 - An attorney still needs to review the e-sign wording.

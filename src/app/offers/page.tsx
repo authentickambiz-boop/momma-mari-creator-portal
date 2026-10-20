@@ -26,7 +26,7 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
       tab="offers"
       creators={portal.creators}
       viewedId={portal.viewedId}
-      hello={<div className="hello"><div><h1>Brand offers</h1><p>{creatorView ? "What the brand will pay you. Your minimum stays private." : "Send a brand offer to the creators whose minimum and monthly cap fit. Lowest rank goes first."}</p></div></div>}
+      hello={<div className="hello"><div><h1>Brand offers</h1><p>{creatorView ? "What the brand will pay you. Your minimum stays private." : "Save a brand offer for the creators whose minimum and monthly cap fit. Lowest rank goes first. Nothing is emailed."}</p></div></div>}
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {params.offerError ? <p className="private-note">{params.offerError}</p> : null}
@@ -72,7 +72,8 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
                 <input name={`budget-${creator.id}`} inputMode="decimal" placeholder="Budget" />
               </label>
             ))}
-            <button className="btn" type="submit">Send offer</button>
+            <p className="note">This adds the offer to her portal. Nothing is emailed.</p>
+            <button className="btn" type="submit">Save offer</button>
           </form>
           <div className="stack" style={{ marginTop: 14 }}>
             {board.map((offer) => (
