@@ -9,6 +9,8 @@ import { emailSetupFor, gmailConnectionState } from "@/lib/onboarding";
 
 const GMAIL_ERRORS: Record<string, string> = {
   oauth: "Google didn't finish connecting that email. Try again.",
+  email: "Enter the inbox email.",
+  inbox: "No watched inbox uses that email.",
   no_refresh: "Google didn't give us a way to stay connected. Try again and accept the permissions.",
   not_configured: "Email connection isn't set up on this server yet.",
   creator_only: "Only that creator, or an admin, can connect this inbox.",
