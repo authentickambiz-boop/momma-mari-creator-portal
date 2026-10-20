@@ -7,6 +7,26 @@ import { stageShortLabel } from "./stages";
 
 type Result<T> = { ok: true } & T | { ok: false; status: number; error: string };
 
+const REPORT_ERROR_TEXT = {
+  owner: "Only Kamron can draft the monthly report.",
+  month: "Month has to look like 2026-10.",
+  missing: "Creator not found.",
+  deal: "She needs a deal on the books before this email can be queued.",
+  queued: "This month's report is already in the approval queue. Nothing was sent.",
+} as const;
+
+export function reportErrorCode(error: string) {
+  const match = (Object.keys(REPORT_ERROR_TEXT) as (keyof typeof REPORT_ERROR_TEXT)[])
+    .find((code) => REPORT_ERROR_TEXT[code] === error);
+  return match ?? "1";
+}
+
+/** A known report sentence. Unknown codes and the generic fallback stay null so the page can use its own fixed line. */
+export function reportErrorNote(code: string | undefined) {
+  if (!code || code === "1") return null;
+  return REPORT_ERROR_TEXT[code as keyof typeof REPORT_ERROR_TEXT] ?? null;
+}
+
 export type MonthlyReport = {
   creatorId: string;
   creatorName: string;

@@ -25,6 +25,23 @@ const SKIP_MESSAGE: Record<Exclude<PaymentStatus, "brand_invoiced">, string> = {
   creator_paid: "Mark the creator payout pending before marking the creator paid.",
 };
 
+const PAYMENT_ERROR_TEXT = {
+  early: "Post the video before invoicing the brand. Nothing was changed.",
+  paid: "This deal is already paid. Nothing was changed.",
+  marked: "That payment step is already marked.",
+  invoice: "Mark the brand invoice before marking the brand paid.",
+  brand: "Mark the brand paid before marking the creator payout pending.",
+  payout: "Mark the creator payout pending before marking the creator paid.",
+  step: "That is not a payment step.",
+} as const;
+
+/** A short code for the payment form. Unknown wording stays the fixed fallback. */
+export function paymentErrorCode(error: string) {
+  const match = (Object.keys(PAYMENT_ERROR_TEXT) as (keyof typeof PAYMENT_ERROR_TEXT)[])
+    .find((code) => PAYMENT_ERROR_TEXT[code] === error);
+  return match ?? "1";
+}
+
 function clean(value: string | null | undefined) {
   const trimmed = value?.trim() ?? "";
   return trimmed ? trimmed : null;
