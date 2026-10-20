@@ -16,6 +16,7 @@ import { draftMonthlyReport } from "@/lib/report";
 import { recordReferral, setReferralPerk } from "@/lib/referrals";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
 import { setDealStage } from "@/lib/deal-stage";
+import { dealNoticeCode } from "@/lib/deal-notice-notes";
 import { confirmLivePost, confirmProductReceived, markPayment, saveShipment, submitLivePosts } from "@/lib/fulfillment";
 import { isEmailSetup } from "@/lib/email-setup";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
@@ -111,7 +112,7 @@ export async function changeDealStageAction(formData: FormData) {
     actorRole: viewer.role,
     note,
   });
-  if (!result.ok) redirect(`${back}${query ? "&" : "?"}stageError=1`);
+  if (!result.ok) redirect(`${back}${query ? "&" : "?"}stageError=${dealNoticeCode(result.error)}`);
   if (String(formData.get("workflowStage") ?? "") === "offer_shared") {
     await logOfferScreening(db, { dealId, actorEmail: viewer.email, note });
   }
@@ -154,7 +155,7 @@ export async function creatorInterestAction(formData: FormData) {
     decision,
     note: String(formData.get("note") ?? ""),
   });
-  if (!result.ok) redirect(`/deals/${dealId}?interestError=1`);
+  if (!result.ok) redirect(`/deals/${dealId}?interestError=${dealNoticeCode(result.error)}`);
   if (result.decision === "declined") redirect("/?passed=1");
   redirect(`/deals/${dealId}`);
 }

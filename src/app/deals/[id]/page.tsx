@@ -9,7 +9,7 @@ import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
 import { categoryOverrideFor, screeningForDeal } from "@/lib/deal-rules";
 import { rulesErrorNote } from "@/lib/rules-notes";
 import { listUnreadCreatorNotices } from "@/lib/video-review";
-import { dealNoticeNote } from "@/lib/deal-notice-notes";
+import { dealNoticeNote, dealNoticeSpecific } from "@/lib/deal-notice-notes";
 
 export default async function DealPage({
   params,
@@ -32,6 +32,8 @@ export default async function DealPage({
   const hidden = deals.filter((deal) => !deal.visibleToCreator);
   const screening = selected ? await screeningForDeal(portal.db, portal.viewer, selected.id) : null;
   const categoryOverride = selected && portal.viewer.role === "admin" ? await categoryOverrideFor(portal.db, selected.id) : false;
+  const stageSpecific = dealNoticeSpecific(query.stageError);
+  const interestSpecific = dealNoticeSpecific(query.interestError);
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -75,6 +77,8 @@ export default async function DealPage({
       {dealNoticeNote(query.rateError) ? <p className="private-note">{dealNoticeNote(query.rateError)}</p> : null}
       {query.dates === "saved" ? <p className="note">Dates saved. Nothing was emailed or paid.</p> : null}
       {dealNoticeNote(query.datesError) ? <p className="private-note">{dealNoticeNote(query.datesError)}</p> : null}
+      {stageSpecific ? <p className="private-note">{stageSpecific}</p> : null}
+      {interestSpecific ? <p className="private-note">{interestSpecific}</p> : null}
       {selected ? null : (
         <div className="card" style={{ marginBottom: 14 }}>
           <h2>That deal isn&apos;t on your list.</h2>
@@ -111,8 +115,8 @@ export default async function DealPage({
         listNote={portal.viewed?.listNote ?? null}
         creatorQuery={creatorQuery}
         {...dealPowers(portal.viewer)}
-        stageError={query.stageError === "1"}
-        interestError={query.interestError === "1"}
+        stageError={Boolean(query.stageError) && !stageSpecific}
+        interestError={Boolean(query.interestError) && !interestSpecific}
         releaseError={query.releaseError ?? null}
         reviewError={query.reviewError ?? null}
         contractError={query.contractError ?? null}

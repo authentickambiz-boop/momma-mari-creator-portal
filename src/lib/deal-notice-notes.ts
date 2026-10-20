@@ -12,6 +12,12 @@ const DEAL_NOTICE_TEXT = {
   shared: "This deal is already on the creator's list.",
   stage: "That is not a deal stage.",
   move: "You can't move this deal.",
+  choose: "Choose I'm interested or Not for me.",
+  ownOffer: "You can only respond to your own offers.",
+  answered: "You already answered this offer.",
+  pass: "Creators don't pass on terms from here.",
+  waiting: "This offer is not on your list yet.",
+  brandEmail: "This offer has no brand email yet.",
 } as const;
 
 export const DEAL_NOTICE_NOTES: Record<string, string> = {
@@ -29,4 +35,10 @@ export function dealNoticeCode(error: string) {
 export function dealNoticeNote(code: string | undefined) {
   if (!code) return null;
   return DEAL_NOTICE_NOTES[code] ?? DEAL_NOTICE_NOTES["1"];
+}
+
+/** The sentence for a known code. The generic fallback and unknown codes stay null. */
+export function dealNoticeSpecific(code: string | undefined) {
+  if (!code || !(code in DEAL_NOTICE_TEXT)) return null;
+  return DEAL_NOTICE_TEXT[code as keyof typeof DEAL_NOTICE_TEXT];
 }
