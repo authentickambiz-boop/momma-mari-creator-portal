@@ -694,6 +694,17 @@ textarea {
 .login-forest .eyebrow { color: #F2C9B3; }
 .login-forest p { color: #E7EEE8; font-size: 18px; }
 .lead { font-size: 18px; color: var(--muted); }
+.apply-split { display: grid; grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.15fr); gap: 28px; align-items: start; margin-top: 8px; }
+.apply-side { background: var(--terra); color: var(--ivory); border-radius: 24px; padding: 32px; }
+.apply-side h2 { color: var(--ivory); font-size: 36px; line-height: 1.1; margin: 8px 0 12px; }
+.apply-side p { color: #E7EEE8; }
+.apply-side .eyebrow { color: #F2C9B3; }
+.apply-side .caption { color: #E7EEE8; }
+.apply-steps { list-style: none; padding: 0; margin: 20px 0; }
+.apply-steps li { display: flex; gap: 12px; padding: 14px 0; border-top: 1px solid rgba(255, 255, 255, 0.16); }
+.apply-steps span { flex: none; width: 30px; height: 30px; border-radius: 50%; background: rgba(242, 201, 179, 0.18); color: #F2C9B3; display: grid; place-items: center; font-weight: 700; }
+.apply-steps strong { display: block; color: #fff; }
+.apply-steps p { margin: 4px 0 0; }
 
 @media (max-width: 820px) {
   .home-cards { grid-template-columns: 1fr; }
@@ -767,4 +778,7 @@ textarea {
   .login-split { display: block; }
   .login-pane { padding: 28px 20px; max-width: none; }
   .login-pane h1 { font-size: 34px; }
+  .apply-split { display: block; }
+  .apply-side { margin-bottom: 20px; }
+  .apply-side h2 { font-size: 28px; }
 }

@@ -14,6 +14,19 @@ export default async function ApplyPage({ searchParams }: { searchParams: Promis
   const note = applyFormNote(params.error);
   return (
     <PublicShell title="Apply to join Momma Mari" lede="Tell Kamron who you are. He reviews each application. Nothing is emailed, and there is no fee.">
+      <div className="apply-split">
+      <aside className="apply-side">
+        <p className="eyebrow">Apply to join</p>
+        <h2>Let&apos;s see if we&apos;re a fit.</h2>
+        <p>Kamron reads every application. There is no follower minimum and no fee. Nothing is emailed from this form.</p>
+        <ol className="apply-steps">
+          <li><span>1</span><div><strong>We review</strong><p>Content, audience, and goals. The application stays on Kamron&apos;s dashboard.</p></div></li>
+          <li><span>2</span><div><strong>Kamron decides</strong><p>Approve opens a portal account. Decline leaves the roster as it is.</p></div></li>
+          <li><span>3</span><div><strong>Welcome aboard</strong><p>You sign in with the Google account on this application.</p></div></li>
+        </ol>
+        <p className="caption">We never ask for passwords or bank details in this form.</p>
+      </aside>
+      <div>
       <p className="sec-title">What you get</p>
       <div className="public-grid">
         {CREATOR_BENEFITS.map((benefit) => (
@@ -54,6 +67,8 @@ export default async function ApplyPage({ searchParams }: { searchParams: Promis
         </div>
         <button className="btn" type="submit">Submit application</button>
       </form>
+      </div>
+      </div>
     </PublicShell>
   );
 }
