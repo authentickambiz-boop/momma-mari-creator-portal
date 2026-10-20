@@ -269,7 +269,9 @@ export async function recordPodMetric(db: PortalDb, viewer: Viewer, input: { pod
   if (viewer.role !== "admin" && viewer.role !== "manager") return { ok: false as const, error: "A manager records the pod numbers." };
   const pod = await editable(db, viewer, input.podId);
   if (!pod) return { ok: false as const, error: "That pod is not on your list." };
-  if (!/^\d{4}-\d{2}$/.test(input.month)) return { ok: false as const, error: "Use a month like 2026-10." };
+  if (!/^\d{4}-\d{2}$/.test(input.month) || Number(input.month.slice(5, 7)) < 1 || Number(input.month.slice(5, 7)) > 12) {
+    return { ok: false as const, error: "Use a month like 2026-10." };
+  }
   await db.insert(podMetrics).values({
     id: crypto.randomUUID(),
     podId: pod.id,
