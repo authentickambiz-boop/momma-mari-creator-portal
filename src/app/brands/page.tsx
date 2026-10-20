@@ -49,6 +49,9 @@ export default async function BrandsPage({ searchParams }: { searchParams: Promi
             {card.responses.length > 0 ? (
               <p>Responses: {card.responses.map((row) => responseLabel(row.decision)).join(", ")}</p>
             ) : <p className="note">No response yet.</p>}
+            {card.responses.some((row) => row.note) ? (
+              <p className="note">{card.responses.map((row) => row.note).filter(Boolean).join(" · ")}</p>
+            ) : null}
             {card.crm.map((row, index) => (
               <p key={`${row.creatorId ?? "brand"}-${index}`}>
                 {row.creatorName ?? "No creator yet"} · {row.outcome ?? "Open"}
