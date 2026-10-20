@@ -6,6 +6,7 @@ import { CopyText } from "@/components/copy-text";
 import { DealLivePulse } from "@/components/deal-live-pulse";
 import { askRateAction, confirmRateAction, ownerDealFlagsAction, saveReplyDraftAction } from "@/app/review-actions";
 import { commissionLabel, creatorPayoutTracker, lastUpdatedLabel, paymentStatusLabel, paymentStatusTone, shortDate, withBasePath } from "@/lib/format";
+import { contractErrorNote } from "@/lib/contract-notes";
 import { postErrorNote } from "@/lib/fulfillment";
 import { productErrorNote } from "@/lib/product-notes";
 import { reviewErrorNote } from "@/lib/review-notes";
@@ -503,15 +504,12 @@ function DealDetailView({
                     </label>
                     <button className="btn" type="submit" name="decision" value="approved">Approve</button>
                     <button className="btn ghost" type="submit" name="decision" value="changes">Request changes</button>
-<<<<<<< HEAD
                     {safetyError === "creator" ? <span className="note">You can&apos;t clear a safety hold.</span> : null}
                     {safetyError === "owner" ? <span className="note">Only Kamron can clear a safety hold.</span> : null}
-=======
                     {reviewError === "note" ? <span className="note">Tell her what to fix before sending it back.</span> : null}
                     {reviewError === "email" ? <span className="note">Add the brand email before approving. The email stays in your queue.</span> : null}
                     {reviewError === "held" ? <span className="note">This draft is held for Kamron. Nothing was sent to the brand.</span> : null}
                     {reviewError && reviewError !== "note" && reviewError !== "email" && reviewError !== "held" ? <span className="note">That review was not saved. Nothing was emailed.</span> : null}
->>>>>>> origin/cursor/safety-error-notes-e39d
                   </form>
                 ) : null}
               </li>
@@ -753,15 +751,7 @@ function ContractSection({
               <button className="btn" type="submit">Upload contract</button>
             </form>
           ) : null}
-          {contractError === "type" ? <p className="note">Upload a PDF or DOCX under 20 MB.</p> : null}
-          {contractError === "past" ? <p className="note">This deal is already past the contract. Nothing was changed.</p> : null}
-          {contractError === "review" ? <p className="note">This file needs review before signing. Upload a PDF or mark it as DocuSign.</p> : null}
-          {contractError === "changes" ? <p className="note">Mark at least one checklist item as an issue, or write the changes to request.</p> : null}
-          {contractError === "email" ? <p className="note">Add the brand email before asking for changes. The email stays in your queue.</p> : null}
-          {contractError === "signemail" ? <p className="note">Add the brand email before the signed contract can be queued.</p> : null}
-          {contractError === "upload" ? <p className="note">Upload the completed signed PDF.</p> : null}
-          {contractError === "signed" ? <p className="note">This version is already signed.</p> : null}
-          {contractError === "1" ? <p className="note">That contract change was not saved. Nothing was emailed.</p> : null}
+          {contractError ? <p className="note">{contractErrorNote(contractError) ?? "That contract change was not saved. Nothing was emailed."}</p> : null}
           {deal.contracts.map((contract) => {
             const signWindow = deal.workflowStage === "approved_by_agency" || deal.workflowStage === "awaiting_signature";
             const copies = deal.signatures.filter((row) => row.contractId === contract.id);
