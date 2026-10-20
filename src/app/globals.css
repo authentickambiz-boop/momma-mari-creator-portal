@@ -204,16 +204,24 @@ nav.tabs a:hover { background: var(--ivory); color: var(--terra); border-color: 
 nav.tabs a.on:hover { background: var(--terra-d); color: #fff; }
 
 .switcher { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
-.switcher a, .switcher span {
+.switcher a, .switcher span, .switcher button {
   border: 1px solid var(--line);
   background: var(--card);
   color: var(--ink);
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 13px;
+  font-family: inherit;
   text-decoration: none;
+  cursor: pointer;
 }
-.switcher a.on { background: var(--sage-l); color: var(--terra); border-color: transparent; }
+.switcher a.on, .switcher button.on { background: var(--sage-l); color: var(--terra); border-color: transparent; }
+.offer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 0 0 18px; }
+.brand-footer { display: flex; align-items: center; gap: 12px; margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); }
+.brand-footer img { height: 36px; width: auto; }
+.brand-footer p { margin: 0; color: var(--muted); }
+.offer-grid .card > b { font-family: var(--heading); font-weight: 500; font-size: 28px; color: var(--terra); }
+.offer-grid .card .btn { width: 100%; }
 
 .grid { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
 
@@ -740,12 +748,16 @@ textarea:focus {
     scroll-padding-inline: 16px;
   }
   nav.tabs a { min-height: 44px; display: inline-flex; align-items: center; flex: none; }
-  .switcher a, .btn, .avatar, .community-fab { min-height: 44px; }
+  .switcher a, .switcher button, .btn, .avatar, .community-fab { min-height: 44px; }
+  .offer-grid { grid-template-columns: 1fr; }
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),
   select,
   textarea { font-size: 16px; }
   .hello p { overflow-wrap: anywhere; }
   .card:has(table) { overflow-x: auto; }
+  .fulfillment-table { min-width: 40rem; }
+  .fulfillment-table th,
+  .fulfillment-table td { white-space: nowrap; }
   .stage-form { flex-direction: column; align-items: stretch; }
   .stage-form input, .stage-form select, .stage-form textarea { width: 100%; max-width: 100%; }
   .connect { flex-wrap: wrap; align-items: flex-start; }

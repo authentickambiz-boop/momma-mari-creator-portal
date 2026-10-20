@@ -30,6 +30,7 @@ export const creators = sqliteTable("creators", {
   emailSetup: text("email_setup"),
   hostedEmailAddress: text("hosted_email_address"),
   signerIsMinor: integer("signer_is_minor", { mode: "boolean" }).notNull().default(false),
+  contracted: integer("contracted", { mode: "boolean" }).notNull().default(false),
   primaryManagerId: text("primary_manager_id"),
   backupManagerId: text("backup_manager_id"),
   isSeed: integer("is_seed", { mode: "boolean" }).notNull(),
@@ -914,7 +915,43 @@ export const creatorAccounts = sqliteTable("creator_accounts", {
   pushNotices: integer("push_notices", { mode: "boolean" }).notNull(),
   quietHours: integer("quiet_hours", { mode: "boolean" }).notNull(),
   communityVisible: integer("community_visible", { mode: "boolean" }).notNull(),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  subscriptionStatus: text("subscription_status"),
+  subscriptionPlan: text("subscription_plan"),
+  subscriptionInterval: text("subscription_interval"),
+  subscriptionEventAt: integer("subscription_event_at"),
   updatedAt: text("updated_at").notNull(),
+});
+
+export const stripeWebhookEvents = sqliteTable("stripe_webhook_events", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const creatorPurchases = sqliteTable("creator_purchases", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  offerId: text("offer_id").notNull(),
+  priceId: text("price_id").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const fulfillmentOrders = sqliteTable("fulfillment_orders", {
+  id: text("id").primaryKey(),
+  purchaseId: text("purchase_id").notNull().unique(),
+  creatorId: text("creator_id").notNull(),
+  product: text("product").notNull(),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+  dueOn: text("due_on").notNull(),
+  claimedAt: text("claimed_at"),
+  deliveredAt: text("delivered_at"),
+  deliveryUrl: text("delivery_url"),
+  deliveryFilename: text("delivery_filename"),
+  deliveryBody: text("delivery_body"),
 });
 
 export const brandReplyDrafts = sqliteTable("brand_reply_drafts", {
