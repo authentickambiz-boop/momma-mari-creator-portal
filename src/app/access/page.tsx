@@ -161,7 +161,7 @@ export default async function AccessPage({
         </div>
         <div className="card" style={{ marginTop: 14 }}>
           <div className="sec-title">Waiting for Kamron</div>
-          {pending.length === 0 ? <p className="note">Nothing is waiting.</p> : null}
+          {pending.length === 0 ? <p className="note empty">Nothing is waiting.</p> : null}
           {pending.map((row) => (
             <p key={row.id} className="note">{CAPABILITY_LABELS[row.capability as Capability] ?? row.capability}: {row.summary}</p>
           ))}
@@ -223,7 +223,7 @@ export default async function AccessPage({
 
       <div className="card stack" id="access-queue" style={{ marginBottom: 14 }}>
         <div className="sec-title">Waiting for you</div>
-        {pending.length === 0 ? <p className="note">Nothing is waiting for approval.</p> : null}
+        {pending.length === 0 ? <p className="note empty">Nothing is waiting for approval.</p> : null}
         {pending.map((row) => (
           <article key={row.id} className="choice stack">
             <b>{CAPABILITY_LABELS[row.capability as Capability] ?? row.capability}</b>
@@ -284,7 +284,7 @@ export default async function AccessPage({
 
       <div className="card" id="access-audit">
         <div className="sec-title">Audit log</div>
-        {audit.length === 0 ? <p className="note">Nothing has been recorded yet.</p> : null}
+        {audit.length === 0 ? <p className="note empty">Nothing has been recorded yet.</p> : null}
         {audit.length > 0 ? (
           <table>
             <thead>

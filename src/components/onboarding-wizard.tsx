@@ -30,7 +30,7 @@ export function OnboardingWizard({
       <h2>Tell us about your bot</h2>
       <p className="note">Name the bot and fill in the profile. Kids&apos; ages and favorite brands can be left blank. Nothing is emailed from here.</p>
       {emailReady ? null : <p className="private-note">Choose how brand email should work above before you press Finish.</p>}
-      {error ? <p className="private-note">{finishErrorNote(error) ?? "That profile was not saved. Add a niche, a content style, rates, and at least one platform."}</p> : null}
+      {error ? <p className="private-note" role="alert">{finishErrorNote(error) ?? "That profile was not saved. Add a niche, a content style, rates, and at least one platform."}</p> : null}
       <label>
         1. What should we call your bot?
         <input name="botName" defaultValue={suggestedBotName} placeholder={`${creatorName} Bot`} required />

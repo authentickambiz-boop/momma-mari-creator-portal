@@ -36,7 +36,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
       {params.saved === "published" ? <p className="note">Published. The creator can see it now.</p> : null}
       {params.saved === "rejected" ? <p className="note">Rejected. The creator still cannot see it.</p> : null}
       {reviewError ? <p className="private-note">{reviewError}</p> : null}
-      {queue.length === 0 ? <p className="note">Nothing is waiting for review.</p> : null}
+      {queue.length === 0 ? <p className="note empty">Nothing is waiting for review.</p> : null}
       <div className="stack">
         {queue.map((deal) => {
           const draft = draftByDeal.get(deal.id) ?? "";

@@ -53,7 +53,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
             <p>{campaign.niches.join(", ") || "Any niche"} · {campaign.platforms.join(", ") || "Any platform"} · {campaign.slots} slots · {campaign.status}{campaign.openOutside ? " · Open to outside creators" : ""}{campaign.kind === "offer" ? ` · Brand offer${offerFlagLabel(campaign.offerFlag) ? `: ${offerFlagLabel(campaign.offerFlag)}` : ""}` : ""}</p>
             {priced ? <p>{formatMoney(campaign.budgetCents)} budget</p> : <p className="note">Budget stays with the owner unless your pricing toggle is on.</p>}
           </Link>
-        )) : <p className="note">No campaigns match that filter.</p>}
+        )) : <p className="note empty">No campaigns match that filter.</p>}
       </div>
       {portal.viewer.role === "admin" ? (
         <p className="note"><Link href="/offers">Save a brand offer</Link> when you have a budget for each creator. Nothing is emailed.</p>

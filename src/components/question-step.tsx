@@ -36,9 +36,11 @@ export function QuestionStep({
   return (
     <form action={saveQuestionnaireAction} className="card wizard">
       <p className="note">Step {index + 1} of {QUESTION_STEPS.length}{step.optional ? " · Optional" : ""}</p>
-      <div className="progress" aria-hidden="true"><span style={{ width: `${width}%` }} /></div>
+      <div className="progress" role="progressbar" aria-valuenow={width} aria-valuemin={0} aria-valuemax={100} aria-label={`Step ${index + 1} of ${QUESTION_STEPS.length}`}>
+        <span style={{ width: `${width}%` }} />
+      </div>
       <h2>{step.title}</h2>
-      {error ? <p className="private-note">{error}</p> : null}
+      {error ? <p className="private-note" role="alert">{error}</p> : null}
       {stepId === "niches" ? <TagPicker name="niches" label="Niches" options={NICHE_CATALOG} selected={answers.niches} placeholder="Search niches" /> : null}
       {stepId === "platforms" ? (
         <>

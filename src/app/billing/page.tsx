@@ -69,7 +69,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           {portal.viewer.role === "creator" ? <BillingOffers enabled={paymentsOn} plans={plans} kits={kits} memberNote={oneTimeMemberNote()} /> : null}
         </>
       ) : (
-        <p className="note">Billing is on each creator&apos;s own sign-in. This page does not list anyone else&apos;s plan or credits.</p>
+        <p className="note empty">Billing is on each creator&apos;s own sign-in. This page does not list anyone else&apos;s plan or credits.</p>
       )}
     </PortalFrame>
   );

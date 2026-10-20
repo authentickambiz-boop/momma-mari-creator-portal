@@ -30,7 +30,7 @@ export default async function PodsPage({ searchParams }: { searchParams: Promise
             <p>{pod.niche} · {pod.sizeBand} · {pod.managerName} · {pod.memberIds.length} creators</p>
           </Link>
         ))}
-        {pods.length ? null : <p className="note">No pod on this sign-in yet.</p>}
+        {pods.length ? null : <p className="note empty">No pod on this sign-in yet.</p>}
       </div>
       {suggestion?.ok ? (
         <div className="stack" style={{ marginTop: 14 }}>

@@ -18,7 +18,7 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
         <label>Message<textarea name="body" required rows={5} maxLength={4000} /></label>
         <button className="btn" type="submit">Save note</button>
       </form>
-      {notes.length === 0 ? <p className="note">No notes yet. Nothing is emailed.</p> : (
+      {notes.length === 0 ? <p className="note empty">No notes yet. Nothing is emailed.</p> : (
         <div className="card" style={{ marginTop: 14 }}>
           <div className="sec-title">{portal.viewer.role === "admin" ? "Notes in the portal" : "Your notes"}</div>
           <ul className="timeline">

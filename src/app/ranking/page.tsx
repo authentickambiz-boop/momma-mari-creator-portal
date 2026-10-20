@@ -33,7 +33,7 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
       <div className="card">
         <div className="sec-title">Leaderboard</div>
         <p className="note">Updates {settings.cadence}. Fit still decides who can take a campaign. Rank only sorts the creators who clear that gate.</p>
-        {board.rows.length === 0 ? <p className="note">No ranks yet. Nothing is emailed.</p> : null}
+        {board.rows.length === 0 ? <p className="note empty">No ranks yet. Nothing is emailed.</p> : null}
         <table>
           <thead><tr><th>Rank</th><th>Creator</th><th>Score</th><th>Tier</th></tr></thead>
           <tbody>

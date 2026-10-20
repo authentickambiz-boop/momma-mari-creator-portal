@@ -55,7 +55,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       </div>
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec-title">Roster match</div>
-        {ranked.length === 0 ? <p className="note">No creator on the roster matches this campaign yet.</p> : null}
+        {ranked.length === 0 ? <p className="note empty">No creator on the roster matches this campaign yet.</p> : null}
         {ranked.map((row) => (
           <p key={row.creatorId}>
             <b>{row.name}</b> · fit <span className="match-score">{row.score}</span> · {row.verdictLabel}
@@ -68,7 +68,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
         <div className="sec-title">Budget split</div>
         {allocations.length ? allocations.map((row) => (
           <p key={row.id}>{names.get(row.creatorId ?? "") ?? "Creator"}{priced ? ` · ${formatMoney(row.amountCents)}` : ""}</p>
-        )) : <p className="note">No creators are assigned yet.</p>}
+        )) : <p className="note empty">No creators are assigned yet.</p>}
         {commission != null ? <p>Projected commission {formatMoney(commission)} (20%)</p> : null}
         {campaign.kind === "offer" ? <p className="note">This is a brand offer. <Link href="/offers">Open brand offers</Link> to change who receives it.</p> : null}
         {campaign.kind !== "offer" && portal.viewer.role === "admin" && ranked.length > 0 ? (
