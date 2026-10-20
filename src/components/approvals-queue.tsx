@@ -1,4 +1,5 @@
 import { reviewApprovalAction } from "@/app/actions";
+import { approvalErrorNote } from "@/lib/approval-notes";
 import type { ApprovalQueueItem } from "@/lib/approvals";
 import { withBasePath } from "@/lib/format";
 
@@ -17,13 +18,13 @@ export function ApprovalsQueue({
 }: {
   items: ApprovalQueueItem[];
   creatorQuery: string;
-  error: boolean;
+  error: string | null;
 }) {
   const waiting = items.filter((item) => item.status === "pending");
   const decided = items.filter((item) => item.status !== "pending");
   return (
     <div className="stack">
-      {error ? <p className="private-note">That change was not saved. Nothing was sent.</p> : null}
+      {error ? <p className="private-note">{approvalErrorNote(error) ?? "That change was not saved. Nothing was sent."}</p> : null}
       {waiting.length === 0 ? (
         <div className="card">
           <b>Nothing is waiting.</b>

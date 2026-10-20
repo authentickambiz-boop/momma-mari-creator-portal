@@ -1,7 +1,7 @@
 import { recordReferralAction, setReferralPerkAction } from "@/app/actions";
 import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
-import { getReferralPerk, listReferrals, perkLabel, REFERRAL_LAWYER_NOTE } from "@/lib/referrals";
+import { getReferralPerk, listReferrals, perkLabel, REFERRAL_LAWYER_NOTE, referralErrorNote } from "@/lib/referrals";
 import { redirect } from "next/navigation";
 
 export default async function ReferralsPage({
@@ -32,8 +32,7 @@ export default async function ReferralsPage({
       }
     >
       {params.saved === "1" ? <div className="callout"><b>Saved. Nothing was paid.</b></div> : null}
-      {params.referralError === "1" ? <p className="note">That referral was not saved. Nothing was paid.</p> : null}
-      {params.referralError === "perk" ? <p className="note">Only Kamron can set the perk amount.</p> : null}
+      {params.referralError ? <p className="note">{referralErrorNote(params.referralError) ?? "That referral was not saved. Nothing was paid."}</p> : null}
       <div className="stack">
         <section className="card">
           <div className="sec-title">Perk</div>
