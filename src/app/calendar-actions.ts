@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { saveDeliverableDate, setCalendarConnected } from "@/lib/calendar";
+import { calendarErrorCode } from "@/lib/calendar-notes";
 import { currentViewer } from "@/lib/current-user";
 
 export async function saveDeliverableDateAction(formData: FormData) {
@@ -16,7 +17,7 @@ export async function saveDeliverableDateAction(formData: FormData) {
     actorEmail: viewer.email,
     actorRole: viewer.role,
   });
-  if (!result.ok) redirect(`/calendar?calendarError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/calendar?calendarError=${calendarErrorCode(result.error)}`);
   redirect("/calendar?saved=1");
 }
 
@@ -25,6 +26,6 @@ export async function connectCalendarAction(formData: FormData) {
   if (!viewer) redirect("/login");
   const db = await getDb();
   const result = await setCalendarConnected(db, viewer, formData.get("connected") === "1");
-  if (!result.ok) redirect(`/calendar?calendarError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/calendar?calendarError=${calendarErrorCode(result.error)}`);
   redirect("/calendar?saved=1");
 }
