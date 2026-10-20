@@ -226,6 +226,7 @@ nav.tabs a.on:hover { background: var(--terra-d); color: #fff; }
   overflow-wrap: break-word;
 }
 a.card { display: block; color: inherit; text-decoration: none; }
+a.card > b, .card > b { display: block; font-family: var(--body); font-weight: 600; font-size: 18px; color: var(--ink); }
 
 a.deal, button.deal {
   display: block;
