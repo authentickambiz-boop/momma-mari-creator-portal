@@ -33,6 +33,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <h1>Momma Mari</h1>
         <p className="note">Creator portal. Sign in with the Google account Kamron invited. You&apos;ll only see your own deals.</p>
         {error ? <p className="private-note">{error}</p> : null}
+        {params.error === "not_allowed" ? (
+          <p className="note"><Link href="/apply">Apply to join Momma Mari</Link></p>
+        ) : null}
         {googleConfigured() ? (
           <a className="btn" href={`${base}/api/auth/google`}>Continue with Google</a>
         ) : (
