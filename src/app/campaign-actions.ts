@@ -13,6 +13,7 @@ import {
 import { campaignErrorCode } from "@/lib/campaign-notes";
 import { currentViewer } from "@/lib/current-user";
 import { budgetFilterText, dollarsToCents } from "@/lib/deal-rules";
+import { prospectErrorCode } from "@/lib/prospect-notes";
 
 function tags(formData: FormData, name: string) {
   return formData.getAll(name).map((value) => String(value).trim()).filter(Boolean);
@@ -102,7 +103,7 @@ export async function addProspectAction(formData: FormData) {
     niches: tags(formData, "niches"),
     notes: String(formData.get("notes") ?? ""),
   });
-  if (!result.ok) redirect(`/prospects?prospectError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/prospects?prospectError=${prospectErrorCode(result.error)}`);
   redirect("/prospects?saved=1");
 }
 
@@ -111,7 +112,7 @@ export async function convertProspectAction(formData: FormData) {
   if (!viewer) redirect("/login");
   const db = await getDb();
   const result = await convertProspect(db, viewer, String(formData.get("prospectId") ?? ""), String(formData.get("creatorId") ?? ""));
-  if (!result.ok) redirect(`/prospects?prospectError=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`/prospects?prospectError=${prospectErrorCode(result.error)}`);
   redirect("/prospects?saved=1");
 }
 
