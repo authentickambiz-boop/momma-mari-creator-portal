@@ -25,7 +25,7 @@ const SIGN_ERRORS: Record<string, string> = {
   ready: "This deal isn't ready to sign. Nothing was changed.",
   own: "You can only sign your own contract.",
   review: "This file needs review before signing. Upload a PDF or mark it as DocuSign.",
-  "1": "That signature was not saved.",
+  "1": "That signature was not saved. Nothing was emailed.",
 };
 
 function isPdf(bytes: Uint8Array | null) {
@@ -121,6 +121,7 @@ async function SignBody({
       <div className="card">
         <h1>Sign</h1>
         <p>There isn&apos;t a contract ready to sign on this deal.</p>
+        {error ? <p className="note">{error}</p> : null}
         <p><Link href={back}>Back to {brand}</Link></p>
       </div>
     );
