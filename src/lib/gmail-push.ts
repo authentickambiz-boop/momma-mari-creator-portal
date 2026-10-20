@@ -39,6 +39,8 @@ export type GmailHistoryClient = {
   listAdded: (startHistoryId: string) => Promise<{
     latestHistoryId: string;
     expired?: boolean;
+    /** More history.list pages remain. The cursor is only the last record read. */
+    partial?: boolean;
     messages: { id: string; threadId: string }[];
   }>;
   getMessage: (id: string) => Promise<GmailHistoryMessage>;
@@ -90,6 +92,48 @@ function laterHistory(left: string, right: string) {
   } catch {
     return right || left;
   }
+}
+
+function historyMovesForward(start: string, next: string) {
+  try {
+    return BigInt(next) > BigInt(start);
+  } catch {
+    return Boolean(next) && next !== start;
+  }
+}
+
+/** How many history.list pages one push will read. A longer gap continues on the next retry. */
+export const HISTORY_PAGE_LIMIT = 5;
+
+export type GmailHistoryPage = {
+  missing?: boolean;
+  historyId?: string;
+  nextPageToken?: string;
+  history?: { id?: string; messagesAdded?: { message?: { id?: string; threadId?: string } }[] }[];
+};
+
+/** Fold history.list pages into the messages to file. A leftover page token does not jump to the mailbox tip. */
+export function addedFromHistoryPages(startHistoryId: string, pages: GmailHistoryPage[]) {
+  const first = pages[0];
+  if (!first || first.missing) {
+    return { latestHistoryId: startHistoryId, expired: true as const, partial: false, messages: [] as { id: string; threadId: string }[] };
+  }
+  const messages: { id: string; threadId: string }[] = [];
+  let lastRecordId = "";
+  for (const page of pages) {
+    for (const entry of page.history ?? []) {
+      if (entry.id) lastRecordId = entry.id;
+      for (const added of entry.messagesAdded ?? []) {
+        if (added.message?.id && added.message.threadId) messages.push({ id: added.message.id, threadId: added.message.threadId });
+      }
+    }
+  }
+  const last = pages[pages.length - 1];
+  const partial = Boolean(last?.nextPageToken);
+  const latestHistoryId = partial
+    ? (lastRecordId || startHistoryId)
+    : (last?.historyId || lastRecordId || startHistoryId);
+  return { latestHistoryId, expired: false as const, partial, messages };
 }
 
 export function decodePushMessage(body: unknown): { emailAddress: string; historyId: string } | null {
@@ -501,7 +545,28 @@ export async function ingestGmailPush(
   }
   const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, listed.messages, client, secrets);
   if (!applied.ok) return applied.failure;
-  await saveHistory(db, mailbox, mapped.creatorId, laterHistory(listed.latestHistoryId || start, note.historyId));
+  const cursor = listed.partial
+    ? listed.latestHistoryId
+    : laterHistory(listed.latestHistoryId || start, note.historyId);
+  if (listed.partial && !historyMovesForward(start, cursor)) {
+    return { status: 503, body: { ok: false as const, error: "Gmail history has more pages, and the cursor did not move." } };
+  }
+  await saveHistory(db, mailbox, mapped.creatorId, cursor);
+  if (listed.partial) {
+    return {
+      status: 503,
+      body: {
+        ok: false as const,
+        partial: true as const,
+        error: "Gmail history has more pages. The cursor moved through the pages already read.",
+        createdDealIds: applied.createdDealIds,
+        matchedDealIds: applied.matchedDealIds,
+        stageMoves: applied.stageMoves,
+        skippedSpam: applied.skippedSpam,
+        skippedDuplicate: applied.skippedDuplicate,
+      },
+    };
+  }
   return {
     status: 200,
     body: {
@@ -633,19 +698,21 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
   const accessToken = await refreshGmailAccessToken(refreshToken);
   return {
     async listAdded(startHistoryId: string) {
-      const listed = await gmailGet(accessToken, `/history?startHistoryId=${encodeURIComponent(startHistoryId)}&historyTypes=messageAdded`);
-      if (listed.missing) return { latestHistoryId: startHistoryId, expired: true, messages: [] };
-      const json = listed.json as {
-        historyId?: string;
-        history?: { messagesAdded?: { message?: { id?: string; threadId?: string } }[] }[];
-      };
-      const messages: { id: string; threadId: string }[] = [];
-      for (const entry of json.history ?? []) {
-        for (const added of entry.messagesAdded ?? []) {
-          if (added.message?.id && added.message.threadId) messages.push({ id: added.message.id, threadId: added.message.threadId });
+      const pages: GmailHistoryPage[] = [];
+      let pageToken = "";
+      for (let page = 0; page < HISTORY_PAGE_LIMIT; page += 1) {
+        const token = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "";
+        const listed = await gmailGet(accessToken, `/history?startHistoryId=${encodeURIComponent(startHistoryId)}&historyTypes=messageAdded${token}`);
+        if (listed.missing) {
+          if (pages.length === 0) return { latestHistoryId: startHistoryId, expired: true, messages: [] };
+          throw new Error("Gmail history page failed.");
         }
+        const json = (listed.json ?? {}) as GmailHistoryPage;
+        pages.push(json);
+        if (!json.nextPageToken) break;
+        pageToken = json.nextPageToken;
       }
-      return { latestHistoryId: json.historyId ?? startHistoryId, messages };
+      return addedFromHistoryPages(startHistoryId, pages);
     },
     async listRecent() {
       const listed = await gmailGet(accessToken, `/messages?labelIds=INBOX&maxResults=${RECENT_INBOX_LIMIT}`);

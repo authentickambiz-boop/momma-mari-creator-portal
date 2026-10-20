@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { publicBasePath, withBasePath } from "@/lib/format";
 import { QUIET_HOURS_NOTE, homeScreenOffer, isIosHomeScreen } from "@/lib/home-screen";
+import { isPublicMarketingPath } from "@/lib/public-site";
 
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 
@@ -11,9 +13,11 @@ export function HomeScreen() {
   const [ios, setIos] = useState(false);
   const [promptEvent, setPromptEvent] = useState<InstallPrompt | null>(null);
   const base = publicBasePath();
+  const publicPage = isPublicMarketingPath(usePathname() ?? "", base);
   const offer = homeScreenOffer({ installed, ios, canPrompt: Boolean(promptEvent) });
 
   useEffect(() => {
+    if (publicPage) return;
     const media = window.matchMedia("(display-mode: standalone)");
     const nav = window.navigator as Navigator & { standalone?: boolean };
     const sync = () => setInstalled(media.matches || nav.standalone === true);
@@ -38,7 +42,9 @@ export function HomeScreen() {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, [base]);
+  }, [base, publicPage]);
+
+  if (publicPage) return null;
 
   if (offer === "installed") {
     return (
