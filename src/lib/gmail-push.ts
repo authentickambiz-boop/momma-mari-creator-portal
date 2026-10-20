@@ -476,6 +476,20 @@ async function createHiddenOffer(db: PortalDb, input: { creatorId: string; messa
 }
 
 const RECENT_INBOX_LIMIT = 20;
+export const RECENT_PAGE_LIMIT = 2;
+
+export function recentInboxMessages(pages: { messages?: { id?: string; threadId?: string }[] }[]) {
+  const messages: { id: string; threadId: string }[] = [];
+  const seen = new Set<string>();
+  for (const page of pages) {
+    for (const message of page.messages ?? []) {
+      if (!message.id || !message.threadId || seen.has(message.id)) continue;
+      seen.add(message.id);
+      messages.push({ id: message.id, threadId: message.threadId });
+    }
+  }
+  return messages;
+}
 
 async function applyAddedMessages(
   db: PortalDb,
@@ -604,7 +618,7 @@ export async function ingestGmailPush(
     } catch (error) {
       return finishReadFailure(db, mapped.creatorId, error, secrets);
     }
-    const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, recent.slice(0, RECENT_INBOX_LIMIT), client, secrets);
+    const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, recent.slice(0, RECENT_INBOX_LIMIT * RECENT_PAGE_LIMIT), client, secrets);
     if (!applied.ok) return applied.failure;
     await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
     return {
@@ -796,14 +810,21 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
       return addedFromHistoryPages(startHistoryId, pages);
     },
     async listRecent() {
-      const listed = await gmailGet(accessToken, `/messages?labelIds=INBOX&maxResults=${RECENT_INBOX_LIMIT}`);
-      if (listed.missing || !listed.json) return [];
-      const json = listed.json as { messages?: { id?: string; threadId?: string }[] };
-      const messages: { id: string; threadId: string }[] = [];
-      for (const message of json.messages ?? []) {
-        if (message.id && message.threadId) messages.push({ id: message.id, threadId: message.threadId });
+      const pages: { messages?: { id?: string; threadId?: string }[]; nextPageToken?: string }[] = [];
+      let pageToken = "";
+      for (let page = 0; page < RECENT_PAGE_LIMIT; page += 1) {
+        const token = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "";
+        const listed = await gmailGet(accessToken, `/messages?labelIds=INBOX&maxResults=${RECENT_INBOX_LIMIT}${token}`);
+        if (listed.missing || !listed.json) {
+          if (pages.length === 0) return [];
+          throw new Error("Gmail inbox page failed.");
+        }
+        const json = listed.json as { messages?: { id?: string; threadId?: string }[]; nextPageToken?: string };
+        pages.push(json);
+        if (!json.nextPageToken) break;
+        pageToken = json.nextPageToken;
       }
-      return messages;
+      return recentInboxMessages(pages);
     },
     async getMessage(id: string) {
       const loaded = await gmailGet(
