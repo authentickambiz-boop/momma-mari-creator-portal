@@ -4,6 +4,7 @@ import { PortalFrame } from "@/components/portal-frame";
 import { ownerDashboard } from "@/lib/campaigns";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
+import { inviteErrorNote } from "@/lib/invite-notes";
 import { listPlatformInvites } from "@/lib/platform-invites";
 import { REINVEST_CATEGORIES, reinvestmentSummary } from "@/lib/reinvestment";
 import { getDealStage } from "@/lib/stages";
@@ -17,14 +18,16 @@ function DashboardNotices({ growthError, saved }: { growthError?: string; saved?
   );
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ creator?: string; growthError?: string; saved?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ creator?: string; growthError?: string; saved?: string; invite?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
+  const inviteNote = inviteErrorNote(params.invite);
   const notices = <DashboardNotices growthError={params.growthError} saved={params.saved} />;
   if (portal.viewer.role !== "admin") {
     return (
       <PortalFrame viewer={portal.viewer} tab="dashboard" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Dashboard</h1>}>
         {notices}
+        {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
         <p className="note">Pipeline value, commission, and win rate stay on the owner's sign-in.</p>
       </PortalFrame>
     );
@@ -37,6 +40,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return (
       <PortalFrame viewer={portal.viewer} tab="dashboard" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Dashboard</h1>}>
         {notices}
+        {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
         <p className="note">{dash.error}</p>
       </PortalFrame>
     );
@@ -50,6 +54,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       hello={<div className="hello"><div><h1>Dashboard</h1><p>What the roster is worth, and where a campaign still needs a creator.</p></div></div>}
     >
       {notices}
+      {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
       {invites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} showCreator />)}
       <div className="card">
         <div className="sec-title">Pipeline</div>
