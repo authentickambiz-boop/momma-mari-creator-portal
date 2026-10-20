@@ -1,6 +1,6 @@
 import { brandInquiryAction } from "@/app/inquire-actions";
 import { PublicShell } from "@/components/public-shell";
-import { PUBLIC_ROBOTS } from "@/lib/public-site";
+import { INQUIRY_SUBMIT_LABEL, PUBLIC_ROBOTS } from "@/lib/public-site";
 
 export const metadata = {
   title: "Work with us · Momma Mari",
@@ -32,7 +32,7 @@ export default async function InquirePage({ searchParams }: { searchParams: Prom
         <label>What are you looking for?
           <textarea name="note" rows={4} />
         </label>
-        <button className="btn" type="submit">Send to Momma Mari</button>
+        <button className="btn" type="submit">{INQUIRY_SUBMIT_LABEL}</button>
       </form>
     </PublicShell>
   );

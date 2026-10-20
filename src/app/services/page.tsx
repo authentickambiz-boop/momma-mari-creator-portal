@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { PublicShell } from "@/components/public-shell";
-import { PUBLIC_ROBOTS, SERVICES } from "@/lib/public-site";
+import { BRAND_INQUIRY_HREF, BRAND_INQUIRY_LABEL, PUBLIC_ROBOTS, SERVICES } from "@/lib/public-site";
 
 export const metadata = {
   title: "Services · Momma Mari",
@@ -18,6 +19,7 @@ export default function ServicesPage() {
           </article>
         ))}
       </div>
+      <p><Link href={BRAND_INQUIRY_HREF}>{BRAND_INQUIRY_LABEL}</Link>. That form saves a brand contact. It does not send an email.</p>
     </PublicShell>
   );
 }

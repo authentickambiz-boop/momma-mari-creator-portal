@@ -133,12 +133,33 @@ function historyMovesForward(start: string, next: string) {
 /** How many history.list pages one push will read. A longer gap continues on the next retry. */
 export const HISTORY_PAGE_LIMIT = 5;
 
+const INBOX_LABELS = new Set(["INBOX", "SENT"]);
+
 export type GmailHistoryPage = {
   missing?: boolean;
   historyId?: string;
   nextPageToken?: string;
-  history?: { id?: string; messagesAdded?: { message?: { id?: string; threadId?: string } }[] }[];
+  history?: {
+    id?: string;
+    messagesAdded?: { message?: { id?: string; threadId?: string } }[];
+    labelsAdded?: { message?: { id?: string; threadId?: string }; labelIds?: string[] }[];
+  }[];
 };
+
+/** A Pub/Sub note at or behind the stored cursor was already read. */
+export function notificationAlreadyRead(storedHistoryId: string, noteHistoryId: string) {
+  return !historyMovesForward(storedHistoryId, noteHistoryId);
+}
+
+/** Gmail watch expirations are milliseconds. A missing or past value is not a renewal. */
+export function watchExpirationIsFuture(expiration: string, nowMs = Date.now()) {
+  if (!/^\d+$/.test(expiration)) return false;
+  try {
+    return BigInt(expiration) > BigInt(nowMs);
+  } catch {
+    return false;
+  }
+}
 
 /** Fold history.list pages into the messages to file. A leftover page token does not jump to the mailbox tip. */
 export function addedFromHistoryPages(startHistoryId: string, pages: GmailHistoryPage[]) {
@@ -147,12 +168,20 @@ export function addedFromHistoryPages(startHistoryId: string, pages: GmailHistor
     return { latestHistoryId: startHistoryId, expired: true as const, partial: false, messages: [] as { id: string; threadId: string }[] };
   }
   const messages: { id: string; threadId: string }[] = [];
+  const seenIds = new Set<string>();
   let lastRecordId = "";
+  const pushMessage = (id?: string, threadId?: string) => {
+    if (!id || !threadId || seenIds.has(id)) return;
+    seenIds.add(id);
+    messages.push({ id, threadId });
+  };
   for (const page of pages) {
     for (const entry of page.history ?? []) {
       if (entry.id) lastRecordId = entry.id;
-      for (const added of entry.messagesAdded ?? []) {
-        if (added.message?.id && added.message.threadId) messages.push({ id: added.message.id, threadId: added.message.threadId });
+      for (const added of entry.messagesAdded ?? []) pushMessage(added.message?.id, added.message?.threadId);
+      for (const labeled of entry.labelsAdded ?? []) {
+        const gained = (labeled.labelIds ?? []).some((label) => INBOX_LABELS.has(label));
+        if (gained) pushMessage(labeled.message?.id, labeled.message?.threadId);
       }
     }
   }
@@ -391,6 +420,16 @@ function pushReadFailure(error: unknown, secrets: string[]) {
   return { status: 503 as const, body: { ok: false as const, error: message } };
 }
 
+/** A dead token is acknowledged and the Connect page shows needs-reconnect. The cursor is not moved. */
+async function finishReadFailure(db: PortalDb, creatorId: string, error: unknown, secrets: string[]) {
+  const failure = pushReadFailure(error, secrets);
+  if ("permanent" in failure.body && failure.body.permanent) {
+    const reason = mailboxReconnectReason(failure.body.error);
+    if (reason) await markMailboxNeedsReconnect(db, creatorId, reason);
+  }
+  return failure;
+}
+
 async function dealByThread(db: PortalDb, threadId: string) {
   if (!threadId) return null;
   const rows = await db.select().from(deals).where(eq(deals.gmailThreadId, threadId));
@@ -461,7 +500,7 @@ async function applyAddedMessages(
     try {
       message = await client.getMessage(ref.id);
     } catch (error) {
-      return { ok: false as const, failure: pushReadFailure(error, secrets) };
+      return { ok: false as const, failure: await finishReadFailure(db, creatorId, error, secrets) };
     }
     if (!message.threadId) {
       await markSeen(db, mailbox, message);
@@ -529,6 +568,9 @@ export async function ingestGmailPush(
     await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
     return { status: 200, body: { ok: true, primed: true, createdDealIds: [] as string[], matchedDealIds: [] as string[], stageMoves: [] as string[] } };
   }
+  if (notificationAlreadyRead(start, note.historyId)) {
+    return { status: 200, body: { ok: true, duplicate: true as const, mailbox } };
+  }
   let client = options?.client;
   const secrets: string[] = [];
   if (!client) {
@@ -542,14 +584,14 @@ export async function ingestGmailPush(
       secrets.push(refreshToken);
       client = await gmailReadClient(refreshToken);
     } catch (error) {
-      return pushReadFailure(error, secrets);
+      return finishReadFailure(db, mapped.creatorId, error, secrets);
     }
   }
   let listed: Awaited<ReturnType<GmailHistoryClient["listAdded"]>>;
   try {
     listed = await client.listAdded(start);
   } catch (error) {
-    return pushReadFailure(error, secrets);
+    return finishReadFailure(db, mapped.creatorId, error, secrets);
   }
   if (listed.expired) {
     if (!client.listRecent) {
@@ -560,7 +602,7 @@ export async function ingestGmailPush(
     try {
       recent = await client.listRecent();
     } catch (error) {
-      return pushReadFailure(error, secrets);
+      return finishReadFailure(db, mapped.creatorId, error, secrets);
     }
     const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, recent.slice(0, RECENT_INBOX_LIMIT), client, secrets);
     if (!applied.ok) return applied.failure;
@@ -658,11 +700,14 @@ export async function renewGmailWatches(
     }
     try {
       const watched = await watch({ mailbox: box.email, refreshToken });
+      if (!watchExpirationIsFuture(watched.expiration)) {
+        throw new Error("Gmail watch failed: the renewal did not include a future expiration.");
+      }
       const timestamp = nowIso();
       const existing = await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, box.email));
       const values = {
         creatorId: box.creatorId,
-        historyId: watched.historyId,
+        historyId: existing[0]?.historyId || watched.historyId,
         expiration: watched.expiration,
         topic: configuredTopic() || null,
         updatedAt: timestamp,
@@ -738,7 +783,7 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
       let pageToken = "";
       for (let page = 0; page < HISTORY_PAGE_LIMIT; page += 1) {
         const token = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "";
-        const listed = await gmailGet(accessToken, `/history?startHistoryId=${encodeURIComponent(startHistoryId)}&historyTypes=messageAdded${token}`);
+        const listed = await gmailGet(accessToken, `/history?startHistoryId=${encodeURIComponent(startHistoryId)}&historyTypes=messageAdded&historyTypes=labelAdded${token}`);
         if (listed.missing) {
           if (pages.length === 0) return { latestHistoryId: startHistoryId, expired: true, messages: [] };
           throw new Error("Gmail history page failed.");

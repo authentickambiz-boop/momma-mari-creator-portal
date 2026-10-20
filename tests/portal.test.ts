@@ -5444,13 +5444,16 @@ test("live mail updates the deal, filters spam, and stays hidden until you share
   assert.equal(JSON.stringify(pulse).includes("minimum"), false);
   assert.equal(JSON.stringify(pulse).includes("$"), false);
 
+  const historyBeforeRenew = (await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com")))[0]?.historyId;
   const renewed = await renewGmailWatches(db, async ({ mailbox, refreshToken }) => {
     if (mailbox === "mmaclamroc@gmail.com") assert.equal(refreshToken, "1//secret-refresh-token-not-for-storage");
     return { historyId: "9000", expiration: "1893456000000" };
   });
   assert.equal(renewed.find((row) => row.mailbox === "mmaclamroc@gmail.com")?.ok, true);
   assert.equal(renewed.find((row) => row.mailbox === "authentickambiz@gmail.com")?.ok, false);
-  assert.equal((await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com")))[0]?.historyId, "9000");
+  const renewedWatch = (await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, "mmaclamroc@gmail.com")))[0];
+  assert.equal(renewedWatch?.historyId, historyBeforeRenew);
+  assert.equal(renewedWatch?.expiration, "1893456000000");
 
   const previousCron = process.env.GMAIL_WATCH_CRON_SECRET;
   delete process.env.GMAIL_WATCH_CRON_SECRET;
