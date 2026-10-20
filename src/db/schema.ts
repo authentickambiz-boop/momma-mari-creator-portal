@@ -1045,6 +1045,13 @@ export const giftedApplications = sqliteTable("gifted_applications", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const creatorApplicationAttempts = sqliteTable("creator_application_attempts", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  ip: text("ip").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const creatorApplications = sqliteTable("creator_applications", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

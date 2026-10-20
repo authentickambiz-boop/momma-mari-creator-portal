@@ -4,9 +4,12 @@ import path from "node:path";
 import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import type { PortalDb } from "../src/db/index";
-import { approvalEmails, creatorApplications, creators } from "../src/db/schema";
+import { approvalEmails, creatorApplicationAttempts, creatorApplications, creators } from "../src/db/schema";
 import {
+  APPLY_EMAIL_LIMIT_ERROR,
+  APPLY_IP_LIMIT_ERROR,
   approveCreatorApplication,
+  CREATOR_BENEFITS,
   declineCreatorApplication,
   futurePaidSignup,
   listCreatorApplications,
@@ -67,8 +70,21 @@ describe("creator apply", { concurrency: 1 }, () => {
     assert.match(thanks, /Thanks, your application will be reviewed soon\./);
     assert.equal(thanks.includes('name="rates"'), false);
     assert.match(login, /That Google account isn't on the Momma Mari creator list/);
-    assert.match(login, /params\.error === "not_allowed"/);
-    assert.match(login, /href="\/apply"/);
+    assert.match(login, /params\.error === "not_allowed" \|\| params\.error === "oauth"/);
+    assert.match(login, /Google sign-in didn't finish\. Try again\./);
+    assert.match(login, /If you are new, apply to join Momma Mari/);
+    assert.match(login, /New creator\? Apply to join Momma Mari/);
+    assert.match(login, /<Link className="btn" href="\/apply">/);
+    assert.match(applyPage, /What you get/);
+    assert.match(applyPage, /name="website"/);
+    assert.match(applyPage, /CREATOR_BENEFITS\.map/);
+    assert.equal(applyPage.includes("$179"), false);
+    assert.equal(applyPage.includes("$99"), false);
+    assert.equal(CREATOR_BENEFITS.some((item) => item.title === "Deal representation"), true);
+    assert.equal(CREATOR_BENEFITS.some((item) => item.body.includes("20%")), true);
+    assert.equal(CREATOR_BENEFITS.some((item) => item.body.includes("$179")), false);
+    assert.match(thanks, /Application under review/);
+    assert.match(thanks, /Your application is under review/);
     assert.match(dashboard, /Applications/);
     assert.match(dashboard, /Stripe stays off/);
     assert.match(dashboard, /Saved\. Nothing was paid or billed\./);
@@ -113,10 +129,11 @@ describe("creator apply", { concurrency: 1 }, () => {
     const refused = await approveCreatorApplication(db, mariclare, pending?.id ?? "");
     assert.equal(refused.ok, false);
     assert.equal((await db.select().from(creators)).length, creatorsBefore);
-    const declinedByCreator = await declineCreatorApplication(db, mariclare, blankRates.ok ? blankRates.id : "");
+    const blankRow = (await db.select().from(creatorApplications).where(eq(creatorApplications.email, "no.rates@samplecreator.test")))[0];
+    const declinedByCreator = await declineCreatorApplication(db, mariclare, blankRow?.id ?? "");
     assert.equal(declinedByCreator.ok, false);
 
-    const declined = await declineCreatorApplication(db, admin, blankRates.ok ? blankRates.id : "");
+    const declined = await declineCreatorApplication(db, admin, blankRow?.id ?? "");
     assert.equal(declined.ok, true);
     const declinedRow = (await db.select().from(creatorApplications).where(eq(creatorApplications.email, "no.rates@samplecreator.test")))[0];
     assert.equal(declinedRow?.status, "declined");
@@ -160,5 +177,59 @@ describe("creator apply", { concurrency: 1 }, () => {
     assert.equal(kosblingAfter?.drafts.length, kosblingDrafts);
     assert.equal(kosblingAfter?.contracts.length, 0);
     assert.equal(kosblingAfter?.stageEvents?.length, kosblingEvents);
+  });
+
+  test("a honeypot and a burst are dropped, and KOSBLING stays put", async () => {
+    const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
+    const beforeApps = (await db.select().from(creatorApplications)).length;
+    const beforeAttempts = (await db.select().from(creatorApplicationAttempts)).length;
+    const dropped = await submitCreatorApplication(db, {
+      ...application,
+      email: "bot@samplecreator.test",
+    }, { honeypot: "https://spam.test", ip: "203.0.113.50" });
+    assert.equal(dropped.ok, true);
+    assert.equal("dropped" in dropped && dropped.dropped, true);
+    assert.equal((await db.select().from(creatorApplications)).length, beforeApps);
+    assert.equal((await db.select().from(creatorApplicationAttempts)).length, beforeAttempts);
+
+    const limitedEmail = "limited@samplecreator.test";
+    for (let index = 0; index < 3; index += 1) {
+      await db.insert(creatorApplicationAttempts).values({
+        id: `email-limit-${index}`,
+        email: limitedEmail,
+        ip: "203.0.113.9",
+        createdAt: new Date().toISOString(),
+      });
+    }
+    const emailBlocked = await submitCreatorApplication(db, { ...application, email: limitedEmail }, { ip: "203.0.113.21" });
+    assert.equal(emailBlocked.ok, false);
+    if (emailBlocked.ok) return;
+    assert.equal(emailBlocked.error, APPLY_EMAIL_LIMIT_ERROR);
+    assert.equal((await db.select().from(creatorApplications).where(eq(creatorApplications.email, limitedEmail))).length, 0);
+
+    for (let index = 0; index < 8; index += 1) {
+      await db.insert(creatorApplicationAttempts).values({
+        id: `ip-limit-${index}`,
+        email: `burst-${index}@samplecreator.test`,
+        ip: "203.0.113.77",
+        createdAt: new Date().toISOString(),
+      });
+    }
+    const ipBlocked = await submitCreatorApplication(db, {
+      ...application,
+      email: "fresh-burst@samplecreator.test",
+    }, { ip: "203.0.113.77" });
+    assert.equal(ipBlocked.ok, false);
+    if (ipBlocked.ok) return;
+    assert.equal(ipBlocked.error, APPLY_IP_LIMIT_ERROR);
+    assert.equal((await db.select().from(creatorApplications).where(eq(creatorApplications.email, "fresh-burst@samplecreator.test"))).length, 0);
+
+    const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
+    assert.equal(kosblingAfter?.workflowStage, "draft_due");
+    assert.equal(kosblingAfter?.visibleToCreator, true);
+    assert.equal(kosblingAfter?.brand, "KOSBLING");
+    assert.equal(kosblingAfter?.contact, null);
+    assert.equal(kosblingAfter?.drafts.length, kosblingBefore?.drafts.length);
+    assert.equal(kosblingAfter?.contracts.length, 0);
   });
 });

@@ -1,5 +1,6 @@
 import { submitCreatorApplicationAction } from "@/app/apply-actions";
 import { PublicShell } from "@/components/public-shell";
+import { applyFormNote, CREATOR_BENEFITS } from "@/lib/creator-apply";
 import { PUBLIC_ROBOTS } from "@/lib/public-site";
 
 export const metadata = {
@@ -8,14 +9,22 @@ export const metadata = {
   robots: PUBLIC_ROBOTS,
 };
 
-const FORM_NOTE = "Add your name, a real email, your handles, follower counts, niche, and a short message. Nothing was emailed.";
-
 export default async function ApplyPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const params = await searchParams;
-  const failed = Boolean(params.error);
+  const note = applyFormNote(params.error);
   return (
     <PublicShell title="Apply to join Momma Mari" lede="Tell Kamron who you are. He reviews each application. Nothing is emailed, and there is no fee.">
-      {failed ? <p className="private-note">{FORM_NOTE}</p> : null}
+      <p className="sec-title">What you get</p>
+      <div className="public-grid">
+        {CREATOR_BENEFITS.map((benefit) => (
+          <article key={benefit.title} className="card">
+            <h2>{benefit.title}</h2>
+            <p>{benefit.body}</p>
+          </article>
+        ))}
+      </div>
+      <p className="sec-title">Application</p>
+      {note ? <p className="private-note">{note}</p> : null}
       <form action={submitCreatorApplicationAction} className="card stack public-form">
         <label>Name
           <input name="name" required autoComplete="name" />
@@ -38,6 +47,11 @@ export default async function ApplyPage({ searchParams }: { searchParams: Promis
         <label>Message
           <textarea name="message" rows={4} required />
         </label>
+        <div className="leave-blank" aria-hidden="true">
+          <label>Leave this blank
+            <input name="website" tabIndex={-1} autoComplete="off" />
+          </label>
+        </div>
         <button className="btn" type="submit">Submit application</button>
       </form>
     </PublicShell>

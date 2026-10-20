@@ -1,12 +1,15 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { requireViewer } from "@/lib/current-user";
-import { applyReviewCode, approveCreatorApplication, declineCreatorApplication, submitCreatorApplication } from "@/lib/creator-apply";
+import { applyFormCode, applyReviewCode, approveCreatorApplication, declineCreatorApplication, submitCreatorApplication } from "@/lib/creator-apply";
+import { requestClientIp } from "@/lib/request-ip";
 
 export async function submitCreatorApplicationAction(formData: FormData) {
   const db = await getDb();
+  const headerList = await headers();
   const result = await submitCreatorApplication(db, {
     name: String(formData.get("name") ?? ""),
     email: String(formData.get("email") ?? ""),
@@ -15,8 +18,11 @@ export async function submitCreatorApplicationAction(formData: FormData) {
     niche: String(formData.get("niche") ?? ""),
     rates: String(formData.get("rates") ?? ""),
     message: String(formData.get("message") ?? ""),
+  }, {
+    ip: requestClientIp(headerList),
+    honeypot: String(formData.get("website") ?? ""),
   });
-  if (!result.ok) redirect("/apply?error=1");
+  if (!result.ok) redirect(`/apply?error=${applyFormCode(result.error)}`);
   redirect("/apply/thanks");
 }
 

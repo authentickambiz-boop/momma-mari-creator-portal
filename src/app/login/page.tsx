@@ -11,7 +11,7 @@ import { listCreators } from "@/lib/queries";
 import { creatorStartPath } from "@/lib/questionnaire";
 
 const ERRORS: Record<string, string> = {
-  not_allowed: "That Google account isn't on the Momma Mari creator list. Use the Gmail Kamron has on file for you.",
+  not_allowed: "That Google account isn't on the Momma Mari creator list. Use the Gmail Kamron has on file for you, or apply to join if you are new.",
   oauth: "Google sign-in didn't finish. Try again.",
   not_configured: "Google sign-in isn't set up on this server yet.",
   dev_disabled: "The practice sign-in is turned off.",
@@ -25,6 +25,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const creators = devLoginEnabled() ? await listCreators(db) : [];
   const managers = devLoginEnabled() ? (await listManagers(db)).filter((manager) => manager.active) : [];
   const error = params.error ? ERRORS[params.error] ?? "Sign-in didn't finish. Try again. Nothing was changed." : null;
+  const showApplyHint = params.error === "not_allowed" || params.error === "oauth";
   const base = publicBasePath();
   return (
     <div className="login-wrap">
@@ -33,9 +34,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <h1>Momma Mari</h1>
         <p className="note">Creator portal. Sign in with the Google account Kamron invited. You&apos;ll only see your own deals.</p>
         {error ? <p className="private-note">{error}</p> : null}
-        {params.error === "not_allowed" ? (
-          <p className="note"><Link href="/apply">Apply to join Momma Mari</Link></p>
-        ) : null}
+        {showApplyHint ? <p className="note">If you are new, apply to join Momma Mari. Kamron reviews each application. Nothing is emailed.</p> : null}
+        <Link className="btn" href="/apply">New creator? Apply to join Momma Mari</Link>
         {googleConfigured() ? (
           <a className="btn" href={`${base}/api/auth/google`}>Continue with Google</a>
         ) : (

@@ -18,3 +18,11 @@ CREATE TABLE creator_applications (
 );
 
 CREATE UNIQUE INDEX creator_applications_pending_email ON creator_applications (email) WHERE status = 'pending';
+
+-- Counts recent submits for the simple rate limit. This does not change any existing deal row.
+CREATE TABLE creator_application_attempts (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  ip TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
