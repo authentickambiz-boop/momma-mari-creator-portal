@@ -5,6 +5,7 @@ import type { PortalDb } from "../src/db/index";
 import { campaigns } from "../src/db/schema";
 import { createBrandOffer } from "../src/lib/brand-offers";
 import { saveCampaign } from "../src/lib/campaigns";
+import { offerErrorCode } from "../src/lib/offer-notes";
 import { getDealForViewer } from "../src/lib/queries";
 import { admin, openTestDb } from "./harness";
 
@@ -43,7 +44,10 @@ describe("campaign calendar day", { concurrency: 1 }, () => {
         endsOn: date,
       });
       assert.equal(offer.ok, false);
-      if (!offer.ok) assert.equal(offer.error, "Use a date like 2026-11-01.");
+      if (!offer.ok) {
+        assert.equal(offer.error, "Use a date like 2026-11-01.");
+        assert.equal(offerErrorCode(offer.error), "date");
+      }
     }
     assert.equal((await db.select().from(campaigns)).length, before);
 
