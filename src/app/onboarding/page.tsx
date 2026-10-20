@@ -5,6 +5,7 @@ import { EmailSetupForm } from "@/components/email-setup-form";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { PortalFrame } from "@/components/portal-frame";
 import { QuestionStep } from "@/components/question-step";
+import { CONNECTION_RETRY_NOTE } from "@/lib/account-connection-status";
 import { emailSetupLabel, STRIPE_CATALOG } from "@/lib/email-setup";
 import { publicBasePath } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
@@ -40,7 +41,7 @@ export default async function OnboardingPage({
     : quiz?.step && quiz.step !== "done"
       ? quiz.step
       : "niches") as QuestionStepId;
-  const gmailError = params.gmail ? GMAIL_ERRORS[params.gmail] : null;
+  const gmailError = params.gmail ? GMAIL_ERRORS[params.gmail] ?? CONNECTION_RETRY_NOTE : null;
   const choice = setup?.choice ?? null;
   const readyForProfile = Boolean(connection?.connected) || (choice === "hosted" && Boolean(setup?.hostedEmailAddress));
   const addOn = STRIPE_CATALOG.hostedCreatorEmail;
