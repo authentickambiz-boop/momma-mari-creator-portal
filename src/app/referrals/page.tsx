@@ -32,7 +32,7 @@ export default async function ReferralsPage({
       }
     >
       {params.saved === "1" ? <div className="callout"><b>Saved. Nothing was paid.</b></div> : null}
-      {params.referralError === "1" ? <p className="note">That referral was not saved.</p> : null}
+      {params.referralError === "1" ? <p className="note">That referral was not saved. Nothing was paid.</p> : null}
       {params.referralError === "perk" ? <p className="note">Only Kamron can set the perk amount.</p> : null}
       <div className="stack">
         <section className="card">
@@ -52,7 +52,7 @@ export default async function ReferralsPage({
         </section>
         <section className="card">
           <div className="sec-title">People she referred</div>
-          {rows.length === 0 ? <p className="note">No referrals yet.</p> : null}
+          {rows.length === 0 ? <p className="note">No referrals yet. Nothing is paid.</p> : null}
           <ul>
             {rows.map((row) => (
               <li key={row.id}>{row.referredName} · {row.referredEmail}</li>

@@ -33,11 +33,11 @@ export default async function ReportPage({
     >
       {params.drafted === "1" ? (
         <div className="callout">
-          <b>This month&apos;s report is in the approval queue.</b>
+          <b>This month&apos;s report is in the approval queue. Nothing was sent.</b>
         </div>
       ) : null}
       {params.reportError === "queued" ? <p className="note">This month&apos;s report is already in the approval queue. Nothing was sent.</p> : null}
-      {params.reportError === "1" ? <p className="note">That report was not queued.</p> : null}
+      {params.reportError === "1" ? <p className="note">That report was not queued. Nothing was sent.</p> : null}
       {!report ? (
         <div className="card"><p>That report isn&apos;t available.</p></div>
       ) : (
