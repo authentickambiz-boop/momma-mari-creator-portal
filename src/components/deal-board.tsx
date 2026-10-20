@@ -7,6 +7,7 @@ import { DealLivePulse } from "@/components/deal-live-pulse";
 import { askRateAction, confirmRateAction, ownerDealFlagsAction, saveReplyDraftAction } from "@/app/review-actions";
 import { commissionLabel, creatorPayoutTracker, lastUpdatedLabel, paymentStatusLabel, paymentStatusTone, shortDate, withBasePath } from "@/lib/format";
 import { safetyLabel } from "@/lib/safety-shared";
+import { signerErrorNote } from "@/lib/signer-notes";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
 import { UploadBox } from "./upload-box";
@@ -50,6 +51,7 @@ export function DealBoard({
   postError = null,
   paymentError = null,
   safetyError = null,
+  signerError = null,
 }: {
   deals: DealSummary[];
   selected: DealDetail | null;
@@ -71,6 +73,7 @@ export function DealBoard({
   postError?: string | null;
   paymentError?: string | null;
   safetyError?: string | null;
+  signerError?: string | null;
 }) {
   return (
     <div className={showDetail ? "grid showdetail" : "grid"} id="dealGrid">
@@ -132,6 +135,7 @@ export function DealBoard({
             postError={postError}
             paymentError={paymentError}
             safetyError={safetyError}
+            signerError={signerError}
           />
         ) : (
           <p className="note">Pick a deal to see the brief, the feedback, and where to upload.</p>
@@ -161,6 +165,7 @@ function DealDetailView({
   postError,
   paymentError,
   safetyError,
+  signerError,
 }: {
   deal: DealDetail;
   backHref: string;
@@ -181,6 +186,7 @@ function DealDetailView({
   postError: string | null;
   paymentError: string | null;
   safetyError: string | null;
+  signerError: string | null;
 }) {
   const creatorId = creatorQuery.startsWith("?creator=") ? creatorQuery.slice("?creator=".length) : "";
   const current = deal.workflowStage;
@@ -425,6 +431,7 @@ function DealDetailView({
         canSign={canSign}
         creatorId={creatorId}
         contractError={contractError}
+        signerError={signerError}
       />
       <div className="box">
         <div className="sec-title">Revisions & feedback history</div>
@@ -689,6 +696,7 @@ function ContractSection({
   canSign,
   creatorId,
   contractError,
+  signerError,
 }: {
   deal: DealDetail;
   canReviewContract: boolean;
@@ -697,6 +705,7 @@ function ContractSection({
   canSign: boolean;
   creatorId: string;
   contractError: string | null;
+  signerError: string | null;
 }) {
   const open = contractStageOpen(deal.workflowStage);
   if (canReviewContract && !open && deal.contracts.length === 0) return null;
@@ -717,6 +726,7 @@ function ContractSection({
             </p>
           ) : null}
           {isOwner ? (
+            <>
           <form action={setSignerMinorAction} className="stage-form">
             <input type="hidden" name="dealId" value={deal.id} />
             <input type="hidden" name="creatorId" value={deal.creatorId} />
@@ -726,6 +736,8 @@ function ContractSection({
             </label>
             <button className="btn ghost" type="submit">Save signer</button>
           </form>
+          {signerError ? <p className="note">{signerErrorNote(signerError) ?? "That signer flag was not saved. Nothing was changed."}</p> : null}
+            </>
           ) : null}
           {deal.signerIsMinor ? (
             <p className="note">A parent or guardian has to sign. Kamron is flagged when they do.</p>

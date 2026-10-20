@@ -10,6 +10,7 @@ import { currentViewer } from "@/lib/current-user";
 import { logOfferScreening, recordCreatorInterest, releaseOffer } from "@/lib/creator-interest";
 import { approveContract, requestContractRevisions, saveChecklist, saveContract, setSigningFormat } from "@/lib/contracts";
 import { countersignContract, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "@/lib/signing";
+import { signerErrorCode } from "@/lib/signer-notes";
 import { CONTRACT_CHECKS } from "@/lib/contract-shared";
 import { clearSafetyHold } from "@/lib/safety";
 import { draftMonthlyReport, reportErrorCode } from "@/lib/report";
@@ -418,11 +419,13 @@ export async function setSignerMinorAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer || viewer.role !== "admin") redirect("/login");
   const db = await getDb();
-  await setSignerIsMinor(db, {
+  const result = await setSignerIsMinor(db, {
     creatorId: String(formData.get("creatorId") ?? ""),
     minor: formData.get("minor") === "1",
     actorRole: "admin",
   });
+  const join = back.includes("?") ? "&" : "?";
+  if (!result.ok) redirect(`${back}${join}signerError=${signerErrorCode(result.error)}`);
   redirect(back);
 }
 
