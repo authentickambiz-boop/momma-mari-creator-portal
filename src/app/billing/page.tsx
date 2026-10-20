@@ -4,7 +4,7 @@ import { PortalFrame } from "@/components/portal-frame";
 import { readOwnAccount } from "@/lib/creator-home";
 import { loadPortal } from "@/lib/current-user";
 import { checkoutStatusNote, oneTimePriceNote, paymentsEnabled, readCreatorBilling } from "@/lib/payments";
-import { memberOneTimePercent, oneTimeMemberNote, oneTimeOffers, subscriptionOffers } from "@/lib/payments-config";
+import { memberOneTimePercent, memberServiceIncluded, oneTimeMemberNote, oneTimeOffers, subscriptionOffers } from "@/lib/payments-config";
 import { creatorIsSigned } from "@/lib/signed-creators";
 import { stripeLiveEnabled, stripeStatusNote } from "@/lib/stripe-billing";
 
@@ -31,7 +31,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       id: offer.id,
       name: offer.name,
       priceNote: oneTimePriceNote(label, price?.amountCents ?? 0, memberPercent, signed),
-      included: signed,
+      included: signed || memberServiceIncluded(memberPercent),
     };
   });
   return (

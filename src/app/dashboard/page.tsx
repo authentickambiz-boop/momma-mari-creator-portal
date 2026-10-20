@@ -7,6 +7,7 @@ import { ownerDashboard } from "@/lib/campaigns";
 import { BRAND_CREDIT } from "@/lib/branding";
 import { fulfillmentStatusLabel, listFulfillmentOrders } from "@/lib/fulfillment-orders";
 import { paymentsEnabled } from "@/lib/payments";
+import { MEMBER_ONE_TIME_PERCENT_OFF, memberServiceIncluded } from "@/lib/payments-config";
 import { applyReviewNote, listCreatorApplications, type CreatorApplicationView } from "@/lib/creator-apply";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
@@ -86,7 +87,7 @@ function SignedCreatorsCard({ people }: { people: Awaited<ReturnType<typeof list
   return (
     <div className="card" style={{ marginTop: 14 }}>
       <div className="sec-title">Signed creators</div>
-      <p className="note">A signed creator gets media kits, rate cards, contract reviews, and starter kits included. The request goes to the queue and does not open Checkout. Plus, Pro, and Business still buy those one time.</p>
+      <p className="note">A signed creator gets media kits, rate cards, contract reviews, and starter kits included. {memberServiceIncluded(MEMBER_ONE_TIME_PERCENT_OFF.business) ? "An active Business member gets the same services included." : `Business members get ${MEMBER_ONE_TIME_PERCENT_OFF.business}% off.`} The request goes to the queue and does not open Checkout. Plus members get {MEMBER_ONE_TIME_PERCENT_OFF.plus}% off. Pro members get {MEMBER_ONE_TIME_PERCENT_OFF.pro}% off.</p>
       {people.length === 0 ? <p>No creators yet.</p> : (
         <table>
           <thead><tr><th>Creator</th><th>Contract</th><th></th></tr></thead>

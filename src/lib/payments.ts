@@ -12,6 +12,7 @@ import {
   memberCouponId,
   memberOneTimePercent,
   memberPriceCents,
+  memberServiceIncluded,
   offerForPriceId,
   paymentsEnabled,
   type BillingInterval,
@@ -90,13 +91,14 @@ export function subscriptionSummary(input: { plan: string | null; interval: stri
 
 export function oneTimePriceNote(label: string, amountCents: number, percentOff: number, signed = false) {
   if (signed) return "Included with your contract. Nothing is charged.";
+  if (memberServiceIncluded(percentOff)) return "Included with your plan. Nothing is charged.";
   if (percentOff > 0) return `${label} list. You pay ${formatMoney(memberPriceCents(amountCents, percentOff))}.`;
   return label;
 }
 
 export function checkoutStatusNote(code: string | undefined) {
   if (code === "success") return "Checkout finished. Your plan updates when Stripe confirms it. Nothing was emailed.";
-  if (code === "included") return "Included with your contract. It is in the fulfillment queue. Nothing was charged.";
+  if (code === "included") return "Included with your plan or contract. It is in the fulfillment queue. Nothing was charged.";
   if (code === "off") return "Payments are off. Nothing was charged.";
   if (code === "error") return "Checkout did not start. Nothing was charged.";
   if (code === "creator_only") return "Checkout starts from the creator's own sign-in.";
@@ -140,12 +142,13 @@ async function stripePost(path: string, params: URLSearchParams, fetchImpl: Fetc
   return { ok: true, url: result.json.url, calledStripe: true };
 }
 
-async function ensureMemberCoupon(percentOff: number, fetchImpl: FetchLike) {
+async function ensureMemberCoupon(plan: SubscriptionPlanId, percentOff: number, fetchImpl: FetchLike) {
+  const name = findOfferPrice(plan, "month")?.offer.name ?? plan;
   const params = new URLSearchParams();
-  params.set("id", memberCouponId(percentOff));
+  params.set("id", memberCouponId(plan, percentOff));
   params.set("percent_off", String(percentOff));
   params.set("duration", "forever");
-  params.set("name", `Member ${percentOff} percent off one-time services`);
+  params.set("name", `${name} member ${percentOff} percent off one-time services`);
   const result = await stripeForm("coupons", params, fetchImpl);
   if (result.ok) return { ok: true as const, calledStripe: true as const };
   const code = result.json?.error?.code ?? "";
@@ -185,6 +188,9 @@ export async function createCheckoutSession(
   if (offer.kind === "one_time" && input.signed) {
     return { ok: false, status: 400, error: "That service is included for a signed creator. It does not go through Checkout.", calledStripe: false };
   }
+  if (offer.kind === "one_time" && memberServiceIncluded(percentOff)) {
+    return { ok: false, status: 400, error: "That service is included with the plan. It does not go through Checkout.", calledStripe: false };
+  }
   const urls = checkoutReturnUrls();
   const customerId = input.customerId?.trim() ?? "";
   const params = new URLSearchParams();
@@ -198,10 +204,10 @@ export async function createCheckoutSession(
   params.set("metadata[offer]", offer.id);
   params.set("metadata[interval]", price.interval);
   params.set("metadata[price_id]", price.priceId);
-  if (percentOff > 0) {
-    const coupon = await ensureMemberCoupon(percentOff, fetchImpl);
+  if (percentOff > 0 && isSubscriptionPlan(input.memberPlan)) {
+    const coupon = await ensureMemberCoupon(input.memberPlan, percentOff, fetchImpl);
     if (!coupon.ok) return { ok: false, status: coupon.status, error: coupon.error, calledStripe: coupon.calledStripe };
-    params.set("discounts[0][coupon]", memberCouponId(percentOff));
+    params.set("discounts[0][coupon]", memberCouponId(input.memberPlan, percentOff));
     params.set("metadata[member_percent]", String(percentOff));
   }
   if (offer.kind === "subscription" && isSubscriptionPlan(offer.id)) {
@@ -263,7 +269,8 @@ export async function beginCreatorCheckout(
   const creatorId = input.creatorId.trim();
   if (!selected || !creatorId) return { ok: false, status: 400, error: "That plan is not available.", calledStripe: false };
   const signed = input.signed ?? await creatorIsSigned(db, creatorId);
-  if (selected.offer.kind === "one_time" && signed) {
+  const percentOff = selected.offer.kind === "one_time" && !signed ? memberOneTimePercent(input.memberPlan, input.memberStatus) : 0;
+  if (selected.offer.kind === "one_time" && (signed || memberServiceIncluded(percentOff))) {
     return grantIncludedService(db, {
       offerId: selected.offer.id,
       priceId: selected.price.priceId,
