@@ -14,6 +14,7 @@ import { approveContract, requestContractRevisions, saveChecklist, saveContract,
 import { countersignContract, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "@/lib/signing";
 import { CONTRACT_CHECKS } from "@/lib/contract-shared";
 import { clearSafetyHold } from "@/lib/safety";
+import { safetyErrorCode } from "@/lib/safety-notes";
 import { draftMonthlyReport, reportErrorCode } from "@/lib/report";
 import { recordReferral, referralErrorCode, setReferralPerk } from "@/lib/referrals";
 import { dismissCreatorNotice, reviewDraft } from "@/lib/video-review";
@@ -191,10 +192,7 @@ export async function clearSafetyAction(formData: FormData) {
     actorRole: viewer.role,
   });
   const join = back.includes("?") ? "&" : "?";
-  if (!result.ok) {
-    const code = result.error.includes("can't clear") ? "creator" : "owner";
-    redirect(`${back}${join}safetyError=${code}`);
-  }
+  if (!result.ok) redirect(`${back}${join}safetyError=${safetyErrorCode(result.error)}`);
   redirect(`${back}${join}cleared=1`);
 }
 

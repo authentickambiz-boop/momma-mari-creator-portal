@@ -9,6 +9,7 @@ import { commissionLabel, creatorPayoutTracker, lastUpdatedLabel, paymentStatusL
 import { postErrorNote } from "@/lib/fulfillment";
 import { productErrorNote } from "@/lib/product-notes";
 import { reviewErrorNote } from "@/lib/review-notes";
+import { safetyErrorNote } from "@/lib/safety-notes";
 import { safetyLabel } from "@/lib/safety-shared";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
 import { Chips, MaybeTbd } from "./portal-frame";
@@ -502,8 +503,15 @@ function DealDetailView({
                     </label>
                     <button className="btn" type="submit" name="decision" value="approved">Approve</button>
                     <button className="btn ghost" type="submit" name="decision" value="changes">Request changes</button>
+<<<<<<< HEAD
                     {safetyError === "creator" ? <span className="note">You can&apos;t clear a safety hold.</span> : null}
                     {safetyError === "owner" ? <span className="note">Only Kamron can clear a safety hold.</span> : null}
+=======
+                    {reviewError === "note" ? <span className="note">Tell her what to fix before sending it back.</span> : null}
+                    {reviewError === "email" ? <span className="note">Add the brand email before approving. The email stays in your queue.</span> : null}
+                    {reviewError === "held" ? <span className="note">This draft is held for Kamron. Nothing was sent to the brand.</span> : null}
+                    {reviewError && reviewError !== "note" && reviewError !== "email" && reviewError !== "held" ? <span className="note">That review was not saved. Nothing was emailed.</span> : null}
+>>>>>>> origin/cursor/safety-error-notes-e39d
                   </form>
                 ) : null}
               </li>
@@ -512,6 +520,7 @@ function DealDetailView({
           {reviewError ? <p className="note">{reviewErrorNote(reviewError) ?? "That review was not saved. Nothing was emailed."}</p> : null}
         </div>
       ) : null}
+      {safetyError ? <p className="note">{safetyErrorNote(safetyError) ?? "That hold was not cleared. Nothing was sent to the brand."}</p> : null}
       <UploadBox dealId={deal.id} brand={deal.brand} enabled={deal.uploadEnabled} label={deal.uploadLabel || "Upload your draft"} />
     </>
   );
