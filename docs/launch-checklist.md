@@ -16,12 +16,12 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 ## Before merge
 
 1. Read `docs/overnight-log.md` for the open pull requests.
-2. `#41` (`da74005`), `#42` (`4d539163`), and `#46` (`08655f54`) are already on `main`. Migration `0036` shipped with `#41`. A dead Gmail inbox is already acknowledged.
-3. Merge `#49` for the updated log and this checklist. It only edits those two docs.
-4. Merge `#43`, `#44`, `#45`, and `#48` in any order. Each one keeps its new tests in its own file, so they no longer fight over `tests/portal.test.ts`.
-5. Merge `#47` for Access and Free products. It adds migrations `0037` and `0038`. The only conflict with `#45` is `src/lib/portal-tabs.ts`. Keep `#47`’s copy, whether `#45` lands first or second. That file is the Connect-accounts list plus Free products and Access.
-6. Confirm Webflow env still has `STRIPE_ENABLED` empty after `#43`.
-7. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file once the first of those pull requests lands.
+2. Already on `main`: `#41` (`da74005`), `#42` (`4d53916`), `#46` (`08655f5`), `#43` (`bc51ed7`), `#44` (`8349259`), `#48` (`3df3b46`), and `#47` (`73950a6`). Migration `0036` shipped with `#41`. Migrations `0037` and `0038` shipped with `#47`. A dead Gmail inbox is already acknowledged. Stripe stays off. Free products and Access are on `main`.
+3. `#45` was refreshed onto `73950a6` and now matches `main`. The phone scrolling and the Connect accounts tab already shipped inside `#47`. Merging `#45` changes nothing. Closing it is also fine.
+4. Merge `#49` for this log and checklist. It only edits those two docs.
+5. Merge `#50` (follow Gmail history pages, return 503 while a page is still unread) and `#51` (hide creator chat on the public marketing pages). Either order is fine. They edit different files.
+6. Confirm Webflow env still has `STRIPE_ENABLED` empty. `#43` is already on `main`.
+7. Run the portal tests on `main` after the merges (`npm test` and `npx tsc --noEmit`). `npm test` runs every `tests/*.test.ts` file.
 
 ## Gmail, still before paid features
 
@@ -47,7 +47,8 @@ Do not seed real inboxes, real brand threads, or live Stripe keys into code or m
 
 ## Still waiting
 
-- Free Products and Access are in `#47`, waiting to merge. The gifted terms are still DRAFT, pending lawyer review. Nothing on that page is charged.
+- Free Products and Access are on `main` via `#47`. The gifted terms are still DRAFT, pending lawyer review. Nothing on that page is charged.
 - Gmail history older than the latest 20 inbox messages is not recovered. `#48` covers that recent page, and it already includes the dead-token acknowledgement from `#42`.
+- One Gmail history response can span more pages than the portal reads today. `#50` follows five pages and asks Pub/Sub to retry for the rest, without jumping the cursor past unread mail.
 - The approval-queue email bridge is not built.
 - An attorney still needs to review the e-sign wording.
