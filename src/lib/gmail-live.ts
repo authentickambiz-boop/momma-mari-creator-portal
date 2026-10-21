@@ -27,7 +27,58 @@ export function isSintraDraft(text: string | null | undefined) {
   return /\bsintra\b/i.test(text ?? "");
 }
 
-/** Prices and calendar dates in a draft are placeholders until a person confirms them. */
+/** Free inboxes. A custom domain can still be a brand. These are personal unless the note is a brand pitch. */
+export const FREE_MAIL_DOMAINS = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "outlook.com",
+  "hotmail.com",
+  "icloud.com",
+  "me.com",
+  "aol.com",
+]);
+
+/** Words that mark a brand pitch. Personal mail without one of these is not a deal. */
+export const BRAND_INQUIRY = /\b(collab|collaboration|partnership|sponsor|sponsored|campaign|ugc|ambassador|gifted|paid post|brand deal|rate card|media kit)\b/i;
+
+const AUTOMATED_LOCAL = /(?:^|[._+-])(?:no[-_.]?reply|do[-_.]?not[-_.]?reply|notifications?|notify|automated|mailer-daemon|postmaster)(?:[._+-]|$)/i;
+
+function addressIn(from: string) {
+  const match = from.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match ? match[0].toLowerCase() : "";
+}
+
+/** no-reply, noreply, notification, and other senders that must never get a reply draft. */
+export function isAutomatedSender(from: string) {
+  const local = addressIn(from).split("@")[0] ?? "";
+  if (!local) return false;
+  return AUTOMATED_LOCAL.test(local);
+}
+
+/** A free-mail note with no brand pitch. Known brand contacts are decided by the caller. */
+export function isPersonalMail(from: string, subject = "", snippet = "") {
+  const domain = addressIn(from).split("@")[1] ?? "";
+  if (!FREE_MAIL_DOMAINS.has(domain)) return false;
+  if (isAutomatedSender(from)) return false;
+  return !BRAND_INQUIRY.test(`${subject} ${snippet}`);
+}
+
+/** The auto template uses [CONFIRM] until a person fills the rate and date. */
+export function hasUnfilledPlaceholder(text: string) {
+  return /\[CONFIRM\]/i.test(text ?? "");
+}
+
+/** A Gmail draft has to be a reply someone already wrote, with nothing left to fill in. */
+export function gmailDraftAllowed(body: string, subject = "") {
+  const reply = body.trim();
+  if (!reply) return false;
+  if (hasUnfilledPlaceholder(reply) || hasUnfilledPlaceholder(subject)) return false;
+  if (isSintraDraft(reply)) return false;
+  return true;
+}
+
+/** Prices and calendar dates in the portal starter stay blank until a person confirms them. */
 export function scrubPricesAndDates(text: string) {
   return text
     .replace(/\$\s?\d[\d,]*(?:\.\d{2})?/g, "[CONFIRM]")
@@ -36,6 +87,7 @@ export function scrubPricesAndDates(text: string) {
     .replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, "[CONFIRM]");
 }
 
+/** Portal-only starter. It always contains [CONFIRM], so it is never copied into Gmail. */
 export function confirmDraftBody(input: { creatorLabel: string; brand: string }) {
   const brand = scrubPricesAndDates(input.brand).replace(/\s+/g, " ").trim() || "there";
   const creator = scrubPricesAndDates(input.creatorLabel).replace(/\s+/g, " ").trim() || "the creator";
@@ -85,8 +137,9 @@ export async function prepareReplyAndLabels(
     return { drafted: false, labeled: [] as string[], skippedDraft: "none" as const };
   }
   let drafted = false;
-  let skippedDraft: "sintra" | "existing" | "kept" | "none" = "none";
-  if (input.sort === "needs_reply" && input.dealId && input.replyTo.includes("@")) {
+  let skippedDraft: "sintra" | "existing" | "kept" | "placeholder" | "none" = "none";
+  const canDraft = input.sort === "needs_reply" && input.dealId && input.replyTo.includes("@") && !isAutomatedSender(input.replyTo);
+  if (canDraft) {
     const portal = await saveConfirmPortalDraft(db, input.dealId, confirmDraftBody({
       creatorLabel: input.creatorLabel,
       brand: input.brand,
@@ -95,6 +148,7 @@ export async function prepareReplyAndLabels(
     drafted = portal === "created";
     const gmail = await createGmailDraftIfEmpty(db, client, input);
     if (gmail === "sintra") skippedDraft = "sintra";
+    if (gmail === "placeholder" && skippedDraft === "none") skippedDraft = "placeholder";
     if (gmail === "created") drafted = true;
   }
   const labeled = labelsForSort(input.sort);
@@ -119,6 +173,21 @@ async function saveConfirmPortalDraft(db: PortalDb, dealId: string, body: string
   return "created" as const;
 }
 
+function isUniqueDraftError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /unique|constraint/i.test(message);
+}
+
+/** The reply a person saved on the deal. The auto [CONFIRM] starter is not one of these. */
+async function composedReply(db: PortalDb, dealId: string) {
+  const rows = await db.select().from(brandReplyDrafts).where(eq(brandReplyDrafts.dealId, dealId));
+  const row = rows[0];
+  if (!row || row.updatedBy === GMAIL_DRAFT_AUTHOR) return null;
+  if (isSintraDraft(row.updatedBy) || isSintraDraft(row.body)) return null;
+  if (!gmailDraftAllowed(row.body)) return null;
+  return row.body;
+}
+
 async function createGmailDraftIfEmpty(
   db: PortalDb,
   client: LiveLabelClient,
@@ -132,6 +201,9 @@ async function createGmailDraftIfEmpty(
   },
 ) {
   if (!client.listThreadDrafts || !client.createDraft || !input.dealId) return "none" as const;
+  if (isAutomatedSender(input.replyTo)) return "none" as const;
+  const body = await composedReply(db, input.dealId);
+  if (!body || !gmailDraftAllowed(body, input.message.subject)) return "placeholder" as const;
   const drafts = await client.listThreadDrafts(input.message.threadId);
   if (drafts.some((draft) => isSintraDraft(draft.snippet) || isSintraDraft(draft.id))) return "sintra" as const;
   if (drafts.length > 0) return "existing" as const;
@@ -140,21 +212,35 @@ async function createGmailDraftIfEmpty(
     eq(gmailPortalDrafts.threadId, input.message.threadId),
   ));
   if (recorded[0]) return "existing" as const;
-  const body = confirmDraftBody({ creatorLabel: input.creatorLabel, brand: input.brand });
-  const created = await client.createDraft({
-    threadId: input.message.threadId,
-    to: input.replyTo,
-    subject: scrubPricesAndDates(input.message.subject),
-    body,
-  });
-  if (!created?.id) return "none" as const;
-  await db.insert(gmailPortalDrafts).values({
-    id: crypto.randomUUID(),
-    mailbox: input.mailbox,
-    threadId: input.message.threadId,
-    gmailDraftId: created.id,
-    dealId: input.dealId,
-    createdAt: nowIso(),
-  });
-  return "created" as const;
+  const id = crypto.randomUUID();
+  try {
+    await db.insert(gmailPortalDrafts).values({
+      id,
+      mailbox: input.mailbox,
+      threadId: input.message.threadId,
+      gmailDraftId: null,
+      dealId: input.dealId,
+      createdAt: nowIso(),
+    });
+  } catch (error) {
+    if (isUniqueDraftError(error)) return "existing" as const;
+    throw error;
+  }
+  try {
+    const created = await client.createDraft({
+      threadId: input.message.threadId,
+      to: input.replyTo,
+      subject: input.message.subject,
+      body,
+    });
+    if (!created?.id) {
+      await db.delete(gmailPortalDrafts).where(eq(gmailPortalDrafts.id, id));
+      return "none" as const;
+    }
+    await db.update(gmailPortalDrafts).set({ gmailDraftId: created.id }).where(eq(gmailPortalDrafts.id, id));
+    return "created" as const;
+  } catch (error) {
+    await db.delete(gmailPortalDrafts).where(eq(gmailPortalDrafts.id, id));
+    throw error;
+  }
 }

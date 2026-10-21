@@ -15,6 +15,7 @@ import {
 import { BRAND_EMAIL_SENDER } from "./approvals";
 import { normalizeEmail, nowIso, withBasePath } from "./format";
 import { gmailSyncEnabled } from "./gmail-sync-flag";
+import { BRAND_INQUIRY, FREE_MAIL_DOMAINS, isAutomatedSender } from "./gmail-live";
 import {
   gmailReadClient,
   isBulkMail,
@@ -37,9 +38,6 @@ import { tokenEncryptionConfigured } from "./token-crypto";
 import type { Viewer } from "./types";
 
 export { gmailSyncEnabled } from "./gmail-sync-flag";
-
-const FREE_MAIL = new Set(["gmail.com", "googlemail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com", "me.com", "aol.com"]);
-const INQUIRY = /\b(collab|collaboration|partnership|sponsor|sponsored|campaign|ugc|ambassador|gifted|paid post|brand deal|rate card|media kit)\b/i;
 
 export type BridgeAttachment = { id: string; filename: string; mimeType: string };
 
@@ -74,7 +72,7 @@ function brandLabel(from: string, subject: string) {
   if (name && !name.includes("@")) return clip(name, 80);
   const domain = senderDomain(from);
   const label = domain.split(".")[0] ?? "";
-  if (label && !FREE_MAIL.has(domain)) return label.charAt(0).toUpperCase() + label.slice(1);
+  if (label && !FREE_MAIL_DOMAINS.has(domain)) return label.charAt(0).toUpperCase() + label.slice(1);
   return clip(subject, 80) || "Brand";
 }
 
@@ -172,7 +170,7 @@ export async function isBrandInquiry(
   mailbox: string,
 ): Promise<{ keep: boolean; classification: "deal" | "inquiry" | "not_deal" }> {
   const from = senderEmail(message.from);
-  if (!message.threadId || isSpamSender(message.from) || isBulkMail(message.labelIds) || isDraftMail(message.labelIds) || isWatchedMailboxSender(message.from)) {
+  if (!message.threadId || isSpamSender(message.from) || isAutomatedSender(message.from) || isBulkMail(message.labelIds) || isDraftMail(message.labelIds) || isWatchedMailboxSender(message.from)) {
     return { keep: false, classification: "not_deal" };
   }
   const existing = await db
@@ -191,7 +189,7 @@ export async function isBrandInquiry(
   if (threadDeal) return { keep: true, classification: "deal" };
 
   const domain = senderDomain(message.from);
-  const free = FREE_MAIL.has(domain);
+  const free = FREE_MAIL_DOMAINS.has(domain);
   const subject = `${message.subject} ${message.snippet ?? ""}`;
   for (const deal of dealRows) {
     const contact = senderEmail(deal.contact ?? "");
@@ -207,7 +205,7 @@ export async function isBrandInquiry(
     const rowDomain = (row.domain ?? "").toLowerCase();
     if (!free && rowDomain && rowDomain === domain) return { keep: true, classification: "inquiry" };
   }
-  if (INQUIRY.test(subject)) return { keep: true, classification: "inquiry" };
+  if (BRAND_INQUIRY.test(subject)) return { keep: true, classification: "inquiry" };
   return { keep: false, classification: "not_deal" };
 }
 
