@@ -23,6 +23,7 @@ import { questionnaireFor } from "@/lib/questionnaire";
 import { inviteErrorNote } from "@/lib/invite-notes";
 import { noticeErrorNote } from "@/lib/notice-notes";
 import { listPlatformInvites } from "@/lib/platform-invites";
+import { SeasonalGreeting } from "@/components/seasonal-greeting";
 
 const REVIEW_NOTES: Record<string, string> = {
   saved: "Your answer is saved. Nothing was emailed.",
@@ -109,6 +110,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       hello={
         <div className="hello">
           <div>
+            {creatorHome ? <SeasonalGreeting /> : null}
             <h1>{heading}</h1>
             <p>
               {portal.viewed
