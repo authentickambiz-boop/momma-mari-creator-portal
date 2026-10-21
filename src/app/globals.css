@@ -980,3 +980,13 @@ p.note.empty, .empty-state {
   .public-head { margin-bottom: 28px; }
   .public-grid { gap: 16px; }
 }
+
+@media print {
+  body:has(.recap-sheet) .site-footer,
+  body:has(.recap-sheet) .public-nav,
+  body:has(.recap-sheet) .public-foot,
+  body:has(.recap-sheet) .skip {
+    display: none;
+  }
+  .recap-sheet { box-shadow: none; }
+}
