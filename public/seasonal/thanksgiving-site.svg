@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-site">
+  <defs>
+    <linearGradient id="tg-hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C4783A"/>
+      <stop offset="1" stop-color="#6B3414"/>
+    </linearGradient>
+    <radialGradient id="tg-pie" cx="40%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#FFE7C2"/>
+      <stop offset="1" stop-color="#E09A3A"/>
+    </radialGradient>
+  </defs>
+  <path d="M0 420C220 340 420 400 680 330C940 260 1160 380 1440 300V900H0Z" fill="#A85A28"/>
+  <path d="M0 560C260 480 520 600 820 520C1080 450 1260 560 1440 490V900H0Z" fill="url(#tg-hill)"/>
+  <path d="M0 720C300 660 620 760 980 690C1200 650 1340 720 1440 680V900H0Z" fill="#8C4A1A"/>
+  <g id="barn">
+    <path d="M980 430L1140 300L1300 430Z" fill="#8C2E22" stroke="#1C140E" stroke-width="4"/>
+    <rect x="1004" y="420" width="272" height="190" fill="#C4453A" stroke="#1C140E" stroke-width="4"/>
+    <rect x="1090" y="470" width="100" height="140" fill="#F4E0C4" stroke="#1C140E" stroke-width="3"/>
+    <path d="M1140 470v140M1090 540h100" stroke="#1C140E" stroke-width="3"/>
+    <rect x="1030" y="460" width="36" height="36" fill="#FFE7C2" stroke="#1C140E" stroke-width="3"/>
+    <rect x="1214" y="460" width="36" height="36" fill="#FFE7C2" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="wheat" stroke="#F2C14E" stroke-width="3" stroke-linecap="round">
+    <path d="M620 760c4-40 2-80 10-120"/>
+    <path d="M620 680l-14-8M620 660l14-8M620 640l-14-8M620 620l14-8"/>
+    <path d="M700 780c6-46 2-90 12-130"/>
+    <path d="M704 700l-16-8M708 676l16-8M710 652l-14-8"/>
+    <path d="M780 750c2-36 8-70 6-110"/>
+  </g>
+  <g id="harvest-table" transform="translate(180,-190)">
+    <path d="M120 640h460l30 28H90z" fill="#8C4A1A" stroke="#1C140E" stroke-width="4"/>
+    <rect x="150" y="668" width="22" height="90" fill="#6B3414"/>
+    <rect x="520" y="668" width="22" height="90" fill="#6B3414"/>
+    <g id="turkey">
+      <ellipse cx="250" cy="590" rx="46" ry="36" fill="#F4E0C4" stroke="#1C140E" stroke-width="3"/>
+      <path d="M250 560c-28-8-48-36-36-58 18 8 36 6 52-6 8 22 6 44-16 64z" fill="#C4453A"/>
+      <path d="M250 560c28-8 48-36 36-58-18 8-36 6-52-6-8 22-6 44 16 64z" fill="#E8873A"/>
+      <path d="M250 568c-16-4-28-22-18-38 12 6 22 4 30-4 4 16 2 28-12 42z" fill="#F2C14E"/>
+      <circle cx="292" cy="572" r="16" fill="#F4E0C4" stroke="#1C140E" stroke-width="3"/>
+      <circle cx="298" cy="568" r="2.2" fill="#1C140E"/>
+      <path d="M304 576l12 4-12 4z" fill="#E8873A"/>
+      <path d="M286 556c6-16 4-22 10-28" stroke="#C4453A" stroke-width="3" stroke-linecap="round"/>
+    </g>
+    <g id="pie">
+      <ellipse cx="430" cy="600" rx="62" ry="28" fill="#F7E2C2" stroke="#1C140E" stroke-width="3"/>
+      <ellipse cx="430" cy="590" rx="52" ry="20" fill="url(#tg-pie)" stroke="#1C140E" stroke-width="3"/>
+      <path d="M392 590h76M430 572v36M408 578l44 24M452 578l-44 24" stroke="#F7E2C2" stroke-width="2"/>
+    </g>
+    <ellipse cx="330" cy="628" rx="28" ry="16" fill="#FFE7C2" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="pumpkin-patch" fill="#FF9A3C" stroke="#1C140E" stroke-width="3">
+    <ellipse cx="860" cy="760" rx="46" ry="34"/>
+    <ellipse cx="940" cy="790" rx="34" ry="26"/>
+    <ellipse cx="560" cy="800" rx="40" ry="30"/>
+  </g>
+  <g stroke="#2F6A36" stroke-width="3" stroke-linecap="round">
+    <path d="M860 726c2-16 8-14 6-26"/>
+    <path d="M940 764c4-12 8-10 6-20"/>
+  </g>
+  <g fill="#E8873A">
+    <path d="M180 180c18 8 22 22 10 32-16-2-28-12-10-32z"/>
+    <path d="M1040 150c16 10 18 24 6 32-14 0-24-12-6-32z"/>
+    <path d="M700 120c14 6 20 18 8 26-12-2-22-10-8-26z"/>
+  </g>
+</svg>

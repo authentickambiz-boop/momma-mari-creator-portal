@@ -10,14 +10,35 @@
 })(function () {
   var TIME_ZONE = "America/New_York";
   var THEMES = [
-    { id: "halloween", start: "2026-10-01T00:00:00", end: "2026-11-01T23:59:59", placeholder: false },
-    { id: "thanksgiving", start: "2026-11-02T00:00:00", end: "2026-11-27T23:59:59", placeholder: true },
-    { id: "holiday", start: "2026-11-28T00:00:00", end: "2027-01-01T23:59:59", placeholder: true },
-    { id: "valentines", start: "2027-02-01T00:00:00", end: "2027-02-14T23:59:59", placeholder: true },
-    { id: "mothers-day", start: "2027-05-02T00:00:00", end: "2027-05-09T23:59:59", placeholder: true },
+    { id: "halloween", start: "2026-10-01T00:00:00", end: "2026-11-01T23:59:59", preview: false },
+    { id: "thanksgiving", start: "2026-11-20T00:00:00", end: "2026-11-29T23:59:59", preview: true },
+    { id: "hanukkah", start: "2026-12-04T00:00:00", end: "2026-12-12T23:59:59", preview: true },
+    { id: "christmas", start: "2026-12-20T00:00:00", end: "2026-12-26T23:59:59", preview: true },
+    { id: "new-year", start: "2026-12-31T00:00:00", end: "2027-01-02T23:59:59", preview: true },
+    { id: "valentines", start: "2027-02-08T00:00:00", end: "2027-02-15T23:59:59", preview: true },
+    { id: "st-patricks", start: "2027-03-10T00:00:00", end: "2027-03-17T23:59:59", preview: true },
+    { id: "easter", start: "2027-03-21T00:00:00", end: "2027-04-04T23:59:59", preview: true },
+    { id: "mothers-day", start: "2027-05-03T00:00:00", end: "2027-05-09T23:59:59", preview: true },
+    { id: "fathers-day", start: "2027-06-14T00:00:00", end: "2027-06-20T23:59:59", preview: true },
+    { id: "summer", start: "2027-06-28T00:00:00", end: "2027-07-05T23:59:59", preview: true },
+    { id: "back-to-school", start: "2027-08-16T00:00:00", end: "2027-09-30T23:59:59", preview: true },
   ];
   var SCENES = {
     halloween: { desktop: "halloween-site.svg", mobile: "halloween-mobile.svg" },
+    thanksgiving: { desktop: "thanksgiving-site.svg", mobile: "thanksgiving-mobile.svg" },
+    hanukkah: { desktop: "hanukkah-site.svg", mobile: "hanukkah-mobile.svg" },
+    christmas: { desktop: "christmas-site.svg", mobile: "christmas-mobile.svg" },
+    "new-year": { desktop: "new-year-site.svg", mobile: "new-year-mobile.svg" },
+    valentines: { desktop: "valentines-site.svg", mobile: "valentines-mobile.svg" },
+    "st-patricks": { desktop: "st-patricks-site.svg", mobile: "st-patricks-mobile.svg" },
+    easter: { desktop: "easter-site.svg", mobile: "easter-mobile.svg" },
+    "mothers-day": { desktop: "mothers-day-site.svg", mobile: "mothers-day-mobile.svg" },
+    "fathers-day": { desktop: "fathers-day-site.svg", mobile: "fathers-day-mobile.svg" },
+    summer: { desktop: "summer-site.svg", mobile: "summer-mobile.svg" },
+    "back-to-school": { desktop: "back-to-school-site.svg", mobile: "back-to-school-mobile.svg" },
+  };
+  var NIGHT = {
+    halloween: true, hanukkah: true, christmas: true, "new-year": true, valentines: true, summer: true,
   };
   var FLOATERS = [
     { kind: "ghost", top: "14%", left: "12%", size: 120, duration: "22s", delay: "0s", drift: "a" },
@@ -30,6 +51,34 @@
     { top: "62%", left: "74%", size: 150, delay: "0s" },
     { top: "70%", left: "86%", size: 110, delay: "-0.8s" },
   ];
+  function bits(kind, a, b, c) {
+    return [
+      { kind: kind, top: a[0], left: a[1], size: a[2], duration: "22s", delay: "0s", drift: "a" },
+      { kind: kind, top: b[0], left: b[1], size: b[2], duration: "26s", delay: "-6s", drift: "b" },
+      { kind: kind, top: c[0], left: c[1], size: c[2], duration: "24s", delay: "-3s", drift: "c" },
+    ];
+  }
+  var CAST = {
+    halloween: FLOATERS,
+    thanksgiving: bits("leaf", ["16%", "18%", 42], ["28%", "64%", 34], ["12%", "82%", 28]),
+    hanukkah: bits("star", ["14%", "20%", 28], ["26%", "72%", 22], ["40%", "48%", 18]),
+    christmas: bits("flake", ["12%", "22%", 26], ["24%", "68%", 18], ["36%", "40%", 22]),
+    "new-year": bits("spark", ["14%", "16%", 28], ["22%", "74%", 20], ["38%", "46%", 16]),
+    valentines: bits("heart", ["16%", "14%", 36], ["28%", "70%", 24], ["20%", "44%", 20]),
+    "st-patricks": bits("clover", ["18%", "16%", 34], ["30%", "72%", 24], ["12%", "48%", 18]),
+    easter: bits("petal", ["14%", "20%", 26], ["26%", "66%", 18], ["18%", "84%", 22]),
+    "mothers-day": bits("petal", ["16%", "18%", 28], ["24%", "74%", 22], ["36%", "42%", 18]),
+    "fathers-day": bits("leaf", ["14%", "22%", 30], ["28%", "70%", 22], ["20%", "46%", 16]),
+    summer: bits("burst", ["12%", "18%", 32], ["22%", "64%", 18], ["18%", "84%", 24]),
+    "back-to-school": bits("leaf", ["14%", "16%", 34], ["26%", "68%", 28], ["18%", "42%", 22]),
+  };
+  var GLOW = {
+    halloween: LANTERNS,
+    hanukkah: [{ top: "48%", left: "58%", size: 140, delay: "0s" }],
+    christmas: [{ top: "46%", left: "78%", size: 130, delay: "0s" }],
+    "new-year": [{ top: "22%", left: "30%", size: 120, delay: "0s" }],
+    summer: [{ top: "16%", left: "70%", size: 140, delay: "0s" }],
+  };
   var GLASS = { fill: "#200E3A", alpha: 0.68, mobileAlpha: 0.84, ink: "#F7F1FF", heading: "#FFF6EA", link: "#FFE7C2" };
   var scriptEl = typeof document !== "undefined" ? document.currentScript : null;
   var started = false;
@@ -69,10 +118,23 @@
     return null;
   }
 
-  function activeScene(now) {
+  function activeScene(now, preview) {
+    if (preview && SCENES[preview]) {
+      return { id: preview, desktop: SCENES[preview].desktop, mobile: SCENES[preview].mobile, night: !!NIGHT[preview] };
+    }
     var theme = themeAt(now || new Date());
-    if (!theme || theme.placeholder || !SCENES[theme.id]) return null;
-    return { id: theme.id, desktop: SCENES[theme.id].desktop, mobile: SCENES[theme.id].mobile };
+    if (!theme || theme.preview || !SCENES[theme.id]) return null;
+    return { id: theme.id, desktop: SCENES[theme.id].desktop, mobile: SCENES[theme.id].mobile, night: !!NIGHT[theme.id] };
+  }
+
+  function previewFromLocation() {
+    if (typeof window === "undefined") return null;
+    if (window.__MM_THEME_PREVIEW__) return String(window.__MM_THEME_PREVIEW__);
+    try {
+      return new URLSearchParams(window.location.search).get("mm_preview");
+    } catch (error) {
+      return null;
+    }
   }
 
   function shouldSkip(pathname) {
@@ -92,6 +154,14 @@
     if (kind === "bat") {
       return '<svg viewBox="0 0 72 40" aria-hidden="true"><path fill="#6B46A3" stroke="#1C1A1F" stroke-width="2" d="M36 20c-4-8-12-8-20-3 4 2 6 7 4 11 6-4 11-4 16-2 5-2 10-2 16 2-2-4 0-9 4-11-8-5-16-5-20 3z"/><ellipse cx="36" cy="22" rx="8" ry="7" fill="#F6F0FC" stroke="#1C1A1F" stroke-width="2"/><circle cx="33" cy="21" r="1.3" fill="#1C1A1F"/><circle cx="39" cy="21" r="1.3" fill="#1C1A1F"/></svg>';
     }
+    if (kind === "leaf") return '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#E09A3A" stroke="#1C140E" stroke-width="2" d="M24 6c10 8 16 18 12 30-12-2-20-10-26-18C6 10 14 4 24 6z"/></svg>';
+    if (kind === "star") return '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#E2B657" stroke="#1C140E" stroke-width="2" d="M24 4l5 14h14l-11 8 4 14-12-8-12 8 4-14L5 18h14z"/></svg>';
+    if (kind === "flake") return '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="none" stroke="#F7F1FF" stroke-width="2.4" stroke-linecap="round" d="M24 6v36M8 14l32 20M8 34l32-20"/></svg>';
+    if (kind === "spark" || kind === "burst") return '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#E2B657" stroke="#1C140E" stroke-width="2" d="M24 4l4 14 14 2-12 8 4 14-10-8-10 8 4-14L6 20l14-2z"/></svg>';
+    if (kind === "heart") return '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#E7A0B4" stroke="#1C140E" stroke-width="2" d="M24 40C8 28 6 16 14 12c6-3 10 2 10 2s4-5 10-2c8 4 6 16-10 28z"/></svg>';
+    if (kind === "clover") return '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="16" r="7" fill="#3E9A56" stroke="#0C1812" stroke-width="2"/><circle cx="15" cy="26" r="7" fill="#3E9A56" stroke="#0C1812" stroke-width="2"/><circle cx="33" cy="26" r="7" fill="#2F7A44" stroke="#0C1812" stroke-width="2"/></svg>';
+    if (kind === "apple") return '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="28" r="12" fill="#C4453A" stroke="#1C140E" stroke-width="2"/><path d="M24 16c2-6 8-8 10-6" fill="none" stroke="#1E6A48" stroke-width="2"/></svg>';
+    if (kind === "petal") return '<svg viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="26" rx="8" ry="12" fill="#F4C7D4" stroke="#1C140E" stroke-width="2" transform="rotate(-20 24 26)"/></svg>';
     return '<svg viewBox="0 0 64 72" aria-hidden="true"><path fill="#FFF8F1" stroke="#1C1A1F" stroke-width="2.5" d="M14 34c0-12 8-22 18-22s18 10 18 22v26l-6-6-6 6-6-6-6 6-6-6-6 6V34z"/><circle cx="26" cy="34" r="2.6" fill="#1C1A1F"/><circle cx="40" cy="34" r="2.6" fill="#1C1A1F"/><path d="M28 44c2.2 2.6 5.8 2.6 8 0" fill="none" stroke="#1C1A1F" stroke-width="2"/></svg>';
   }
 
@@ -169,6 +239,7 @@
     var root = document.createElement("div");
     root.className = "mm-scene";
     root.setAttribute("data-theme", scene.id);
+    root.setAttribute("data-night", scene.night ? "true" : "false");
     root.setAttribute("aria-hidden", "true");
     root.innerHTML = '<div class="mm-sky"></div><div class="mm-stars mm-stars-far"></div><div class="mm-stars mm-stars-near"></div><div class="mm-moon"></div>';
     var img = document.createElement("img");
@@ -182,7 +253,7 @@
     if (host.requestIdleCallback) host.requestIdleCallback(place, { timeout: 700 });
     else window.setTimeout(place, 1);
     root.appendChild(img);
-    LANTERNS.forEach(function (item) {
+    (GLOW[scene.id] || []).forEach(function (item) {
       var glow = document.createElement("span");
       glow.className = "mm-lantern";
       glow.style.top = item.top;
@@ -192,7 +263,7 @@
       glow.style.animationDelay = item.delay;
       root.appendChild(glow);
     });
-    FLOATERS.forEach(function (item) {
+    (CAST[scene.id] || []).forEach(function (item) {
       var floater = document.createElement("span");
       floater.className = "mm-floater mm-floater-" + item.kind + " mm-drift-" + item.drift;
       floater.style.top = item.top;
@@ -204,9 +275,11 @@
       floater.innerHTML = glyph(item.kind);
       root.appendChild(floater);
     });
-    var left = web().replace("mm-web-LEFT", "mm-web-left");
-    var right = web().replace("mm-web-LEFT", "mm-web-right");
-    root.insertAdjacentHTML("beforeend", left + right);
+    if (scene.id === "halloween") {
+      var left = web().replace("mm-web-LEFT", "mm-web-left");
+      var right = web().replace("mm-web-LEFT", "mm-web-right");
+      root.insertAdjacentHTML("beforeend", left + right);
+    }
     return root;
   }
 
@@ -219,7 +292,7 @@
     if (started || document.querySelector(".mm-scene")) return;
     if (document.documentElement.getAttribute("data-seasonal")) return;
     if (shouldSkip(window.location.pathname)) return;
-    var scene = activeScene(new Date());
+    var scene = activeScene(new Date(), previewFromLocation());
     if (!scene) return;
     started = true;
     document.documentElement.classList.add("mm-seasonal");
@@ -232,6 +305,7 @@
     THEMES: THEMES,
     SCENES: SCENES,
     FLOATERS: FLOATERS,
+    NIGHT: NIGHT,
     GLASS: GLASS,
     themeAt: themeAt,
     activeScene: activeScene,

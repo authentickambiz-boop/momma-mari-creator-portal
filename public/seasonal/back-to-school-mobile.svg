@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" fill="none" id="scene-mobile">
+
+  
+  <path d="M0 540C160 450 340 540 540 450C680 390 760 520 800 440V1200H0Z" fill="#E09A3A"/>
+  <path d="M0 820C200 740 420 880 640 760C720 720 770 820 800 770V1200H0Z" fill="#6B3414"/>
+  <g id="schoolhouse" transform="translate(80,200)">
+    <rect x="250" y="80" width="24" height="60" fill="#F4E7C8" stroke="#1C140E" stroke-width="3"/>
+    <path d="M80 260L320 80L560 260Z" fill="#8C2E22" stroke="#1C140E" stroke-width="4"/>
+    <rect x="130" y="250" width="380" height="220" fill="#F4E0C4" stroke="#1C140E" stroke-width="4"/>
+    <rect x="270" y="340" width="80" height="130" fill="#6B3414" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="satchel" transform="translate(300 860)">
+    <rect width="160" height="110" rx="12" fill="#6B3414" stroke="#1C140E" stroke-width="3"/>
+    <path d="M40 0c0-24 80-24 80 0" stroke="#1C140E" stroke-width="4" fill="none"/>
+  </g>
+
+</svg>

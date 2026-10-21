@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
+
+  
+  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#8A4060"/>
+  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#4A1830"/>
+  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#2A0C1C"/>
+  <g id="window-seat">
+    <rect x="160" y="300" width="420" height="280" rx="16" fill="#F6D5DE" stroke="#1C140E" stroke-width="4"/>
+    <rect x="190" y="330" width="160" height="150" rx="8" fill="#F7C9A8" stroke="#1C140E" stroke-width="3"/>
+    <path d="M270 330v150M190 405h160" stroke="#1C140E" stroke-width="3"/>
+    <rect x="390" y="420" width="150" height="28" rx="6" fill="#6A2844"/>
+    <rect x="410" y="360" width="90" height="70" rx="6" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <path d="M438 390c-8 0-12 8-6 14 4 4 8 8 8 8s4-4 8-8c6-6 2-14-10-14z" fill="#C4453A"/>
+  </g>
+  <g id="flower-jar" transform="translate(860 470)">
+    <path d="M40 120h70l-8 70H48z" fill="#C9E4F2" stroke="#1C140E" stroke-width="3"/>
+    <path d="M70 120c-6-40 10-70 0-100" stroke="#1E6A48" stroke-width="3"/>
+    <circle cx="70" cy="18" r="16" fill="#E7A0B4" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="96" cy="40" r="12" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="46" cy="46" r="12" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="ribbon" transform="translate(1120 620)">
+    <path d="M20 20c40 10 70-10 110 8" stroke="#C4453A" stroke-width="8" stroke-linecap="round"/>
+    <path d="M70 24l-16 36 20-8 18 12-8-36" fill="#E7A0B4" stroke="#1C140E" stroke-width="3"/>
+  </g>
+
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
+
+  
+  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#A67C58"/>
+  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#4A3424"/>
+  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#2A1C14"/>
+  <g id="study-window">
+    <rect x="140" y="240" width="400" height="280" rx="8" fill="#E7D3B0" stroke="#1C140E" stroke-width="4"/>
+    <rect x="180" y="280" width="150" height="120" fill="#F0C48A" stroke="#1C140E" stroke-width="3"/>
+    <path d="M180 340h150M255 280v120" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="desk-card" transform="translate(680 500)">
+    <rect x="0" y="70" width="380" height="18" fill="#6B3414"/>
+    <rect x="40" y="10" width="90" height="70" rx="4" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <path d="M70 36c-8 0-12 8-6 14 4 4 8 8 8 8s4-4 8-8c6-6 2-14-10-14z" fill="#C4453A"/>
+    <rect x="170" y="30" width="16" height="50" fill="#F2C14E" stroke="#1C140E" stroke-width="2"/>
+    <rect x="190" y="20" width="16" height="60" fill="#E09A3A" stroke="#1C140E" stroke-width="2"/>
+    <rect x="210" y="40" width="16" height="40" fill="#C4453A" stroke="#1C140E" stroke-width="2"/>
+  </g>
+  <g id="window-plant" transform="translate(1120 460)">
+    <path d="M40 80c0-40 8-60 0-90" stroke="#1E6A48" stroke-width="4"/>
+    <ellipse cx="40" cy="20" rx="22" ry="14" fill="#3E9A56" stroke="#1C140E" stroke-width="3"/>
+    <path d="M10 80h60l-8 36H18z" fill="#C4926A" stroke="#1C140E" stroke-width="3"/>
+  </g>
+
+</svg>

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
+  <path d="M0 500C300 410 600 520 920 400C1160 310 1320 450 1440 360V900H0Z" fill="#1A1838"/>
+  <path d="M0 730C380 660 760 820 1160 700C1300 660 1380 750 1440 710V900H0Z" fill="#0A0814"/>
+  <g id="year-lights" fill="#E2B657">
+    <g>
+      <circle cx="180" cy="220" r="10"/><circle cx="214" cy="220" r="10"/><circle cx="248" cy="220" r="10"/>
+      <circle cx="248" cy="254" r="10"/><circle cx="214" cy="288" r="10"/><circle cx="180" cy="322" r="10"/>
+      <circle cx="180" cy="356" r="10"/><circle cx="214" cy="356" r="10"/><circle cx="248" cy="356" r="10"/>
+    </g>
+    <g>
+      <circle cx="320" cy="220" r="10"/><circle cx="354" cy="220" r="10"/><circle cx="388" cy="220" r="10"/>
+      <circle cx="320" cy="254" r="10"/><circle cx="388" cy="254" r="10"/>
+      <circle cx="320" cy="288" r="10"/><circle cx="388" cy="288" r="10"/>
+      <circle cx="320" cy="322" r="10"/><circle cx="388" cy="322" r="10"/>
+      <circle cx="320" cy="356" r="10"/><circle cx="354" cy="356" r="10"/><circle cx="388" cy="356" r="10"/>
+    </g>
+    <g>
+      <circle cx="460" cy="220" r="10"/><circle cx="494" cy="220" r="10"/><circle cx="528" cy="220" r="10"/>
+      <circle cx="528" cy="254" r="10"/><circle cx="494" cy="288" r="10"/><circle cx="460" cy="322" r="10"/>
+      <circle cx="460" cy="356" r="10"/><circle cx="494" cy="356" r="10"/><circle cx="528" cy="356" r="10"/>
+    </g>
+    <g>
+      <circle cx="600" cy="220" r="10"/><circle cx="634" cy="220" r="10"/><circle cx="668" cy="220" r="10"/>
+      <circle cx="656" cy="254" r="10"/><circle cx="644" cy="288" r="10"/><circle cx="632" cy="322" r="10"/><circle cx="620" cy="356" r="10"/>
+    </g>
+  </g>
+  <g id="clock">
+    <circle cx="1080" cy="520" r="120" fill="#FFF6EA" stroke="#E2B657" stroke-width="8"/>
+    <circle cx="1080" cy="520" r="96" fill="#FFF6EA" stroke="#E2B657" stroke-width="3"/>
+    <path d="M1080 520l-6-54" stroke="#1C1A1F" stroke-width="5" stroke-linecap="round"/>
+    <path d="M1080 520l36-12" stroke="#E2B657" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="1080" cy="520" r="6" fill="#E2B657"/>
+  </g>
+  <path d="M860 180c36 24 18 60 54 78" stroke="#C9B0E8" stroke-width="4" fill="none"/>
+  <path d="M780 640l36-64 36 64z" fill="#E2B657" stroke="#1C1A1F" stroke-width="3"/>
+  <circle cx="816" cy="570" r="7" fill="#F7F1FF"/>
+</svg>

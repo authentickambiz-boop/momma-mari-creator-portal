@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-site">
+
+  
+  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#C45A3A"/>
+  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#1B3A6B"/>
+  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#0C1424"/>
+  <g id="spark-bursts" fill="#F2C14E" stroke="#FFF6EA" stroke-width="2">
+    <path d="M180 120l8 22 22 4-18 12 6 22-18-12-18 12 6-22-18-12 22-4z"/>
+    <path d="M1120 80l6 16 16 3-13 9 4 16-13-9-13 9 4-16-13-9 16-3z"/>
+    <path d="M980 160l5 12 12 2-10 7 3 12-10-7-10 7 3-12-10-7 12-2z"/>
+  </g>
+  <g id="porch-bunting">
+    <path d="M200 300c200 40 400 10 640 40" stroke="#1C140E" stroke-width="3"/>
+    <path d="M280 318l20 36h-40z" fill="#C4453A"/><path d="M360 328l20 36h-40z" fill="#FFF6EA"/><path d="M440 322l20 36h-40z" fill="#1B3A6B"/>
+    <path d="M520 334l20 36h-40z" fill="#C4453A"/><path d="M600 326l20 36h-40z" fill="#FFF6EA"/>
+  </g>
+  <g id="picnic" transform="translate(240 600)">
+    <rect x="0" y="40" width="280" height="90" rx="8" fill="#C4453A" stroke="#1C140E" stroke-width="3"/>
+    <path d="M0 70h280M70 40v90M140 40v90M210 40v90" stroke="#FFF6EA" stroke-width="4"/>
+    <path d="M330 70c40-20 80-10 90 20-30 8-60 6-90-20z" fill="#3E9A56" stroke="#1C140E" stroke-width="3"/>
+    <path d="M360 78c20-8 36-4 40 8" stroke="#C4453A" stroke-width="4"/>
+  </g>
+  <g id="porch-rail" transform="translate(860 560)">
+    <rect x="0" y="40" width="360" height="16" fill="#F4E7C8" stroke="#1C140E" stroke-width="3"/>
+    <path d="M20 56v80M90 56v80M160 56v80M230 56v80M300 56v80" stroke="#E7D3B0" stroke-width="6"/>
+  </g>
+
+</svg>

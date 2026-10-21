@@ -1,27 +1,32 @@
 /**
  * Seasonal themes for mommamari.com and the creator portal.
- * Ranges are inclusive wall-clock times in America/New_York.
- * Placeholder themes ship a palette only, for the owner to fill in later.
- * Halloween is a full-viewport night scene. Its readable text sits on
- * translucent dark-purple glass (HALLOWEEN_GLASS), not on palette.page.
- * Other themes still put the existing dark text on palette.page.
+ * The year's dates, preview flags, and neutral gaps live in seasonal-calendar.ts.
+ * Halloween is the only theme the clock turns on. Other themes are preview-only.
+ * Readable text sits on that theme's dark glass, not on the raw illustration.
  */
+
+import {
+  SEASONAL_CALENDAR,
+  THEME_LOOK,
+  type SeasonalPalette,
+  type SeasonalThemeId,
+  type ThemeGlass,
+} from "@/lib/seasonal-calendar";
+
+export {
+  SCENE_INK,
+  SEASONAL_CALENDAR,
+  SEASONAL_PREVIEW_PARAM,
+  THEME_LOOK,
+  type CalendarEntry,
+  type SeasonalThemeId,
+} from "@/lib/seasonal-calendar";
 
 export const SEASONAL_TIME_ZONE = "America/New_York";
 
 export const THEME_OFF_COOKIE = "mm_theme_off";
 
-export type SeasonalThemeId = "halloween" | "thanksgiving" | "holiday" | "valentines" | "mothers-day";
-
-export type SeasonalPalette = {
-  /** Page fallback behind the scene. Halloween text does not sit on this. */
-  page: string;
-  /** Decoration only. Do not put text on these. */
-  orange: string;
-  purple: string;
-  black: string;
-  paper: string;
-};
+export type { SeasonalPalette, ThemeGlass };
 
 export type SeasonalTheme = {
   id: SeasonalThemeId;
@@ -30,97 +35,45 @@ export type SeasonalTheme = {
   start: string;
   /** Inclusive end, America/New_York wall clock, YYYY-MM-DDTHH:mm:ss. */
   end: string;
-  /** True until the owner replaces the placeholder palette and art. */
+  /** True when the clock must not paint this theme. See `?mm_preview=`. */
+  preview: boolean;
+  /** Kept for older callers. Drafted scenes are not placeholders. */
   placeholder: boolean;
-  /** Shown on the creator home. Null until that theme has a real greeting. */
-  greeting: string | null;
+  greeting: string;
+  night: boolean;
   palette: SeasonalPalette;
+  glass: ThemeGlass;
+  scenes: { site: string; portal: string; mobile: string };
 };
 
-export const SEASONAL_THEMES: readonly SeasonalTheme[] = [
-  {
-    id: "halloween",
-    name: "Halloween",
-    start: "2026-10-01T00:00:00",
-    end: "2026-11-01T23:59:59",
+export const SEASONAL_THEMES: readonly SeasonalTheme[] = SEASONAL_CALENDAR.flatMap((entry) => {
+  if (entry.kind !== "theme") return [];
+  const look = THEME_LOOK[entry.id as SeasonalThemeId];
+  return [{
+    id: entry.id as SeasonalThemeId,
+    name: entry.name,
+    start: entry.start,
+    end: entry.end,
+    preview: entry.preview,
     placeholder: false,
-    greeting: "Happy Halloween",
-    palette: {
-      page: "#120A1C",
-      orange: "#E8873A",
-      purple: "#6B46A3",
-      black: "#1C1A1F",
-      paper: "#FFF6EA",
-    },
-  },
-  {
-    id: "thanksgiving",
-    name: "Thanksgiving",
-    start: "2026-11-02T00:00:00",
-    end: "2026-11-27T23:59:59",
-    placeholder: true,
-    greeting: null,
-    palette: {
-      page: "#FBF6EE",
-      orange: "#E8C49A",
-      purple: "#C4A882",
-      black: "#3A342C",
-      paper: "#FFF8EE",
-    },
-  },
-  {
-    id: "holiday",
-    name: "Holiday",
-    start: "2026-11-28T00:00:00",
-    end: "2027-01-01T23:59:59",
-    placeholder: true,
-    greeting: null,
-    palette: {
-      page: "#F3F7F6",
-      orange: "#E7D7B8",
-      purple: "#C5D4DC",
-      black: "#2C3336",
-      paper: "#F7FBFA",
-    },
-  },
-  {
-    id: "valentines",
-    name: "Valentine's",
-    start: "2027-02-01T00:00:00",
-    end: "2027-02-14T23:59:59",
-    placeholder: true,
-    greeting: null,
-    palette: {
-      page: "#FBF4F6",
-      orange: "#F6D5DE",
-      purple: "#E4C6D4",
-      black: "#3A2C32",
-      paper: "#FFF7F8",
-    },
-  },
-  {
-    id: "mothers-day",
-    name: "Mother's Day",
-    start: "2027-05-02T00:00:00",
-    end: "2027-05-09T23:59:59",
-    placeholder: true,
-    greeting: null,
-    palette: {
-      page: "#F7F6F1",
-      orange: "#F3D9C8",
-      purple: "#D9C8E0",
-      black: "#2E2A32",
-      paper: "#F4F7F2",
-    },
-  },
-];
+    greeting: look.greeting,
+    night: look.night,
+    palette: look.palette,
+    glass: look.glass,
+    scenes: look.scenes,
+  }];
+});
 
-export type ThemeOverride = "auto" | "none" | SeasonalThemeId;
+/** Owner override can follow the clock, turn themes off, or force Halloween. It cannot publish a preview. */
+export type ThemeOverride = "auto" | "none" | "halloween";
 
 export type SeasonalSurface = "site" | "portal";
 
-export type HalloweenFloater = {
-  kind: "ghost" | "bat";
+export type FloaterKind = "ghost" | "bat" | "leaf" | "star" | "flake" | "spark" | "heart" | "clover" | "petal" | "burst" | "apple";
+
+export type ThemeFloater = {
+  theme: SeasonalThemeId;
+  kind: FloaterKind;
   surface: SeasonalSurface;
   top: string;
   left: string;
@@ -131,23 +84,87 @@ export type HalloweenFloater = {
   drift: "a" | "b" | "c";
 };
 
+export type HalloweenFloater = Omit<ThemeFloater, "theme">;
+
 /**
  * Characters that float across the whole scene, in front of the illustration
  * and behind the glass panels. The portal cast is a different arrangement.
  */
-export const HALLOWEEN_FLOATERS: readonly HalloweenFloater[] = [
-  { kind: "ghost", surface: "site", top: "14%", left: "12%", size: 120, duration: "22s", delay: "0s", drift: "a" },
-  { kind: "ghost", surface: "site", top: "30%", left: "58%", size: 88, duration: "26s", delay: "-8s", drift: "b" },
-  { kind: "bat", surface: "site", top: "10%", left: "36%", size: 56, duration: "18s", delay: "-4s", drift: "c" },
-  { kind: "bat", surface: "site", top: "22%", left: "78%", size: 44, duration: "24s", delay: "-12s", drift: "a" },
-  { kind: "ghost", surface: "site", top: "46%", left: "82%", size: 54, duration: "28s", delay: "-6s", drift: "c" },
-  { kind: "ghost", surface: "portal", top: "18%", left: "42%", size: 108, duration: "24s", delay: "-3s", drift: "b" },
-  { kind: "bat", surface: "portal", top: "8%", left: "62%", size: 48, duration: "20s", delay: "-9s", drift: "a" },
-  { kind: "bat", surface: "portal", top: "28%", left: "22%", size: 40, duration: "27s", delay: "-5s", drift: "c" },
-  { kind: "ghost", surface: "portal", top: "40%", left: "70%", size: 60, duration: "30s", delay: "-14s", drift: "a" },
+export const THEME_FLOATERS: readonly ThemeFloater[] = [
+  { theme: "halloween", kind: "ghost", surface: "site", top: "14%", left: "12%", size: 120, duration: "22s", delay: "0s", drift: "a" },
+  { theme: "halloween", kind: "ghost", surface: "site", top: "30%", left: "58%", size: 88, duration: "26s", delay: "-8s", drift: "b" },
+  { theme: "halloween", kind: "bat", surface: "site", top: "10%", left: "36%", size: 56, duration: "18s", delay: "-4s", drift: "c" },
+  { theme: "halloween", kind: "bat", surface: "site", top: "22%", left: "78%", size: 44, duration: "24s", delay: "-12s", drift: "a" },
+  { theme: "halloween", kind: "ghost", surface: "site", top: "46%", left: "82%", size: 54, duration: "28s", delay: "-6s", drift: "c" },
+  { theme: "halloween", kind: "ghost", surface: "portal", top: "18%", left: "42%", size: 108, duration: "24s", delay: "-3s", drift: "b" },
+  { theme: "halloween", kind: "bat", surface: "portal", top: "8%", left: "62%", size: 48, duration: "20s", delay: "-9s", drift: "a" },
+  { theme: "halloween", kind: "bat", surface: "portal", top: "28%", left: "22%", size: 40, duration: "27s", delay: "-5s", drift: "c" },
+  { theme: "halloween", kind: "ghost", surface: "portal", top: "40%", left: "70%", size: 60, duration: "30s", delay: "-14s", drift: "a" },
+  { theme: "thanksgiving", kind: "leaf", surface: "site", top: "16%", left: "18%", size: 42, duration: "20s", delay: "0s", drift: "a" },
+  { theme: "thanksgiving", kind: "leaf", surface: "site", top: "28%", left: "64%", size: 34, duration: "24s", delay: "-6s", drift: "b" },
+  { theme: "thanksgiving", kind: "leaf", surface: "site", top: "12%", left: "82%", size: 28, duration: "26s", delay: "-3s", drift: "c" },
+  { theme: "thanksgiving", kind: "leaf", surface: "portal", top: "20%", left: "46%", size: 36, duration: "22s", delay: "-4s", drift: "b" },
+  { theme: "thanksgiving", kind: "leaf", surface: "portal", top: "34%", left: "16%", size: 30, duration: "28s", delay: "-9s", drift: "a" },
+  { theme: "hanukkah", kind: "star", surface: "site", top: "14%", left: "20%", size: 28, duration: "22s", delay: "0s", drift: "a" },
+  { theme: "hanukkah", kind: "star", surface: "site", top: "26%", left: "72%", size: 22, duration: "26s", delay: "-7s", drift: "c" },
+  { theme: "hanukkah", kind: "star", surface: "site", top: "40%", left: "48%", size: 18, duration: "30s", delay: "-3s", drift: "b" },
+  { theme: "hanukkah", kind: "star", surface: "portal", top: "18%", left: "58%", size: 26, duration: "24s", delay: "-5s", drift: "b" },
+  { theme: "hanukkah", kind: "star", surface: "portal", top: "32%", left: "24%", size: 18, duration: "28s", delay: "-11s", drift: "a" },
+  { theme: "christmas", kind: "flake", surface: "site", top: "12%", left: "22%", size: 26, duration: "20s", delay: "0s", drift: "a" },
+  { theme: "christmas", kind: "flake", surface: "site", top: "24%", left: "68%", size: 18, duration: "26s", delay: "-8s", drift: "c" },
+  { theme: "christmas", kind: "flake", surface: "site", top: "36%", left: "40%", size: 22, duration: "24s", delay: "-4s", drift: "b" },
+  { theme: "christmas", kind: "flake", surface: "portal", top: "16%", left: "52%", size: 24, duration: "22s", delay: "-6s", drift: "b" },
+  { theme: "christmas", kind: "flake", surface: "portal", top: "30%", left: "18%", size: 16, duration: "28s", delay: "-2s", drift: "a" },
+  { theme: "new-year", kind: "spark", surface: "site", top: "14%", left: "16%", size: 28, duration: "18s", delay: "0s", drift: "a" },
+  { theme: "new-year", kind: "spark", surface: "site", top: "22%", left: "74%", size: 20, duration: "24s", delay: "-6s", drift: "c" },
+  { theme: "new-year", kind: "spark", surface: "site", top: "38%", left: "46%", size: 16, duration: "28s", delay: "-3s", drift: "b" },
+  { theme: "new-year", kind: "spark", surface: "portal", top: "18%", left: "60%", size: 24, duration: "22s", delay: "-8s", drift: "b" },
+  { theme: "new-year", kind: "spark", surface: "portal", top: "34%", left: "22%", size: 18, duration: "26s", delay: "-1s", drift: "a" },
+  { theme: "valentines", kind: "heart", surface: "site", top: "16%", left: "14%", size: 36, duration: "22s", delay: "0s", drift: "a" },
+  { theme: "valentines", kind: "heart", surface: "site", top: "28%", left: "70%", size: 24, duration: "26s", delay: "-7s", drift: "c" },
+  { theme: "valentines", kind: "petal", surface: "site", top: "20%", left: "44%", size: 20, duration: "24s", delay: "-3s", drift: "b" },
+  { theme: "valentines", kind: "heart", surface: "portal", top: "22%", left: "56%", size: 30, duration: "24s", delay: "-5s", drift: "b" },
+  { theme: "valentines", kind: "petal", surface: "portal", top: "14%", left: "24%", size: 18, duration: "28s", delay: "-9s", drift: "a" },
+  { theme: "st-patricks", kind: "clover", surface: "site", top: "18%", left: "16%", size: 34, duration: "22s", delay: "0s", drift: "a" },
+  { theme: "st-patricks", kind: "clover", surface: "site", top: "30%", left: "72%", size: 24, duration: "26s", delay: "-6s", drift: "c" },
+  { theme: "st-patricks", kind: "clover", surface: "site", top: "12%", left: "48%", size: 18, duration: "20s", delay: "-2s", drift: "b" },
+  { theme: "st-patricks", kind: "clover", surface: "portal", top: "24%", left: "38%", size: 28, duration: "24s", delay: "-8s", drift: "b" },
+  { theme: "st-patricks", kind: "clover", surface: "portal", top: "16%", left: "78%", size: 20, duration: "28s", delay: "-4s", drift: "a" },
+  { theme: "easter", kind: "petal", surface: "site", top: "14%", left: "20%", size: 26, duration: "22s", delay: "0s", drift: "a" },
+  { theme: "easter", kind: "petal", surface: "site", top: "26%", left: "66%", size: 18, duration: "26s", delay: "-5s", drift: "c" },
+  { theme: "easter", kind: "petal", surface: "site", top: "18%", left: "84%", size: 22, duration: "24s", delay: "-9s", drift: "b" },
+  { theme: "easter", kind: "petal", surface: "portal", top: "20%", left: "28%", size: 24, duration: "22s", delay: "-3s", drift: "b" },
+  { theme: "easter", kind: "petal", surface: "portal", top: "34%", left: "70%", size: 16, duration: "28s", delay: "-7s", drift: "a" },
+  { theme: "mothers-day", kind: "petal", surface: "site", top: "16%", left: "18%", size: 28, duration: "22s", delay: "0s", drift: "a" },
+  { theme: "mothers-day", kind: "heart", surface: "site", top: "24%", left: "74%", size: 26, duration: "26s", delay: "-6s", drift: "c" },
+  { theme: "mothers-day", kind: "petal", surface: "site", top: "36%", left: "42%", size: 18, duration: "24s", delay: "-2s", drift: "b" },
+  { theme: "mothers-day", kind: "heart", surface: "portal", top: "18%", left: "62%", size: 24, duration: "24s", delay: "-8s", drift: "b" },
+  { theme: "mothers-day", kind: "petal", surface: "portal", top: "30%", left: "20%", size: 18, duration: "28s", delay: "-4s", drift: "a" },
+  { theme: "fathers-day", kind: "leaf", surface: "site", top: "14%", left: "22%", size: 30, duration: "22s", delay: "0s", drift: "a" },
+  { theme: "fathers-day", kind: "leaf", surface: "site", top: "28%", left: "70%", size: 22, duration: "26s", delay: "-7s", drift: "b" },
+  { theme: "fathers-day", kind: "leaf", surface: "site", top: "20%", left: "46%", size: 16, duration: "24s", delay: "-3s", drift: "c" },
+  { theme: "fathers-day", kind: "leaf", surface: "portal", top: "22%", left: "34%", size: 26, duration: "24s", delay: "-5s", drift: "a" },
+  { theme: "fathers-day", kind: "leaf", surface: "portal", top: "16%", left: "76%", size: 18, duration: "28s", delay: "-10s", drift: "c" },
+  { theme: "summer", kind: "burst", surface: "site", top: "12%", left: "18%", size: 32, duration: "20s", delay: "0s", drift: "a" },
+  { theme: "summer", kind: "spark", surface: "site", top: "22%", left: "64%", size: 18, duration: "24s", delay: "-6s", drift: "c" },
+  { theme: "summer", kind: "burst", surface: "site", top: "18%", left: "84%", size: 24, duration: "28s", delay: "-2s", drift: "b" },
+  { theme: "summer", kind: "spark", surface: "portal", top: "16%", left: "40%", size: 22, duration: "22s", delay: "-8s", drift: "b" },
+  { theme: "summer", kind: "burst", surface: "portal", top: "30%", left: "72%", size: 20, duration: "26s", delay: "-4s", drift: "a" },
+  { theme: "back-to-school", kind: "leaf", surface: "site", top: "14%", left: "16%", size: 34, duration: "22s", delay: "0s", drift: "a" },
+  { theme: "back-to-school", kind: "apple", surface: "site", top: "26%", left: "68%", size: 28, duration: "26s", delay: "-6s", drift: "c" },
+  { theme: "back-to-school", kind: "leaf", surface: "site", top: "18%", left: "42%", size: 22, duration: "24s", delay: "-3s", drift: "b" },
+  { theme: "back-to-school", kind: "apple", surface: "portal", top: "22%", left: "30%", size: 26, duration: "24s", delay: "-9s", drift: "b" },
+  { theme: "back-to-school", kind: "leaf", surface: "portal", top: "14%", left: "74%", size: 20, duration: "28s", delay: "-2s", drift: "a" },
 ];
 
-export type HalloweenLantern = {
+export const HALLOWEEN_FLOATERS: readonly HalloweenFloater[] = THEME_FLOATERS.flatMap((item) => (
+  item.theme === "halloween"
+    ? [{ kind: item.kind, surface: item.surface, top: item.top, left: item.left, size: item.size, duration: item.duration, delay: item.delay, drift: item.drift }]
+    : []
+));
+
+export type ThemeGlow = {
+  theme: SeasonalThemeId;
   surface: SeasonalSurface;
   top: string;
   left: string;
@@ -155,13 +172,29 @@ export type HalloweenLantern = {
   delay: string;
 };
 
-/** Soft glows parked over each scene's jack-o'-lanterns. */
-export const HALLOWEEN_LANTERNS: readonly HalloweenLantern[] = [
-  { surface: "site", top: "62%", left: "74%", size: 150, delay: "0s" },
-  { surface: "site", top: "70%", left: "86%", size: 110, delay: "-0.8s" },
-  { surface: "portal", top: "66%", left: "16%", size: 170, delay: "-0.4s" },
-  { surface: "portal", top: "58%", left: "78%", size: 120, delay: "-1.3s" },
+export type HalloweenLantern = Omit<ThemeGlow, "theme">;
+
+/** Soft glows parked over lanterns, candles, and sparklers. Site and portal differ. */
+export const THEME_GLOWS: readonly ThemeGlow[] = [
+  { theme: "halloween", surface: "site", top: "62%", left: "74%", size: 150, delay: "0s" },
+  { theme: "halloween", surface: "site", top: "70%", left: "86%", size: 110, delay: "-0.8s" },
+  { theme: "halloween", surface: "portal", top: "66%", left: "16%", size: 170, delay: "-0.4s" },
+  { theme: "halloween", surface: "portal", top: "58%", left: "78%", size: 120, delay: "-1.3s" },
+  { theme: "hanukkah", surface: "site", top: "48%", left: "58%", size: 140, delay: "0s" },
+  { theme: "hanukkah", surface: "portal", top: "42%", left: "28%", size: 120, delay: "-0.6s" },
+  { theme: "christmas", surface: "site", top: "46%", left: "78%", size: 130, delay: "0s" },
+  { theme: "christmas", surface: "portal", top: "40%", left: "22%", size: 110, delay: "-0.7s" },
+  { theme: "new-year", surface: "site", top: "22%", left: "30%", size: 120, delay: "0s" },
+  { theme: "new-year", surface: "portal", top: "18%", left: "68%", size: 100, delay: "-0.5s" },
+  { theme: "summer", surface: "site", top: "16%", left: "70%", size: 140, delay: "0s" },
+  { theme: "summer", surface: "portal", top: "20%", left: "24%", size: 110, delay: "-0.8s" },
 ];
+
+export const HALLOWEEN_LANTERNS: readonly HalloweenLantern[] = THEME_GLOWS.flatMap((item) => (
+  item.theme === "halloween"
+    ? [{ surface: item.surface, top: item.top, left: item.left, size: item.size, delay: item.delay }]
+    : []
+));
 
 const SEASONAL_SITE_PATHS = [
   "/services",
@@ -213,7 +246,7 @@ export function themeById(id: string): SeasonalTheme | null {
 }
 
 export function isThemeOverride(value: string): value is ThemeOverride {
-  return value === "auto" || value === "none" || themeById(value) !== null;
+  return value === "auto" || value === "none" || value === "halloween";
 }
 
 export function parseThemeOverride(value: string | null | undefined): ThemeOverride {
@@ -314,22 +347,27 @@ export function parseDismissedThemes(value: string | null | undefined): Seasonal
 }
 
 /**
- * Admin "none" hides every theme.
- * A forced theme shows even outside its dates.
- * A user's off switch hides that one theme for them.
- * Otherwise the Eastern Time calendar picks the theme.
+ * A `preview` id paints that drafted theme for this request only.
+ * Admin "none" hides the live calendar. Forcing "halloween" shows it outside its dates.
+ * Preview themes are ignored when the clock or the stored override asks for them.
+ * A visitor's off switch hides the theme they turned off.
  */
 export function selectSeasonalTheme(input: {
   now: Date;
   override?: string | null;
   dismissed?: readonly string[];
+  preview?: string | null;
 }): SeasonalTheme | null {
+  if (input.preview) {
+    const flagged = themeById(input.preview);
+    if (flagged?.preview && !input.dismissed?.includes(flagged.id)) return flagged;
+  }
   const override = parseThemeOverride(input.override);
   if (override === "none") return null;
   const theme = override === "auto"
-    ? SEASONAL_THEMES.find((item) => themeCovers(item, input.now)) ?? null
+    ? SEASONAL_THEMES.find((item) => !item.preview && themeCovers(item, input.now)) ?? null
     : themeById(override);
-  if (!theme) return null;
+  if (!theme || theme.preview) return null;
   if (input.dismissed?.includes(theme.id)) return null;
   return theme;
 }

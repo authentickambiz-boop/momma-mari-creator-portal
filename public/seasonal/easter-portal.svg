@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
+
+  
+  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#E7C2A0"/>
+  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#8FB8A0"/>
+  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#5C8A72"/>
+  <g id="spring-window">
+    <rect x="120" y="240" width="360" height="280" rx="12" fill="#F7E6C8" stroke="#1C140E" stroke-width="4"/>
+    <rect x="150" y="270" width="140" height="160" fill="#B7D7F2" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="200" cy="340" r="28" fill="#F6D5DE" stroke="#1C140E" stroke-width="3"/>
+    <path d="M250 430v-80" stroke="#6B3414" stroke-width="6"/>
+  </g>
+  <g id="spring-table" transform="translate(620 520)">
+    <rect x="0" y="80" width="420" height="22" rx="4" fill="#C4926A" stroke="#1C140E" stroke-width="3"/>
+    <rect x="30" y="102" width="16" height="70" fill="#6B3414"/>
+    <rect x="360" y="102" width="16" height="70" fill="#6B3414"/>
+  </g>
+  <g id="daffodils" transform="translate(700 430)">
+    <path d="M40 150V70M90 150V60M140 150V80" stroke="#1E6A48" stroke-width="3"/>
+    <circle cx="40" cy="60" r="14" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="90" cy="48" r="16" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="140" cy="68" r="14" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <ellipse cx="230" cy="120" rx="50" ry="22" fill="#C9E4F2" stroke="#1C140E" stroke-width="3"/>
+    <ellipse cx="210" cy="112" rx="12" ry="16" fill="#F6D5DE" stroke="#1C140E" stroke-width="2"/>
+    <ellipse cx="240" cy="108" rx="12" ry="16" fill="#F2C14E" stroke="#1C140E" stroke-width="2"/>
+    <ellipse cx="266" cy="114" rx="12" ry="16" fill="#E7A0B4" stroke="#1C140E" stroke-width="2"/>
+  </g>
+
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" fill="none" id="scene-mobile">
+
+  
+  <path d="M0 540C160 450 340 540 540 450C680 390 760 520 800 440V1200H0Z" fill="#7FB37A"/>
+  <path d="M0 820C200 740 420 880 640 760C720 720 770 820 800 770V1200H0Z" fill="#145C34"/>
+  <g id="rainbow" fill="none" stroke-linecap="round">
+    <path d="M180 640c0-160 440-160 440 0" stroke="#C4453A" stroke-width="16"/>
+    <path d="M220 640c0-120 360-120 360 0" stroke="#F2C14E" stroke-width="16"/>
+    <path d="M260 640c0-80 280-80 280 0" stroke="#3E9A56" stroke-width="16"/>
+  </g>
+  <g id="green-cottage" transform="translate(40,40)">
+    <path d="M200 620L360 460L520 620Z" fill="#145C34" stroke="#1C140E" stroke-width="4"/>
+    <rect x="240" y="610" width="240" height="180" fill="#F4E7C8" stroke="#1C140E" stroke-width="4"/>
+    <rect x="320" y="680" width="70" height="110" fill="#1E6A48" stroke="#1C140E" stroke-width="3"/>
+  </g>
+
+</svg>

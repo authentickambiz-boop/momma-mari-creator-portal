@@ -14,10 +14,11 @@ import {
 
 const require = createRequire(import.meta.url);
 const embed = require("../public/seasonal/embed.js") as {
-  THEMES: { id: string; start: string; end: string; placeholder: boolean }[];
+  THEMES: { id: string; start: string; end: string; preview: boolean }[];
+  SCENES: Record<string, { desktop: string; mobile: string }>;
   FLOATERS: { kind: string; duration: string; top: string; left: string }[];
   GLASS: { fill: string; alpha: number; mobileAlpha: number; ink: string; heading: string; link: string };
-  activeScene: (now: Date) => { id: string; desktop: string; mobile: string } | null;
+  activeScene: (now: Date, preview?: string | null) => { id: string; desktop: string; mobile: string } | null;
   shouldSkip: (pathname: string) => boolean;
 };
 
@@ -33,7 +34,7 @@ describe("webflow seasonal embed", () => {
       assert.ok(copy, theme.id);
       assert.equal(copy?.start, theme.start);
       assert.equal(copy?.end, theme.end);
-      assert.equal(copy?.placeholder, theme.placeholder);
+      assert.equal(copy?.preview, theme.preview);
     }
     const samples = [
       "2026-09-30T23:59:59",
@@ -41,20 +42,36 @@ describe("webflow seasonal embed", () => {
       "2026-10-21T15:00:00",
       "2026-11-01T23:59:59",
       "2026-11-02T00:00:00",
+      "2026-11-26T12:00:00",
+      "2026-12-08T12:00:00",
       "2026-12-25T12:00:00",
+      "2027-01-01T12:00:00",
       "2027-02-14T12:00:00",
-      "2027-05-08T12:00:00",
+      "2027-03-17T12:00:00",
+      "2027-03-28T12:00:00",
+      "2027-05-09T12:00:00",
+      "2027-06-20T12:00:00",
+      "2027-07-04T12:00:00",
+      "2027-09-01T12:00:00",
     ];
     for (const iso of samples) {
       const now = dateInNewYork(iso);
       const portal = selectSeasonalTheme({ now });
       const scene = embed.activeScene(now);
-      if (!portal || portal.placeholder) assert.equal(scene, null, iso);
+      if (!portal || portal.preview) assert.equal(scene, null, iso);
       else {
         assert.equal(scene?.id, portal.id, iso);
-        assert.match(scene?.desktop ?? "", new RegExp(`${portal.id}-site\\.svg`));
-        assert.match(scene?.mobile ?? "", new RegExp(`${portal.id}-mobile\\.svg`));
+        assert.equal(scene?.desktop, `${portal.id}-site.svg`);
+        assert.equal(scene?.mobile, `${portal.id}-mobile.svg`);
       }
+    }
+    for (const theme of SEASONAL_THEMES) {
+      if (!theme.preview) continue;
+      assert.equal(embed.activeScene(dateInNewYork(theme.start)), null, theme.id);
+      const preview = embed.activeScene(dateInNewYork(theme.start), theme.id);
+      assert.equal(preview?.desktop, theme.scenes.site, theme.id);
+      assert.equal(preview?.mobile, theme.scenes.mobile, theme.id);
+      assert.equal(embed.SCENES[theme.id].desktop, theme.scenes.site);
     }
   });
 
