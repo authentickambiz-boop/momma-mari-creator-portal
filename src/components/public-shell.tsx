@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
 import { KIDS_STANDARD_PATH } from "@/lib/kids-standard";
+import { pricingPageEnabled } from "@/lib/pricing-page-flag";
 import { MEET_HREF, MEET_LABEL } from "@/lib/public-creators";
 
 export function PublicShell({ title, lede, children }: { title: string; lede: string; children: React.ReactNode }) {
@@ -13,6 +14,7 @@ export function PublicShell({ title, lede, children }: { title: string; lede: st
         <nav className="public-nav" aria-label="Public">
           <Link href="/services">Services</Link>
           <Link href="/packages">Packages</Link>
+          {pricingPageEnabled() ? <Link href="/pricing">Plans</Link> : null}
           <Link href={MEET_HREF}>{MEET_LABEL}</Link>
           <Link href="/work">Work</Link>
           <Link href="/inquire">Work with us</Link>

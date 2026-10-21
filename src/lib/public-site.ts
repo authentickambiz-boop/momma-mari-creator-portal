@@ -23,6 +23,7 @@ export function isPublicMarketingPath(pathname: string, basePath = "") {
   const stripped = base && pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
   const path = (stripped.split("?")[0] || "/").replace(/\/+$/, "") || "/";
   if (path.startsWith("/brand-report/")) return true;
+  if (path === "/pricing" || path === "/pricing/preview") return true;
   return (PUBLIC_MARKETING_PATHS as readonly string[]).includes(path);
 }
 
