@@ -10,6 +10,12 @@ function back(query: string) {
   redirect(`/inbox?${query}`);
 }
 
+function withCreator(formData: FormData, query: string) {
+  const creator = String(formData.get("creator") ?? "").trim();
+  if (!creator) return query;
+  return `${query}&creator=${encodeURIComponent(creator)}`;
+}
+
 export async function queueBrandReplyAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer) redirect("/login");
@@ -35,7 +41,9 @@ export async function classifyThreadAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer) redirect("/login");
   const db = await getDb();
-  const result = await classifyThread(db, viewer, String(formData.get("threadId") ?? ""), String(formData.get("classification") ?? ""));
-  if (!result.ok) back(`error=${inboxErrorCode(result.error)}`);
-  back("reply=labeled");
+  const classification = String(formData.get("classification") ?? "");
+  const result = await classifyThread(db, viewer, String(formData.get("threadId") ?? ""), classification);
+  if (!result.ok) back(withCreator(formData, `error=${inboxErrorCode(result.error)}`));
+  const reply = classification === "not_deal" ? "not_deal" : "deal";
+  back(withCreator(formData, `reply=${reply}`));
 }

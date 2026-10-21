@@ -21,12 +21,16 @@ export default async function InboxPage({
   const saved = params.reply === "saved"
     ? "Saved as a draft for Kamron. Nothing was sent."
     : params.reply === "private"
-      ? "Saved. A private thread stays off your manager's list."
-      : params.reply === "labeled"
-        ? "Saved. A private mark still keeps the thread off the manager list. Nothing was sent."
-        : params.connected === "1"
-          ? "That inbox is connected. The token is encrypted. Nothing was sent."
-          : null;
+      ? "Saved. A private thread stays off your manager&apos;s list."
+      : params.reply === "not_deal"
+        ? "Saved. This thread is not a deal, so it is off this list."
+        : params.reply === "deal"
+          ? "Saved. This thread stays on the list as a deal."
+          : params.reply === "labeled"
+            ? "Saved. A private mark still keeps the thread off the manager list. Nothing was sent."
+            : params.connected === "1"
+              ? "That inbox is connected. The token is encrypted. Nothing was sent."
+              : null;
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -78,15 +82,17 @@ export default async function InboxPage({
                 <div className="stack">
                   <form action={classifyThreadAction}>
                     <input type="hidden" name="threadId" value={thread.id} />
+                    <input type="hidden" name="creator" value={portal.viewedId} />
                     <input type="hidden" name="classification" value="deal" />
                     <button className="btn ghost" type="submit">This is a deal</button>
                   </form>
                   <form action={classifyThreadAction}>
                     <input type="hidden" name="threadId" value={thread.id} />
+                    <input type="hidden" name="creator" value={portal.viewedId} />
                     <input type="hidden" name="classification" value="not_deal" />
                     <button className="btn ghost" type="submit">Not a deal</button>
                   </form>
-                  <p className="note">Marking it a deal does not show a private thread to a manager.</p>
+                  <p className="note">Not a deal takes the thread off this list. Marking it a deal does not show a private thread to a manager.</p>
                 </div>
               ) : null}
             </article>
