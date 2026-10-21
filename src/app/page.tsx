@@ -16,7 +16,9 @@ import { listUnreadCreatorNotices } from "@/lib/video-review";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
 import { listCreatorOffers } from "@/lib/brand-offers";
 import { CreatorDealReviewCard } from "@/components/creator-deal-review";
+import { CreatorTodos } from "@/components/creator-todos";
 import { listCreatorDealReviews } from "@/lib/creator-deal-review";
+import { listCreatorOpenTasks } from "@/lib/creator-tasks";
 import { questionnaireFor } from "@/lib/questionnaire";
 import { inviteErrorNote } from "@/lib/invite-notes";
 import { noticeErrorNote } from "@/lib/notice-notes";
@@ -29,10 +31,20 @@ const REVIEW_NOTES: Record<string, string> = {
   missing: "That offer is not on your list.",
   own: "You can only answer your own offers.",
   answered: "You already answered this offer.",
+  closed: "You can't accept this offer.",
+  info: "This offer is for your information.",
   "1": "That answer was not saved.",
 };
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string; passed?: string; invite?: string; noticeError?: string; checkout?: string; review?: string }> }) {
+const TODO_NOTES: Record<string, string> = {
+  done: "Marked done.",
+  missing: "That to-do is not on your list.",
+  own: "You can only update your own to-dos.",
+  role: "You can't update this to-do.",
+  "1": "That to-do was not saved.",
+};
+
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string; passed?: string; invite?: string; noticeError?: string; checkout?: string; review?: string; todo?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
   const deals = await listDealsForViewer(portal.db, portal.viewer, portal.viewedId);
@@ -78,7 +90,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const dealReviews = creatorHome && portal.viewer.creatorId
     ? await listCreatorDealReviews(portal.db, portal.viewer.creatorId)
     : [];
+  const openTasks = creatorHome && portal.viewer.creatorId
+    ? await listCreatorOpenTasks(portal.db, portal.viewer.creatorId)
+    : [];
   const reviewNote = params.review ? REVIEW_NOTES[params.review] ?? REVIEW_NOTES["1"] : null;
+  const todoNote = params.todo ? TODO_NOTES[params.todo] ?? TODO_NOTES["1"] : null;
   const offersWaiting = brandOffers.filter((offer) => offer.response === "pending" || offer.response === "question");
   const pendingReviews = dealReviews.some((offer) => !offer.decision);
   if (quiz && !quiz.finished && !quiz.paused && !pendingReviews) {
@@ -108,6 +124,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       {params.noticeError ? <p className="note alert" role="alert">{noticeErrorNote(params.noticeError) ?? "That notice was not dismissed. Nothing was changed."}</p> : null}
       {platformInvites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} />)}
       {dealReviews.length > 0 ? <CreatorDealReviewCard offers={dealReviews} note={reviewNote} /> : null}
+      {creatorHome ? <CreatorTodos tasks={openTasks} note={todoNote} /> : null}
       {offersWaiting.length > 0 ? (
         <div className="callout">
           <b>{offersWaiting.length === 1 ? "A brand offer is in your inbox." : `${offersWaiting.length} brand offers are in your inbox.`}</b>{" "}

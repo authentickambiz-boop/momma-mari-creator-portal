@@ -491,7 +491,7 @@ test("admins and the bot can move a deal's stage, and creators cannot", async ()
   });
   assert.equal(created.status, 201);
   if ("workflowStage" in created.body) {
-    assert.equal(created.body.workflowStage, "contract_review");
+    assert.equal(created.body.workflowStage, "interest_sent");
     assert.equal(created.body.visibleToCreator, false);
   }
   assert.equal(await getDealForViewer(db, mariclare, "newbrand"), null);
@@ -4509,7 +4509,8 @@ test("platform floors, the sponsor block, and the free bench", async () => {
   assert.equal(feeAndPayout(100000).feeCents, 20000);
   assert.equal(NICHE_CATALOG.includes("gaming") && NICHE_CATALOG.includes("podcast") && NICHE_CATALOG.includes("ugc"), true);
   assert.equal(PLATFORM_OPTIONS.includes("Twitch") && PLATFORM_OPTIONS.includes("LinkedIn") && PLATFORM_OPTIONS.includes("Newsletter"), true);
-  assert.deepEqual(MEDIA_KIT_CATALOG.map((item) => item.priceLabel), ["$179", "$99", "$229"]);
+  assert.deepEqual(MEDIA_KIT_CATALOG.map((item) => item.priceLabel), ["$149", "$79", "$199", "$125", "$149/$299/$499"]);
+  assert.deepEqual(MEDIA_KIT_CATALOG.map((item) => item.name), ["Media Kit", "Rate card build", "Media Kit + Rate Card", "Contract Review", "Starter Kits"]);
 
   const openRules: DealRules = {
     minRates: { tiktok: 50000, podcast_host: 2500, viewer_hour: 80 },

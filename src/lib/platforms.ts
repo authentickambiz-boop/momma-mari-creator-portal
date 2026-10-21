@@ -30,11 +30,13 @@ export const PLATFORM_METRICS = [
 
 export type PlatformStat = { platform: string; metric: string; value: string };
 
-/** Existing catalog prices for a media kit. Nothing on this list is charged from the portal. */
+/** Live Stripe prices. Nothing on this list is charged from the portal while payments are off. */
 export const MEDIA_KIT_CATALOG = [
-  { id: "C4", name: "Media kit", priceLabel: "$179" },
-  { id: "C5", name: "Rate card refresh", priceLabel: "$99" },
-  { id: "C6", name: "Sponsor-ready kit", priceLabel: "$229" },
+  { id: "media_kit_build", name: "Media Kit", priceLabel: "$149" },
+  { id: "rate_card_build", name: "Rate card build", priceLabel: "$79" },
+  { id: "media_kit_bundle", name: "Media Kit + Rate Card", priceLabel: "$199" },
+  { id: "contract_review", name: "Contract Review", priceLabel: "$125" },
+  { id: "starter_kits", name: "Starter Kits", priceLabel: "$149/$299/$499" },
 ] as const;
 
 export const BENCH_PROMOTE_SCORE = 70;

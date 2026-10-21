@@ -11,6 +11,8 @@ const CODES: Record<string, string> = {
   "That offer is not on your list.": "missing",
   "You can only answer your own offers.": "own",
   "You already answered this offer.": "answered",
+  "You can't accept this offer.": "closed",
+  "This offer is for your information.": "info",
 };
 
 export async function decideDealReviewAction(formData: FormData) {
