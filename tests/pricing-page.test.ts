@@ -17,7 +17,6 @@ import {
   paymentsEnabled,
 } from "../src/lib/payments-config";
 import { PRICE_NOT_SET, pricingPageModel } from "../src/lib/pricing-page";
-import { pricingPageEnabled } from "../src/lib/pricing-page-flag";
 import { robotsAllowPaths, sitemapPublicPaths } from "../src/lib/public-meta";
 import { isPublicMarketingPath } from "../src/lib/public-site";
 import { getDealForViewer } from "../src/lib/queries";
@@ -45,22 +44,11 @@ describe("plans and services page", { concurrency: 1 }, () => {
     db = openTestDb();
   });
 
-  test("the public page stays off, the preview uses catalog prices, and payments stay off", async () => {
+  test("the public page is a waitlist until payments are on, and the preview keeps catalog prices", async () => {
     const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
 
-    withEnv("PRICING_PAGE_ENABLED", null, () => {
-      assert.equal(pricingPageEnabled(), false);
-      assert.equal(sitemapPublicPaths().includes("/pricing"), false);
-      assert.equal(robotsAllowPaths().includes("/pricing"), false);
-    });
-    withEnv("PRICING_PAGE_ENABLED", "true", () => {
-      assert.equal(pricingPageEnabled(), true);
-      assert.equal(sitemapPublicPaths().includes("/pricing"), true);
-      assert.equal(robotsAllowPaths().includes("/pricing"), true);
-    });
-    withEnv("PRICING_PAGE_ENABLED", "TRUE", () => {
-      assert.equal(pricingPageEnabled(), false);
-    });
+    assert.equal(sitemapPublicPaths().includes("/pricing"), true);
+    assert.equal(robotsAllowPaths().includes("/pricing"), true);
     withEnv("PACKAGE_PRICES_APPROVED", null, () => {
       assert.equal(packagePricesApproved(), false);
       assert.equal(sitemapPublicPaths().includes("/packages"), false);
@@ -73,7 +61,7 @@ describe("plans and services page", { concurrency: 1 }, () => {
     assert.equal(pushEnabled(), false);
     assert.equal(boldSignEnabled(), false);
     const example = source(".env.example");
-    for (const key of ["PAYMENTS_ENABLED=", "GMAIL_SYNC_ENABLED=", "PUSH_ENABLED=", "BOLDSIGN_ENABLED=", "PACKAGE_PRICES_APPROVED=", "PRICING_PAGE_ENABLED="]) {
+    for (const key of ["PAYMENTS_ENABLED=", "GMAIL_SYNC_ENABLED=", "PUSH_ENABLED=", "BOLDSIGN_ENABLED=", "PACKAGE_PRICES_APPROVED=", "ANALYTICS_ENABLED="]) {
       assert.match(example, new RegExp(`^${key}$`, "m"));
     }
 
@@ -137,9 +125,11 @@ describe("plans and services page", { concurrency: 1 }, () => {
     const previewPage = source("src/app/pricing/preview/page.tsx");
     const catalog = source("src/components/pricing-catalog.tsx");
     const lib = source("src/lib/pricing-page.ts");
-    assert.match(page, /pricingPageEnabled\(\)/);
-    assert.match(page, /notFound\(\)/);
+    assert.match(page, /paymentsEnabled\(\)/);
+    assert.match(page, /PricingWaitlist/);
     assert.match(page, /preview=\{false\}/);
+    assert.match(source("src/components/pricing-waitlist.tsx"), /Coming soon, join waitlist/);
+    assert.equal(source("src/components/pricing-waitlist.tsx").includes("$"), false);
     assert.match(previewPage, /isOwner/);
     assert.match(previewPage, /notFound\(\)/);
     assert.match(previewPage, /index: false/);
@@ -157,8 +147,7 @@ describe("plans and services page", { concurrency: 1 }, () => {
     assert.equal(isPublicMarketingPath("/pricing", ""), true);
     assert.equal(isPublicMarketingPath("/pricing/preview", ""), true);
     assert.equal(isPublicMarketingPath("/portal/pricing", "/portal"), true);
-    assert.match(source("src/components/public-shell.tsx"), /pricingPageEnabled\(\)/);
-    assert.match(source("src/components/public-shell.tsx"), /href="\/pricing"/);
+    assert.match(source("src/components/public-shell.tsx"), /<Link href="\/pricing">Plans<\/Link>/);
 
     const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
     assert.equal(kosblingAfter?.workflowStage, kosblingBefore?.workflowStage);

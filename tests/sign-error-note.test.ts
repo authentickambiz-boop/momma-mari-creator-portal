@@ -23,7 +23,8 @@ describe("sign error note", { concurrency: 1 }, () => {
     assert.match(sign, /That signature was not saved\. Nothing was emailed\./);
     assert.match(sign, /ATTORNEY_NOTE/);
     const copy = source("src/lib/sign-copy.ts");
-    assert.match(copy, /Have an attorney review this e-sign wording before you rely on it/);
+    assert.match(copy, /Electronic signatures on this page are pending legal review/);
+    assert.equal(copy.includes("Have an attorney review"), false);
     const empty = sign.slice(sign.indexOf("if (!contract)"), sign.indexOf("const fileRows"));
     assert.match(empty, /\{error \? <p className="note">\{error\}<\/p> : null\}/);
 

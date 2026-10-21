@@ -1283,6 +1283,12 @@ export const creatorW9s = sqliteTable("creator_w9s", {
   createdAt: text("created_at").notNull(),
 });
 
+export const pricingWaitlist = sqliteTable("pricing_waitlist", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const brandPipelineCards = sqliteTable("brand_pipeline_cards", {
   id: text("id").primaryKey(),
   sourceKey: text("source_key").notNull().unique(),

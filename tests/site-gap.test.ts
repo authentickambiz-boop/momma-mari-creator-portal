@@ -45,10 +45,11 @@ describe("site gap fixes", { concurrency: 1 }, () => {
     assert.match(notice, /Privacy Policy/);
     assert.match(source("src/components/brand-brief-form.tsx"), /PrivacyNotice/);
     assert.match(source("src/app/apply/page.tsx"), /PrivacyNotice/);
-    assert.match(privacy, /Effective October 20, 2026/);
-    assert.match(terms, /Effective October 20, 2026/);
-    assert.match(privacy, /Pending lawyer review/);
-    assert.match(terms, /Pending lawyer review/);
+    assert.match(privacy, /LEGAL_EFFECTIVE_BANNER/);
+    assert.match(terms, /LEGAL_EFFECTIVE_BANNER/);
+    assert.match(source("src/lib/legal-banner.ts"), /Effective Oct 20, 2026, pending legal review/);
+    assert.equal(privacy.includes("Effective October 20, 2026"), false);
+    assert.equal(terms.includes("Effective October 20, 2026"), false);
     assert.equal(privacy.includes("DRAFT - not yet in effect"), false);
     assert.equal(terms.includes("DRAFT - not yet in effect"), false);
   });

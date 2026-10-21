@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { PublicShell } from "@/components/public-shell";
+import { LEGAL_EFFECTIVE_BANNER } from "@/lib/legal-banner";
 import { publicPageMeta } from "@/lib/public-meta";
 import { PUBLIC_ROBOTS } from "@/lib/public-site";
 
-// Pending lawyer review. The banner states the effective date; counsel has not signed off.
 export const metadata: Metadata = {
   ...publicPageMeta({
     title: "Privacy Policy · Momma Mari",
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <PublicShell title="Privacy Policy" lede="Momma Mari LLC, a North Carolina company, runs mommamari.com and this creator portal.">
-      <p className="legal-banner">Effective October 20, 2026</p>
+      <p className="legal-banner">{LEGAL_EFFECTIVE_BANNER}</p>
       <div className="card stack">
         <p>This policy covers the public site and the portal. It describes what we collect, why we keep it, and how to reach us.</p>
         <h2>What we collect</h2>

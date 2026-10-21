@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
+import { AnalyticsHooks } from "@/components/analytics-hooks";
 import { CommunityPanel } from "@/components/community-panel";
 import { HomeScreen } from "@/components/home-screen";
 import { SiteFooter } from "@/components/site-footer";
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
       <body>
         {children}
+        <AnalyticsHooks />
         <SiteFooter />
         <CommunityPanel />
         <HomeScreen />

@@ -36,7 +36,8 @@ describe("bench error codes", { concurrency: 1 }, () => {
       assert.equal(page.includes("{params.benchError}"), false);
     }
     assert.match(source("src/app/bench/page.tsx"), /Saved\. Nothing was sent or charged\./);
-    assert.match(source("src/app/bench/join/page.tsx"), /You're on the bench\. Nothing was charged\./);
+    assert.match(source("src/app/bench/join/page.tsx"), /You are on the bench\. There is no fee\./);
+    assert.match(source("src/app/bench/join/page.tsx"), /index: false/);
     const action = source("src/app/bench-actions.ts");
     assert.match(action, /benchError=\$\{benchErrorCode\(error\)\}/);
     assert.equal(action.includes("encodeURIComponent(error)"), false);

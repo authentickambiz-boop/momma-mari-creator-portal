@@ -27,8 +27,11 @@ describe("gift status notes", { concurrency: 1 }, () => {
     assert.match(gifts, /No free products yet\. Nothing is charged\./);
     assert.match(gifts, /No one has applied\. Nothing is charged\./);
     const apply = source("src/app/gifts/apply/page.tsx");
-    assert.match(apply, /Applied\. Kamron still has to approve you\. Nothing was charged\./);
-    assert.match(apply, /No free products yet\. Nothing is charged\./);
+    assert.match(apply, /Applied\. Momma Mari will review your request\./);
+    assert.match(apply, /robots: \{ index: false, follow: false \}/);
+    assert.equal(apply.includes("Have an attorney review"), false);
+    assert.match(apply, /No free products yet\./);
+    assert.equal(apply.includes("Nothing is charged."), false);
 
     const kosblingAfter = await getDealForViewer(db, admin, "kosbling");
     assert.equal(kosblingAfter?.workflowStage, "draft_due");
