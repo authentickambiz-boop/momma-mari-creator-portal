@@ -3,7 +3,7 @@ import { creators } from "@/db/schema";
 
 export const PUBLIC_ROBOTS = { index: true as const, follow: true as const };
 
-export const PUBLIC_MARKETING_PATHS = ["/services", "/packages", "/roster", "/meet", "/inquire", "/apply", "/apply/thanks"] as const;
+export const PUBLIC_MARKETING_PATHS = ["/services", "/packages", "/roster", "/meet", "/inquire", "/apply", "/apply/thanks", "/our-standard"] as const;
 
 /** True for the public marketing pages, with or without the portal mount prefix. */
 export function isPublicMarketingPath(pathname: string, basePath = "") {

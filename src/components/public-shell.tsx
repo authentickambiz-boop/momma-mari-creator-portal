@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
+import { KIDS_STANDARD_PATH } from "@/lib/kids-standard";
 import { MEET_HREF, MEET_LABEL } from "@/lib/public-creators";
 
 export function PublicShell({ title, lede, children }: { title: string; lede: string; children: React.ReactNode }) {
@@ -21,6 +22,9 @@ export function PublicShell({ title, lede, children }: { title: string; lede: st
       <h1>{title}</h1>
       <p>{lede}</p>
       {children}
+      <footer className="public-foot">
+        <Link href={KIDS_STANDARD_PATH}>Kids in content</Link>
+      </footer>
     </main>
     </>
   );
