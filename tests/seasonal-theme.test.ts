@@ -282,4 +282,34 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     assert.equal(cast.length, 8);
     assert.ok(cast.every((item) => item.kind === "leaf"));
   });
+
+  test("the Christmas scene keeps the decor brief and stays a preview", () => {
+    const theme = SEASONAL_THEMES.find((item) => item.id === "christmas");
+    assert.equal(theme?.preview, true);
+    assert.equal(theme?.start, "2026-12-20T00:00:00");
+    assert.equal(theme?.end, "2026-12-26T23:59:59");
+    for (const file of ["christmas-site.svg", "christmas-portal.svg", "christmas-mobile.svg"]) {
+      const art = source(`public/seasonal/${file}`);
+      assert.match(art, /id="christmas-tree"/, file);
+      assert.match(art, /id="gifts"/, file);
+      assert.match(art, /id="wreath"/, file);
+      assert.match(art, /id="stockings"/, file);
+      assert.match(art, /snow-fall/, file);
+      assert.match(art, /light-twinkle/, file);
+      assert.match(art, /prefers-reduced-motion:\s*reduce/, file);
+    }
+    assert.match(source("docs/christmas-decor.md"), /Christmas tree/i);
+    assert.match(source("docs/christmas-decor.md"), /Edward H\. Johnson/);
+    assert.match(source("src/app/seasonal-theme.css"), /seasonal-floater-flake/);
+    assert.match(source("src/app/seasonal-theme.css"), /data-seasonal="christmas"\] \.seasonal-scene[\s\S]*100dvh/);
+    assert.match(source("public/seasonal/embed.css"), /mm-floater-flake/);
+    assert.match(source("public/seasonal/embed.css"), /mm-bulb/);
+    assert.match(source("public/seasonal/embed.css"), /data-mm-theme="christmas"\] body \{ backdrop-filter: none !important; \}/);
+    assert.match(source("public/seasonal/embed.css"), /data-mm-theme="christmas"\] \.mm-scene[\s\S]*100dvh/);
+    assert.match(source("public/seasonal/embed.js"), /scene\.id === "christmas"/);
+    assert.match(source("src/components/seasonal-theme.tsx"), /LightFrame/);
+    const cast = THEME_FLOATERS.filter((item) => item.theme === "christmas" && item.surface === "site");
+    assert.ok(cast.length >= 3 && cast.length <= 8);
+    assert.ok(cast.every((item) => item.kind === "flake"));
+  });
 });

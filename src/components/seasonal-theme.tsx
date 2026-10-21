@@ -87,6 +87,40 @@ function HarvestFrame() {
   );
 }
 
+const BULB_COLORS = ["#C4453A", "#E2B657", "#F7F1FF", "#3E9A56", "#FFE7A8"];
+
+function LightFrame() {
+  const bulbs: { style: CSSProperties }[] = [];
+  const add = (style: CSSProperties, index: number) => {
+    bulbs.push({
+      style: {
+        ...style,
+        background: BULB_COLORS[index % BULB_COLORS.length],
+        animationDelay: `${(index % 6) * -0.28}s`,
+      },
+    });
+  };
+  for (let i = 0; i < 16; i += 1) {
+    add({ top: 92, left: `${4 + i * (92 / 15)}%` }, i);
+    add({ bottom: 12, left: `${5 + i * (90 / 15)}%` }, i + 2);
+  }
+  for (let i = 0; i < 9; i += 1) {
+    add({ left: 12, top: `${8 + i * (84 / 8)}%` }, i + 1);
+    add({ right: 12, top: `${8 + i * (84 / 8)}%` }, i + 3);
+  }
+  return (
+    <>
+      <span className="seasonal-light-wire seasonal-light-wire-top" />
+      <span className="seasonal-light-wire seasonal-light-wire-bottom" />
+      <span className="seasonal-light-wire seasonal-light-wire-left" />
+      <span className="seasonal-light-wire seasonal-light-wire-right" />
+      {bulbs.map((bulb, index) => (
+        <span key={`bulb-${index}`} className="seasonal-bulb" style={bulb.style} />
+      ))}
+    </>
+  );
+}
+
 function Cobweb({ className }: { className: string }) {
   return (
     <svg className={className} viewBox="0 0 140 140" aria-hidden="true">
@@ -276,6 +310,7 @@ function IllustratedScene({ theme, surface }: { theme: SeasonalTheme; surface: S
       {theme.id === "halloween" ? <Cobweb className="seasonal-web seasonal-web-left" /> : null}
       {theme.id === "halloween" ? <Cobweb className="seasonal-web seasonal-web-right" /> : null}
       {theme.id === "thanksgiving" ? <HarvestFrame /> : null}
+      {theme.id === "christmas" ? <LightFrame /> : null}
     </div>
   );
 }
