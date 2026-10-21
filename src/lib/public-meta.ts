@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { withBasePath } from "./format";
+import { packagePricesApproved } from "./package-prices-flag";
+import { pricingPageEnabled } from "./pricing-page-flag";
 import { PUBLIC_ROBOTS } from "./public-site";
 
 export const PUBLIC_SHARE_IMAGE = "/momma-logo.png";
@@ -16,6 +18,20 @@ export const PUBLIC_SITEMAP_PATHS = [
   "/privacy",
   "/terms",
 ] as const;
+
+/** Sitemap entries. Unapproved package prices stay out. Pricing joins only when its flag is on. */
+export function sitemapPublicPaths(paths: readonly string[] = PUBLIC_SITEMAP_PATHS) {
+  const listed = paths.filter((path) => path !== "/packages" || packagePricesApproved());
+  if (pricingPageEnabled() && !listed.includes("/pricing")) listed.push("/pricing");
+  return listed;
+}
+
+/** Crawl allow-list. /packages stays allowed so its noindex tag can be read. */
+export function robotsAllowPaths(paths: readonly string[] = PUBLIC_SITEMAP_PATHS) {
+  const allow = [...paths];
+  if (pricingPageEnabled() && !allow.includes("/pricing")) allow.push("/pricing");
+  return allow;
+}
 
 export function publicSiteOrigin() {
   return (process.env.PUBLIC_SITE_URL || "https://www.mommamari.com").replace(/\/$/, "");
