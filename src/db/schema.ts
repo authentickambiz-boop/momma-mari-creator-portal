@@ -1223,3 +1223,32 @@ export const invoiceReminders = sqliteTable(
   },
   (table) => [uniqueIndex("invoice_reminders_invoice_kind").on(table.invoiceId, table.kind)],
 );
+
+export const payoutLedger = sqliteTable("payout_ledger", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  dealId: text("deal_id"),
+  brand: text("brand").notNull(),
+  grossCents: integer("gross_cents").notNull(),
+  feeCents: integer("fee_cents").notNull(),
+  expenseCents: integer("expense_cents").notNull(),
+  creatorCents: integer("creator_cents").notNull(),
+  agencyCents: integer("agency_cents").notNull(),
+  brandPaidOn: text("brand_paid_on"),
+  payoutOn: text("payout_on"),
+  weekOf: text("week_of"),
+  note: text("note"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const creatorW9s = sqliteTable("creator_w9s", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  ciphertext: text("ciphertext").notNull(),
+  byteLength: integer("byte_length").notNull(),
+  uploadedBy: text("uploaded_by").notNull(),
+  createdAt: text("created_at").notNull(),
+});

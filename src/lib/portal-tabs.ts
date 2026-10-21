@@ -33,6 +33,7 @@ export const PORTAL_TABS = [
   { id: "settings", href: "/settings", label: "Settings" },
   { id: "billing", href: "/billing", label: "Billing and usage" },
   { id: "invoices", href: "/invoices", label: "Invoices" },
+  { id: "payouts", href: "/payouts", label: "Payout ledger" },
   { id: "team", href: "/team", label: "Team" },
 ] as const;
 
@@ -46,6 +47,7 @@ export function visiblePortalTabs(viewer: Viewer) {
     if (item.id === "invoices") return viewer.role === "admin";
     if (item.id === "safety") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "earnings") return viewer.role !== "manager";
+    if (item.id === "payouts") return viewer.role === "admin" || viewer.role === "creator";
     if (item.id === "report") return viewer.role !== "manager";
     if (item.id === "approvals") return viewer.role === "admin" || Boolean(viewer.permissions?.approveEmail);
     if (item.id === "brands") return viewer.role === "admin" || viewer.role === "manager";
