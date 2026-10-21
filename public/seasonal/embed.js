@@ -57,11 +57,14 @@
   var CAST = {
     halloween: FLOATERS,
     thanksgiving: [
-      drift("leaf", "8%", "12%", 64, "22s", "0s", "a"),
-      drift("leaf", "18%", "78%", 48, "26s", "-8s", "c"),
-      drift("leaf", "6%", "42%", 36, "20s", "-4s", "b"),
-      drift("leaf", "28%", "24%", 42, "28s", "-12s", "a"),
-      drift("leaf", "22%", "60%", 30, "24s", "-2s", "c"),
+      drift("leaf", "6%", "10%", 58, "22s", "0s", "a"),
+      drift("leaf", "14%", "28%", 36, "26s", "-4s", "b"),
+      drift("leaf", "8%", "48%", 28, "20s", "-8s", "c"),
+      drift("leaf", "18%", "66%", 44, "24s", "-2s", "a"),
+      drift("leaf", "12%", "84%", 34, "28s", "-11s", "b"),
+      drift("leaf", "28%", "16%", 40, "22s", "-6s", "c"),
+      drift("leaf", "32%", "42%", 26, "30s", "-14s", "a"),
+      drift("leaf", "24%", "74%", 32, "26s", "-1s", "b"),
     ],
     hanukkah: [
       drift("star", "10%", "16%", 36, "22s", "0s", "a"),
@@ -136,7 +139,7 @@
   };
   var GLOW = {
     halloween: LANTERNS,
-    thanksgiving: [{ top: "64%", left: "24%", size: 90, delay: "0s" }, { top: "62%", left: "54%", size: 80, delay: "-0.8s" }],
+    thanksgiving: [{ top: "70%", left: "60%", size: 110, delay: "0s" }, { top: "72%", left: "64%", size: 80, delay: "-0.9s" }],
     hanukkah: [{ top: "36%", left: "50%", size: 180, delay: "0s" }, { top: "38%", left: "12%", size: 90, delay: "-1.1s" }],
     christmas: [{ top: "52%", left: "82%", size: 140, delay: "0s" }, { top: "48%", left: "18%", size: 100, delay: "-0.9s" }],
     "new-year": [{ top: "16%", left: "16%", size: 150, delay: "0s" }, { top: "14%", left: "72%", size: 130, delay: "-0.7s" }],

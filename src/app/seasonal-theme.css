@@ -190,6 +190,9 @@
 .seasonal-floater-a { animation-name: seasonal-ghost-a; }
 .seasonal-floater-b { animation-name: seasonal-ghost-b; }
 .seasonal-floater-c { animation-name: seasonal-ghost-c; }
+.seasonal-floater-leaf.seasonal-floater-a { animation-name: seasonal-leaf-a; }
+.seasonal-floater-leaf.seasonal-floater-b { animation-name: seasonal-leaf-b; }
+.seasonal-floater-leaf.seasonal-floater-c { animation-name: seasonal-leaf-c; }
 .seasonal-floater-bat.seasonal-floater-a { animation-name: seasonal-bat-a; }
 .seasonal-floater-bat.seasonal-floater-b { animation-name: seasonal-bat-b; }
 .seasonal-floater-bat.seasonal-floater-c { animation-name: seasonal-bat-c; }
@@ -453,6 +456,21 @@ html[data-seasonal] :focus-visible { outline-color: #F3C48A; }
 @keyframes seasonal-ghost-c {
   0%, 100% { transform: translate3d(0, 0, 0); }
   50% { transform: translate3d(12px, -34px, 0); }
+}
+
+@keyframes seasonal-leaf-a {
+  0%, 100% { transform: translate3d(0, -6px, 0) rotate(-14deg); }
+  50% { transform: translate3d(20px, 28px, 0) rotate(18deg); }
+}
+
+@keyframes seasonal-leaf-b {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(10deg); }
+  50% { transform: translate3d(-18px, 32px, 0) rotate(-16deg); }
+}
+
+@keyframes seasonal-leaf-c {
+  0%, 100% { transform: translate3d(0, -4px, 0) rotate(-8deg); }
+  50% { transform: translate3d(12px, 22px, 0) rotate(20deg); }
 }
 
 @keyframes seasonal-bat-a {

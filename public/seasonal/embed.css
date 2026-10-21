@@ -108,6 +108,9 @@
 .mm-floater-bat.mm-drift-a { animation-name: mm-bat-a; }
 .mm-floater-bat.mm-drift-b { animation-name: mm-bat-b; }
 .mm-floater-bat.mm-drift-c { animation-name: mm-bat-c; }
+.mm-floater-leaf.mm-drift-a { animation-name: mm-leaf-a; }
+.mm-floater-leaf.mm-drift-b { animation-name: mm-leaf-b; }
+.mm-floater-leaf.mm-drift-c { animation-name: mm-leaf-c; }
 
 .mm-web {
   width: 150px;
@@ -177,6 +180,21 @@ html.mm-seasonal [data-mm-glass] {
 @keyframes mm-ghost-c {
   0%, 100% { transform: translate3d(0, 0, 0); }
   50% { transform: translate3d(12px, -34px, 0); }
+}
+
+@keyframes mm-leaf-a {
+  0%, 100% { transform: translate3d(0, -6px, 0) rotate(-14deg); }
+  50% { transform: translate3d(20px, 28px, 0) rotate(18deg); }
+}
+
+@keyframes mm-leaf-b {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(10deg); }
+  50% { transform: translate3d(-18px, 32px, 0) rotate(-16deg); }
+}
+
+@keyframes mm-leaf-c {
+  0%, 100% { transform: translate3d(0, -4px, 0) rotate(-8deg); }
+  50% { transform: translate3d(12px, 22px, 0) rotate(20deg); }
 }
 
 @keyframes mm-bat-a {

@@ -231,7 +231,7 @@ describe("seasonal themes", { concurrency: 1 }, () => {
       assert.ok(mobile.length < site.length, theme.id);
       if (theme.id !== "halloween") {
         const motif = {
-          thanksgiving: /id="harvest-table"/,
+          thanksgiving: /id="cornucopia"/,
           hanukkah: /id="menorah"/,
           christmas: /id="christmas-tree"/,
           "new-year": /id="firework"/,
@@ -258,5 +258,25 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     const home = source("src/app/page.tsx");
     assert.match(home, /creatorHome \? <SeasonalGreeting/);
     assert.match(source("src/components/seasonal-greeting.tsx"), /active\?\.greeting/);
+  });
+
+  test("the Thanksgiving scene keeps the harvest brief and stays a preview", () => {
+    const theme = SEASONAL_THEMES.find((item) => item.id === "thanksgiving");
+    assert.equal(theme?.preview, true);
+    for (const file of ["thanksgiving-site.svg", "thanksgiving-portal.svg", "thanksgiving-mobile.svg"]) {
+      const art = source(`public/seasonal/${file}`);
+      assert.match(art, /id="cornucopia"/, file);
+      assert.match(art, /id="turkey"/, file);
+      assert.match(art, /id="harvest-table"/, file);
+      assert.match(art, /id="harvest-border"/, file);
+      assert.match(art, /wheat-sway/, file);
+      assert.match(art, /prefers-reduced-motion:\s*reduce/, file);
+    }
+    assert.match(source("docs/thanksgiving-decor.md"), /horn of plenty/i);
+    assert.match(source("src/app/seasonal-theme.css"), /seasonal-floater-leaf/);
+    assert.match(source("public/seasonal/embed.css"), /mm-floater-leaf/);
+    const cast = THEME_FLOATERS.filter((item) => item.theme === "thanksgiving" && item.surface === "site");
+    assert.equal(cast.length, 8);
+    assert.ok(cast.every((item) => item.kind === "leaf"));
   });
 });
