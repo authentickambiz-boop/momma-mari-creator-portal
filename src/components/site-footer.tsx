@@ -13,6 +13,8 @@ export function SiteFooter() {
         <Link href="/careers">Careers</Link>
         <Link href="/press">Press</Link>
         <Link href="/feedback">Feedback</Link>
+        <Link href="/help">Help</Link>
+        <Link href="/status">Status</Link>
         <Link href="/privacy">Privacy</Link>
         <Link href="/terms">Terms</Link>
         <Link href="/our-standard">Kids in content</Link>
