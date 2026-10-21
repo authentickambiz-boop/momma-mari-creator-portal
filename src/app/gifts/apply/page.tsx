@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { applyGiftedByEmailAction } from "@/app/gift-actions";
+import { PrivacyNotice } from "@/components/privacy-notice";
 import { GIFTED_TERMS_TEXT, GIFTED_TERMS_VERSION } from "@/config/gifted-terms";
 import { getDb } from "@/db/getDb";
 import { formatMoney } from "@/lib/format";
@@ -40,6 +41,7 @@ export default async function GiftedBenchApplyPage({ searchParams }: { searchPar
               <input type="checkbox" name="acceptTerms" value="1" required />
               I accept the draft terms. If I receive the product and miss the video, the retail cost plus a $50 finder&apos;s fee can be flagged.
             </label>
+            <PrivacyNotice />
             <button className="btn" type="submit">Apply</button>
           </form>
         ))}

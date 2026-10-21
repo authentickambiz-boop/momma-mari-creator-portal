@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { joinBenchAction } from "@/app/bench-actions";
+import { PrivacyNotice } from "@/components/privacy-notice";
 import { TagPicker } from "@/components/tag-picker";
 import { benchErrorNote } from "@/lib/bench-notes";
 import { NICHE_CATALOG, PLATFORM_OPTIONS } from "@/lib/niche-catalog";
@@ -26,6 +27,7 @@ export default async function JoinBenchPage({ searchParams }: { searchParams: Pr
             <label>Link<input name={`url-${index}`} /></label>
           </div>
         ))}
+        <PrivacyNotice />
         <button className="btn" type="submit">Join free</button>
       </form>
       <p><Link href="/gifts/apply">Free products, if you are already on the bench</Link></p>

@@ -1,4 +1,5 @@
 import { hideProfileAction, saveProfileAction } from "@/app/profile-actions";
+import { PrivacyNotice } from "@/components/privacy-notice";
 import { PortalFrame } from "@/components/portal-frame";
 import { TagPicker } from "@/components/tag-picker";
 import { loadPortal } from "@/lib/current-user";
@@ -96,6 +97,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         <label><input type="checkbox" name="familyConfirm" value="1" /> I confirm this is a first name or nickname and an age range</label>
         <label><input type="checkbox" name="familyOn" value="1" defaultChecked={profile?.familyOn} /> Show family details</label>
         <label><input type="checkbox" name="joinedOn" value="1" defaultChecked={profile?.joinedOn ?? true} /> Show joined month and year</label>
+        <PrivacyNotice />
         <button className="btn" type="submit">Save profile</button>
       </form>
     </PortalFrame>

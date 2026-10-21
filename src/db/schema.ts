@@ -610,6 +610,10 @@ export const usageRights = sqliteTable("usage_rights", {
   dealId: text("deal_id").notNull().unique(),
   startsOn: text("starts_on").notNull(),
   endsOn: text("ends_on"),
+  usageType: text("usage_type"),
+  territory: text("territory"),
+  exclusivityCategory: text("exclusivity_category"),
+  exclusivityEndsOn: text("exclusivity_ends_on"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -1153,6 +1157,32 @@ export const botTokens = sqliteTable("bot_tokens", {
   active: integer("active", { mode: "boolean" }).notNull(),
   createdAt: text("created_at").notNull(),
   revokedAt: text("revoked_at"),
+});
+
+export const creatorOfferReviews = sqliteTable("creator_offer_reviews", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  brand: text("brand").notNull(),
+  contactEmail: text("contact_email").notNull(),
+  offerLabel: text("offer_label").notNull(),
+  summary: text("summary").notNull(),
+  decision: text("decision"),
+  counterNote: text("counter_note"),
+  decidedAt: text("decided_at"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const brandCampaignReports = sqliteTable("brand_campaign_reports", {
+  id: text("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  dealId: text("deal_id").notNull(),
+  title: text("title").notNull(),
+  viewsLabel: text("views_label"),
+  engagementLabel: text("engagement_label"),
+  clicksLabel: text("clicks_label"),
+  commentsLabel: text("comments_label"),
+  contentLinks: text("content_links"),
+  createdAt: text("created_at").notNull(),
 });
 
 export const creatorShowcases = sqliteTable("creator_showcases", {

@@ -1,6 +1,8 @@
 const INQUIRY_ERROR_TEXT = {
   name: "Name the brand.",
   email: "Use a real work email.",
+  budget: "Choose a budget range.",
+  creator: "Choose a creator, or ask us to recommend.",
 } as const;
 
 /** A short code for the public inquiry form. Unknown wording stays the fixed fallback. */

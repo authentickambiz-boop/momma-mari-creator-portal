@@ -1,13 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { bookPackageAction } from "@/app/package-actions";
+import { PrivacyNotice } from "@/components/privacy-notice";
 import { PublicShell } from "@/components/public-shell";
+import { publicPageMeta } from "@/lib/public-meta";
 import { BRAND_PACKAGES, packageForBudget, parseBudgetDollars } from "@/lib/brand-packages";
 import { packageCheckoutEnabled } from "@/lib/package-checkout-flag";
 import { BRAND_INQUIRY_HREF, PUBLIC_ROBOTS } from "@/lib/public-site";
 
-export const metadata = {
-  title: "Brand packages · Momma Mari",
-  description: "Brand packages booked by budget. Prices are placeholders until the owner approves them.",
+export const metadata: Metadata = {
+  ...publicPageMeta({
+    title: "Brand packages · Momma Mari",
+    description: "Brand packages booked by budget. Prices are placeholders until the owner approves them.",
+    path: "/packages",
+  }),
   robots: PUBLIC_ROBOTS,
 };
 
@@ -41,6 +47,7 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
               <button className="btn" type="submit" disabled={!checkoutOn}>Book / pay deposit</button>
             </form>
             {!checkoutOn ? <p className="note">Checkout is off. Nothing is charged.</p> : null}
+            <PrivacyNotice />
           </article>
         ))}
       </div>

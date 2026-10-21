@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { PublicShell } from "@/components/public-shell";
+import { publicPageMeta } from "@/lib/public-meta";
 import { BRAND_INQUIRY_HREF, BRAND_INQUIRY_LABEL, PUBLIC_ROBOTS, SERVICES } from "@/lib/public-site";
 
 export const metadata = {
-  title: "Services · Momma Mari",
-  description: "Brand partnerships and creator management from Momma Mari.",
+  ...publicPageMeta({
+    title: "Services · Momma Mari",
+    description: "Brand partnerships and creator management from Momma Mari.",
+    path: "/services",
+  }),
   robots: PUBLIC_ROBOTS,
 };
 
@@ -19,7 +23,7 @@ export default function ServicesPage() {
           </article>
         ))}
       </div>
-      <p><Link href={BRAND_INQUIRY_HREF}>{BRAND_INQUIRY_LABEL}</Link>. That form saves a brand contact. It does not send an email.</p>
+      <p><Link href={BRAND_INQUIRY_HREF}>{BRAND_INQUIRY_LABEL}</Link>. Share the campaign and we reply within 3 business days.</p>
     </PublicShell>
   );
 }

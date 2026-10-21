@@ -3,19 +3,32 @@ import { creators } from "@/db/schema";
 
 export const PUBLIC_ROBOTS = { index: true as const, follow: true as const };
 
-export const PUBLIC_MARKETING_PATHS = ["/services", "/packages", "/roster", "/meet", "/inquire", "/apply", "/apply/thanks", "/our-standard"] as const;
+export const PUBLIC_MARKETING_PATHS = [
+  "/services",
+  "/packages",
+  "/roster",
+  "/meet",
+  "/work",
+  "/our-standard",
+  "/inquire",
+  "/apply",
+  "/apply/thanks",
+  "/privacy",
+  "/terms",
+] as const;
 
 /** True for the public marketing pages, with or without the portal mount prefix. */
 export function isPublicMarketingPath(pathname: string, basePath = "") {
   const base = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
   const stripped = base && pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
   const path = (stripped.split("?")[0] || "/").replace(/\/+$/, "") || "/";
+  if (path.startsWith("/brand-report/")) return true;
   return (PUBLIC_MARKETING_PATHS as readonly string[]).includes(path);
 }
 
 export const BRAND_INQUIRY_HREF = "/inquire";
 export const BRAND_INQUIRY_LABEL = "Tell us about a brand";
-export const INQUIRY_SUBMIT_LABEL = "Save on the brand list";
+export const INQUIRY_SUBMIT_LABEL = "Send the brief";
 
 /** A public count. It does not include pay, email, or ages. */
 export function rosterCountLabel(count: number) {
@@ -34,7 +47,7 @@ export const SERVICES = [
   },
   {
     title: "A roster that grows",
-    body: "Meet Our Creators lists the people Kamron marks as public. A new creator shows up there when he turns that on.",
+    body: "Meet Our Creators lists the people on the public roster, with the same follower counts on every page.",
   },
 ] as const;
 

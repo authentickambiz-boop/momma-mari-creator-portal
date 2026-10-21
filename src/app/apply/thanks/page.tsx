@@ -9,7 +9,7 @@ export const metadata = {
 export default function ApplyThanksPage() {
   return (
     <PublicShell title="Application under review" lede="Thanks, your application will be reviewed soon.">
-      <p className="note">Your application is under review. Nothing was emailed. Kamron will look at it from his dashboard.</p>
+      <p className="note">Your application is under review. You&apos;ll hear from us within 5 business days.</p>
       <p><Link href="/login">Back to creator sign-in</Link></p>
     </PublicShell>
   );

@@ -11,10 +11,15 @@ export async function saveUsageRightsAction(formData: FormData) {
   if (!viewer) redirect("/login");
   const db = await getDb();
   const ends = String(formData.get("endsOn") ?? "").trim();
+  const exclusivityEnds = String(formData.get("exclusivityEndsOn") ?? "").trim();
   const result = await saveUsageRights(db, {
     dealId: String(formData.get("dealId") ?? ""),
     startsOn: String(formData.get("startsOn") ?? ""),
     endsOn: ends || null,
+    usageType: String(formData.get("usageType") ?? ""),
+    territory: String(formData.get("territory") ?? ""),
+    exclusivityCategory: String(formData.get("exclusivityCategory") ?? ""),
+    exclusivityEndsOn: exclusivityEnds || null,
     actorEmail: viewer.email,
     actorRole: viewer.role,
   });

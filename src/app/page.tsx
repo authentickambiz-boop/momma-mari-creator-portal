@@ -15,12 +15,24 @@ import { listUnreadNotices } from "@/lib/onboarding";
 import { listUnreadCreatorNotices } from "@/lib/video-review";
 import { getDealForViewer, listDealsForViewer } from "@/lib/queries";
 import { listCreatorOffers } from "@/lib/brand-offers";
+import { CreatorDealReviewCard } from "@/components/creator-deal-review";
+import { listCreatorDealReviews } from "@/lib/creator-deal-review";
 import { questionnaireFor } from "@/lib/questionnaire";
 import { inviteErrorNote } from "@/lib/invite-notes";
 import { noticeErrorNote } from "@/lib/notice-notes";
 import { listPlatformInvites } from "@/lib/platform-invites";
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string; passed?: string; invite?: string; noticeError?: string; checkout?: string }> }) {
+const REVIEW_NOTES: Record<string, string> = {
+  saved: "Your answer is saved. Nothing was emailed.",
+  role: "Only the creator can answer this offer.",
+  choice: "Choose accept, counter, or pass.",
+  missing: "That offer is not on your list.",
+  own: "You can only answer your own offers.",
+  answered: "You already answered this offer.",
+  "1": "That answer was not saved.",
+};
+
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string; passed?: string; invite?: string; noticeError?: string; checkout?: string; review?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
   const deals = await listDealsForViewer(portal.db, portal.viewer, portal.viewedId);
@@ -63,8 +75,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     : null;
   const brandOffers = portal.viewer.role === "creator" ? await listCreatorOffers(portal.db, portal.viewer) : [];
   const platformInvites = creatorHome ? await listPlatformInvites(portal.db, portal.viewer) : [];
+  const dealReviews = creatorHome && portal.viewer.creatorId
+    ? await listCreatorDealReviews(portal.db, portal.viewer.creatorId)
+    : [];
+  const reviewNote = params.review ? REVIEW_NOTES[params.review] ?? REVIEW_NOTES["1"] : null;
   const offersWaiting = brandOffers.filter((offer) => offer.response === "pending" || offer.response === "question");
-  if (quiz && !quiz.finished && !quiz.paused) {
+  const pendingReviews = dealReviews.some((offer) => !offer.decision);
+  if (quiz && !quiz.finished && !quiz.paused && !pendingReviews) {
     redirect(params.checkout === "success" ? "/onboarding?checkout=success" : "/onboarding");
   }
   return (
@@ -90,6 +107,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       {inviteErrorNote(params.invite) ? <p className="private-note">{inviteErrorNote(params.invite)}</p> : null}
       {params.noticeError ? <p className="note alert" role="alert">{noticeErrorNote(params.noticeError) ?? "That notice was not dismissed. Nothing was changed."}</p> : null}
       {platformInvites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} />)}
+      {dealReviews.length > 0 ? <CreatorDealReviewCard offers={dealReviews} note={reviewNote} /> : null}
       {offersWaiting.length > 0 ? (
         <div className="callout">
           <b>{offersWaiting.length === 1 ? "A brand offer is in your inbox." : `${offersWaiting.length} brand offers are in your inbox.`}</b>{" "}

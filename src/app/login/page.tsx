@@ -36,7 +36,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <h1>Welcome back.</h1>
         <p className="lead">Sign in with the Google account you were invited with. You&apos;ll only see your own deals.</p>
         {error ? <p className="private-note" role="alert">{error}</p> : null}
-        {showApplyHint ? <p className="note">If you are new, apply to join Momma Mari. Kamron reviews each application. Nothing is emailed.</p> : null}
+        {showApplyHint ? <p className="note">If you are new, apply to join Momma Mari. We review each application and reply within 5 business days.</p> : null}
         <Link className="btn" href="/apply">New creator? Apply to join Momma Mari</Link>
         {googleConfigured() ? (
           <a className="btn google" href={`${base}/api/auth/google`}>Continue with Google</a>

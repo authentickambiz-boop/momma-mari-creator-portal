@@ -50,10 +50,65 @@ export type UsageCard = {
   brand: string;
   startsOn: string;
   endsOn: string | null;
+  usageType: string | null;
+  territory: string | null;
+  exclusivityCategory: string | null;
+  exclusivityEndsOn: string | null;
   flag: "expired" | "soon" | null;
   renewalSku: string;
   renewalLabel: string;
 };
+
+/** Owner-dashboard window. The rights table still uses the wider usageFlag. */
+export const EXPIRY_ALERT_DAYS = 14;
+
+export type ExpiryAlert = {
+  dealId: string;
+  brand: string;
+  kind: "usage" | "exclusivity";
+  endsOn: string;
+  status: "soon" | "expired";
+  daysLeft: number;
+  category: string | null;
+};
+
+export function usageExpiryAlerts(
+  cards: Pick<UsageCard, "dealId" | "brand" | "endsOn" | "exclusivityEndsOn" | "exclusivityCategory">[],
+  today: string,
+): ExpiryAlert[] {
+  const alerts: ExpiryAlert[] = [];
+  for (const card of cards) {
+    const usage = alertFor(card.endsOn, today);
+    if (usage) {
+      alerts.push({ dealId: card.dealId, brand: card.brand, kind: "usage", endsOn: card.endsOn!, category: null, ...usage });
+    }
+    const exclusivity = alertFor(card.exclusivityEndsOn, today);
+    if (exclusivity) {
+      alerts.push({
+        dealId: card.dealId,
+        brand: card.brand,
+        kind: "exclusivity",
+        endsOn: card.exclusivityEndsOn!,
+        category: card.exclusivityCategory,
+        ...exclusivity,
+      });
+    }
+  }
+  return alerts.sort((left, right) => left.endsOn.localeCompare(right.endsOn) || left.brand.localeCompare(right.brand));
+}
+
+function alertFor(endsOn: string | null, today: string) {
+  if (!endsOn) return null;
+  const daysLeft = dayNumber(endsOn) - dayNumber(today);
+  if (daysLeft < 0) return { status: "expired" as const, daysLeft };
+  if (daysLeft <= EXPIRY_ALERT_DAYS) return { status: "soon" as const, daysLeft };
+  return null;
+}
+
+function cleanText(value: string | null | undefined) {
+  const text = value?.trim() ?? "";
+  return text ? text.slice(0, 160) : null;
+}
 
 async function canEdit(db: PortalDb, creatorId: string, actor: { email: string; role: string }) {
   if (actor.role === "admin" || actor.role === "bot") return { ok: true as const };
@@ -70,9 +125,22 @@ async function canEdit(db: PortalDb, creatorId: string, actor: { email: string; 
 
 export async function saveUsageRights(
   db: PortalDb,
-  input: { dealId: string; startsOn: string; endsOn: string | null; actorEmail: string; actorRole: string },
+  input: {
+    dealId: string;
+    startsOn: string;
+    endsOn: string | null;
+    usageType?: string | null;
+    territory?: string | null;
+    exclusivityCategory?: string | null;
+    exclusivityEndsOn?: string | null;
+    actorEmail: string;
+    actorRole: string;
+  },
 ): Promise<Result<{ id: string }>> {
   if (!isIsoDate(input.startsOn) || (input.endsOn != null && input.endsOn !== "" && !isIsoDate(input.endsOn))) {
+    return { ok: false, status: 400, error: "Use dates like 2026-10-21." };
+  }
+  if (input.exclusivityEndsOn && !isIsoDate(input.exclusivityEndsOn)) {
     return { ok: false, status: 400, error: "Use dates like 2026-10-21." };
   }
   const endsOn = input.endsOn ? input.endsOn : null;
@@ -87,10 +155,26 @@ export async function saveUsageRights(
   const timestamp = nowIso();
   const existing = await db.select().from(usageRights).where(eq(usageRights.dealId, deal.id));
   const id = existing[0]?.id ?? crypto.randomUUID();
+  const extra: Partial<typeof usageRights.$inferInsert> = {};
+  if (input.usageType !== undefined) extra.usageType = cleanText(input.usageType);
+  if (input.territory !== undefined) extra.territory = cleanText(input.territory);
+  if (input.exclusivityCategory !== undefined) extra.exclusivityCategory = cleanText(input.exclusivityCategory);
+  if (input.exclusivityEndsOn !== undefined) extra.exclusivityEndsOn = input.exclusivityEndsOn || null;
   if (existing[0]) {
-    await db.update(usageRights).set({ startsOn: input.startsOn, endsOn, updatedAt: timestamp }).where(eq(usageRights.id, id));
+    await db.update(usageRights).set({ startsOn: input.startsOn, endsOn, updatedAt: timestamp, ...extra }).where(eq(usageRights.id, id));
   } else {
-    await db.insert(usageRights).values({ id, dealId: deal.id, startsOn: input.startsOn, endsOn, createdAt: timestamp, updatedAt: timestamp });
+    await db.insert(usageRights).values({
+      id,
+      dealId: deal.id,
+      startsOn: input.startsOn,
+      endsOn,
+      usageType: extra.usageType ?? null,
+      territory: extra.territory ?? null,
+      exclusivityCategory: extra.exclusivityCategory ?? null,
+      exclusivityEndsOn: extra.exclusivityEndsOn ?? null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
   }
   return { ok: true, id };
 }
@@ -108,6 +192,10 @@ export async function listUsageRights(db: PortalDb, viewer: Viewer, today: strin
       brand: deal.brand,
       startsOn: row.startsOn,
       endsOn: row.endsOn,
+      usageType: row.usageType,
+      territory: row.territory,
+      exclusivityCategory: row.exclusivityCategory,
+      exclusivityEndsOn: row.exclusivityEndsOn,
       flag: usageFlag(row.endsOn, today),
       renewalSku: renewal.sku,
       renewalLabel: renewal.label,

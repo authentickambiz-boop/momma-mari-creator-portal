@@ -228,7 +228,7 @@ export async function recordBrandInquiry(
     kind: "inquiry",
     contactName: input.contactName?.trim() || null,
     contactEmail: email,
-    note: input.note?.trim().slice(0, 2000) || null,
+    note: input.note?.trim().slice(0, 8000) || null,
     actorName: "Website",
     createdAt: nowIso(),
   });

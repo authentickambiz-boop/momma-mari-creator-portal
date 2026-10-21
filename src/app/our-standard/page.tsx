@@ -1,10 +1,15 @@
+import type { Metadata } from "next";
 import { PublicShell } from "@/components/public-shell";
 import { KIDS_STANDARD } from "@/lib/kids-standard";
+import { publicPageMeta } from "@/lib/public-meta";
 import { PUBLIC_ROBOTS } from "@/lib/public-site";
 
-export const metadata = {
-  title: "Kids in content · Momma Mari",
-  description: "How Momma Mari handles child safety, privacy, work hours, earnings set aside, and consent.",
+export const metadata: Metadata = {
+  ...publicPageMeta({
+    title: "Kids in content · Momma Mari",
+    description: "How Momma Mari handles child safety, privacy, work hours, earnings set aside, and consent.",
+    path: "/our-standard",
+  }),
   robots: PUBLIC_ROBOTS,
 };
 
