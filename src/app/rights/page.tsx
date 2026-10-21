@@ -26,13 +26,15 @@ export default async function RightsPage({ searchParams }: { searchParams: Promi
       {cards.length > 0 ? (
         <div className="card">
           <table>
-            <thead><tr><th>Brand</th><th>Starts</th><th>Ends</th><th>Flag</th><th>Suggested renewal</th></tr></thead>
+            <thead><tr><th>Brand</th><th>Usage</th><th>Starts</th><th>Ends</th><th>Exclusivity</th><th>Flag</th><th>Suggested renewal</th></tr></thead>
             <tbody>
               {cards.map((card) => (
                 <tr key={card.dealId}>
                   <td>{card.brand}</td>
+                  <td>{card.usageType ?? "Not set"}{card.territory ? ` · ${card.territory}` : ""}</td>
                   <td>{card.startsOn}</td>
                   <td>{card.endsOn ?? "No end"}</td>
+                  <td>{card.exclusivityCategory ?? "None"}{card.exclusivityEndsOn ? ` · ends ${card.exclusivityEndsOn}` : ""}</td>
                   <td>{card.flag === "soon" ? "Nearing expiry" : card.flag === "expired" ? "Expired" : "In term"}</td>
                   <td>{card.renewalSku} · {card.renewalLabel}</td>
                 </tr>
@@ -50,9 +52,19 @@ export default async function RightsPage({ searchParams }: { searchParams: Promi
               {deals.map((deal) => <option key={deal.id} value={deal.id}>{deal.brand}</option>)}
             </select>
           </label>
+          <label>Usage type
+            <select name="usageType" defaultValue="organic">
+              <option value="organic">Organic</option>
+              <option value="paid">Paid ads</option>
+              <option value="whitelisting">Whitelisting / Spark</option>
+            </select>
+          </label>
+          <label>Territory<input name="territory" placeholder="US, or worldwide" /></label>
           <label>Starts<input type="date" name="startsOn" required /></label>
           <label>Ends<input type="date" name="endsOn" /></label>
-          <p className="note">Leave the end empty for perpetual usage (B-UAP).</p>
+          <label>Exclusivity category<input name="exclusivityCategory" placeholder="Towel warmers, or none" /></label>
+          <label>Exclusivity ends<input type="date" name="exclusivityEndsOn" /></label>
+          <p className="note">Leave the end empty for perpetual usage (B-UAP). The owner dashboard flags a date inside 14 days.</p>
           <button className="btn" type="submit">Save usage</button>
         </form>
       ) : null}

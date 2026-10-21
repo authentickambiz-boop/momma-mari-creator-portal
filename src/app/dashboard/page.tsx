@@ -2,6 +2,7 @@ import { approveCreatorApplicationAction, declineCreatorApplicationAction } from
 import { setCreatorSignedAction } from "@/app/billing-actions";
 import { addReinvestmentAction, saveReinvestTargetAction } from "@/app/growth-actions";
 import { PlatformInviteCard } from "@/components/platform-invite-card";
+import { OwnerSignals } from "@/components/owner-signals";
 import { PipelineFollowUps } from "@/components/pipeline-follow-ups";
 import { PortalFrame } from "@/components/portal-frame";
 import { ownerDashboard } from "@/lib/campaigns";
@@ -11,6 +12,8 @@ import { fulfillmentStatusLabel, listFulfillmentOrders } from "@/lib/fulfillment
 import { paymentsEnabled } from "@/lib/payments";
 import { MEMBER_ONE_TIME_PERCENT_OFF, memberServiceIncluded } from "@/lib/payments-config";
 import { applyReviewNote, listCreatorApplications, type CreatorApplicationView } from "@/lib/creator-apply";
+import { listBrandReports } from "@/lib/brand-report";
+import { listOwnerDealReviews } from "@/lib/creator-deal-review";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
 import { growthErrorNote } from "@/lib/growth-notes";
@@ -18,6 +21,8 @@ import { inviteErrorNote } from "@/lib/invite-notes";
 import { listPlatformInvites } from "@/lib/platform-invites";
 import { REINVEST_CATEGORIES, reinvestmentSummary } from "@/lib/reinvestment";
 import { getDealStage } from "@/lib/stages";
+import { listUsageRights, usageExpiryAlerts } from "@/lib/usage";
+import { listDealsForViewer } from "@/lib/queries";
 import { listCreatorSigning, signedCreatorNote } from "@/lib/signed-creators";
 
 function ApplicationsCard({ applications, note }: { applications: CreatorApplicationView[]; note: string | null }) {
@@ -143,6 +148,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </PortalFrame>
     );
   }
+  const today = new Date().toISOString().slice(0, 10);
+  const usageCards = await listUsageRights(portal.db, portal.viewer, today);
+  const reviewBoard = await listOwnerDealReviews(portal.db, portal.viewer);
+  const signals = (
+    <OwnerSignals
+      alerts={usageExpiryAlerts(usageCards, today)}
+      reviews={reviewBoard.ok ? reviewBoard.reviews : []}
+      reports={await listBrandReports(portal.db, portal.viewer)}
+      deals={(await listDealsForViewer(portal.db, portal.viewer, "all")).map((deal) => ({ id: deal.id, brand: deal.brand }))}
+    />
+  );
   const orders = await listFulfillmentOrders(portal.db, portal.viewer);
   const signing = await listCreatorSigning(portal.db, portal.viewer);
   const paymentsOn = paymentsEnabled();
@@ -161,6 +177,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
         {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
         <ApplicationsCard applications={applications} note={applyNote} />
+        {signals}
         <FulfillmentCard orders={orders} enabled={paymentsOn} />
         <SignedCreatorsCard people={signing} />
         {followUpCard}
@@ -180,6 +197,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
       {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
       <ApplicationsCard applications={applications} note={applyNote} />
+      {signals}
       <FulfillmentCard orders={orders} enabled={paymentsOn} />
       <SignedCreatorsCard people={signing} />
       {followUpCard}

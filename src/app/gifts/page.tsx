@@ -7,6 +7,7 @@ import {
   postGiftedAction,
   shipGiftedAction,
 } from "@/app/gift-actions";
+import { PrivacyNotice } from "@/components/privacy-notice";
 import { PortalFrame } from "@/components/portal-frame";
 import { GIFTED_TERMS_TEXT, GIFTED_TERMS_VERSION } from "@/config/gifted-terms";
 import { loadPortal } from "@/lib/current-user";
@@ -114,7 +115,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
             <p>Retail value {formatMoney(offer.retailValueCents)}</p>
             <div className="stage-form">
               {offer.photos.map((photo) => (
-                <img key={photo} src={photo} alt="" style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 12 }} />
+                <img key={photo} src={photo} alt={offer.product} style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 12 }} />
               ))}
             </div>
             {creatorView && !offer.mine ? (
@@ -125,6 +126,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
                   <input type="checkbox" name="acceptTerms" value="1" required />
                   I accept the draft terms. If I receive the product and miss the video, the retail cost plus a $50 finder&apos;s fee can be flagged.
                 </label>
+                <PrivacyNotice />
                 <button className="btn" type="submit">Apply</button>
               </form>
             ) : null}

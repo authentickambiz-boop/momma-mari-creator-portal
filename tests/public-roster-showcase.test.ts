@@ -59,10 +59,13 @@ describe("public roster showcase", { concurrency: 1 }, () => {
     assert.equal(rosterPage.includes("handles"), false);
 
     const inquire = source("src/app/inquire/page.tsx");
-    assert.match(inquire, /\{INQUIRY_SUBMIT_LABEL\}/);
-    assert.equal(INQUIRY_SUBMIT_LABEL, "Save on the brand list");
+    const brief = source("src/components/brand-brief-form.tsx");
+    assert.match(brief, /\{INQUIRY_SUBMIT_LABEL\}/);
+    assert.equal(INQUIRY_SUBMIT_LABEL, "Send the brief");
     assert.equal(inquire.includes("Send to Momma Mari"), false);
-    assert.match(inquire, /does not send an email/);
+    assert.equal(brief.includes("Send to Momma Mari"), false);
+    assert.match(inquire, /3 business days/);
+    assert.equal(inquire.includes("does not send an email"), false);
 
     const approvalsBefore = (await db.select().from(approvalEmails)).length;
     const saved = await recordBrandInquiry(db, {

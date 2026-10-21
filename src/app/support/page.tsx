@@ -1,4 +1,5 @@
 import { submitSupportAction } from "@/app/account-actions";
+import { PrivacyNotice } from "@/components/privacy-notice";
 import { PortalFrame } from "@/components/portal-frame";
 import { listSupportMessages } from "@/lib/creator-home";
 import { loadPortal } from "@/lib/current-user";
@@ -16,6 +17,7 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
       <form action={submitSupportAction} className="card stack">
         <label>Subject<input name="subject" required maxLength={140} /></label>
         <label>Message<textarea name="body" required rows={5} maxLength={4000} /></label>
+        <PrivacyNotice />
         <button className="btn" type="submit">Save note</button>
       </form>
       {notes.length === 0 ? <p className="note empty">No notes yet. Nothing is emailed.</p> : (

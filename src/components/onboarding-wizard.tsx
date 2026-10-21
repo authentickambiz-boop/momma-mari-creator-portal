@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { finishOnboardingAction } from "@/app/actions";
 import { TagPicker } from "@/components/tag-picker";
 import { finishErrorNote } from "@/lib/finish-notes";
@@ -51,6 +52,7 @@ export function OnboardingWizard({
       </label>
       <TagPicker name="favoriteBrands" label="6. Favorite brands" options={BRAND_OPTIONS} selected={brands} placeholder="Brands you would say yes to" />
       <TagPicker name="platforms" label="Platforms you post on" options={PLATFORM_LABELS} selected={platforms} />
+      <p className="note privacy-notice">By submitting you agree to our <Link href="/privacy">Privacy Policy</Link>.</p>
       <button className="btn" type="submit">Finish</button>
     </form>
   );

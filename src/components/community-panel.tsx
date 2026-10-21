@@ -338,7 +338,7 @@ export function CommunityPanel() {
                     <button type="button" aria-label="Message actions" onClick={() => setMenuId(menuId === message.id ? null : message.id)}>⋯</button>
                   </header>
                   {message.body ? <p>{message.body}</p> : null}
-                  {message.photoUrl ? <img src={message.photoUrl} alt="" /> : null}
+                  {message.photoUrl ? <img src={message.photoUrl} alt={`${message.authorName} shared a photo`} /> : null}
                   <div className="community-reacts">
                     {COMMUNITY_EMOJIS.map((emoji) => {
                       const found = message.reactions.find((reaction) => reaction.emoji === emoji);
