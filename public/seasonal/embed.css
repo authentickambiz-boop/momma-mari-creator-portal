@@ -122,6 +122,14 @@
 .mm-web-left { top: 0; left: 0; }
 .mm-web-right { top: 0; right: 0; transform: scaleX(-1); }
 
+.mm-harvest {
+  position: absolute;
+  z-index: 3;
+  width: 74px;
+  height: 74px;
+}
+.mm-harvest svg { width: 100%; height: 100%; display: block; }
+
 html.mm-seasonal {
   background: #120A1C !important;
 }
@@ -226,6 +234,14 @@ html.mm-seasonal [data-mm-glass] {
   }
   .mm-floater,
   .mm-lantern { display: none; }
+  .mm-harvest { width: 48px !important; height: 48px !important; }
+  html.mm-seasonal[data-mm-theme="thanksgiving"] .mm-scene::after {
+    left: 5%;
+    right: 5%;
+    top: 10%;
+    bottom: 8%;
+    background: rgba(42, 18, 10, 0.74);
+  }
   .mm-stars,
   .mm-moon,
   .mm-art,
@@ -247,6 +263,32 @@ html.mm-seasonal [data-mm-glass] {
 html.mm-seasonal[data-mm-theme="thanksgiving"] { background: #2A120A !important; }
 html.mm-seasonal[data-mm-theme="thanksgiving"] body,
 html.mm-seasonal[data-mm-theme="thanksgiving"] [data-mm-glass] { background: rgba(42, 18, 10, 0.68) !important; background-color: rgba(42, 18, 10, 0.68) !important; }
+/* Body blur would make the page the containing block for position:fixed, so the
+   scene stretched to the document and the first screen showed only empty sky. */
+html.mm-seasonal[data-mm-theme="thanksgiving"] body { backdrop-filter: none !important; }
+html.mm-seasonal[data-mm-theme="thanksgiving"] .mm-scene {
+  top: 0;
+  right: 0;
+  bottom: auto;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+}
+/* The Webflow hero is transparent, and its noise layer is opacity 0.01, so the
+   headline would sit on the bright painting. This column is the glass panel. */
+html.mm-seasonal[data-mm-theme="thanksgiving"] .mm-scene::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: 7%;
+  bottom: 6%;
+  left: 24%;
+  right: 24%;
+  border-radius: 32px;
+  background: rgba(42, 18, 10, 0.62);
+  pointer-events: none;
+}
 html.mm-seasonal[data-mm-theme="hanukkah"] { background: #071428 !important; }
 html.mm-seasonal[data-mm-theme="hanukkah"] body,
 html.mm-seasonal[data-mm-theme="hanukkah"] [data-mm-glass] { background: rgba(10, 22, 48, 0.68) !important; background-color: rgba(10, 22, 48, 0.68) !important; }

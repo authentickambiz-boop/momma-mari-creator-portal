@@ -89,6 +89,10 @@ describe("webflow seasonal embed", () => {
     assert.match(css, /rgba\(32, 14, 58, 0\.84\)/);
     assert.match(css, /backdrop-filter:\s*blur\(18px\)/);
     assert.match(css, /backdrop-filter:\s*none/);
+    assert.match(css, /data-mm-theme="thanksgiving"\] body \{ backdrop-filter: none !important; \}/);
+    assert.match(css, /data-mm-theme="thanksgiving"\] \.mm-scene[\s\S]*100dvh/);
+    assert.match(js, /mm-harvest/);
+    assert.match(js, /scene\.id === "thanksgiving"/);
     assert.equal(embed.shouldSkip("/portal"), true);
     assert.equal(embed.shouldSkip("/portal/services"), true);
     assert.equal(embed.shouldSkip("/"), false);

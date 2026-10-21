@@ -234,6 +234,36 @@
     return '<svg viewBox="0 0 64 72" aria-hidden="true"><path fill="#FFF8F1" stroke="#1C1A1F" stroke-width="2.5" d="M14 34c0-12 8-22 18-22s18 10 18 22v26l-6-6-6 6-6-6-6 6-6-6-6 6V34z"/><circle cx="26" cy="34" r="2.6" fill="#1C1A1F"/><circle cx="40" cy="34" r="2.6" fill="#1C1A1F"/><path d="M28 44c2.2 2.6 5.8 2.6 8 0" fill="none" stroke="#1C1A1F" stroke-width="2"/></svg>';
   }
 
+  function harvestPiece(kind) {
+    if (kind === "gourd") {
+      return '<svg viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="40" rx="16" ry="11" fill="#E8C56A" stroke="#1C140E" stroke-width="3"/><path d="M32 29c3-12 12-14 8-20" fill="none" stroke="#2F6A36" stroke-width="3" stroke-linecap="round"/><path d="M18 40h28" stroke="#C4926A" stroke-width="2"/></svg>';
+    }
+    if (kind === "maple") {
+      return '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="#C4453A" stroke="#1C140E" stroke-width="3" d="M32 6c6 10 16 12 22 6 4 8 2 16-6 18 8 4 10 14 4 20-8-2-14 2-16 10-2-8-8-12-16-10-6-6-4-16 4-20-8-2-10-10-6-18 6 6 16 4 22-6z"/><path d="M32 28v28" stroke="#6B3414" stroke-width="3" stroke-linecap="round"/></svg>';
+    }
+    return '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="#E09A3A" stroke="#1C140E" stroke-width="3" d="M34 8c14 10 22 24 16 40-16-2-28-14-36-26C8 10 18 4 34 8z"/><path d="M30 22c6 8 8 16 6 26" fill="none" stroke="#6B3414" stroke-width="2.4"/></svg>';
+  }
+
+  function harvestFrame() {
+    var pieces = [
+      ["maple", "top:0;left:0", "-18deg", 86],
+      ["gourd", "top:0;left:13%", "12deg", 56],
+      ["leaf", "top:1%;left:28%", "-8deg", 44],
+      ["maple", "top:0;right:16%", "16deg", 68],
+      ["gourd", "top:0;right:0", "-12deg", 58],
+      ["leaf", "top:22%;left:0", "22deg", 64],
+      ["gourd", "top:48%;left:0", "-8deg", 52],
+      ["maple", "top:18%;right:0", "-20deg", 74],
+      ["leaf", "top:42%;right:0", "14deg", 56],
+      ["gourd", "bottom:2%;left:2%", "10deg", 60],
+      ["maple", "bottom:0;right:1%", "18deg", 70],
+      ["leaf", "bottom:3%;left:42%", "-10deg", 48],
+    ];
+    return pieces.map(function (piece) {
+      return '<span class="mm-harvest" style="' + piece[1] + ";width:" + piece[3] + "px;height:" + piece[3] + "px;transform:rotate(" + piece[2] + ')">' + harvestPiece(piece[0]) + "</span>";
+    }).join("");
+  }
+
   function web() {
     return '<svg class="mm-web mm-web-LEFT" viewBox="0 0 140 140" aria-hidden="true"><g fill="none" stroke="#E6D8F6" stroke-width="1.3" stroke-linecap="round"><path d="M6 8 C 48 18, 86 28, 132 14"/><path d="M6 8 C 18 52, 28 92, 16 132"/><path d="M6 8 L 126 118"/><path d="M6 8 L 78 132"/><path d="M6 8 L 132 70"/></g></svg>';
   }
@@ -349,6 +379,7 @@
       var right = web().replace("mm-web-LEFT", "mm-web-right");
       root.insertAdjacentHTML("beforeend", left + right);
     }
+    if (scene.id === "thanksgiving") root.insertAdjacentHTML("beforeend", harvestFrame());
     return root;
   }
 
