@@ -141,7 +141,15 @@ async function managerIds(db: PortalDb, viewer: Viewer) {
   return new Set(await assignedCreatorIds(db, manager.id));
 }
 
+/** A dismissed thread stays dismissed. A confirmed deal is not turned back into an inquiry by a later sync. */
+export function keptInboxClassification(current: string, incoming: string) {
+  if (current === "not_deal") return "not_deal";
+  if (current === "deal" || incoming === "deal") return "deal";
+  return current || incoming;
+}
+
 function canSee(viewer: Viewer, thread: { creatorId: string; classification: string; private: boolean }, allowed: Set<string>) {
+  if (thread.classification === "not_deal") return false;
   if (viewer.role === "admin") return true;
   if (viewer.role === "creator") return viewer.creatorId === thread.creatorId && thread.classification !== "not_deal";
   if (viewer.role === "manager") {
@@ -260,7 +268,7 @@ export async function recordBrandMessage(
     });
   } else {
     threadRowId = existing[0].id;
-    const classification = existing[0].classification === "not_deal" ? "not_deal" : input.classification === "deal" ? "deal" : existing[0].classification;
+    const classification = keptInboxClassification(existing[0].classification, input.classification);
     await db.update(gmailBridgeThreads).set({
       dealId: input.dealId ?? existing[0].dealId,
       subject,
