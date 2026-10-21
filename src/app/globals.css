@@ -616,6 +616,8 @@ form.stack > label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"
 .public-nav a { min-height: 44px; display: inline-flex; align-items: center; color: var(--ink); font-weight: 650; }
 .public-foot { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); }
 .public-foot a { min-height: 44px; display: inline-flex; align-items: center; }
+.pipeline-board { display: flex; gap: 12px; overflow-x: auto; align-items: flex-start; padding-bottom: 8px; }
+.pipeline-col { min-width: 220px; flex: 0 0 220px; }
 .public-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .meet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: stretch; }
 .meet-card { display: flex; flex-direction: column; gap: 8px; }

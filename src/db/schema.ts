@@ -1252,3 +1252,17 @@ export const creatorW9s = sqliteTable("creator_w9s", {
   uploadedBy: text("uploaded_by").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+export const brandPipelineCards = sqliteTable("brand_pipeline_cards", {
+  id: text("id").primaryKey(),
+  sourceKey: text("source_key").notNull().unique(),
+  brand: text("brand").notNull(),
+  creatorId: text("creator_id"),
+  contactEmail: text("contact_email"),
+  stage: text("stage").notNull(),
+  valueCents: integer("value_cents"),
+  nextFollowUp: text("next_follow_up"),
+  note: text("note"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

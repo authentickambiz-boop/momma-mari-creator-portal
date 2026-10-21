@@ -2,8 +2,10 @@ import { approveCreatorApplicationAction, declineCreatorApplicationAction } from
 import { setCreatorSignedAction } from "@/app/billing-actions";
 import { addReinvestmentAction, saveReinvestTargetAction } from "@/app/growth-actions";
 import { PlatformInviteCard } from "@/components/platform-invite-card";
+import { PipelineFollowUps } from "@/components/pipeline-follow-ups";
 import { PortalFrame } from "@/components/portal-frame";
 import { ownerDashboard } from "@/lib/campaigns";
+import { pipelineReminders, seedBrandPipeline } from "@/lib/brand-pipeline";
 import { BRAND_CREDIT } from "@/lib/branding";
 import { fulfillmentStatusLabel, listFulfillmentOrders } from "@/lib/fulfillment-orders";
 import { paymentsEnabled } from "@/lib/payments";
@@ -149,6 +151,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const invites = await listPlatformInvites(portal.db, portal.viewer);
   const month = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
   const reinvest = await reinvestmentSummary(portal.db, portal.viewer, month);
+  await seedBrandPipeline(portal.db, portal.viewer);
+  const followUps = await pipelineReminders(portal.db, portal.viewer);
+  const followUpCard = <PipelineFollowUps reminders={followUps.ok ? followUps.reminders : []} />;
   if (!dash.ok) {
     return (
       <PortalFrame viewer={portal.viewer} tab="dashboard" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Dashboard</h1>}>
@@ -158,6 +163,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <ApplicationsCard applications={applications} note={applyNote} />
         <FulfillmentCard orders={orders} enabled={paymentsOn} />
         <SignedCreatorsCard people={signing} />
+        {followUpCard}
         <p className="note">{dash.error}</p>
       </PortalFrame>
     );
@@ -176,6 +182,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <ApplicationsCard applications={applications} note={applyNote} />
       <FulfillmentCard orders={orders} enabled={paymentsOn} />
       <SignedCreatorsCard people={signing} />
+      {followUpCard}
       {invites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} showCreator />)}
       <div className="kpi-row">
         <article className="kpi">

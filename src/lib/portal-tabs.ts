@@ -22,6 +22,7 @@ export const PORTAL_TABS = [
   { id: "access", href: "/access", label: "Access" },
   { id: "prospects", href: "/prospects", label: "Prospects" },
   { id: "dashboard", href: "/dashboard", label: "Dashboard" },
+  { id: "pipeline", href: "/pipeline", label: "Deal pipeline" },
   { id: "ranking", href: "/ranking", label: "Ranking" },
   { id: "reports", href: "/reports", label: "Reports" },
   { id: "pods", href: "/pods", label: "Pods" },
@@ -58,6 +59,7 @@ export function visiblePortalTabs(viewer: Viewer) {
     if (item.id === "review") return viewer.role === "admin";
     if (item.id === "access") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "prospects" || item.id === "dashboard" || item.id === "ranking" || item.id === "reports" || item.id === "bench") return viewer.role === "admin";
+    if (item.id === "pipeline") return viewer.role === "admin";
     if (item.id === "kit") return viewer.role === "creator";
     return true;
   });
