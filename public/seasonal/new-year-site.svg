@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-site">
+  <path d="M0 520C260 440 540 540 840 430C1100 340 1280 460 1440 380V900H0Z" fill="#16142E"/>
+  <path d="M0 720C340 660 720 800 1120 690C1280 650 1380 740 1440 700V900H0Z" fill="#100E1C"/>
+  <g id="clock" transform="translate(120,-70)">
+    <circle cx="520" cy="560" r="150" fill="#FFF6EA" stroke="#E2B657" stroke-width="10"/>
+    <circle cx="520" cy="560" r="122" fill="#FFF6EA" stroke="#E2B657" stroke-width="4"/>
+    <g stroke="#E2B657" stroke-width="4" stroke-linecap="round">
+      <path d="M520 460v16M520 644v16M420 560h16M604 560h16"/>
+      <path d="M450 490l10 10M580 620l10 10M590 490l-10 10M450 620l10-10"/>
+    </g>
+    <path d="M520 560l-8-70" stroke="#1C1A1F" stroke-width="6" stroke-linecap="round"/>
+    <path d="M520 560l46-18" stroke="#E2B657" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="520" cy="560" r="8" fill="#E2B657"/>
+  </g>
+  <g id="year-lights" fill="#E2B657">
+    <g id="digit-2">
+      <circle cx="920" cy="250" r="8"/><circle cx="948" cy="250" r="8"/><circle cx="976" cy="250" r="8"/>
+      <circle cx="976" cy="278" r="8"/><circle cx="948" cy="306" r="8"/><circle cx="920" cy="334" r="8"/>
+      <circle cx="920" cy="362" r="8"/><circle cx="948" cy="362" r="8"/><circle cx="976" cy="362" r="8"/>
+    </g>
+    <g id="digit-0">
+      <circle cx="1040" cy="250" r="8"/><circle cx="1068" cy="250" r="8"/><circle cx="1096" cy="250" r="8"/>
+      <circle cx="1040" cy="278" r="8"/><circle cx="1096" cy="278" r="8"/>
+      <circle cx="1040" cy="306" r="8"/><circle cx="1096" cy="306" r="8"/>
+      <circle cx="1040" cy="334" r="8"/><circle cx="1096" cy="334" r="8"/>
+      <circle cx="1040" cy="362" r="8"/><circle cx="1068" cy="362" r="8"/><circle cx="1096" cy="362" r="8"/>
+    </g>
+    <g id="digit-2b">
+      <circle cx="1160" cy="250" r="8"/><circle cx="1188" cy="250" r="8"/><circle cx="1216" cy="250" r="8"/>
+      <circle cx="1216" cy="278" r="8"/><circle cx="1188" cy="306" r="8"/><circle cx="1160" cy="334" r="8"/>
+      <circle cx="1160" cy="362" r="8"/><circle cx="1188" cy="362" r="8"/><circle cx="1216" cy="362" r="8"/>
+    </g>
+    <g id="digit-7">
+      <circle cx="1280" cy="250" r="8"/><circle cx="1308" cy="250" r="8"/><circle cx="1336" cy="250" r="8"/>
+      <circle cx="1324" cy="278" r="8"/><circle cx="1312" cy="306" r="8"/><circle cx="1300" cy="334" r="8"/><circle cx="1288" cy="362" r="8"/>
+    </g>
+  </g>
+  <g id="streamers">
+    <path d="M200 180c40 30 20 70 60 90" stroke="#E2B657" stroke-width="4" fill="none"/>
+    <path d="M260 160c30 40 10 80 50 100" stroke="#C9B0E8" stroke-width="4" fill="none"/>
+    <path d="M80 260l18 10-8 18" fill="#E2B657"/>
+  </g>
+  <g id="hat">
+    <path d="M700 700l40-70 40 70z" fill="#E2B657" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M690 700h100" stroke="#F7F1FF" stroke-width="6"/>
+    <circle cx="740" cy="624" r="8" fill="#F7F1FF"/>
+  </g>
+</svg>

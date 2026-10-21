@@ -99,6 +99,9 @@
   filter: drop-shadow(0 8px 10px rgba(12, 6, 24, 0.35));
 }
 
+.mm-drift-a { animation-name: mm-ghost-a; }
+.mm-drift-b { animation-name: mm-ghost-b; }
+.mm-drift-c { animation-name: mm-ghost-c; }
 .mm-floater-ghost.mm-drift-a { animation-name: mm-ghost-a; }
 .mm-floater-ghost.mm-drift-b { animation-name: mm-ghost-b; }
 .mm-floater-ghost.mm-drift-c { animation-name: mm-ghost-c; }
@@ -218,6 +221,80 @@ html.mm-seasonal [data-mm-glass] {
   .mm-lantern,
   .mm-art,
   .mm-web { animation-play-state: paused; }
+}
+
+.mm-scene[data-night="false"] .mm-stars,
+.mm-scene[data-night="false"] .mm-moon { display: none; }
+
+html.mm-seasonal[data-mm-theme="thanksgiving"] { background: #2A120A !important; }
+html.mm-seasonal[data-mm-theme="thanksgiving"] body,
+html.mm-seasonal[data-mm-theme="thanksgiving"] [data-mm-glass] { background: rgba(42, 18, 10, 0.68) !important; background-color: rgba(42, 18, 10, 0.68) !important; }
+html.mm-seasonal[data-mm-theme="hanukkah"] { background: #071428 !important; }
+html.mm-seasonal[data-mm-theme="hanukkah"] body,
+html.mm-seasonal[data-mm-theme="hanukkah"] [data-mm-glass] { background: rgba(10, 22, 48, 0.68) !important; background-color: rgba(10, 22, 48, 0.68) !important; }
+html.mm-seasonal[data-mm-theme="christmas"] { background: #07140E !important; }
+html.mm-seasonal[data-mm-theme="christmas"] body,
+html.mm-seasonal[data-mm-theme="christmas"] [data-mm-glass] { background: rgba(8, 24, 16, 0.68) !important; background-color: rgba(8, 24, 16, 0.68) !important; }
+html.mm-seasonal[data-mm-theme="new-year"] { background: #0A0814 !important; }
+html.mm-seasonal[data-mm-theme="new-year"] body,
+html.mm-seasonal[data-mm-theme="new-year"] [data-mm-glass] { background: rgba(16, 14, 36, 0.68) !important; background-color: rgba(16, 14, 36, 0.68) !important; }
+html.mm-seasonal[data-mm-theme="valentines"] { background: #2A0C1C !important; }
+html.mm-seasonal[data-mm-theme="valentines"] body,
+html.mm-seasonal[data-mm-theme="valentines"] [data-mm-glass] { background: rgba(42, 12, 28, 0.68) !important; background-color: rgba(42, 12, 28, 0.68) !important; }
+html.mm-seasonal[data-mm-theme="st-patricks"] { background: #081C10 !important; }
+html.mm-seasonal[data-mm-theme="st-patricks"] body,
+html.mm-seasonal[data-mm-theme="st-patricks"] [data-mm-glass] { background: rgba(8, 28, 16, 0.68) !important; background-color: rgba(8, 28, 16, 0.68) !important; }
+html.mm-seasonal[data-mm-theme="easter"] { background: #121830 !important; }
+html.mm-seasonal[data-mm-theme="easter"] body,
+html.mm-seasonal[data-mm-theme="easter"] [data-mm-glass] { background: rgba(18, 24, 48, 0.68) !important; background-color: rgba(18, 24, 48, 0.68) !important; }
+html.mm-seasonal[data-mm-theme="mothers-day"] { background: #240E1C !important; }
+html.mm-seasonal[data-mm-theme="mothers-day"] body,
+html.mm-seasonal[data-mm-theme="mothers-day"] [data-mm-glass] { background: rgba(36, 14, 28, 0.68) !important; background-color: rgba(36, 14, 28, 0.68) !important; }
+html.mm-seasonal[data-mm-theme="fathers-day"] { background: #1C120C !important; }
+html.mm-seasonal[data-mm-theme="fathers-day"] body,
+html.mm-seasonal[data-mm-theme="fathers-day"] [data-mm-glass] { background: rgba(28, 18, 12, 0.68) !important; background-color: rgba(28, 18, 12, 0.68) !important; }
+html.mm-seasonal[data-mm-theme="summer"] { background: #08142A !important; }
+html.mm-seasonal[data-mm-theme="summer"] body,
+html.mm-seasonal[data-mm-theme="summer"] [data-mm-glass] { background: rgba(8, 20, 42, 0.68) !important; background-color: rgba(8, 20, 42, 0.68) !important; }
+html.mm-seasonal[data-mm-theme="back-to-school"] { background: #24100A !important; }
+html.mm-seasonal[data-mm-theme="back-to-school"] body,
+html.mm-seasonal[data-mm-theme="back-to-school"] [data-mm-glass] { background: rgba(36, 16, 10, 0.68) !important; background-color: rgba(36, 16, 10, 0.68) !important; }
+
+.mm-scene[data-theme="thanksgiving"] .mm-sky { background: linear-gradient(180deg, #F2C48A 0%, #E09A3A 42%, #8C4A1A 100%); }
+.mm-scene[data-theme="hanukkah"] .mm-sky { background: radial-gradient(680px 360px at 70% 8%, rgba(226, 182, 87, 0.35), transparent 60%), linear-gradient(180deg, #071428 0%, #16325C 55%, #0A1830 100%); }
+.mm-scene[data-theme="christmas"] .mm-sky { background: radial-gradient(700px 320px at 80% 0%, rgba(196, 69, 58, 0.28), transparent 62%), linear-gradient(180deg, #04140E 0%, #123828 58%, #0C1812 100%); }
+.mm-scene[data-theme="new-year"] .mm-sky { background: radial-gradient(520px 280px at 30% 12%, rgba(226, 182, 87, 0.28), transparent 64%), linear-gradient(180deg, #07060F 0%, #2A2458 62%, #100E1C 100%); }
+.mm-scene[data-theme="valentines"] .mm-sky { background: linear-gradient(180deg, #4A1830 0%, #8A4060 48%, #2A0C1C 100%); }
+.mm-scene[data-theme="st-patricks"] .mm-sky { background: linear-gradient(180deg, #B7D7F2 0%, #8FBF7A 46%, #1E6A48 100%); }
+.mm-scene[data-theme="easter"] .mm-sky { background: linear-gradient(180deg, #F3D7C4 0%, #A7C7E7 46%, #7FA08A 100%); }
+.mm-scene[data-theme="mothers-day"] .mm-sky { background: linear-gradient(180deg, #F6D5C8 0%, #E7A8B8 48%, #C9899A 100%); }
+.mm-scene[data-theme="fathers-day"] .mm-sky { background: linear-gradient(180deg, #F0C48A 0%, #C4926A 48%, #6B5344 100%); }
+.mm-scene[data-theme="summer"] .mm-sky { background: linear-gradient(180deg, #1B3A6B 0%, #C45A3A 58%, #1A120E 100%); }
+.mm-scene[data-theme="back-to-school"] .mm-sky { background: linear-gradient(180deg, #F2C14E 0%, #E09A3A 42%, #8C4A1A 100%); }
+
+@media (max-width: 820px) {
+  html.mm-seasonal[data-mm-theme="thanksgiving"] body,
+  html.mm-seasonal[data-mm-theme="thanksgiving"] [data-mm-glass] { background: rgba(42, 18, 10, 0.84) !important; background-color: rgba(42, 18, 10, 0.84) !important; backdrop-filter: none; }
+  html.mm-seasonal[data-mm-theme="hanukkah"] body,
+  html.mm-seasonal[data-mm-theme="hanukkah"] [data-mm-glass] { background: rgba(10, 22, 48, 0.84) !important; background-color: rgba(10, 22, 48, 0.84) !important; backdrop-filter: none; }
+  html.mm-seasonal[data-mm-theme="christmas"] body,
+  html.mm-seasonal[data-mm-theme="christmas"] [data-mm-glass] { background: rgba(8, 24, 16, 0.84) !important; background-color: rgba(8, 24, 16, 0.84) !important; backdrop-filter: none; }
+  html.mm-seasonal[data-mm-theme="new-year"] body,
+  html.mm-seasonal[data-mm-theme="new-year"] [data-mm-glass] { background: rgba(16, 14, 36, 0.84) !important; background-color: rgba(16, 14, 36, 0.84) !important; backdrop-filter: none; }
+  html.mm-seasonal[data-mm-theme="valentines"] body,
+  html.mm-seasonal[data-mm-theme="valentines"] [data-mm-glass] { background: rgba(42, 12, 28, 0.84) !important; background-color: rgba(42, 12, 28, 0.84) !important; backdrop-filter: none; }
+  html.mm-seasonal[data-mm-theme="st-patricks"] body,
+  html.mm-seasonal[data-mm-theme="st-patricks"] [data-mm-glass] { background: rgba(8, 28, 16, 0.84) !important; background-color: rgba(8, 28, 16, 0.84) !important; backdrop-filter: none; }
+  html.mm-seasonal[data-mm-theme="easter"] body,
+  html.mm-seasonal[data-mm-theme="easter"] [data-mm-glass] { background: rgba(18, 24, 48, 0.84) !important; background-color: rgba(18, 24, 48, 0.84) !important; backdrop-filter: none; }
+  html.mm-seasonal[data-mm-theme="mothers-day"] body,
+  html.mm-seasonal[data-mm-theme="mothers-day"] [data-mm-glass] { background: rgba(36, 14, 28, 0.84) !important; background-color: rgba(36, 14, 28, 0.84) !important; backdrop-filter: none; }
+  html.mm-seasonal[data-mm-theme="fathers-day"] body,
+  html.mm-seasonal[data-mm-theme="fathers-day"] [data-mm-glass] { background: rgba(28, 18, 12, 0.84) !important; background-color: rgba(28, 18, 12, 0.84) !important; backdrop-filter: none; }
+  html.mm-seasonal[data-mm-theme="summer"] body,
+  html.mm-seasonal[data-mm-theme="summer"] [data-mm-glass] { background: rgba(8, 20, 42, 0.84) !important; background-color: rgba(8, 20, 42, 0.84) !important; backdrop-filter: none; }
+  html.mm-seasonal[data-mm-theme="back-to-school"] body,
+  html.mm-seasonal[data-mm-theme="back-to-school"] [data-mm-glass] { background: rgba(36, 16, 10, 0.84) !important; background-color: rgba(36, 16, 10, 0.84) !important; backdrop-filter: none; }
 }
 
 @media print {

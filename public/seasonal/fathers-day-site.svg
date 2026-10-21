@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-site">
+
+  
+  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#C4926A"/>
+  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#8A6248"/>
+  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#4A3424"/>
+  <g id="workshop">
+    <path d="M160 500L340 340L520 500Z" fill="#6B3414" stroke="#1C140E" stroke-width="4"/>
+    <rect x="190" y="490" width="300" height="190" fill="#E7D3B0" stroke="#1C140E" stroke-width="4"/>
+    <path d="M250 540h180v140H250z" fill="#3A2C24" stroke="#1C140E" stroke-width="3"/>
+    <path d="M340 540v140" stroke="#E0A060" stroke-width="3"/>
+    <rect x="210" y="520" width="36" height="28" fill="#C9E4F2" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="mug-stool" transform="translate(760 620)">
+    <rect x="20" y="50" width="70" height="16" fill="#6B5344"/>
+    <rect x="48" y="66" width="14" height="40" fill="#4A3424"/>
+    <rect x="36" y="10" width="36" height="42" rx="4" fill="#1B3A6B" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="leaning-rod" transform="translate(980 420)">
+    <path d="M40 280L180 40" stroke="#6B3414" stroke-width="6" stroke-linecap="round"/>
+    <path d="M168 40c20 8 28 20 16 28" stroke="#1C140E" stroke-width="3" fill="none"/>
+    <circle cx="40" cy="286" r="10" fill="#3A3A3A"/>
+  </g>
+  <ellipse cx="1200" cy="760" rx="90" ry="16" fill="#3E6A48" opacity="0.7"/>
+
+</svg>

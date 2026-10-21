@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-site">
+
+  
+  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#A7C7A0"/>
+  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#7FA08A"/>
+  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#4E7A62"/>
+  <g id="blossom-tree" transform="translate(140 280)">
+    <path d="M70 360c8-80 4-160 20-240" stroke="#6B3414" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="40" cy="120" r="36" fill="#F6D5DE" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="100" cy="90" r="42" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="90" cy="150" r="30" fill="#E7A0B4" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="150" cy="130" r="28" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="crooked-fence" stroke="#F4E7C8" stroke-width="6">
+    <path d="M520 640v90M600 620v110M680 650v80M760 630v100"/>
+    <path d="M500 680c90-20 180 10 280-16"/>
+  </g>
+  <g id="egg-basket" transform="translate(860 600)">
+    <path d="M20 40h160l-16 50H36z" fill="#C4926A" stroke="#1C140E" stroke-width="3"/>
+    <ellipse cx="60" cy="36" rx="16" ry="22" fill="#F6D5DE" stroke="#1C140E" stroke-width="3"/>
+    <ellipse cx="100" cy="30" rx="16" ry="22" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
+    <ellipse cx="140" cy="38" rx="16" ry="22" fill="#C9E4F2" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="meadow-bunny" transform="translate(1120 580)">
+    <ellipse cx="50" cy="70" rx="36" ry="28" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="78" cy="48" r="16" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <path d="M70 36l-4-28M86 34l6-28" stroke="#1C140E" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="74" cy="48" r="2" fill="#1C140E"/><circle cx="84" cy="48" r="2" fill="#1C140E"/>
+  </g>
+
+</svg>

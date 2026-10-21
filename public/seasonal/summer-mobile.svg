@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" fill="none" id="scene-mobile">
+
+  
+  <path d="M0 540C160 450 340 540 540 450C680 390 760 520 800 440V1200H0Z" fill="#C45A3A"/>
+  <path d="M0 820C200 740 420 880 640 760C720 720 770 820 800 770V1200H0Z" fill="#1B3A6B"/>
+  <g id="spark-bursts" fill="#F2C14E">
+    <path d="M120 160l8 20 20 4-16 12 6 20-18-12-18 12 6-20-16-12 20-4z"/>
+    <path d="M560 120l6 16 16 3-12 8 4 14-14-8-14 8 4-14-12-8 16-3z"/>
+  </g>
+  <g id="porch-bunting" transform="translate(40,200)">
+    <path d="M40 80c180 30 360 10 560 36" stroke="#1C140E" stroke-width="3"/>
+    <path d="M160 100l22 40h-44z" fill="#C4453A"/><path d="M280 108l22 40h-44z" fill="#FFF6EA"/><path d="M400 102l22 40h-44z" fill="#1B3A6B"/>
+  </g>
+  <g id="picnic" transform="translate(180 760)">
+    <rect width="400" height="120" rx="10" fill="#C4453A" stroke="#1C140E" stroke-width="3"/>
+    <path d="M0 40h400M100 0v120M200 0v120M300 0v120" stroke="#FFF6EA" stroke-width="5"/>
+  </g>
+
+</svg>

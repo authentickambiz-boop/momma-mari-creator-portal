@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
+
+  
+  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#E8873A"/>
+  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#16325C"/>
+  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#0C1424"/>
+  <g id="backyard-bunting">
+    <path d="M760 260c160 30 280 8 420 28" stroke="#1C140E" stroke-width="3"/>
+    <path d="M820 276l18 32h-36z" fill="#1B3A6B"/><path d="M900 284l18 32h-36z" fill="#FFF6EA"/><path d="M980 278l18 32h-36z" fill="#C4453A"/>
+  </g>
+  <g id="backyard-table" transform="translate(180 540)">
+    <rect x="40" y="20" width="420" height="22" fill="#E7D3B0" stroke="#1C140E" stroke-width="3"/>
+    <rect x="70" y="42" width="16" height="80" fill="#6B3414"/>
+    <rect x="400" y="42" width="16" height="80" fill="#6B3414"/>
+    <rect x="120" y="0" width="70" height="28" rx="4" fill="#C4453A"/>
+  </g>
+  <g id="lemonade" transform="translate(860 460)">
+    <path d="M40 40h80l-12 90H52z" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
+    <rect x="55" y="16" width="50" height="24" rx="4" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="160" cy="100" r="28" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
+    <rect x="148" y="70" width="8" height="28" fill="#E7D3B0"/>
+  </g>
+  <path d="M200 760c80-20 160 10 240-8" stroke="#3E9A56" stroke-width="16" stroke-linecap="round" id="grass-edge"/>
+
+</svg>

@@ -7,7 +7,7 @@ export async function SeasonalGreeting() {
   if (!active?.greeting) return null;
   return (
     <p className="seasonal-hello">
-      <PumpkinIcon />
+      {active.id === "halloween" ? <PumpkinIcon /> : null}
       <span>{active.greeting}</span>
     </p>
   );

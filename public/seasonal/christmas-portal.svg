@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
+  <path d="M0 520C280 440 560 540 860 430C1120 340 1300 470 1440 390V900H0Z" fill="#123524"/>
+  <path d="M0 700C360 640 740 790 1120 680C1280 640 1380 730 1440 690V900H0Z" fill="#F4FBFF"/>
+  <g id="wreath">
+    <circle cx="220" cy="460" r="70" fill="none" stroke="#1E6A48" stroke-width="22"/>
+    <circle cx="220" cy="400" r="12" fill="#C4453A"/>
+    <circle cx="168" cy="470" r="8" fill="#E2B657"/>
+    <circle cx="270" cy="480" r="8" fill="#F7F1FF"/>
+  </g>
+  <ellipse cx="860" cy="520" rx="300" ry="170" fill="#F7FBFF" opacity="0.9"/>
+  <g id="tree" transform="translate(0,-70)">
+    <rect x="820" y="690" width="36" height="80" fill="#6B3414"/>
+    <path d="M640 710l198-250 198 250z" fill="#1E6A48" stroke="#0C1812" stroke-width="4"/>
+    <path d="M690 540l148-190 148 190z" fill="#164832" stroke="#0C1812" stroke-width="4"/>
+    <path d="M740 400l98-140 98 140z" fill="#1E4A32" stroke="#0C1812" stroke-width="4"/>
+    <path d="M838 230l10 22 10-22 10 22-10 6 6 18h-32l6-18z" fill="#E2B657"/>
+    <circle cx="760" cy="640" r="14" fill="#C4453A"/>
+    <circle cx="900" cy="620" r="14" fill="#E2B657"/>
+    <circle cx="820" cy="540" r="12" fill="#F7F1FF"/>
+    <circle cx="960" cy="520" r="12" fill="#C4453A"/>
+    <circle cx="860" cy="450" r="10" fill="#E2B657"/>
+    <circle cx="940" cy="430" r="10" fill="#F7F1FF"/>
+    <circle cx="838" cy="360" r="9" fill="#C4453A"/>
+  </g>
+  <g id="gifts">
+    <rect x="1120" y="640" width="80" height="70" fill="#C4453A" stroke="#0C1812" stroke-width="3"/>
+    <path d="M1160 640v70M1120 674h80" stroke="#E2B657" stroke-width="6"/>
+    <rect x="1220" y="670" width="60" height="50" fill="#1E6A48" stroke="#0C1812" stroke-width="3"/>
+    <path d="M1250 670v50" stroke="#F7F1FF" stroke-width="4"/>
+  </g>
+</svg>

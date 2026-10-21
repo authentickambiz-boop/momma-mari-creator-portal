@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
+
+  
+  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#E7B8A8"/>
+  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#A86A78"/>
+  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#6A3844"/>
+  <g id="morning-window">
+    <rect x="140" y="220" width="380" height="320" rx="14" fill="#F7E6C8" stroke="#1C140E" stroke-width="4"/>
+    <path d="M140 260h380M140 500h380" stroke="#C9899A" stroke-width="16"/>
+    <rect x="180" y="290" width="140" height="180" fill="#F3D7C4" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="breakfast-tray" transform="translate(640 500)">
+    <rect x="0" y="40" width="360" height="150" rx="16" fill="#FFF6EA" stroke="#1C140E" stroke-width="4"/>
+    <rect x="30" y="70" width="80" height="50" rx="6" fill="#F4E7C8" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="160" cy="96" r="22" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
+    <rect x="210" y="78" width="50" height="70" rx="6" fill="#C9E4F2" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="window-flower" transform="translate(1080 420)">
+    <path d="M30 160c8-50 4-90 16-140" stroke="#1E6A48" stroke-width="4"/>
+    <circle cx="46" cy="20" r="22" fill="#E7A0B4" stroke="#1C140E" stroke-width="3"/>
+    <rect x="10" y="150" width="70" height="24" rx="4" fill="#6B5344"/>
+  </g>
+
+</svg>

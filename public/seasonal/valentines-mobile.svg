@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" fill="none" id="scene-mobile">
+
+  
+  <path d="M0 540C160 450 340 540 540 450C680 390 760 520 800 440V1200H0Z" fill="#C46A86"/>
+  <path d="M0 820C200 740 420 880 640 760C720 720 770 820 800 770V1200H0Z" fill="#4A1830"/>
+  <g id="heart-cottage" transform="translate(40,-40)">
+    <path d="M160 620L400 380L640 620Z" fill="#6A2844" stroke="#1C140E" stroke-width="4"/>
+    <rect x="210" y="600" width="380" height="240" rx="10" fill="#F6D5DE" stroke="#1C140E" stroke-width="4"/>
+    <path d="M360 500c-22 0-34 18-18 34 10 10 18 20 18 20s8-10 18-20c16-16 4-34-18-34z" fill="#C4453A" stroke="#1C140E" stroke-width="3"/>
+    <rect x="280" y="680" width="80" height="70" rx="8" fill="#FFF1F4" stroke="#1C140E" stroke-width="3"/>
+    <rect x="440" y="680" width="80" height="70" rx="8" fill="#FFF1F4" stroke="#1C140E" stroke-width="3"/>
+  </g>
+
+</svg>

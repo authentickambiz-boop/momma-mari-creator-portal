@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
+
+  
+  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#C4783A"/>
+  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#6B3414"/>
+  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#3A1E10"/>
+  <g id="desk-window">
+    <rect x="120" y="220" width="340" height="260" rx="8" fill="#F4E0C4" stroke="#1C140E" stroke-width="4"/>
+    <rect x="150" y="250" width="130" height="120" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="200" cy="300" r="24" fill="#C4453A"/>
+    <path d="M230 360c-8-40 4-70 8-100" stroke="#4A3424" stroke-width="4"/>
+  </g>
+  <g id="study-desk" transform="translate(560 520)">
+    <rect x="0" y="60" width="460" height="20" fill="#6B3414" stroke="#1C140E" stroke-width="3"/>
+    <rect x="40" y="10" width="70" height="16" fill="#C4453A" stroke="#1C140E" stroke-width="2"/>
+    <rect x="48" y="0" width="70" height="16" fill="#1B3A6B" stroke="#1C140E" stroke-width="2"/>
+    <rect x="56" y="-12" width="70" height="16" fill="#F4E7C8" stroke="#1C140E" stroke-width="2"/>
+  </g>
+  <g id="pencil-cup" transform="translate(1100 470)">
+    <path d="M20 40h70l-8 70H28z" fill="#E09A3A" stroke="#1C140E" stroke-width="3"/>
+    <rect x="34" y="8" width="8" height="40" fill="#F2C14E"/>
+    <rect x="50" y="0" width="8" height="48" fill="#C4453A"/>
+    <rect x="66" y="12" width="8" height="36" fill="#1B3A6B"/>
+  </g>
+
+</svg>

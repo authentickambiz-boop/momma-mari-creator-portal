@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-site">
+
+  <defs><radialGradient id="vv-win" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#FFF1F4"/><stop offset="1" stop-color="#E7A0B4"/></radialGradient></defs>
+  
+  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#C46A86"/>
+  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#8A4060"/>
+  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#4A1830"/>
+  <g id="heart-cottage">
+    <path d="M180 520L340 360L500 520Z" fill="#6A2844" stroke="#1C140E" stroke-width="4"/>
+    <rect x="210" y="510" width="260" height="180" rx="8" fill="#F6D5DE" stroke="#1C140E" stroke-width="4"/>
+    <path d="M300 430c-18 0-28 16-16 28 8 8 16 16 16 16s8-8 16-16c12-12 2-28-16-28z" fill="#C4453A" stroke="#1C140E" stroke-width="3"/>
+    <rect x="250" y="560" width="64" height="54" rx="6" fill="url(#vv-win)" stroke="#1C140E" stroke-width="3"/>
+    <rect x="370" y="560" width="64" height="54" rx="6" fill="url(#vv-win)" stroke="#1C140E" stroke-width="3"/>
+    <path d="M310 620h60v70h-60z" fill="#6A2844" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="heart-garland" stroke="#C4453A" stroke-width="3" fill="#E7A0B4">
+    <path d="M560 250c80 40 160 10 240 36" fill="none"/>
+    <path d="M620 270c-10 0-16 10-8 16 6 6 12 12 12 12s6-6 12-12c8-6 2-16-16-16z"/>
+    <path d="M700 286c-10 0-16 10-8 16 6 6 12 12 12 12s6-6 12-12c8-6 2-16-16-16z"/>
+    <path d="M770 300c-10 0-16 10-8 16 6 6 12 12 12 12s6-6 12-12c8-6 2-16-16-16z"/>
+  </g>
+  <g id="porch-cat" transform="translate(860 560)">
+    <ellipse cx="70" cy="70" rx="46" ry="28" fill="#F4E0C4" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="112" cy="52" r="18" fill="#F4E0C4" stroke="#1C140E" stroke-width="3"/>
+    <path d="M98 40l8-16 10 14M120 38l8-14 8 16" stroke="#1C140E" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="106" cy="52" r="2" fill="#1C140E"/><circle cx="118" cy="52" r="2" fill="#1C140E"/>
+    <path d="M40 78c-20 8-24 28-8 30" stroke="#1C140E" stroke-width="3" fill="none"/>
+  </g>
+  <g id="stump-mugs" transform="translate(1080 640)">
+    <rect x="0" y="40" width="150" height="28" rx="6" fill="#6B3414" stroke="#1C140E" stroke-width="3"/>
+    <rect x="24" y="8" width="28" height="36" rx="6" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <path d="M52 16h10c8 0 8 16 0 16H52" stroke="#1C140E" stroke-width="3" fill="none"/>
+    <rect x="78" y="12" width="28" height="32" rx="6" fill="#E7A0B4" stroke="#1C140E" stroke-width="3"/>
+  </g>
+
+</svg>

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
+
+  
+  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#4E8F68"/>
+  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#145C34"/>
+  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#0C2418"/>
+  <g id="rain" stroke="#D5E6F2" stroke-width="2" opacity="0.7">
+    <path d="M80 40l-16 36M160 20l-16 36M240 70l-16 36M320 30l-16 36M400 80l-16 36"/>
+  </g>
+  <g id="sill-clovers">
+    <rect x="180" y="280" width="460" height="300" rx="12" fill="#F4E7C8" stroke="#1C140E" stroke-width="4"/>
+    <rect x="210" y="310" width="180" height="160" fill="#9EC4DE" stroke="#1C140E" stroke-width="3"/>
+    <path d="M210 340h180M210 380h180M210 420h180" stroke="#F7F1FF" stroke-width="2" opacity="0.7"/>
+    <rect x="430" y="470" width="170" height="18" fill="#6B5344"/>
+    <g fill="#3E9A56" stroke="#0C1812" stroke-width="2" transform="translate(500 400)">
+      <circle cx="0" cy="-10" r="10"/><circle cx="-12" cy="6" r="10"/><circle cx="12" cy="6" r="10"/>
+      <path d="M0 10v28" stroke="#1C140E" fill="none" stroke-width="3"/>
+    </g>
+  </g>
+  <g id="teatime" transform="translate(860 520)">
+    <path d="M20 40h90v50H30z" fill="#F4E7C8" stroke="#1C140E" stroke-width="3"/>
+    <path d="M110 52h18c12 0 12 24 0 24h-18" stroke="#1C140E" stroke-width="3" fill="none"/>
+    <rect x="10" y="90" width="120" height="12" rx="3" fill="#6B5344"/>
+    <circle cx="160" cy="70" r="22" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
+  </g>
+
+</svg>

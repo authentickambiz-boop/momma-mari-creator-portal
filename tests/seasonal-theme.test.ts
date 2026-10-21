@@ -4,6 +4,7 @@ import path from "node:path";
 import { before, describe, test } from "node:test";
 import type { PortalDb } from "../src/db/index";
 import { isPublicMarketingPath } from "../src/lib/public-site";
+import { SCENE_INK, SEASONAL_CALENDAR } from "../src/lib/seasonal-calendar";
 import {
   compositeHex,
   contrastRatio,
@@ -17,6 +18,7 @@ import {
   seasonalEffects,
   seasonalSurface,
   selectSeasonalTheme,
+  THEME_FLOATERS,
   wallClockParts,
 } from "../src/lib/seasonal-theme";
 import { readThemeOverride, saveThemeOverride } from "../src/lib/seasonal-theme-store";
@@ -25,8 +27,6 @@ import { admin, mariclare, openTestDb } from "./harness";
 function source(file: string) {
   return readFileSync(path.join(process.cwd(), file), "utf8");
 }
-
-const PAGE_TEXT = ["#1C211E", "#1F3B2D", "#4A534D", "#B4532F", "#8C3E22", "#3A443E", "#5C6560", "#16291F"];
 
 describe("seasonal themes", { concurrency: 1 }, () => {
   let db: PortalDb;
@@ -39,17 +39,38 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     assert.equal(at("2026-10-01T00:00:00"), "halloween");
     assert.equal(at("2026-10-21T15:00:00"), "halloween");
     assert.equal(at("2026-11-01T23:59:59"), "halloween");
-    assert.equal(at("2026-11-02T00:00:00"), "thanksgiving");
-    assert.equal(at("2026-11-27T23:59:59"), "thanksgiving");
-    assert.equal(at("2026-11-28T00:00:00"), "holiday");
-    assert.equal(at("2027-01-01T23:59:59"), "holiday");
-    assert.equal(at("2027-01-02T00:00:00"), null);
-    assert.equal(at("2027-02-01T00:00:00"), "valentines");
-    assert.equal(at("2027-02-14T23:59:59"), "valentines");
-    assert.equal(at("2027-02-15T00:00:00"), null);
-    assert.equal(at("2027-05-02T00:00:00"), "mothers-day");
-    assert.equal(at("2027-05-09T23:59:59"), "mothers-day");
-    assert.equal(at("2027-05-10T00:00:00"), null);
+    assert.equal(at("2026-11-02T00:00:00"), null);
+    assert.equal(at("2026-11-26T12:00:00"), null);
+    assert.equal(at("2026-12-04T00:00:00"), null);
+    assert.equal(at("2026-12-25T12:00:00"), null);
+    assert.equal(at("2027-01-01T12:00:00"), null);
+    assert.equal(at("2027-02-14T12:00:00"), null);
+    assert.equal(at("2027-03-17T12:00:00"), null);
+    assert.equal(at("2027-03-28T12:00:00"), null);
+    assert.equal(at("2027-05-09T12:00:00"), null);
+    assert.equal(at("2027-06-20T12:00:00"), null);
+    assert.equal(at("2027-07-04T12:00:00"), null);
+    assert.equal(at("2027-09-01T12:00:00"), null);
+    assert.equal(at("2027-10-01T00:00:00"), null);
+
+    for (let i = 1; i < SEASONAL_CALENDAR.length; i += 1) {
+      const previous = SEASONAL_CALENDAR[i - 1];
+      const next = SEASONAL_CALENDAR[i];
+      assert.equal(parseThemeInstant(next.start), parseThemeInstant(previous.end) + 1000, `${previous.id} -> ${next.id}`);
+    }
+    const hanukkah = SEASONAL_CALENDAR.find((entry) => entry.id === "hanukkah");
+    assert.match(hanukkah?.note ?? "", /sundown Friday, December 4/);
+    assert.match(hanukkah?.note ?? "", /nightfall Saturday, December 12/);
+    assert.equal(hanukkah?.preview, true);
+    for (const theme of SEASONAL_THEMES) {
+      if (theme.id === "halloween") {
+        assert.equal(theme.preview, false);
+        continue;
+      }
+      assert.equal(theme.preview, true, theme.id);
+      assert.equal(selectSeasonalTheme({ now: dateInNewYork(theme.start) }), null, theme.id);
+      assert.equal(selectSeasonalTheme({ now: dateInNewYork(theme.start), preview: theme.id })?.id, theme.id);
+    }
 
     const halloweenEnd = dateInNewYork("2026-11-01T23:59:59");
     assert.equal(halloweenEnd.toISOString(), "2026-11-02T04:59:59.000Z");
@@ -75,7 +96,10 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     assert.equal(selectSeasonalTheme({ now, override: "none" }), null);
     assert.equal(selectSeasonalTheme({ now: dateInNewYork("2027-03-01T12:00:00"), override: "halloween" })?.id, "halloween");
     assert.equal(selectSeasonalTheme({ now, dismissed: ["halloween"] }), null);
-    assert.equal(selectSeasonalTheme({ now: dateInNewYork("2026-11-10T12:00:00"), dismissed: ["halloween"] })?.id, "thanksgiving");
+    assert.equal(selectSeasonalTheme({ now: dateInNewYork("2026-11-10T12:00:00"), dismissed: ["halloween"] }), null);
+    assert.equal(selectSeasonalTheme({ now: dateInNewYork("2026-11-26T12:00:00"), override: "thanksgiving" }), null);
+    assert.equal(selectSeasonalTheme({ now: dateInNewYork("2026-10-21T15:00:00"), preview: "christmas" })?.id, "christmas");
+    assert.equal((await saveThemeOverride(db, admin, "thanksgiving")).ok, false);
     assert.equal(selectSeasonalTheme({ now, override: "halloween", dismissed: ["halloween"] }), null);
 
     assert.equal(await readThemeOverride(db), "auto");
@@ -121,13 +145,13 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     assert.doesNotMatch(css, /clip-path:\s*inset\(64px/);
     assert.match(sparkle, /seasonalEffects/);
     assert.match(sparkle, /decorationsOn: true/);
-    assert.match(frame, /theme\?\.id === "halloween"/);
-    assert.match(frame, /HalloweenScene/);
+    assert.match(frame, /IllustratedScene/);
+    assert.match(frame, /mm_preview/);
     assert.match(frame, /loading="lazy"/);
     assert.match(frame, /requestIdleCallback/);
-    assert.match(frame, /halloween-site\.svg/);
-    assert.match(frame, /halloween-portal\.svg/);
-    assert.match(frame, /halloween-mobile\.svg/);
+    assert.match(source("src/lib/seasonal-calendar.ts"), /halloween-site\.svg/);
+    assert.match(source("src/lib/seasonal-calendar.ts"), /halloween-portal\.svg/);
+    assert.match(source("src/lib/seasonal-calendar.ts"), /halloween-mobile\.svg/);
   });
 
   test("the public site and the portal get different full-viewport scenes", () => {
@@ -174,6 +198,7 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     assert.equal(halloween?.palette.black, "#1C1A1F");
     assert.equal(halloween?.palette.page, "#120A1C");
     assert.equal(halloween?.placeholder, false);
+    assert.equal(halloween?.preview, false);
     assert.equal(compositeHex(HALLOWEEN_GLASS.fill, HALLOWEEN_GLASS.scene, HALLOWEEN_GLASS.alpha), "#675b79");
     const inks = [HALLOWEEN_GLASS.ink, HALLOWEEN_GLASS.muted, HALLOWEEN_GLASS.heading, HALLOWEEN_GLASS.link, HALLOWEEN_GLASS.accent];
     for (const alpha of [HALLOWEEN_GLASS.alpha, HALLOWEEN_GLASS.mobileAlpha]) {
@@ -188,12 +213,27 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     assert.ok(contrastRatio("#1C1A1F", "#E8873A") >= 4.5);
     assert.ok(contrastRatio("#1C1A1F", "#FFFFFF") >= 4.5);
     for (const theme of SEASONAL_THEMES) {
-      if (theme.id === "halloween") continue;
-      assert.equal(theme.placeholder, true);
-      for (const ink of PAGE_TEXT) {
-        const ratio = contrastRatio(ink, theme.palette.page);
-        assert.ok(ratio >= 4.5, `${theme.id} ${ink} on ${theme.palette.page} is ${ratio.toFixed(2)}`);
+      assert.equal(theme.placeholder, false, theme.id);
+      assert.ok(theme.greeting, theme.id);
+      const inks = [SCENE_INK.ink, SCENE_INK.muted, SCENE_INK.heading, SCENE_INK.link, SCENE_INK.accent];
+      for (const alpha of [SCENE_INK.alpha, SCENE_INK.mobileAlpha]) {
+        const worst = compositeHex(theme.glass.fill, SCENE_INK.scene, alpha);
+        for (const ink of inks) {
+          const ratio = contrastRatio(ink, worst);
+          assert.ok(ratio >= 4.5, `${theme.id} ${ink} on ${worst} at ${alpha} is ${ratio.toFixed(2)}`);
+        }
       }
+      assert.ok(contrastRatio(theme.glass.popInk, theme.glass.pop) >= 4.5, theme.id);
+      const site = source(`public/seasonal/${theme.scenes.site}`);
+      const portal = source(`public/seasonal/${theme.scenes.portal}`);
+      const mobile = source(`public/seasonal/${theme.scenes.mobile}`);
+      assert.notEqual(site, portal, theme.id);
+      assert.ok(mobile.length < site.length, theme.id);
+      const siteCast = THEME_FLOATERS.filter((item) => item.theme === theme.id && item.surface === "site");
+      const portalCast = THEME_FLOATERS.filter((item) => item.theme === theme.id && item.surface === "portal");
+      const places = (items: readonly { top: string; left: string }[]) => items.map((item) => `${item.top}:${item.left}`).join("|");
+      assert.notEqual(places(siteCast), places(portalCast), theme.id);
+      assert.ok(siteCast.length >= 3 && siteCast.length <= 8, theme.id);
     }
     const home = source("src/app/page.tsx");
     assert.match(home, /creatorHome \? <SeasonalGreeting/);

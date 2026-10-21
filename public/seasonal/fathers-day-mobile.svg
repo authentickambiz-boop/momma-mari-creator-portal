@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" fill="none" id="scene-mobile">
+
+  
+  <path d="M0 540C160 450 340 540 540 450C680 390 760 520 800 440V1200H0Z" fill="#C4926A"/>
+  <path d="M0 820C200 740 420 880 640 760C720 720 770 820 800 770V1200H0Z" fill="#4A3424"/>
+  <g id="workshop" transform="translate(60,80)">
+    <path d="M160 560L340 380L520 560Z" fill="#6B3414" stroke="#1C140E" stroke-width="4"/>
+    <rect x="200" y="550" width="280" height="200" fill="#E7D3B0" stroke="#1C140E" stroke-width="4"/>
+    <path d="M270 620h140v130H270z" fill="#3A2C24" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="leaning-rod">
+    <path d="M560 980L700 620" stroke="#6B3414" stroke-width="8"/>
+  </g>
+
+</svg>
