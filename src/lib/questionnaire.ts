@@ -4,6 +4,7 @@ import { creatorProfiles, creatorQuestionnaires, creators, mediaKits } from "@/d
 import { FORMAT_OPTIONS, LANGUAGE_OPTIONS, LOCATION_OPTIONS, NICHE_CATALOG, PLATFORM_OPTIONS } from "./niche-catalog";
 import { nowIso, parseJson } from "./format";
 import { listCreatorDealReviews } from "./creator-deal-review";
+import { profileIntakeMissing } from "./profile-intake";
 import { onboardingForCreator } from "./onboarding";
 import { cleanTag } from "./tag-picker";
 import type { Viewer } from "./types";
@@ -407,6 +408,9 @@ function applyPatch(current: QuestionnaireAnswers, patch: Partial<QuestionnaireA
 }
 
 export async function creatorStartPath(db: PortalDb, viewer: Viewer) {
+  if (viewer.role === "creator" && viewer.creatorId && await profileIntakeMissing(db, viewer.creatorId)) {
+    return "/profile/intake";
+  }
   if (viewer.role === "creator" && viewer.creatorId && (await needsQuestionnaire(db, viewer.creatorId))) {
     const reviews = await listCreatorDealReviews(db, viewer.creatorId);
     if (reviews.some((offer) => !offer.decision)) return "/";

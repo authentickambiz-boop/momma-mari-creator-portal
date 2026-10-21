@@ -4,6 +4,7 @@ import { getDb } from "@/db/getDb";
 import { adminDisplayName, resolveViewedCreator } from "./authz";
 import { assignedCreatorIds, findManagerByEmail } from "./managers";
 import { findCreatorById, listCreators } from "./queries";
+import { profileIntakeMissing } from "./profile-intake";
 import { readSession, sessionCookieName } from "./session";
 import type { CreatorProfile, Viewer } from "./types";
 
@@ -62,9 +63,12 @@ export async function requireViewer() {
   return viewer;
 }
 
-export async function loadPortal(requested: string | null) {
+export async function loadPortal(requested: string | null, options?: { allowIncompleteProfile?: boolean }) {
   const viewer = await requireViewer();
   const db = await getDb();
+  if (!options?.allowIncompleteProfile && viewer.role === "creator" && viewer.creatorId) {
+    if (await profileIntakeMissing(db, viewer.creatorId)) redirect("/profile/intake");
+  }
   const everyone = await listCreators(db);
   const assigned = viewer.role === "manager"
     ? everyone.filter((creator) => (viewer.assignedCreatorIds ?? []).includes(creator.id))

@@ -160,8 +160,11 @@ async function attachmentsFor(db: PortalDb, intakeIds: string[]) {
 
 export async function listCreatorIntake(db: PortalDb, viewer: Viewer) {
   const rows = await db.select().from(creatorIntake);
-  const { platforms, files } = await attachmentsFor(db, rows.map((row) => row.id));
-  return rows.map((row) => toView(
+  const visible = viewer.role === "admin"
+    ? rows
+    : rows.filter((row) => Boolean(viewer.creatorId) && row.creatorId === viewer.creatorId);
+  const { platforms, files } = await attachmentsFor(db, visible.map((row) => row.id));
+  return visible.map((row) => toView(
     row,
     platforms.filter((item) => item.intakeId === row.id).map((item) => ({
       id: item.id,
