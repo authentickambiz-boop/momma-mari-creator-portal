@@ -3,6 +3,7 @@ import type { Viewer } from "@/lib/types";
 
 export const PORTAL_TABS = [
   { id: "deals", href: "/", label: "Brand deals" },
+  { id: "learn", href: "/learn", label: "Learn" },
   { id: "inbox", href: "/inbox", label: "Deal inbox" },
   { id: "earnings", href: "/earnings", label: "Earnings & payouts" },
   { id: "report", href: "/report", label: "Report" },
