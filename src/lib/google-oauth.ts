@@ -99,15 +99,22 @@ export async function verifyGmailOAuthState(cookie: string | undefined, returned
   return Number(parts[2]) > Date.now();
 }
 
-/** Watch connect asks for read-only Gmail. It does not include compose or send. */
+/** Per-creator bridge stays read-only. It does not label or draft. */
 export const GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+
+/**
+ * The three watched inboxes need this scope so the portal can add MM/ labels and create drafts.
+ * gmail.modify can also send. The portal never calls send, trash, or delete.
+ * Do not request gmail.send or https://mail.google.com/.
+ */
+export const GMAIL_WATCH_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
 
 export function googleGmailWatchAuthUrl(state: string, loginHint: string) {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID ?? "");
   url.searchParams.set("redirect_uri", googleRedirectUri());
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", GMAIL_READONLY_SCOPE);
+  url.searchParams.set("scope", GMAIL_WATCH_SCOPE);
   url.searchParams.set("include_granted_scopes", "false");
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");

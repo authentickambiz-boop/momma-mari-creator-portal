@@ -5,13 +5,16 @@ import { setDealStage } from "./deal-stage";
 import { normalizeEmail, nowIso, safeEqual } from "./format";
 import { clearMailboxReconnect, gmailConnectionState, mailboxReconnectReason, markMailboxNeedsReconnect } from "./onboarding";
 import { getDealStage } from "./stages";
+import { AGENCY_MAILBOX_ID, KAMRON_AGENCY_EMAIL, clearAgencyMailboxToken } from "./agency-mailbox";
 import { gmailSyncEnabled } from "./gmail-sync-flag";
+import { gmailMutationAllowed, prepareReplyAndLabels, type MailSort } from "./gmail-live";
 import { revokeGoogleToken, type GoogleTokenRevoker } from "./google-oauth";
 import { decryptToken } from "./token-crypto";
 
 export const WATCH_MAILBOXES = [
   { email: "mmaclamroc@gmail.com", creatorId: "mariclare", label: "MariClare" },
   { email: "authentickambiz@gmail.com", creatorId: "authentickam", label: "AuthenticKam" },
+  { email: KAMRON_AGENCY_EMAIL, creatorId: AGENCY_MAILBOX_ID, label: "Kamron" },
 ] as const;
 
 const BLOCKED_DOMAINS = ["forceawakens.net", "qq.com", "foxmail.com", "163.com", "mail.ru"];
@@ -47,6 +50,12 @@ export type GmailHistoryClient = {
   getMessage: (id: string) => Promise<GmailHistoryMessage>;
   /** Recent inbox messages used only when history.list says the cursor expired. */
   listRecent?: () => Promise<{ id: string; threadId: string }[]>;
+  /** Add MM/ labels. Never removes a label, and never trashes the message. */
+  applyLabels?: (messageId: string, labelNames: string[]) => Promise<void>;
+  /** Drafts already on the thread, including Sintra's. The portal does not change them. */
+  listThreadDrafts?: (threadId: string) => Promise<{ id: string; snippet: string }[]>;
+  /** Create one draft. This is not a send. */
+  createDraft?: (input: { threadId: string; to: string; subject: string; body: string }) => Promise<{ id: string } | null>;
 };
 
 export function mailboxForCreator(creatorId: string) {
@@ -519,10 +528,40 @@ export function recentInboxMessages(pages: { messages?: { id?: string; threadId?
   return messages;
 }
 
+async function settleMail(
+  db: PortalDb,
+  mailbox: string,
+  creatorId: string,
+  creatorLabel: string,
+  client: GmailHistoryClient,
+  secrets: string[],
+  message: GmailHistoryMessage,
+  sort: MailSort,
+  dealId: string | null,
+  brand: string,
+) {
+  try {
+    await prepareReplyAndLabels(db, client, {
+      mailbox,
+      creatorLabel,
+      message,
+      sort,
+      dealId,
+      brand,
+      replyTo: senderEmail(message.from),
+    });
+  } catch (error) {
+    return { ok: false as const, failure: await finishReadFailure(db, creatorId, error, secrets) };
+  }
+  await markSeen(db, mailbox, message);
+  return { ok: true as const };
+}
+
 async function applyAddedMessages(
   db: PortalDb,
   mailbox: string,
   creatorId: string,
+  creatorLabel: string,
   refs: { id: string; threadId: string }[],
   client: GmailHistoryClient,
   secrets: string[],
@@ -549,8 +588,15 @@ async function applyAddedMessages(
       await markSeen(db, mailbox, message);
       continue;
     }
+    const brand = brandFromSender(message.from);
+    if (isDraftMail(message.labelIds)) {
+      const settled = await settleMail(db, mailbox, creatorId, creatorLabel, client, secrets, message, "skip", null, brand);
+      if (!settled.ok) return settled;
+      continue;
+    }
     if (isSpamSender(message.from)) {
-      await markSeen(db, mailbox, message);
+      const settled = await settleMail(db, mailbox, creatorId, creatorLabel, client, secrets, message, "not_deal", null, brand);
+      if (!settled.ok) return settled;
       skippedSpam += 1;
       continue;
     }
@@ -568,11 +614,13 @@ async function applyAddedMessages(
         if (moved.ok && moved.changed) stageMoves.push(threaded.id);
       }
       if (threaded) await rememberBrandThread(db, { mailbox, creatorId, message, dealId: threaded.id, classification: "deal" });
-      await markSeen(db, mailbox, message);
+      const settled = await settleMail(db, mailbox, creatorId, creatorLabel, client, secrets, message, threaded ? "waiting" : "not_deal", threaded?.id ?? null, brand);
+      if (!settled.ok) return settled;
       continue;
     }
     if (!senderEmail(message.from)) {
-      await markSeen(db, mailbox, message);
+      const settled = await settleMail(db, mailbox, creatorId, creatorLabel, client, secrets, message, "not_deal", null, brand);
+      if (!settled.ok) return settled;
       continue;
     }
     if (threaded) {
@@ -580,23 +628,27 @@ async function applyAddedMessages(
       await addInboxEvent(db, { mailbox, messageId: message.id, threadId: message.threadId, dealId: threaded.id });
       matchedDealIds.push(threaded.id);
       await rememberBrandThread(db, { mailbox, creatorId, message, dealId: threaded.id, classification: "deal" });
-      await markSeen(db, mailbox, message);
+      const settled = await settleMail(db, mailbox, creatorId, creatorLabel, client, secrets, message, "needs_reply", threaded.id, threaded.brand || brand);
+      if (!settled.ok) return settled;
       continue;
     }
-    if (isWatchedMailboxSender(message.from) || isDraftMail(message.labelIds) || isBulkMail(message.labelIds)) {
-      await markSeen(db, mailbox, message);
+    if (isWatchedMailboxSender(message.from) || isBulkMail(message.labelIds)) {
+      const settled = await settleMail(db, mailbox, creatorId, creatorLabel, client, secrets, message, "not_deal", null, brand);
+      if (!settled.ok) return settled;
       skippedSpam += 1;
       continue;
     }
     if (keep && !(await keep(message))) {
-      await markSeen(db, mailbox, message);
+      const settled = await settleMail(db, mailbox, creatorId, creatorLabel, client, secrets, message, "not_deal", null, brand);
+      if (!settled.ok) return settled;
       continue;
     }
     const dealId = await createHiddenOffer(db, { creatorId, message });
     await addInboxEvent(db, { mailbox, messageId: message.id, threadId: message.threadId, dealId });
     await rememberBrandThread(db, { mailbox, creatorId, message, dealId, classification: "inquiry" });
     createdDealIds.push(dealId);
-    await markSeen(db, mailbox, message);
+    const settled = await settleMail(db, mailbox, creatorId, creatorLabel, client, secrets, message, "needs_reply", dealId, brand);
+    if (!settled.ok) return settled;
   }
   return { ok: true as const, createdDealIds, matchedDealIds, stageMoves, skippedSpam, skippedDuplicate };
 }
@@ -604,7 +656,7 @@ async function applyAddedMessages(
 export async function ingestGmailPush(
   db: PortalDb,
   note: { emailAddress: string; historyId: string },
-  options?: { client?: GmailHistoryClient },
+  options?: { client?: GmailHistoryClient; catchUp?: boolean },
 ) {
   const mailbox = normalizeEmail(note.emailAddress);
   const mapped = await mailboxForIngest(db, mailbox);
@@ -625,7 +677,7 @@ export async function ingestGmailPush(
     await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
     return { status: 200, body: { ok: true, primed: true, createdDealIds: [] as string[], matchedDealIds: [] as string[], stageMoves: [] as string[] } };
   }
-  if (notificationAlreadyRead(start, note.historyId)) {
+  if (!options?.catchUp && notificationAlreadyRead(start, note.historyId)) {
     return { status: 200, body: { ok: true, duplicate: true as const, mailbox } };
   }
   let client = options?.client;
@@ -661,7 +713,7 @@ export async function ingestGmailPush(
     } catch (error) {
       return finishReadFailure(db, mapped.creatorId, error, secrets);
     }
-    const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, recent.slice(0, RECENT_INBOX_LIMIT * RECENT_PAGE_LIMIT), client, secrets, keep);
+    const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, mapped.label, recent.slice(0, RECENT_INBOX_LIMIT * RECENT_PAGE_LIMIT), client, secrets, keep);
     if (!applied.ok) return applied.failure;
     await saveHistory(db, mailbox, mapped.creatorId, note.historyId);
     return {
@@ -678,7 +730,7 @@ export async function ingestGmailPush(
       },
     };
   }
-  const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, listed.messages, client, secrets, keep);
+  const applied = await applyAddedMessages(db, mailbox, mapped.creatorId, mapped.label, listed.messages, client, secrets, keep);
   if (!applied.ok) return applied.failure;
   const cursor = listed.partial
     ? laterHistoryId(start, listed.latestHistoryId)
@@ -714,6 +766,32 @@ export async function ingestGmailPush(
       skippedDuplicate: applied.skippedDuplicate,
     },
   };
+}
+
+/** Read each watched inbox from the history cursor already on file. A missed push is filed once. */
+export async function catchUpWatchedMailboxes(
+  db: PortalDb,
+  options?: { clients?: Record<string, GmailHistoryClient> },
+) {
+  const mailboxes: { mailbox: string; ok: boolean; caughtUp: boolean; error?: string }[] = [];
+  for (const box of WATCH_MAILBOXES) {
+    const stored = await db.select().from(gmailWatches).where(eq(gmailWatches.mailbox, box.email));
+    const cursor = stored[0]?.historyId ?? "";
+    if (!cursor) {
+      mailboxes.push({ mailbox: box.email, ok: true, caughtUp: false });
+      continue;
+    }
+    const client = options?.clients?.[box.email];
+    const result = await ingestGmailPush(db, { emailAddress: box.email, historyId: cursor }, { client, catchUp: true });
+    const error = "error" in result.body && typeof result.body.error === "string" ? result.body.error : undefined;
+    mailboxes.push({
+      mailbox: box.email,
+      ok: result.status === 200 && result.body.ok === true,
+      caughtUp: result.status === 200 && result.body.ok === true && !("duplicate" in result.body && result.body.duplicate),
+      error,
+    });
+  }
+  return { mailboxes };
 }
 
 export async function listInboxEvents(db: PortalDb, since: string | null) {
@@ -830,10 +908,20 @@ async function refreshGmailAccessToken(refreshToken: string) {
   return accessToken;
 }
 
-async function gmailGet(accessToken: string, path: string) {
+async function gmailFetch(accessToken: string, path: string, init?: { method?: string; body?: string }) {
+  if (!gmailMutationAllowed(path)) throw new Error("This mailbox cannot send or delete mail.");
   const response = await fetch(`${GMAIL_API}${path}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    ...init,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+    },
   });
+  return response;
+}
+
+async function gmailGet(accessToken: string, path: string) {
+  const response = await gmailFetch(accessToken, path);
   if (response.status === 404) return { missing: true as const, json: null };
   if (!response.ok) {
     throw new Error(safeGoogleMessage("Gmail read failed", response.status, await readJsonBody(response), [accessToken]));
@@ -857,9 +945,50 @@ export async function downloadGmailAttachment(refreshToken: string, messageId: s
   return { bytes, mimeType: "application/octet-stream" };
 }
 
-/** History and message reads only. This client never calls send. */
+function draftRaw(input: { to: string; subject: string; body: string }) {
+  const subject = input.subject.toLowerCase().startsWith("re:") ? input.subject : `Re: ${input.subject}`;
+  const lines = [
+    `To: ${input.to}`,
+    `Subject: ${subject}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=utf-8",
+    "",
+    input.body,
+  ];
+  return Buffer.from(lines.join("\r\n")).toString("base64url");
+}
+
+async function gmailJson(accessToken: string, path: string, body: unknown) {
+  const response = await gmailFetch(accessToken, path, { method: "POST", body: JSON.stringify(body) });
+  if (!response.ok) {
+    throw new Error(safeGoogleMessage("Gmail write failed", response.status, await readJsonBody(response), [accessToken]));
+  }
+  return await response.json() as { id?: string };
+}
+
+/** History reads, MM/ label adds, and drafts. This client never calls send, trash, or delete. */
 export async function gmailReadClient(refreshToken: string): Promise<GmailHistoryClient> {
   const accessToken = await refreshGmailAccessToken(refreshToken);
+  const labelIds = new Map<string, string>();
+  async function ensureLabel(name: string) {
+    const cached = labelIds.get(name);
+    if (cached) return cached;
+    const listed = await gmailGet(accessToken, "/labels");
+    const labels = ((listed.json ?? {}) as { labels?: { id?: string; name?: string }[] }).labels ?? [];
+    for (const label of labels) {
+      if (label.id && label.name) labelIds.set(label.name, label.id);
+    }
+    const found = labelIds.get(name);
+    if (found) return found;
+    const created = await gmailJson(accessToken, "/labels", {
+      name,
+      labelListVisibility: "labelShow",
+      messageListVisibility: "show",
+    });
+    if (!created.id) throw new Error("Gmail label was not created.");
+    labelIds.set(name, created.id);
+    return created.id;
+  }
   return {
     async listAdded(startHistoryId: string) {
       const pages: GmailHistoryPage[] = [];
@@ -919,6 +1048,25 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
         labelIds: json.labelIds ?? [],
       };
     },
+    async applyLabels(messageId, names) {
+      const addLabelIds: string[] = [];
+      for (const name of names) addLabelIds.push(await ensureLabel(name));
+      await gmailJson(accessToken, `/messages/${encodeURIComponent(messageId)}/modify`, { addLabelIds });
+    },
+    async listThreadDrafts(threadId) {
+      const loaded = await gmailGet(accessToken, `/threads/${encodeURIComponent(threadId)}?format=metadata`);
+      if (loaded.missing || !loaded.json) return [];
+      const messages = (loaded.json as { messages?: { id?: string; snippet?: string; labelIds?: string[] }[] }).messages ?? [];
+      return messages
+        .filter((message) => (message.labelIds ?? []).includes("DRAFT") && message.id)
+        .map((message) => ({ id: message.id ?? "", snippet: message.snippet ?? "" }));
+    },
+    async createDraft(input) {
+      const created = await gmailJson(accessToken, "/drafts", {
+        message: { raw: draftRaw(input), threadId: input.threadId },
+      });
+      return created.id ? { id: created.id } : null;
+    },
   };
 }
 
@@ -938,6 +1086,14 @@ export async function clearCreatorGmail(
   creatorId: string,
   options?: { revoke?: GoogleTokenRevoker },
 ) {
+  if (creatorId === AGENCY_MAILBOX_ID) {
+    const agency = await gmailConnectionState(db, AGENCY_MAILBOX_ID);
+    await revokeStoredGoogleToken(agency.cipher, options?.revoke);
+    await clearAgencyMailboxToken(db);
+    await db.delete(gmailWatches).where(eq(gmailWatches.mailbox, KAMRON_AGENCY_EMAIL));
+    await db.delete(gmailWatches).where(eq(gmailWatches.creatorId, AGENCY_MAILBOX_ID));
+    return { status: 200 as const, body: { ok: true as const, email: KAMRON_AGENCY_EMAIL, creatorId, cleared: true as const } };
+  }
   const creator = await db.select().from(creators).where(eq(creators.id, creatorId));
   if (!creator[0]) return { status: 404 as const, body: { error: "Creator not found." } };
   const storedEmail = creator[0].gmailEmail ? normalizeEmail(creator[0].gmailEmail) : null;

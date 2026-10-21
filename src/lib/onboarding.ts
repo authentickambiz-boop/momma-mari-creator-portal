@@ -11,6 +11,7 @@ import {
 import { normalizeEmail, nowIso } from "./format";
 import { assignedManagersByCreator, notifyStaff } from "./managers";
 import { ONBOARDING_PLATFORMS, type OnboardingPlatform } from "./onboarding-fields";
+import { AGENCY_MAILBOX_ID, readAgencyMailbox, setAgencyReconnect } from "./agency-mailbox";
 import { encryptToken } from "./token-crypto";
 
 export const CREATOR_READY_MESSAGE = "New creator ready for bot";
@@ -64,14 +65,23 @@ export function mailboxReconnectReason(message: string): MailboxReconnectReason 
 }
 
 export async function markMailboxNeedsReconnect(db: PortalDb, creatorId: string, reason: MailboxReconnectReason) {
+  if (creatorId === AGENCY_MAILBOX_ID) {
+    await setAgencyReconnect(db, reason);
+    return;
+  }
   await db.update(creators).set({ gmailReconnectReason: reason }).where(eq(creators.id, creatorId));
 }
 
 export async function clearMailboxReconnect(db: PortalDb, creatorId: string) {
+  if (creatorId === AGENCY_MAILBOX_ID) {
+    await setAgencyReconnect(db, null);
+    return;
+  }
   await db.update(creators).set({ gmailReconnectReason: null }).where(eq(creators.id, creatorId));
 }
 
 export async function gmailConnectionState(db: PortalDb, creatorId: string) {
+  if (creatorId === AGENCY_MAILBOX_ID) return readAgencyMailbox(db);
   const rows = await db.select({
     cipher: creators.gmailRefreshToken,
     gmailEmail: creators.gmailEmail,

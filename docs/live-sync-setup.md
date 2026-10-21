@@ -76,16 +76,19 @@ Pub/Sub will call the portal with a Google ID token. You check that token. The t
 
 The portal returns 401 when the token is missing or does not match that audience and service account. Pub/Sub will retry those. A 200 means the notice was accepted, including a dead mailbox: `unauthorized_client`, `invalid_grant`, or an inbox that is not connected returns 200 with `"ok": false` so Pub/Sub stops retrying a token that cannot recover. A temporary Google error returns 503 so Pub/Sub tries again. The history cursor stays put on both of those failures. The token is not included.
 
-## 6. OAuth consent and the two inboxes
+## 6. OAuth consent and the three inboxes
 
-The watch uses **read-only** Gmail. Do not add `gmail.send` or `gmail.modify`.
+The watched-inbox button asks for `https://www.googleapis.com/auth/gmail.modify` so the portal can add `MM/` labels and create a draft. Do not add `gmail.send` or `https://mail.google.com/`. Google's screen for `gmail.modify` says the app can send. The portal never calls send, trash, or delete. A reply is a draft, and any price or date in that draft is the placeholder `[CONFIRM]`. A draft Sintra already wrote is left as it is.
+
+The per-creator **Connect Gmail (read only)** button stays on `gmail.readonly`. It does not label or draft.
 
 1. **APIs & Services → OAuth consent screen**.
 2. If the app is still in **Testing**, add these test users:
    - `mmaclamroc@gmail.com` (MariClare)
    - `authentickambiz@gmail.com` (AuthenticKam)
-3. Add the scope `https://www.googleapis.com/auth/gmail.readonly` if it is not already there. The older “Connect your email” button also asks for `gmail.compose` so a draft can be prepared. The watched-inbox button does not. Neither button sends mail.
-4. While the app is in Testing, Google expires refresh tokens after 7 days. Publishing the app (after Google’s review, because Gmail read is a restricted scope) stops that expiry. Until then, reconnect the inbox when the token dies. The watch itself also lasts at most 7 days, which is why the daily renewal in step 8 exists.
+   - `Kamron@mommamari.com`
+3. Add `https://www.googleapis.com/auth/gmail.readonly` and `https://www.googleapis.com/auth/gmail.modify`. The older “Connect your email” button also asks for `gmail.compose`. Neither button sends mail. Inboxes connected before `gmail.modify` was added have to be connected again. The old token cannot add labels.
+4. While the app is in Testing, Google expires refresh tokens after 7 days. Publishing the app (after Google’s review, because Gmail read is a restricted scope) stops that expiry. Until then, reconnect the inbox when the token dies. The watch itself also lasts at most 7 days, which is why the daily renewal in step 9 exists.
 5. The OAuth client stays a **Web application**. Authorized redirect URI, already used by sign-in:
 
    `https://mommamari.com/portal/api/auth/callback`
@@ -112,15 +115,16 @@ In the Webflow Cloud environment for this site, set:
 
 Redeploy after saving the secrets so the new server can read them.
 
-## 8. Connect the two mailboxes
+## 8. Connect the three mailboxes
 
 1. Sign in to the portal as yourself (the owner).
 2. Open **Connect**.
 3. Under **Watched inboxes**, connect:
    - MariClare → `mmaclamroc@gmail.com`
    - AuthenticKam → `authentickambiz@gmail.com`
-4. Google’s screen must be the account named on the button. The portal rejects a different account. Accept the read-only permission.
-5. `authentickambiz@gmail.com` is also your admin sign-in, so that inbox is connected from this owner screen, not from a creator session. MariClare can still connect `mmaclamroc@gmail.com` from her own sign-in.
+   - Kamron → `Kamron@mommamari.com`
+4. Google’s screen must be the account named on the button. The portal rejects a different account. Accept the permission. Reconnect an inbox that was connected when the button was read-only.
+5. `authentickambiz@gmail.com` is also your admin sign-in, so that inbox is connected from this owner screen, not from a creator session. `Kamron@mommamari.com` is connected from this owner screen too. It is not a roster creator. MariClare can still connect `mmaclamroc@gmail.com` from her own sign-in.
 
 A successful connect tries to start the watch immediately. If the topic secret is missing, the token is still saved and the daily job starts the watch later.
 
@@ -171,9 +175,13 @@ The same screen covers Google Drive and TikTok, Instagram, Facebook, and YouTube
 - Any other new thread becomes a deal at **Offer received**, hidden from creators until you publish it on the **Review** page. Publishing shares it with that creator. Reject leaves it hidden. Edit and reply drafts on that page are only for you.
 - A message on a thread the portal already knows updates that deal. It does not open a second deal.
 - A message sent from the inbox itself, on a thread we already have, moves that deal to **Interest sent** when the deal is still in the early offer stages.
-- `mmaclamroc@gmail.com` files under MariClare. `authentickambiz@gmail.com` files under AuthenticKam.
+- `mmaclamroc@gmail.com` files under MariClare. `authentickambiz@gmail.com` files under AuthenticKam. `Kamron@mommamari.com` files under Kamron, hidden until you publish it. It is not a roster row.
+- The same message id is filed once. A second Pub/Sub notice for that id does not open a second deal or a second draft.
+- Each filed message gets an `MM/` label, added only: `MM/Deal` and `MM/Needs reply` for brand mail, `MM/Deal` and `MM/Waiting` when the inbox itself replied, and `MM/Not a deal` for spam, newsletters, and mail between these inboxes. A Gmail draft is not relabeled.
+- Brand mail also saves a portal reply and, when the thread has no draft yet, a Gmail draft. The rate and the date in that draft are `[CONFIRM]`. Nothing is sent. If the thread already has a draft, including one that mentions Sintra, that draft is not edited and not deleted.
+- The 15-minute job `POST /api/cron/gmail-sync` reads forward from the history id already stored for each of these three inboxes, so a missed push still files. It does not jump past unread history pages. The other creators' inboxes stay behind `GMAIL_SYNC_ENABLED`.
 
-Nothing in this path sends email. The Gmail calls are `users.watch`, `history.list`, `messages.list`, and `messages.get` with read-only scope.
+Nothing in this path sends or deletes email. The Gmail calls are `users.watch`, `history.list`, `messages.list`, `messages.get`, `threads.get`, `labels.list`, `labels.create`, `messages.modify` (add labels only), and `drafts.create`.
 
 ## 11. The drafting bot
 
@@ -225,8 +233,29 @@ Leave `GMAIL_SYNC_ENABLED` empty until you want that sync. The portal does not r
 
 [Pub/Sub](https://cloud.google.com/pubsub/pricing) includes the first 10 GiB of message throughput each month at no charge. A Gmail notice is a few hundred bytes. A normal month of brand mail stays inside that free tier. Expected Pub/Sub cost is **$0**.
 
-[Cloud Scheduler](https://cloud.google.com/scheduler/pricing) includes 3 jobs a month at no charge. This uses one. Expected scheduler cost is **$0**.
+[Cloud Scheduler](https://cloud.google.com/scheduler/pricing) includes 3 jobs a month at no charge. This uses two: the daily watch renewal and the 15-minute catch-up. Expected scheduler cost is **$0**.
 
 Gmail API reads are free inside Google’s default quota. There is no per-message fee for `users.watch`.
 
 Prices can change. Check the two links above if Google updates them. There is still no charge from the portal itself, and this setup does not send mail or charge a card.
+
+## Still needs a person
+
+The portal cannot create the Google Cloud project, the topic, or the Webflow secrets. Billing on the Google Cloud project is funded. These steps are still manual. Do them in order. Nothing below is stored in this repo.
+
+1. In the Google Cloud project that owns the portal OAuth client, enable **Gmail API** and **Cloud Pub/Sub API**.
+2. Create the Pub/Sub topic `gmail-push`. Copy `projects/YOUR_PROJECT_ID/topics/gmail-push`.
+3. On that topic, grant **Pub/Sub Publisher** to `gmail-api-push@system.gserviceaccount.com`. That principal is Google's. Do not create a key for it.
+4. Create the service account `portal-gmail-push`. Do not download a JSON key. Copy `portal-gmail-push@YOUR_PROJECT_ID.iam.gserviceaccount.com`.
+5. Create the push subscription `gmail-push-portal` on topic `gmail-push`.
+   - Endpoint and audience, both exactly: `https://mommamari.com/portal/api/gmail/push`
+   - Authentication on, service account from step 4.
+6. On the OAuth consent screen, add `https://www.googleapis.com/auth/gmail.modify` and these test users while the app is in Testing: `mmaclamroc@gmail.com`, `authentickambiz@gmail.com`, `Kamron@mommamari.com`. Do not add `gmail.send` or `https://mail.google.com/`.
+7. In Webflow Cloud, set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY` (the key already there; do not rotate it), `GMAIL_WATCH_TOPIC`, `GMAIL_PUSH_AUDIENCE`, `GMAIL_PUSH_SERVICE_ACCOUNT`, `GMAIL_WATCH_CRON_SECRET`, and `APP_BASE_URL` (`https://mommamari.com/portal`). Redeploy.
+8. Sign in as the owner and connect the three watched inboxes. Reconnect any inbox that was connected before `gmail.modify`.
+9. Create two Cloud Scheduler jobs, both with `Authorization: Bearer YOUR_GMAIL_WATCH_CRON_SECRET`:
+   - `gmail-watch-renew`, `0 12 * * *`, `America/New_York`, POST `https://mommamari.com/portal/api/cron/gmail-watch`
+   - `gmail-inbox-sync`, `*/15 * * * *`, `America/New_York`, POST `https://mommamari.com/portal/api/cron/gmail-sync`
+10. Leave `GMAIL_SYNC_ENABLED` empty until other creators' inboxes should be read. The three watched inboxes catch up without that switch.
+
+Google's restricted-scope review (and CASA, if Google requires it) is still outstanding. Until the app is published, refresh tokens in Testing expire after 7 days and those three people have to reconnect. The daily job renews the 7-day watch. It cannot renew a dead refresh token.

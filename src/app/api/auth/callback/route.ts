@@ -25,6 +25,7 @@ import {
   verifyOAuthState,
 } from "@/lib/google-oauth";
 import { saveDriveConnection } from "@/lib/account-connections";
+import { AGENCY_MAILBOX_ID, saveAgencyMailbox } from "@/lib/agency-mailbox";
 import { saveGmailConnection } from "@/lib/onboarding";
 import { creatorStartPath } from "@/lib/questionnaire";
 import { resolveLogin } from "@/lib/queries";
@@ -114,7 +115,9 @@ async function finishGmailConnect(code: string | null, state: string | null) {
     if (!allowed) return fail("creator_only");
     const mapped = mailboxForCreator(watchCreatorId);
     if (!mapped || normalizeEmail(mailbox.gmailEmail) !== mapped.email) return fail("wrong_mailbox");
-    const saved = await saveGmailConnection(db, mapped.creatorId, mailbox);
+    const saved = mapped.creatorId === AGENCY_MAILBOX_ID
+      ? await saveAgencyMailbox(db, mailbox)
+      : await saveGmailConnection(db, mapped.creatorId, mailbox);
     if (!saved.ok) return fail(saved.status === 503 ? "not_configured" : "oauth");
     await renewGmailWatches(db, ({ refreshToken }) => renewMailboxWatch(refreshToken));
     const response = NextResponse.redirect(`${appBaseUrl()}/connect?gmail=connected`);

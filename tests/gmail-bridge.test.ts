@@ -253,7 +253,7 @@ describe("gmail bridge", { concurrency: 1 }, () => {
       const renewed = await renewGmailWatches(db, async () => {
         throw new Error(`should not watch ${token}`);
       });
-      assert.equal(renewed.length, 2);
+      assert.equal(renewed.length, 3);
       assert.equal(JSON.stringify(renewed).includes(token), false);
     } finally {
       if (previousSync == null) delete process.env.GMAIL_SYNC_ENABLED;
