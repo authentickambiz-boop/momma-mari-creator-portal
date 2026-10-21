@@ -121,7 +121,7 @@ describe("public company pages", { concurrency: 1 }, () => {
     assert.match(source("src/app/contact/page.tsx"), /Saved in the portal\. Nothing was emailed\./);
     assert.match(source("src/app/careers/page.tsx"), /No open roles are listed/);
     assert.match(source("src/app/faq/page.tsx"), /href="\/contact"/);
-    assert.equal(source("src/app/faq/page.tsx").includes("/help"), false);
+    assert.match(source("src/app/faq/page.tsx"), /href="\/help"/);
     assert.match(source("src/app/press/page.tsx"), /withBasePath\("\/momma-logo.png"\)/);
     for (const href of ["/about", "/contact", "/faq", "/careers", "/press"]) {
       assert.match(footer, new RegExp(`href="${href}"`));

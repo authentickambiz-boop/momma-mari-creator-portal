@@ -1456,3 +1456,34 @@ export const feedbackNotes = sqliteTable("feedback_notes", {
   ip: text("ip").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+export const supportTickets = sqliteTable("support_tickets", {
+  id: text("id").primaryKey(),
+  requesterEmail: text("requester_email").notNull(),
+  requesterName: text("requester_name").notNull(),
+  creatorId: text("creator_id"),
+  category: text("category").notNull(),
+  priority: text("priority").notNull(),
+  status: text("status").notNull(),
+  subject: text("subject").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const supportTicketReplies = sqliteTable("support_ticket_replies", {
+  id: text("id").primaryKey(),
+  ticketId: text("ticket_id").notNull(),
+  authorEmail: text("author_email").notNull(),
+  authorName: text("author_name").notNull(),
+  body: text("body").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const statusIncidents = sqliteTable("status_incidents", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  state: text("state").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

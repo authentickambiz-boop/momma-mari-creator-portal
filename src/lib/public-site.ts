@@ -21,6 +21,8 @@ export const PUBLIC_MARKETING_PATHS = [
   "/careers",
   "/press",
   "/feedback",
+  "/help",
+  "/status",
   "/privacy",
   "/terms",
 ] as const;
