@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import { Fraunces, Inter } from "next/font/google";
 import { AnalyticsHooks } from "@/components/analytics-hooks";
 import { CommunityPanel } from "@/components/community-panel";
 import { HomeScreen } from "@/components/home-screen";
+import { SeasonalThemeFrame } from "@/components/seasonal-theme";
 import { SiteFooter } from "@/components/site-footer";
+import { loadSeasonalPresentation } from "@/lib/seasonal-theme-request";
 import "./globals.css";
+import "./seasonal-theme.css";
 
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
 const fraunces = Fraunces({ subsets: ["latin"], display: "swap", variable: "--font-fraunces" });
@@ -20,10 +24,15 @@ export const metadata: Metadata = {
   icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const seasonal = await loadSeasonalPresentation();
+  const pageStyle: CSSProperties | undefined = seasonal.active
+    ? ({ "--cream": seasonal.active.palette.page } as CSSProperties)
+    : undefined;
   return (
-    <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
+    <html lang="en" className={`${inter.variable} ${fraunces.variable}`} data-seasonal={seasonal.active?.id} style={pageStyle}>
       <body>
+        <SeasonalThemeFrame presentation={{ active: seasonal.active, hidden: seasonal.hidden }} />
         {children}
         <AnalyticsHooks />
         <SiteFooter />

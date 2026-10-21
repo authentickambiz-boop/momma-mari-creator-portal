@@ -7,8 +7,10 @@ import { readOwnAccount } from "@/lib/creator-home";
 import { loadPortal } from "@/lib/current-user";
 import { emailSetupFor, gmailConnectionState } from "@/lib/onboarding";
 import { settingsErrorNote } from "@/lib/account-notes";
+import { SeasonalThemeSettings } from "@/components/seasonal-theme-settings";
+import { themeErrorNote } from "@/lib/seasonal-theme";
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; settingsError?: string }> }) {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; settingsError?: string; themeSaved?: string; themeError?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(null);
   const account = await readOwnAccount(portal.db, portal.viewer);
@@ -17,10 +19,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const drive = creator ? await driveConnectionState(portal.db, creator.id) : null;
   const setup = creator ? await emailSetupFor(portal.db, creator.id) : null;
   const settingsError = settingsErrorNote(params.settingsError);
+  const themeError = themeErrorNote(params.themeError);
   return (
     <PortalFrame viewer={portal.viewer} tab="settings" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>Settings</h1><p>Connected accounts and the notices you want.</p></div>}>
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
+      {params.themeSaved ? <p className="note">Seasonal theme saved. Nothing was emailed.</p> : null}
       {settingsError ? <p className="private-note">{settingsError}</p> : null}
+      {themeError ? <p className="private-note">{themeError}</p> : null}
       <div className="card stack">
         <div className="sec-title">Connected accounts</div>
         {creator ? (
@@ -51,6 +56,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <button className="btn" type="submit">Save settings</button>
         </form>
       ) : null}
+      {portal.viewer.role === "admin" ? <SeasonalThemeSettings /> : null}
     </PortalFrame>
   );
 }
