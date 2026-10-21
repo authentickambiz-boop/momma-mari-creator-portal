@@ -54,6 +54,7 @@ import {
 import {
   DRIVE_FILE_SCOPE,
   GMAIL_READONLY_SCOPE,
+  GMAIL_WATCH_SCOPE,
   GMAIL_SCOPES,
   createDriveOAuthState,
   createGmailOAuthState,
@@ -5231,9 +5232,9 @@ test("live mail updates the deal, filters spam, and stays hidden until you share
   assert.equal(isSpamSender("Nina <nina@harbor.example>"), false);
 
   const watchUrl = new URL(googleGmailWatchAuthUrl("state", "mmaclamroc@gmail.com"));
-  assert.equal(watchUrl.searchParams.get("scope"), GMAIL_READONLY_SCOPE);
-  assert.equal(watchUrl.searchParams.get("scope"), "https://www.googleapis.com/auth/gmail.readonly");
-  assert.doesNotMatch(watchUrl.searchParams.get("scope") ?? "", /compose|gmail\.send/);
+  assert.equal(watchUrl.searchParams.get("scope"), GMAIL_WATCH_SCOPE);
+  assert.equal(watchUrl.searchParams.get("scope"), "https://www.googleapis.com/auth/gmail.modify");
+  assert.doesNotMatch(watchUrl.searchParams.get("scope") ?? "", /gmail\.send|mail\.google\.com/);
   const watchCookie = await createWatchCreatorCookie("mariclare");
   assert.equal(await readWatchCreatorCookie(watchCookie), "mariclare");
   assert.equal(await readWatchCreatorCookie("mariclare.1.nope"), null);

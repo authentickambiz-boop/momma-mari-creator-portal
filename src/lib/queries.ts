@@ -17,6 +17,7 @@ import {
   revisions,
   shipments,
 } from "@/db/schema";
+import { AGENCY_MAILBOX_ID } from "./agency-mailbox";
 import { adminDisplayName, adminEmails, canSeeDeal } from "./authz";
 import { findManagerByEmail } from "./managers";
 import { CONTRACT_CHECKS, signingFormatLabel } from "./contract-shared";
@@ -232,7 +233,7 @@ export async function listDealsForViewer(db: PortalDb, viewer: Viewer, creatorId
       if (viewer.role === "creator" && row.creatorId !== viewer.creatorId) return false;
       return true;
     })
-    .map((row) => hideMoney(toSummary(row, names.get(row.creatorId) ?? "Creator"), viewer));
+    .map((row) => hideMoney(toSummary(row, names.get(row.creatorId) ?? (row.creatorId === AGENCY_MAILBOX_ID ? "Kamron" : "Creator")), viewer));
 }
 
 function hideMoney<T extends DealSummary>(summary: T, viewer: Viewer): T {
@@ -328,7 +329,7 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
     db.select().from(livePosts).where(eq(livePosts.dealId, dealId)).orderBy(asc(livePosts.createdAt)),
     safetyForDeal(db, dealId),
   ]);
-  const summary = hideMoney(toSummary(row, creator?.name ?? "Creator"), viewer);
+  const summary = hideMoney(toSummary(row, creator?.name ?? (row.creatorId === AGENCY_MAILBOX_ID ? "Kamron" : "Creator")), viewer);
   const interestState = await interestContextForDeal(db, dealId);
   const brandEmail = interestState.brandEmail ?? firstEmail(row.contact);
   const offerOpen = !row.workflowStage || row.workflowStage === "offer_received" || row.workflowStage === "offer_shared";

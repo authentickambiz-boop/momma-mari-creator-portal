@@ -1027,6 +1027,27 @@ export const gmailSeenMessages = sqliteTable("gmail_seen_messages", {
   createdAt: text("created_at").notNull(),
 });
 
+export const agencyMailboxes = sqliteTable("agency_mailboxes", {
+  mailbox: text("mailbox").primaryKey(),
+  label: text("label").notNull(),
+  refreshToken: text("refresh_token"),
+  connectedAt: text("connected_at"),
+  reconnectReason: text("reconnect_reason"),
+});
+
+export const gmailPortalDrafts = sqliteTable(
+  "gmail_portal_drafts",
+  {
+    id: text("id").primaryKey(),
+    mailbox: text("mailbox").notNull(),
+    threadId: text("thread_id").notNull(),
+    gmailDraftId: text("gmail_draft_id"),
+    dealId: text("deal_id"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("gmail_portal_drafts_thread").on(table.mailbox, table.threadId)],
+);
+
 export const platformInvites = sqliteTable("platform_invites", {
   id: text("id").primaryKey(),
   creatorId: text("creator_id").notNull(),

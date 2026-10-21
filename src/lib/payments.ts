@@ -49,7 +49,7 @@ function redact(message: string, secret: string) {
   return cleaned.slice(0, 200);
 }
 
-/** Public portal root. Production APP_BASE_URL is https://mommamari.com/portal. */
+/** Public portal root. Production APP_BASE_URL is https://www.mommamari.com/portal. */
 export function portalRoot(base = appBaseUrl()) {
   const url = new URL(base.replace(/\/$/, ""));
   const path = url.pathname.replace(/\/$/, "");

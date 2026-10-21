@@ -20,6 +20,7 @@ import {
   isBulkMail,
   isDraftMail,
   isSpamSender,
+  creatorForMailbox,
   isWatchedMailboxSender,
   openOrMatchBrandDeal,
   senderDomain,
@@ -311,6 +312,7 @@ export async function syncConnectedMailboxes(
   for (const row of rows) {
     const mailbox = normalizeEmail(row.gmailEmail ?? "");
     if (!mailbox || !row.gmailRefreshToken) continue;
+    if (creatorForMailbox(mailbox)) continue;
     let refreshToken = "";
     try {
       const { decryptToken } = await import("./token-crypto");

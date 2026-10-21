@@ -7,6 +7,7 @@ import {
   type ConnectPlatform,
 } from "./account-connection-status";
 import { withBasePath } from "./format";
+import { AGENCY_MAILBOX_ID } from "./agency-mailbox";
 import { clearCreatorGmail, mailboxForCreator } from "./gmail-push";
 import { revokeGoogleToken, type GoogleTokenRevoker } from "./google-oauth";
 import { encryptToken, decryptToken } from "./token-crypto";
@@ -90,8 +91,15 @@ export async function disconnectCreatorAccount(
     return { status: 403 as const, body: { error: "You can only change your own accounts." } };
   }
   const creator = await db.select().from(creators).where(eq(creators.id, creatorId));
-  if (!creator[0]) return { status: 404 as const, body: { error: "Creator not found." } };
   const revoke = options?.revoke ?? revokeGoogleToken;
+  if (!creator[0]) {
+    if (creatorId === AGENCY_MAILBOX_ID && platform === "gmail" && viewer.role === "admin") {
+      const cleared = await clearCreatorGmail(db, creatorId, { revoke });
+      if (cleared.status !== 200) return { status: 404 as const, body: { error: "Creator not found." } };
+      return { status: 200 as const, body: { ok: true as const, platform, creatorId, cleared: true as const } };
+    }
+    return { status: 404 as const, body: { error: "Creator not found." } };
+  }
   if (platform === "gmail") {
     const cleared = await clearCreatorGmail(db, creatorId, { revoke });
     if (cleared.status !== 200) return { status: 404 as const, body: { error: "Creator not found." } };
