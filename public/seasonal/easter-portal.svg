@@ -1,29 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
 
-  
-  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#E7C2A0"/>
-  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#8FB8A0"/>
-  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#5C8A72"/>
-  <g id="spring-window">
-    <rect x="120" y="240" width="360" height="280" rx="12" fill="#F7E6C8" stroke="#1C140E" stroke-width="4"/>
-    <rect x="150" y="270" width="140" height="160" fill="#B7D7F2" stroke="#1C140E" stroke-width="3"/>
-    <circle cx="200" cy="340" r="28" fill="#F6D5DE" stroke="#1C140E" stroke-width="3"/>
-    <path d="M250 430v-80" stroke="#6B3414" stroke-width="6"/>
+  <defs><linearGradient id="back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7E6C8"/><stop offset="1" stop-color="#8FB8A0"/></linearGradient></defs>
+  <g transform="translate(700 80)" fill="#FFF6EA" stroke="#1C140E" stroke-width="2" opacity="0.9"><ellipse cx="0" cy="8" rx="40" ry="16"/><ellipse cx="30" cy="2" rx="28" ry="14"/><ellipse cx="-28" cy="4" rx="24" ry="12"/></g>
+  <path d="M0 360C300 270 560 400 900 290C1160 200 1340 340 1440 250V900H0Z" fill="url(#back)"/>
+  <g id="branches"><circle cx="1100" cy="180" r="26" fill="#F4C7D4" stroke="#1C140E" stroke-width="2"/><circle cx="1220" cy="240" r="26" fill="#F4C7D4" stroke="#1C140E" stroke-width="2"/><circle cx="1320" cy="160" r="26" fill="#F4C7D4" stroke="#1C140E" stroke-width="2"/><circle cx="1160" cy="300" r="26" fill="#F4C7D4" stroke="#1C140E" stroke-width="2"/><path d="M1080 360c40-80 120-140 220-180" stroke="#6B3414" stroke-width="8" fill="none"/></g>
+  <path d="M0 580C320 510 640 680 1000 560C1220 490 1360 620 1440 540V900H0Z" fill="#C9E0C4"/>
+  <g id="basket"><path d="M180 700h260l-20 70H200z" fill="#E0B070" stroke="#1C140E" stroke-width="4"/><path d="M190 720h220M196 745h200" stroke="#8C6A44" stroke-width="3"/><path d="M230 700c40-50 120-50 160 0" stroke="#C4783A" stroke-width="4" fill="none"/></g>
+  <g id="eggs"><ellipse cx="250" cy="680" rx="18" ry="26" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/><path d="M240 674h22" stroke="#7FA0C8" stroke-width="3"/></g><g id="eggs"><ellipse cx="310" cy="670" rx="16" ry="24" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/><circle cx="310" cy="668" r="4" fill="#F4C7D4"/></g><g id="eggs"><ellipse cx="360" cy="688" rx="18" ry="24" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/><path d="M350 680c10 6 14 12 4 18" stroke="#F2C14E" stroke-width="3" fill="none"/></g>
+  <g id="bunny" transform="translate(760 640) scale(1.15)">
+    <ellipse cx="-10" cy="-28" rx="7" ry="18" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <ellipse cx="10" cy="-28" rx="7" ry="18" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <ellipse cx="-10" cy="-28" rx="3" ry="10" fill="#F4C7D4"/>
+    <ellipse cx="10" cy="-28" rx="3" ry="10" fill="#F4C7D4"/>
+    <ellipse cx="0" cy="8" rx="26" ry="20" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="0" cy="-6" r="14" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="-5" cy="-8" r="2" fill="#1C140E"/><circle cx="5" cy="-8" r="2" fill="#1C140E"/>
+    <path d="M-4 0c2 2 6 2 8 0" stroke="#1C140E" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="22" cy="14" r="6" fill="#FFF6EA" stroke="#1C140E" stroke-width="2"/>
   </g>
-  <g id="spring-table" transform="translate(620 520)">
-    <rect x="0" y="80" width="420" height="22" rx="4" fill="#C4926A" stroke="#1C140E" stroke-width="3"/>
-    <rect x="30" y="102" width="16" height="70" fill="#6B3414"/>
-    <rect x="360" y="102" width="16" height="70" fill="#6B3414"/>
-  </g>
-  <g id="daffodils" transform="translate(700 430)">
-    <path d="M40 150V70M90 150V60M140 150V80" stroke="#1E6A48" stroke-width="3"/>
-    <circle cx="40" cy="60" r="14" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
-    <circle cx="90" cy="48" r="16" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
-    <circle cx="140" cy="68" r="14" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
-    <ellipse cx="230" cy="120" rx="50" ry="22" fill="#C9E4F2" stroke="#1C140E" stroke-width="3"/>
-    <ellipse cx="210" cy="112" rx="12" ry="16" fill="#F6D5DE" stroke="#1C140E" stroke-width="2"/>
-    <ellipse cx="240" cy="108" rx="12" ry="16" fill="#F2C14E" stroke="#1C140E" stroke-width="2"/>
-    <ellipse cx="266" cy="114" rx="12" ry="16" fill="#E7A0B4" stroke="#1C140E" stroke-width="2"/>
-  </g>
+  <g id="flowers"><g id="flowers" transform="translate(560 760) scale(0.9)"><ellipse cx="0" cy="-16" rx="7" ry="12" fill="#F2D48A" stroke="#1C140E" stroke-width="2"/><ellipse cx="14" cy="-6" rx="7" ry="12" fill="#F2D48A" stroke="#1C140E" stroke-width="2" transform="rotate(72)"/><ellipse cx="8" cy="12" rx="7" ry="12" fill="#F2D48A" stroke="#1C140E" stroke-width="2" transform="rotate(144)"/><ellipse cx="-10" cy="10" rx="7" ry="12" fill="#F2D48A" stroke="#1C140E" stroke-width="2" transform="rotate(216)"/><ellipse cx="-14" cy="-6" rx="7" ry="12" fill="#F2D48A" stroke="#1C140E" stroke-width="2" transform="rotate(288)"/><circle r="6" fill="#E8873A" stroke="#1C140E" stroke-width="2"/></g><g id="flowers" transform="translate(660 800) scale(0.7)"><ellipse cx="0" cy="-16" rx="7" ry="12" fill="#F4C7D4" stroke="#1C140E" stroke-width="2"/><ellipse cx="14" cy="-6" rx="7" ry="12" fill="#F4C7D4" stroke="#1C140E" stroke-width="2" transform="rotate(72)"/><ellipse cx="8" cy="12" rx="7" ry="12" fill="#F4C7D4" stroke="#1C140E" stroke-width="2" transform="rotate(144)"/><ellipse cx="-10" cy="10" rx="7" ry="12" fill="#F4C7D4" stroke="#1C140E" stroke-width="2" transform="rotate(216)"/><ellipse cx="-14" cy="-6" rx="7" ry="12" fill="#F4C7D4" stroke="#1C140E" stroke-width="2" transform="rotate(288)"/><circle r="6" fill="#E2B657" stroke="#1C140E" stroke-width="2"/></g><g id="flowers" transform="translate(980 780) scale(0.8)"><ellipse cx="0" cy="-16" rx="7" ry="12" fill="#FFF6EA" stroke="#1C140E" stroke-width="2"/><ellipse cx="14" cy="-6" rx="7" ry="12" fill="#FFF6EA" stroke="#1C140E" stroke-width="2" transform="rotate(72)"/><ellipse cx="8" cy="12" rx="7" ry="12" fill="#FFF6EA" stroke="#1C140E" stroke-width="2" transform="rotate(144)"/><ellipse cx="-10" cy="10" rx="7" ry="12" fill="#FFF6EA" stroke="#1C140E" stroke-width="2" transform="rotate(216)"/><ellipse cx="-14" cy="-6" rx="7" ry="12" fill="#FFF6EA" stroke="#1C140E" stroke-width="2" transform="rotate(288)"/><circle r="6" fill="#F2C14E" stroke="#1C140E" stroke-width="2"/></g><g id="flowers" transform="translate(80 800) scale(0.6)"><ellipse cx="0" cy="-16" rx="7" ry="12" fill="#F4C7D4" stroke="#1C140E" stroke-width="2"/><ellipse cx="14" cy="-6" rx="7" ry="12" fill="#F4C7D4" stroke="#1C140E" stroke-width="2" transform="rotate(72)"/><ellipse cx="8" cy="12" rx="7" ry="12" fill="#F4C7D4" stroke="#1C140E" stroke-width="2" transform="rotate(144)"/><ellipse cx="-10" cy="10" rx="7" ry="12" fill="#F4C7D4" stroke="#1C140E" stroke-width="2" transform="rotate(216)"/><ellipse cx="-14" cy="-6" rx="7" ry="12" fill="#F4C7D4" stroke="#1C140E" stroke-width="2" transform="rotate(288)"/><circle r="6" fill="#E2B657" stroke="#1C140E" stroke-width="2"/></g><g id="flowers" transform="translate(1280 760) scale(0.75)"><ellipse cx="0" cy="-16" rx="7" ry="12" fill="#F2D48A" stroke="#1C140E" stroke-width="2"/><ellipse cx="14" cy="-6" rx="7" ry="12" fill="#F2D48A" stroke="#1C140E" stroke-width="2" transform="rotate(72)"/><ellipse cx="8" cy="12" rx="7" ry="12" fill="#F2D48A" stroke="#1C140E" stroke-width="2" transform="rotate(144)"/><ellipse cx="-10" cy="10" rx="7" ry="12" fill="#F2D48A" stroke="#1C140E" stroke-width="2" transform="rotate(216)"/><ellipse cx="-14" cy="-6" rx="7" ry="12" fill="#F2D48A" stroke="#1C140E" stroke-width="2" transform="rotate(288)"/><circle r="6" fill="#E8873A" stroke="#1C140E" stroke-width="2"/></g></g>
+  <g id="eggs"><g id="eggs"><ellipse cx="1100" cy="800" rx="20" ry="28" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/><path d="M1088 794h24" stroke="#C46A86" stroke-width="3"/></g></g>
+  <path d="M0 840C500 800 900 890 1440 820V900H0Z" fill="#7FA08A"/>
 
 </svg>

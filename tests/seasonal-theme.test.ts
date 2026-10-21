@@ -229,6 +229,26 @@ describe("seasonal themes", { concurrency: 1 }, () => {
       const mobile = source(`public/seasonal/${theme.scenes.mobile}`);
       assert.notEqual(site, portal, theme.id);
       assert.ok(mobile.length < site.length, theme.id);
+      if (theme.id !== "halloween") {
+        const motif = {
+          thanksgiving: /id="harvest-table"/,
+          hanukkah: /id="menorah"/,
+          christmas: /id="christmas-tree"/,
+          "new-year": /id="firework"/,
+          valentines: /id="flowers"/,
+          "st-patricks": /id="rainbow"/,
+          easter: /id="bunny"/,
+          "mothers-day": /id="bouquet"/,
+          "fathers-day": /id="grill"/,
+          summer: /id="firework"/,
+          "back-to-school": /id="schoolhouse"/,
+        }[theme.id];
+        assert.match(site, motif, theme.id);
+        assert.match(portal, motif, theme.id);
+        assert.match(mobile, motif, theme.id);
+        assert.ok(site.length > 5000, `${theme.id} site should fill the frame`);
+        assert.ok(portal.length > 4000, `${theme.id} portal should fill the frame`);
+      }
       const siteCast = THEME_FLOATERS.filter((item) => item.theme === theme.id && item.surface === "site");
       const portalCast = THEME_FLOATERS.filter((item) => item.theme === theme.id && item.surface === "portal");
       const places = (items: readonly { top: string; left: string }[]) => items.map((item) => `${item.top}:${item.left}`).join("|");
