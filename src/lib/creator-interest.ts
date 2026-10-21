@@ -5,6 +5,7 @@ import { createApprovalEmail } from "./approvals";
 import { setDealStage } from "./deal-stage";
 import { normalizeEmail, nowIso } from "./format";
 import { assertStaffAccess, assignedManagersByCreator, notifyStaff, staffHistoryRole } from "./managers";
+import type { Viewer } from "./types";
 
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 
@@ -248,6 +249,97 @@ export async function recordCreatorInterest(
     approvalId: drafted.id,
     workflowStage: moved.workflowStage,
   };
+}
+
+/** Offers page. A pass leaves Brand deals and tells Kamron in the portal. Nothing is emailed. */
+export async function passSharedOffer(
+  db: PortalDb,
+  input: { dealId: string; creatorId: string; creatorEmail: string; creatorName: string },
+): Promise<Result<{ workflowStage: string }>> {
+  const rows = await db.select().from(deals).where(eq(deals.id, input.dealId));
+  const deal = rows[0];
+  if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+  if (deal.creatorId !== input.creatorId) {
+    return { ok: false, status: 403, error: "You can only respond to your own offers." };
+  }
+  const prior = await savedChoice(db, deal.id);
+  if (prior) return { ok: false, status: 409, error: "You already answered this offer." };
+  const released = await releasedScreening(db, deal.id);
+  if (!deal.visibleToCreator || deal.workflowStage !== "offer_shared" || !released) {
+    return { ok: false, status: 403, error: "This offer is not on your list yet." };
+  }
+  const moved = await setDealStage(db, {
+    dealId: deal.id,
+    toStage: "creator_declined",
+    actorEmail: input.creatorEmail,
+    actorRole: "system",
+    creatorId: input.creatorId,
+    note: "Creator passed on the offer.",
+  });
+  if (!moved.ok) return { ok: false, status: moved.status, error: moved.error };
+  await db.insert(creatorInterest).values({
+    id: crypto.randomUUID(),
+    dealId: deal.id,
+    creatorId: deal.creatorId,
+    decision: "declined",
+    note: null,
+    approvalId: null,
+    createdAt: nowIso(),
+  });
+  await notifyStaff(db, {
+    kind: "creator_interest",
+    creatorId: deal.creatorId,
+    message: `${input.creatorName} passed on ${deal.brand}.`,
+  });
+  return { ok: true, workflowStage: moved.workflowStage };
+}
+
+/** Offers page. The suggestion stays on the offer until she accepts or passes. Nothing is emailed. */
+export async function counterSharedOffer(
+  db: PortalDb,
+  input: { dealId: string; creatorId: string; creatorName: string; note?: string | null },
+): Promise<Result<{ note: string }>> {
+  const note = clean(input.note)?.slice(0, 500) ?? "";
+  if (!note) return { ok: false, status: 400, error: "Write the counter you want Kamron to ask for." };
+  const rows = await db.select().from(deals).where(eq(deals.id, input.dealId));
+  const deal = rows[0];
+  if (!deal) return { ok: false, status: 404, error: "Deal not found." };
+  if (deal.creatorId !== input.creatorId) {
+    return { ok: false, status: 403, error: "You can only respond to your own offers." };
+  }
+  const prior = await savedChoice(db, deal.id);
+  if (prior) return { ok: false, status: 409, error: "You already answered this offer." };
+  const released = await releasedScreening(db, deal.id);
+  if (!deal.visibleToCreator || deal.workflowStage !== "offer_shared" || !released) {
+    return { ok: false, status: 403, error: "This offer is not on your list yet." };
+  }
+  await db.update(deals).set({ nextStep: note, updatedAt: nowIso() }).where(eq(deals.id, deal.id));
+  await notifyStaff(db, {
+    kind: "creator_interest",
+    creatorId: deal.creatorId,
+    message: `${input.creatorName} suggested a counter on ${deal.brand}. ${note}`,
+  });
+  return { ok: true, note };
+}
+
+/** Pre-acceptance deals Kamron has released. Accepted work stays on Brand deals. */
+export async function listSharedOffers(db: PortalDb, viewer: Viewer) {
+  if (viewer.role !== "creator" || !viewer.creatorId) return [];
+  const rows = await db.select().from(deals).where(eq(deals.creatorId, viewer.creatorId));
+  const open: { id: string; brand: string; subtitle: string | null; amountDisplay: string | null; counter: string | null }[] = [];
+  for (const deal of rows) {
+    if (!deal.visibleToCreator || deal.workflowStage !== "offer_shared") continue;
+    const [released, choice] = await Promise.all([releasedScreening(db, deal.id), savedChoice(db, deal.id)]);
+    if (!released || choice) continue;
+    open.push({
+      id: deal.id,
+      brand: deal.brand,
+      subtitle: deal.subtitle,
+      amountDisplay: deal.amountDisplay,
+      counter: deal.nextStep,
+    });
+  }
+  return open.sort((a, b) => a.brand.localeCompare(b.brand));
 }
 
 export async function listCreatorInterest(db: PortalDb, since: string | null): Promise<CreatorInterestRow[]> {

@@ -57,6 +57,7 @@ export function DealBoard({
   paymentError = null,
   safetyError = null,
   signerError = null,
+  emptyCopy = null,
 }: {
   deals: DealSummary[];
   selected: DealDetail | null;
@@ -79,6 +80,7 @@ export function DealBoard({
   paymentError?: string | null;
   safetyError?: string | null;
   signerError?: string | null;
+  emptyCopy?: string | null;
 }) {
   return (
     <div className={showDetail ? "grid showdetail" : "grid"} id="dealGrid">
@@ -87,8 +89,12 @@ export function DealBoard({
         <div className="sec-title">Your deals</div>
         {deals.length === 0 ? (
           <div className="card empty-state">
-            <b>No deals on your list yet.</b>
-            <p className="note">When a brand says yes, Kamron turns the deal on here. Negotiation notes stay off this page until then.</p>
+            {emptyCopy ? <p className="note empty">{emptyCopy}</p> : (
+              <>
+                <b>No deals on your list yet.</b>
+                <p className="note">When a brand says yes, Kamron turns the deal on here. Negotiation notes stay off this page until then.</p>
+              </>
+            )}
           </div>
         ) : (
           deals.map((deal) => (

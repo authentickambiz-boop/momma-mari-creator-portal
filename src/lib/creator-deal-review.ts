@@ -1,7 +1,9 @@
 import { asc, eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { approvalEmails, creatorOfferReviews, creators } from "@/db/schema";
+import { approvalEmails, creatorOfferReviews, creators, deals } from "@/db/schema";
+import { setDealStage } from "./deal-stage";
 import { nowIso } from "./format";
+import { notifyStaff } from "./managers";
 import { findCreatorByEmail, findCreatorById } from "./queries";
 import type { Viewer } from "./types";
 
@@ -59,6 +61,32 @@ export function reviewChoices(mode: string | null, decision: string | null): Dea
   if (mode === "info") return [];
   if (mode === "counter") return ["counter"];
   return ["accept", "counter", "pass"];
+}
+
+export const CREATOR_REVIEW_EMPTY = "Nothing needs you right now";
+
+/** Status copy that means the creator has nothing to send, even if a button was left on the card. */
+const CREATOR_RESTING_REVIEW = [
+  /\bduplicate\b/i,
+  /\bon hold\b/i,
+  /waiting on the brand/i,
+  /\bdeclin/i,
+  /\bclosed\b/i,
+  /\bpassed\b/i,
+  /nothing to accept/i,
+  /for your information/i,
+  /nothing to (answer|decide)/i,
+  /nothing for you to answer/i,
+];
+
+/**
+ * Creator home only. A card stays when the creator can still accept, pass, or counter.
+ * Owner, manager, and bot lists keep every card, including closed and info-only ones.
+ */
+export function creatorReviewNeedsAction(offer: Pick<CreatorDealReview, "offerLabel" | "summary" | "reviewMode" | "decision">) {
+  if (reviewChoices(offer.reviewMode, offer.decision).length === 0) return false;
+  const text = `${offer.offerLabel}\n${offer.summary}`;
+  return !CREATOR_RESTING_REVIEW.some((pattern) => pattern.test(text));
 }
 
 /** Bot-settable card status. A reply like "passed on Oct 21" counts as passed, not waiting. */
@@ -174,6 +202,10 @@ export async function decideCreatorDealReview(
   const before = (await db.select().from(approvalEmails)).length;
   const timestamp = nowIso();
   const note = input.decision === "counter" ? input.note?.trim().slice(0, 500) || null : null;
+  if (input.decision === "accept") {
+    const placed = await placeAcceptedReview(db, offer, input.creatorId);
+    if (!placed.ok) return placed;
+  }
   await db.update(creatorOfferReviews).set({
     decision: input.decision,
     counterNote: note,
@@ -181,7 +213,60 @@ export async function decideCreatorDealReview(
   }).where(eq(creatorOfferReviews.id, offer.id));
   const after = (await db.select().from(approvalEmails)).length;
   if (after !== before) return { ok: false, status: 500, error: "That answer was not saved." };
+  const people = await db.select({ name: creators.name }).from(creators).where(eq(creators.id, input.creatorId));
+  const name = people[0]?.name ?? "A creator";
+  const message = input.decision === "accept"
+    ? `${name} accepted ${offer.brand}. It's on Brand deals.`
+    : input.decision === "pass"
+      ? `${name} passed on ${offer.brand}.`
+      : `${name} suggested a counter on ${offer.brand}.${note ? ` ${note}` : ""}`;
+  await notifyStaff(db, { kind: "offer_review", creatorId: input.creatorId, message });
   return { ok: true, decision: input.decision };
+}
+
+/** Turns an accepted offer into a Brand deal. The creator's private minimum is not read or stored. */
+async function placeAcceptedReview(
+  db: PortalDb,
+  offer: { id: string; brand: string; contactEmail: string; offerLabel: string; summary: string },
+  creatorId: string,
+): Promise<Result<Record<string, never>>> {
+  const id = `accepted-${offer.id}`;
+  const existing = await db.select().from(deals).where(eq(deals.id, id));
+  if (existing[0]) return { ok: true };
+  const rows = await db.select({ sortOrder: deals.sortOrder }).from(deals).where(eq(deals.creatorId, creatorId));
+  const sort = rows.reduce((max, row) => Math.max(max, row.sortOrder), 0) + 1;
+  const timestamp = nowIso();
+  const label = offer.offerLabel.trim();
+  await db.insert(deals).values({
+    id,
+    creatorId,
+    brand: offer.brand,
+    subtitle: offer.summary.slice(0, 180),
+    contact: offer.contactEmail,
+    status: "pitch",
+    deliverablesJson: "[]",
+    chipsJson: "[]",
+    visibleToCreator: true,
+    reviewStatus: "published",
+    uploadEnabled: false,
+    needsCreator: false,
+    sortOrder: sort,
+    isSeed: false,
+    amountDisplay: label.startsWith("$") ? label : null,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  const moved = await setDealStage(db, {
+    dealId: id,
+    toStage: "creator_interested",
+    actorEmail: "portal",
+    actorRole: "system",
+    creatorId,
+    note: "Creator accepted the offer.",
+  });
+  if (!moved.ok) return { ok: false, status: moved.status, error: moved.error };
+  await db.update(deals).set({ visibleToCreator: true, reviewStatus: "published" }).where(eq(deals.id, id));
+  return { ok: true };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

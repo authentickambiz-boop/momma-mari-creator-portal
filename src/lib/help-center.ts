@@ -12,7 +12,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     audience: "Creators",
     body: `Sign in with the Google account Kamron has on file. If your legal name, mailing address, phone, or handles are missing, the portal asks you to complete your profile before anything else.
 
-Your home shows your own deals. A deal stays hidden until Kamron releases it. You can accept, counter, or pass an offer from that list.
+Offers are new brand offers Kamron has shared. Say you're interested, pass, or suggest a counter. Your private rate stays on your rules. Brand deals are the work you already accepted, and a card shows there only when you need to sign, confirm product, film, upload, post, or get paid. Kamron's sign-in still shows every offer and every deal.
 
 Drafts, dates, and payout notes stay on your sign-in. Another creator cannot open them.
 

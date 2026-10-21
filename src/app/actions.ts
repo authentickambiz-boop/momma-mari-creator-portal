@@ -159,7 +159,11 @@ export async function creatorInterestAction(formData: FormData) {
     decision,
     note: String(formData.get("note") ?? ""),
   });
-  if (!result.ok) redirect(`/deals/${dealId}?interestError=${dealNoticeCode(result.error)}`);
+  const back = String(formData.get("back") ?? "");
+  if (!result.ok) {
+    redirect(back === "offers" ? `/offers?offerError=1` : `/deals/${dealId}?interestError=${dealNoticeCode(result.error)}`);
+  }
+  if (back === "offers") redirect("/offers?saved=1");
   if (result.decision === "declined") redirect("/?passed=1");
   redirect(`/deals/${dealId}`);
 }

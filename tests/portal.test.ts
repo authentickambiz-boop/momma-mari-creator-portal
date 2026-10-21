@@ -4694,7 +4694,7 @@ test("the creator menu, home cards, and billing stay on her own sign-in", async 
   assert.equal(isMenuTab("referrals"), true);
   assert.equal(isMenuTab("deals"), false);
   const cards = creatorHomeCards({ offersWaiting: 2, payoutsPending: 1, accountsConnected: false });
-  assert.equal(cards.find((card) => card.title === "Brand deals")?.status, "2 offers waiting");
+  assert.equal(cards.find((card) => card.title === "Brand deals")?.status, "2 deals need you");
   assert.equal(cards.find((card) => card.title === "Earnings & payouts")?.status, "1 payout pending");
   assert.equal(cards.find((card) => card.title === "Analytics")?.status, "Example numbers until accounts are connected");
   assert.equal(billingUsage({ tier: "Basic", used: 120 }).warning, "80");
@@ -5092,10 +5092,12 @@ test("brand offers use creator minimums, stay private, and update the brand list
   const accepted = await respondToOffer(db, lowViewer, { allocationId: lowInbox[0]!.id, decision: "accepted" });
   assert.equal(accepted.ok, true);
   const asked = await respondToOffer(db, midViewer, { allocationId: (await listCreatorOffers(db, midViewer))[0]!.id, decision: "question", question: "Can I post this in December?" });
-  assert.equal(asked.ok, false);
+  assert.equal(asked.ok, true);
   const declined = await respondToOffer(db, highViewer, { allocationId: highInbox[0]!.id, decision: "declined" });
-  assert.equal(declined.ok, false);
-  assert.equal((await db.select().from(deals).where(eq(deals.creatorId, "offer-high"))).some((row) => row.brand === "Second Soap"), false);
+  assert.equal(declined.ok, true);
+  const passedSoap = (await db.select().from(deals).where(eq(deals.creatorId, "offer-high"))).find((row) => row.brand === "Second Soap");
+  assert.equal(passedSoap?.workflowStage, "creator_declined");
+  assert.equal(passedSoap?.visibleToCreator, false);
   const emptyQuestion = await respondToOffer(db, midViewer, { allocationId: (await listCreatorOffers(db, midViewer))[0]!.id, decision: "question", question: " " });
   assert.equal(emptyQuestion.ok, false);
   assert.equal((await respondToOffer(db, highViewer, { allocationId: lowInbox[0]!.id, decision: "accepted" })).ok, false);
@@ -5103,8 +5105,8 @@ test("brand offers use creator minimums, stay private, and update the brand list
   const board = await listOfferBoard(db, admin);
   const spread = board.find((row) => row.brand === "Spread Soap");
   assert.equal(spread?.recipients.find((row) => row.creatorId === "offer-low")?.response, "accepted");
-  assert.equal(spread?.recipients.find((row) => row.creatorId === "offer-mid")?.response, "pending");
-  assert.equal(spread?.recipients.find((row) => row.creatorId === "offer-mid")?.question, null);
+  assert.equal(spread?.recipients.find((row) => row.creatorId === "offer-mid")?.response, "question");
+  assert.equal(spread?.recipients.find((row) => row.creatorId === "offer-mid")?.question, "Can I post this in December?");
   assert.equal(board.find((row) => row.brand === "Tiny Soap")?.flagLabel, "Pitch agency retainer");
   assert.equal(board.find((row) => row.brand === "Trainee Soap")?.flagLabel, "Commission-only trainee");
   assert.equal(JSON.stringify(board).includes("minimumPerVideo"), false);
@@ -5416,10 +5418,10 @@ test("live mail updates the deal, filters spam, and stays hidden until you share
   assert.equal(inbox.length, 1);
   const decided = await respondToOffer(db, liveViewer, { allocationId: inbox[0]!.id, decision: "accepted" });
   assert.equal(decided.ok, true);
-  assert.equal((await listDealsForViewer(db, liveViewer, "live-one")).some((deal) => deal.brand === "Harbor Live"), false);
+  assert.equal((await listDealsForViewer(db, liveViewer, "live-one")).some((deal) => deal.brand === "Harbor Live"), true);
   const hiddenHarbor = await getDealForViewer(db, admin, `offer-${inbox[0]!.id}`);
   assert.equal(hiddenHarbor?.workflowStage, "creator_interested");
-  assert.equal(hiddenHarbor?.visibleToCreator, false);
+  assert.equal(hiddenHarbor?.visibleToCreator, true);
   assert.equal((await publishDealReview(db, { dealId: hiddenHarbor?.id ?? "", actorEmail: admin.email, actorRole: "admin" })).ok, true);
   const shown = await listDealsForViewer(db, liveViewer, "live-one");
   const harbor = shown.find((deal) => deal.brand === "Harbor Live");

@@ -1,14 +1,30 @@
-import { createBrandOfferAction, respondToOfferAction } from "@/app/offer-actions";
+import { creatorInterestAction } from "@/app/actions";
+import { counterSharedOfferAction, createBrandOfferAction, passSharedOfferAction, respondToOfferAction } from "@/app/offer-actions";
+import { CreatorDealReviewCard } from "@/components/creator-deal-review";
 import { PortalFrame } from "@/components/portal-frame";
 import { TagPicker } from "@/components/tag-picker";
 import { listCreatorOffers, listOfferBoard, offerFlagLabel } from "@/lib/brand-offers";
+import { CREATOR_REVIEW_EMPTY, creatorReviewNeedsAction, listCreatorDealReviews } from "@/lib/creator-deal-review";
+import { listSharedOffers } from "@/lib/creator-interest";
 import { loadPortal } from "@/lib/current-user";
 import { DELIVERABLES } from "@/lib/deal-rules";
 import { formatMoney } from "@/lib/format";
 import { PLATFORM_OPTIONS } from "@/lib/niche-catalog";
 import { offerErrorNote } from "@/lib/offer-notes";
 
-export default async function OffersPage({ searchParams }: { searchParams: Promise<{ saved?: string; offerError?: string }> }) {
+const REVIEW_NOTES: Record<string, string> = {
+  saved: "Your answer is saved. Nothing was emailed.",
+  role: "Only the creator can answer this offer.",
+  choice: "Choose accept, counter, or pass.",
+  missing: "That offer is not on your list.",
+  own: "You can only answer your own offers.",
+  answered: "You already answered this offer.",
+  closed: "You can't accept this offer.",
+  info: "This offer is for your information.",
+  "1": "That answer was not saved.",
+};
+
+export default async function OffersPage({ searchParams }: { searchParams: Promise<{ saved?: string; offerError?: string; review?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(null);
   if (portal.viewer.role === "manager") {
@@ -20,36 +36,86 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
   }
   const creatorView = portal.viewer.role === "creator";
   const inbox = creatorView ? await listCreatorOffers(portal.db, portal.viewer) : [];
+  const reviews = creatorView && portal.viewer.creatorId ? await listCreatorDealReviews(portal.db, portal.viewer.creatorId) : [];
+  const shared = creatorView ? await listSharedOffers(portal.db, portal.viewer) : [];
+  const openInbox = inbox.filter((offer) => offer.response === "pending" || offer.response === "question");
+  const openReviews = reviews.filter(creatorReviewNeedsAction);
   const board = portal.viewer.role === "admin" ? await listOfferBoard(portal.db, portal.viewer) : [];
   const offerError = offerErrorNote(params.offerError);
+  const reviewNote = params.review ? REVIEW_NOTES[params.review] ?? REVIEW_NOTES["1"] : null;
+  const nothingToAnswer = creatorView && openInbox.length === 0 && openReviews.length === 0 && shared.length === 0;
   return (
     <PortalFrame
       viewer={portal.viewer}
       tab="offers"
       creators={portal.creators}
       viewedId={portal.viewedId}
-      hello={<div className="hello"><div><h1>Brand offers</h1><p>{creatorView ? "What the brand will pay you. Your minimum stays private." : "Save a brand offer for the creators whose minimum and monthly cap fit. Lowest rank goes first. Nothing is emailed."}</p></div></div>}
+      hello={<div className="hello"><div><h1>Brand offers</h1><p>{creatorView ? "New offers Kamron shared. Say you're interested, pass, or suggest a counter. Your minimum stays private. Nothing is emailed." : "Save a brand offer for the creators whose minimum and monthly cap fit. Lowest rank goes first. Nothing is emailed."}</p></div></div>}
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
+      {reviewNote ? <p className="note">{reviewNote}</p> : null}
       {offerError ? <p className="private-note">{offerError}</p> : null}
       {creatorView ? (
         <div className="stack">
-          {inbox.length === 0 ? <p className="note empty">No brand offers in your inbox.</p> : null}
-          {inbox.map((offer) => (
+          {nothingToAnswer ? <p className="note empty">{CREATOR_REVIEW_EMPTY}</p> : null}
+          <CreatorDealReviewCard offers={openReviews} />
+          {openInbox.map((offer) => (
             <article key={offer.id} className="card stack">
               <b>{offer.brand}</b>
               <p>{offer.deliverables.join(", ") || "Deliverables TBD"} · {offer.platforms.join(", ")}</p>
               <p>{offer.startsOn || "Start TBD"} to {offer.endsOn || "end TBD"}</p>
               <p>The brand will pay {formatMoney(offer.budgetCents)} for this.</p>
               {offer.contactName ? <p className="note">Contact: {offer.contactName}</p> : null}
-              <p className="note">{offer.response === "accepted" ? "You said you're interested" : "Waiting on you"}</p>
-              {offer.response === "pending" ? (
+              {offer.question ? <p className="note">Counter you suggested: {offer.question}</p> : null}
+              <div className="deal-review-actions">
                 <form action={respondToOfferAction}>
                   <input type="hidden" name="allocationId" value={offer.id} />
                   <input type="hidden" name="decision" value="accepted" />
                   <button className="btn" type="submit">I&apos;m interested</button>
                 </form>
-              ) : null}
+                {offer.response === "pending" ? (
+                  <form action={respondToOfferAction} className="stack">
+                    <input type="hidden" name="allocationId" value={offer.id} />
+                    <input type="hidden" name="decision" value="question" />
+                    <label>Suggest a counter
+                      <textarea name="question" rows={2} />
+                    </label>
+                    <button className="btn ghost" type="submit">Suggest a counter</button>
+                  </form>
+                ) : null}
+                <form action={respondToOfferAction}>
+                  <input type="hidden" name="allocationId" value={offer.id} />
+                  <input type="hidden" name="decision" value="declined" />
+                  <button className="btn ghost" type="submit">Pass</button>
+                </form>
+              </div>
+            </article>
+          ))}
+          {shared.map((offer) => (
+            <article key={offer.id} className="card stack">
+              <b>{offer.brand}</b>
+              {offer.subtitle ? <p>{offer.subtitle}</p> : null}
+              {offer.amountDisplay ? <p>The brand will pay {offer.amountDisplay} for this.</p> : null}
+              {offer.counter ? <p className="note">Counter you suggested: {offer.counter}</p> : null}
+              <div className="deal-review-actions">
+                <form action={creatorInterestAction}>
+                  <input type="hidden" name="dealId" value={offer.id} />
+                  <input type="hidden" name="decision" value="interested" />
+                  <input type="hidden" name="back" value="offers" />
+                  <button className="btn" type="submit">I&apos;m interested</button>
+                </form>
+                <form action={counterSharedOfferAction} className="stack">
+                  <input type="hidden" name="dealId" value={offer.id} />
+                  <label>Suggest a counter
+                    <textarea name="note" rows={2} />
+                  </label>
+                  <button className="btn ghost" type="submit">Suggest a counter</button>
+                </form>
+                <form action={passSharedOfferAction}>
+                  <input type="hidden" name="dealId" value={offer.id} />
+                  <button className="btn ghost" type="submit">Pass</button>
+                </form>
+              </div>
             </article>
           ))}
         </div>

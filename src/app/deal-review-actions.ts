@@ -26,6 +26,6 @@ export async function decideDealReviewAction(formData: FormData) {
     decision: String(formData.get("decision") ?? ""),
     note: String(formData.get("note") ?? ""),
   });
-  if (!result.ok) redirect(`/?review=${CODES[result.error] ?? "1"}`);
-  redirect("/?review=saved");
+  if (!result.ok) redirect(`/offers?review=${CODES[result.error] ?? "1"}`);
+  redirect("/offers?review=saved");
 }
