@@ -53,7 +53,6 @@ describe("creator intake schema", { concurrency: 1 }, () => {
     assert.deepEqual(afterRow, beforeRow);
     const tables = sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('creator_intake', 'creator_platforms', 'intake_files')").all() as { name: string }[];
     assert.deepEqual(tables.map((row) => row.name).sort(), ["creator_intake", "creator_platforms", "intake_files"]);
-    sqlite.close();
   });
 
   test("current rates stay off non-admin and bot payloads, and KOSBLING stays put", async () => {

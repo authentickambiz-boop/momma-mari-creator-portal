@@ -33,6 +33,7 @@ export function isApprovalGate(value: string): value is ApprovalGate {
 
 export function approvalGateLabel(id: string) {
   if (id === "brand_reply") return "Brand reply";
+  if (id === "gift_guide") return "Gift guide reservation";
   return APPROVAL_GATES.find((gate) => gate.id === id)?.label ?? id;
 }
 
@@ -345,6 +346,9 @@ export async function markApprovalSent(
   if (row.gate === "brand_reply") {
     return { ok: false, status: 409, error: "This reply stays a draft. The portal does not send it." };
   }
+  if (row.gate === "gift_guide") {
+    return { ok: false, status: 409, error: "This gift guide note stays in the queue. The portal does not send it." };
+  }
   if (row.status !== "approved") {
     return { ok: false, status: 409, error: "This email is not approved to send." };
   }
@@ -408,7 +412,7 @@ export async function listSendableApprovals(db: PortalDb): Promise<SendableAppro
   const dealById = new Map(dealRows.map((deal) => [deal.id, deal]));
   const creatorById = new Map(creatorRows.map((creator) => [creator.id, creator]));
   return rows.flatMap((row) => {
-    if (row.gate === "brand_reply") return [];
+    if (row.gate === "brand_reply" || row.gate === "gift_guide") return [];
     const deal = dealById.get(row.dealId);
     if (!deal) return [];
     const creator = creatorById.get(deal.creatorId);
@@ -516,20 +520,22 @@ export async function listApprovalQueue(db: PortalDb, creatorId: string | "all",
   }
   return emailRows
     .flatMap((row) => {
-      const deal = dealById.get(row.dealId);
-      const outside = deal ? null : outsideByApproval.get(row.id);
+      const giftGuide = row.gate === "gift_guide";
+      const deal = giftGuide ? undefined : dealById.get(row.dealId);
+      const outside = deal || giftGuide ? null : outsideByApproval.get(row.id);
       const outsideCampaign = outside ? campaignById.get(outside.campaignId) : null;
       const outsideProspect = outside ? prospectById.get(outside.prospectId) : null;
-      if (!deal && (!outsideCampaign || !outsideProspect || creatorId !== "all" || limitTo)) return [];
+      if (giftGuide && (creatorId !== "all" || limitTo)) return [];
+      if (!deal && !giftGuide && (!outsideCampaign || !outsideProspect || creatorId !== "all" || limitTo)) return [];
       if (deal && limitTo && !limitTo.includes(deal.creatorId)) return [];
       if (deal && creatorId !== "all" && deal.creatorId !== creatorId) return [];
       const suggested = row.suggestedCreatorId ? creatorById.get(row.suggestedCreatorId) : null;
       return [{
         id: row.id,
         dealId: row.dealId,
-        brand: deal?.brand ?? outsideCampaign?.brand ?? "Campaign",
-        creatorId: deal?.creatorId ?? outsideProspect?.convertedCreatorId ?? "prospect",
-        creatorName: deal ? (creatorById.get(deal.creatorId)?.name ?? "Creator") : (outsideProspect?.name ?? "Prospect"),
+        brand: deal?.brand ?? (giftGuide ? row.brandContactCompany || "Gift guide" : outsideCampaign?.brand ?? "Campaign"),
+        creatorId: deal?.creatorId ?? (giftGuide ? "gift-guide" : outsideProspect?.convertedCreatorId ?? "prospect"),
+        creatorName: deal ? (creatorById.get(deal.creatorId)?.name ?? "Creator") : giftGuide ? "Gift guide" : (outsideProspect?.name ?? "Prospect"),
         gate: row.gate,
         gateLabel: approvalGateLabel(row.gate),
         status: row.status,

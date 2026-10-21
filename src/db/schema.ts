@@ -1419,3 +1419,27 @@ export const intakeFiles = sqliteTable("intake_files", {
   storageKey: text("storage_key").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+export const giftGuideReservations = sqliteTable("gift_guide_reservations", {
+  id: text("id").primaryKey(),
+  brandCrmId: text("brand_crm_id").notNull(),
+  brandContactId: text("brand_contact_id").notNull(),
+  approvalId: text("approval_id").notNull(),
+  brandName: text("brand_name").notNull(),
+  contactName: text("contact_name").notNull(),
+  email: text("email").notNull(),
+  website: text("website"),
+  productName: text("product_name").notNull(),
+  productUrl: text("product_url").notNull(),
+  retailPriceCents: integer("retail_price_cents").notNull(),
+  category: text("category").notNull(),
+  packageId: text("package_id").notNull(),
+  promoCode: text("promo_code"),
+  notes: text("notes"),
+  ackPaid: integer("ack_paid", { mode: "boolean" }).notNull(),
+  ackApproval: integer("ack_approval", { mode: "boolean" }).notNull(),
+  ackKids: integer("ack_kids", { mode: "boolean" }).notNull(),
+  ackUpfront: integer("ack_upfront", { mode: "boolean" }).notNull(),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+});
