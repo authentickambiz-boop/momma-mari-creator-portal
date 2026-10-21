@@ -3,7 +3,7 @@ import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
 import { listDealsForViewer } from "@/lib/queries";
 import { rightsErrorNote } from "@/lib/rights-notes";
-import { listUsageRights } from "@/lib/usage";
+import { USAGE_CHANNELS, USAGE_DAY_TIERS, listUsageRights } from "@/lib/usage";
 
 export default async function RightsPage({ searchParams }: { searchParams: Promise<{ creator?: string; saved?: string; rightsError?: string }> }) {
   const params = await searchParams;
@@ -11,6 +11,7 @@ export default async function RightsPage({ searchParams }: { searchParams: Promi
   const today = new Date().toISOString().slice(0, 10);
   const cards = await listUsageRights(portal.db, portal.viewer, today);
   const staff = portal.viewer.role === "admin" || portal.viewer.role === "manager";
+  const owner = portal.viewer.role === "admin";
   const deals = staff ? await listDealsForViewer(portal.db, portal.viewer, portal.viewedId) : [];
   return (
     <PortalFrame
@@ -26,11 +27,13 @@ export default async function RightsPage({ searchParams }: { searchParams: Promi
       {cards.length > 0 ? (
         <div className="card">
           <table>
-            <thead><tr><th>Brand</th><th>Usage</th><th>Starts</th><th>Ends</th><th>Exclusivity</th><th>Flag</th><th>Suggested renewal</th></tr></thead>
+            <thead><tr><th>Brand</th><th>Tier</th><th>Channels</th><th>Usage</th><th>Starts</th><th>Ends</th><th>Exclusivity</th><th>Flag</th><th>Suggested renewal</th></tr></thead>
             <tbody>
               {cards.map((card) => (
                 <tr key={card.dealId}>
                   <td>{card.brand}</td>
+                  <td>{card.tierLabel}</td>
+                  <td>{card.channelsLabel}</td>
                   <td>{card.usageType ?? "Not set"}{card.territory ? ` · ${card.territory}` : ""}</td>
                   <td>{card.startsOn}</td>
                   <td>{card.endsOn ?? "No end"}</td>
@@ -52,6 +55,20 @@ export default async function RightsPage({ searchParams }: { searchParams: Promi
               {deals.map((deal) => <option key={deal.id} value={deal.id}>{deal.brand}</option>)}
             </select>
           </label>
+          <label>Tier
+            <select name="tier" defaultValue="30" required>
+              {USAGE_DAY_TIERS.map((days) => <option key={days} value={days}>{days} days</option>)}
+              {owner ? <option value="perpetual">Perpetual, owner only</option> : null}
+            </select>
+          </label>
+          <fieldset>
+            <legend>Channels</legend>
+            {USAGE_CHANNELS.map((channel) => (
+              <label key={channel.id}>
+                <input type="checkbox" name="channels" value={channel.id} defaultChecked={channel.id === "organic_repost"} /> {channel.label}
+              </label>
+            ))}
+          </fieldset>
           <label>Usage type
             <select name="usageType" defaultValue="organic">
               <option value="organic">Organic</option>
@@ -61,10 +78,10 @@ export default async function RightsPage({ searchParams }: { searchParams: Promi
           </label>
           <label>Territory<input name="territory" placeholder="US, or worldwide" /></label>
           <label>Starts<input type="date" name="startsOn" required /></label>
-          <label>Ends<input type="date" name="endsOn" /></label>
           <label>Exclusivity category<input name="exclusivityCategory" placeholder="Towel warmers, or none" /></label>
           <label>Exclusivity ends<input type="date" name="exclusivityEndsOn" /></label>
-          <p className="note">Leave the end empty for perpetual usage (B-UAP). The owner dashboard flags a date inside 14 days.</p>
+          {owner ? <label>Renewal fee, optional<input name="renewalFee" inputMode="decimal" placeholder="Leave blank to skip" /></label> : null}
+          <p className="note">The end date is the start date plus the tier. Perpetual usage stays off unless the owner turns it on. A renewal fee, when you enter one, is recorded like any other deal: 80% creator and 20% agency. Nothing is emailed or charged.</p>
           <button className="btn" type="submit">Save usage</button>
         </form>
       ) : null}
