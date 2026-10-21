@@ -1443,3 +1443,16 @@ export const giftGuideReservations = sqliteTable("gift_guide_reservations", {
   status: text("status").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+export const feedbackNotes = sqliteTable("feedback_notes", {
+  id: text("id").primaryKey(),
+  authorEmail: text("author_email"),
+  authorName: text("author_name"),
+  audience: text("audience").notNull(),
+  category: text("category").notNull(),
+  rating: integer("rating").notNull(),
+  body: text("body").notNull(),
+  followUp: integer("follow_up", { mode: "boolean" }).notNull(),
+  ip: text("ip").notNull(),
+  createdAt: text("created_at").notNull(),
+});

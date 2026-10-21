@@ -39,7 +39,7 @@ export default function FaqPage() {
       </article>
       <article className="card">
         <h2>How do I reach Kamron?</h2>
-        <p>Use the <Link href="/contact">contact form</Link>. It is saved in the portal. Nothing is emailed from that form on its own.</p>
+        <p>Use the <Link href="/contact">contact form</Link>. It is saved in the portal. Nothing is emailed from that form on its own. A shorter note can go on <Link href="/feedback">feedback</Link>.</p>
       </article>
     </PublicShell>
   );
