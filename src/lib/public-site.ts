@@ -15,6 +15,11 @@ export const PUBLIC_MARKETING_PATHS = [
   "/apply",
   "/apply/thanks",
   "/curriculum",
+  "/about",
+  "/contact",
+  "/faq",
+  "/careers",
+  "/press",
   "/privacy",
   "/terms",
 ] as const;

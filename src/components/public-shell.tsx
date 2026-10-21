@@ -26,6 +26,11 @@ export function PublicShell({ title, lede, children }: { title: string; lede: st
       <p>{lede}</p>
       {children}
       <footer className="public-foot">
+        <Link href="/about">About</Link>
+        <Link href="/contact">Contact</Link>
+        <Link href="/faq">FAQ</Link>
+        <Link href="/careers">Careers</Link>
+        <Link href="/press">Press</Link>
         <Link href={KIDS_STANDARD_PATH}>Kids in content</Link>
       </footer>
     </main>
