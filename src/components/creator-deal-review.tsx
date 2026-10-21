@@ -1,5 +1,5 @@
 import { decideDealReviewAction } from "@/app/deal-review-actions";
-import { dealReviewLabel, reviewChoices, type CreatorDealReview } from "@/lib/creator-deal-review";
+import { dealReviewLabel, offerReviewStatus, reviewChoices, type CreatorDealReview } from "@/lib/creator-deal-review";
 
 export function CreatorDealReviewCard({ offers, note }: { offers: CreatorDealReview[]; note?: string | null }) {
   if (!offers.length) return null;
@@ -8,14 +8,18 @@ export function CreatorDealReviewCard({ offers, note }: { offers: CreatorDealRev
       <div className="sec-title">Deals for your review</div>
       {note ? <p className="note">{note}</p> : null}
       {offers.map((offer) => {
+        const status = offerReviewStatus(offer.decision);
         const choices = reviewChoices(offer.reviewMode, offer.decision);
+        const closed = status === "passed" || status === "declined";
         return (
           <article key={offer.id} className="stack">
             <h2>{offer.brand}</h2>
             <p><b>{offer.offerLabel}</b></p>
             <p>{offer.summary}</p>
             <p className="note">{offer.contactEmail}</p>
-            {offer.decision ? (
+            {closed ? (
+              <p className="note">{dealReviewLabel(offer.decision)}. Nothing to accept.</p>
+            ) : offer.decision ? (
               <p>Your answer: {dealReviewLabel(offer.decision)}{offer.counterNote ? `. ${offer.counterNote}` : ""}</p>
             ) : choices.length === 0 ? (
               <p className="note">For your information. Nothing to accept.</p>
