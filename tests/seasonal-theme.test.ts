@@ -5,9 +5,12 @@ import { before, describe, test } from "node:test";
 import type { PortalDb } from "../src/db/index";
 import { isPublicMarketingPath } from "../src/lib/public-site";
 import {
+  compositeHex,
   contrastRatio,
   dateInNewYork,
-  HALLOWEEN_DRIFTERS,
+  HALLOWEEN_FLOATERS,
+  HALLOWEEN_GLASS,
+  HALLOWEEN_LANTERNS,
   parseThemeInstant,
   SEASONAL_THEMES,
   SEASONAL_TIME_ZONE,
@@ -110,27 +113,52 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     assert.match(css, /prefers-reduced-motion:\s*reduce/);
     assert.match(css, /animation-play-state:\s*paused/);
     assert.match(css, /pointer-events:\s*none/);
-    assert.match(css, /seasonal-sky-site/);
-    assert.match(css, /seasonal-sky-portal/);
+    assert.match(css, /seasonal-scene-site/);
+    assert.match(css, /seasonal-scene-portal/);
+    assert.match(css, /rgba\(32, 14, 58, 0\.68\)/);
+    assert.match(css, /rgba\(32, 14, 58, 0\.84\)/);
+    assert.match(css, /backdrop-filter/);
+    assert.doesNotMatch(css, /clip-path:\s*inset\(64px/);
     assert.match(sparkle, /seasonalEffects/);
     assert.match(sparkle, /decorationsOn: true/);
     assert.match(frame, /theme\?\.id === "halloween"/);
-    assert.match(frame, /HalloweenSky/);
+    assert.match(frame, /HalloweenScene/);
+    assert.match(frame, /loading="lazy"/);
+    assert.match(frame, /requestIdleCallback/);
+    assert.match(frame, /halloween-site\.svg/);
+    assert.match(frame, /halloween-portal\.svg/);
+    assert.match(frame, /halloween-mobile\.svg/);
   });
 
-  test("the public site and the portal share a cast but not the same motion", () => {
-    const site = HALLOWEEN_DRIFTERS.filter((item) => item.surface === "site");
-    const portal = HALLOWEEN_DRIFTERS.filter((item) => item.surface === "portal");
+  test("the public site and the portal get different full-viewport scenes", () => {
+    const site = HALLOWEEN_FLOATERS.filter((item) => item.surface === "site");
+    const portal = HALLOWEEN_FLOATERS.filter((item) => item.surface === "portal");
     assert.ok(site.length >= 4 && site.length <= 8);
     assert.ok(portal.length >= 3 && portal.length <= 6);
-    assert.ok(site.some((item) => item.left !== "auto"));
-    assert.ok(site.some((item) => item.right !== "auto"));
-    assert.ok(portal.every((item) => item.left === "auto" && item.right !== "auto"));
-    assert.ok(Math.max(...site.map((item) => item.size)) > Math.max(...portal.map((item) => item.size)));
-    for (const item of HALLOWEEN_DRIFTERS) {
-      assert.ok(item.kind === "ghost" || item.kind === "bat" || item.kind === "pumpkin");
+    const inset = (item: { left: string }) => {
+      const value = Number.parseFloat(item.left);
+      return item.left.endsWith("%") && value > 10 && value < 90;
+    };
+    assert.ok(site.some(inset));
+    assert.ok(portal.some(inset));
+    const places = (items: readonly { top: string; left: string }[]) => items.map((item) => `${item.top}:${item.left}`).join("|");
+    assert.notEqual(places(site), places(portal));
+    for (const item of HALLOWEEN_FLOATERS) {
+      assert.ok(item.kind === "ghost" || item.kind === "bat");
+      assert.ok(Number.parseFloat(item.duration) >= 16);
     }
-    const paths = ["/", "/services", "/meet", "/pricing", "/pricing/preview", "/apply/thanks", "/login", "/portal/services", "/brand-report/abc", "/deals/kosbling"];
+    const siteLamps = HALLOWEEN_LANTERNS.filter((item) => item.surface === "site");
+    const portalLamps = HALLOWEEN_LANTERNS.filter((item) => item.surface === "portal");
+    assert.notEqual(places(siteLamps), places(portalLamps));
+    const siteArt = source("public/seasonal/halloween-site.svg");
+    const portalArt = source("public/seasonal/halloween-portal.svg");
+    const mobileArt = source("public/seasonal/halloween-mobile.svg");
+    assert.match(siteArt, /id="haunted-house"/);
+    assert.match(portalArt, /id="porch"/);
+    assert.notEqual(siteArt, portalArt);
+    assert.ok(mobileArt.length < siteArt.length, "the phone scene should be the lighter file");
+    assert.match(source("src/app/seasonal-theme.css"), /max-width:\s*820px/);
+    const paths = ["/", "/services", "/meet", "/pricing", "/pricing/preview", "/apply/thanks", "/gift-guide", "/login", "/portal/services", "/brand-report/abc", "/deals/kosbling"];
     for (const path of paths) {
       const base = path.startsWith("/portal/") ? "/portal" : "";
       const marketing = isPublicMarketingPath(path, base);
@@ -138,15 +166,30 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     }
   });
 
-  test("page colors stay WCAG AA for the existing text colors", () => {
+  test("page colors stay WCAG AA for the text that actually sits on them", () => {
     const halloween = SEASONAL_THEMES.find((theme) => theme.id === "halloween");
     assert.equal(halloween?.greeting, "Happy Halloween");
     assert.equal(halloween?.palette.orange, "#E8873A");
     assert.equal(halloween?.palette.purple, "#6B46A3");
     assert.equal(halloween?.palette.black, "#1C1A1F");
+    assert.equal(halloween?.palette.page, "#120A1C");
     assert.equal(halloween?.placeholder, false);
+    assert.equal(compositeHex(HALLOWEEN_GLASS.fill, HALLOWEEN_GLASS.scene, HALLOWEEN_GLASS.alpha), "#675b79");
+    const inks = [HALLOWEEN_GLASS.ink, HALLOWEEN_GLASS.muted, HALLOWEEN_GLASS.heading, HALLOWEEN_GLASS.link, HALLOWEEN_GLASS.accent];
+    for (const alpha of [HALLOWEEN_GLASS.alpha, HALLOWEEN_GLASS.mobileAlpha]) {
+      const worst = compositeHex(HALLOWEEN_GLASS.fill, HALLOWEEN_GLASS.scene, alpha);
+      for (const ink of inks) {
+        const ratio = contrastRatio(ink, worst);
+        assert.ok(ratio >= 4.5, `${ink} on glass ${worst} at ${alpha} is ${ratio.toFixed(2)}`);
+      }
+    }
+    assert.ok(contrastRatio("#FFF6EA", "#3A2460") >= 4.5);
+    assert.ok(contrastRatio("#FFF6EA", "#6B46A3") >= 4.5);
+    assert.ok(contrastRatio("#1C1A1F", "#E8873A") >= 4.5);
+    assert.ok(contrastRatio("#1C1A1F", "#FFFFFF") >= 4.5);
     for (const theme of SEASONAL_THEMES) {
-      if (theme.id !== "halloween") assert.equal(theme.placeholder, true);
+      if (theme.id === "halloween") continue;
+      assert.equal(theme.placeholder, true);
       for (const ink of PAGE_TEXT) {
         const ratio = contrastRatio(ink, theme.palette.page);
         assert.ok(ratio >= 4.5, `${theme.id} ${ink} on ${theme.palette.page} is ${ratio.toFixed(2)}`);

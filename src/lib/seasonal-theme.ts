@@ -2,7 +2,9 @@
  * Seasonal themes for mommamari.com and the creator portal.
  * Ranges are inclusive wall-clock times in America/New_York.
  * Placeholder themes ship a palette only, for the owner to fill in later.
- * Orange, purple, and black are decoration. Page text stays on `palette.page`.
+ * Halloween is a full-viewport night scene. Its readable text sits on
+ * translucent dark-purple glass (HALLOWEEN_GLASS), not on palette.page.
+ * Other themes still put the existing dark text on palette.page.
  */
 
 export const SEASONAL_TIME_ZONE = "America/New_York";
@@ -12,7 +14,7 @@ export const THEME_OFF_COOKIE = "mm_theme_off";
 export type SeasonalThemeId = "halloween" | "thanksgiving" | "holiday" | "valentines" | "mothers-day";
 
 export type SeasonalPalette = {
-  /** Page background. Existing text colors sit on this, so it stays WCAG AA. */
+  /** Page fallback behind the scene. Halloween text does not sit on this. */
   page: string;
   /** Decoration only. Do not put text on these. */
   orange: string;
@@ -44,7 +46,7 @@ export const SEASONAL_THEMES: readonly SeasonalTheme[] = [
     placeholder: false,
     greeting: "Happy Halloween",
     palette: {
-      page: "#FBF7FC",
+      page: "#120A1C",
       orange: "#E8873A",
       purple: "#6B46A3",
       black: "#1C1A1F",
@@ -117,36 +119,48 @@ export type ThemeOverride = "auto" | "none" | SeasonalThemeId;
 
 export type SeasonalSurface = "site" | "portal";
 
-export type HalloweenDrifter = {
-  kind: "ghost" | "bat" | "pumpkin";
+export type HalloweenFloater = {
+  kind: "ghost" | "bat";
   surface: SeasonalSurface;
-  /** Far moves less than near, so the layers read as parallax. */
-  layer: "far" | "mid" | "near";
   top: string;
   left: string;
-  right: string;
   size: number;
   duration: string;
   delay: string;
+  /** Each letter is a different parallax path. */
   drift: "a" | "b" | "c";
 };
 
 /**
- * Cute background cast.
- * The public site spreads larger characters along both edges.
- * The portal keeps a smaller, slower cast on the right so the desk stays clear.
+ * Characters that float across the whole scene, in front of the illustration
+ * and behind the glass panels. The portal cast is a different arrangement.
  */
-export const HALLOWEEN_DRIFTERS: readonly HalloweenDrifter[] = [
-  { kind: "pumpkin", surface: "site", layer: "near", top: "18%", left: "18px", right: "auto", size: 74, duration: "52s", delay: "0s", drift: "a" },
-  { kind: "bat", surface: "site", layer: "mid", top: "46%", left: "auto", right: "16px", size: 64, duration: "66s", delay: "-14s", drift: "b" },
-  { kind: "ghost", surface: "site", layer: "far", top: "72%", left: "22px", right: "auto", size: 52, duration: "84s", delay: "-8s", drift: "c" },
-  { kind: "ghost", surface: "site", layer: "mid", top: "30%", left: "auto", right: "28px", size: 58, duration: "60s", delay: "-22s", drift: "a" },
-  { kind: "pumpkin", surface: "site", layer: "far", top: "84%", left: "auto", right: "20px", size: 46, duration: "76s", delay: "-6s", drift: "b" },
-  { kind: "bat", surface: "site", layer: "near", top: "62%", left: "24px", right: "auto", size: 48, duration: "48s", delay: "-18s", drift: "c" },
-  { kind: "ghost", surface: "portal", layer: "mid", top: "24%", left: "auto", right: "8px", size: 28, duration: "78s", delay: "-4s", drift: "a" },
-  { kind: "pumpkin", surface: "portal", layer: "far", top: "46%", left: "auto", right: "8px", size: 26, duration: "92s", delay: "-16s", drift: "c" },
-  { kind: "bat", surface: "portal", layer: "near", top: "68%", left: "auto", right: "8px", size: 28, duration: "70s", delay: "-10s", drift: "b" },
-  { kind: "ghost", surface: "portal", layer: "far", top: "82%", left: "auto", right: "8px", size: 24, duration: "88s", delay: "-28s", drift: "a" },
+export const HALLOWEEN_FLOATERS: readonly HalloweenFloater[] = [
+  { kind: "ghost", surface: "site", top: "14%", left: "12%", size: 120, duration: "22s", delay: "0s", drift: "a" },
+  { kind: "ghost", surface: "site", top: "30%", left: "58%", size: 88, duration: "26s", delay: "-8s", drift: "b" },
+  { kind: "bat", surface: "site", top: "10%", left: "36%", size: 56, duration: "18s", delay: "-4s", drift: "c" },
+  { kind: "bat", surface: "site", top: "22%", left: "78%", size: 44, duration: "24s", delay: "-12s", drift: "a" },
+  { kind: "ghost", surface: "site", top: "46%", left: "82%", size: 54, duration: "28s", delay: "-6s", drift: "c" },
+  { kind: "ghost", surface: "portal", top: "18%", left: "42%", size: 108, duration: "24s", delay: "-3s", drift: "b" },
+  { kind: "bat", surface: "portal", top: "8%", left: "62%", size: 48, duration: "20s", delay: "-9s", drift: "a" },
+  { kind: "bat", surface: "portal", top: "28%", left: "22%", size: 40, duration: "27s", delay: "-5s", drift: "c" },
+  { kind: "ghost", surface: "portal", top: "40%", left: "70%", size: 60, duration: "30s", delay: "-14s", drift: "a" },
+];
+
+export type HalloweenLantern = {
+  surface: SeasonalSurface;
+  top: string;
+  left: string;
+  size: number;
+  delay: string;
+};
+
+/** Soft glows parked over each scene's jack-o'-lanterns. */
+export const HALLOWEEN_LANTERNS: readonly HalloweenLantern[] = [
+  { surface: "site", top: "62%", left: "74%", size: 150, delay: "0s" },
+  { surface: "site", top: "70%", left: "86%", size: 110, delay: "-0.8s" },
+  { surface: "portal", top: "66%", left: "16%", size: 170, delay: "-0.4s" },
+  { surface: "portal", top: "58%", left: "78%", size: 120, delay: "-1.3s" },
 ];
 
 const SEASONAL_SITE_PATHS = [
@@ -159,6 +173,7 @@ const SEASONAL_SITE_PATHS = [
   "/inquire",
   "/apply",
   "/apply/thanks",
+  "/gift-guide",
   "/privacy",
   "/terms",
 ] as const;
@@ -363,4 +378,34 @@ export function contrastRatio(foreground: string, background: string) {
   const lighter = Math.max(first, second);
   const darker = Math.min(first, second);
   return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Worst-case glass. `fill` at `alpha` is composited over a white scene pixel
+ * (the moon). Text colors have to pass WCAG AA on that blend. Mobile uses a
+ * higher alpha because it skips the blur.
+ */
+export const HALLOWEEN_GLASS = {
+  fill: "#200E3A",
+  scene: "#FFFFFF",
+  alpha: 0.68,
+  mobileAlpha: 0.84,
+  ink: "#F7F1FF",
+  muted: "#F0E4FF",
+  heading: "#FFF6EA",
+  link: "#FFE7C2",
+  accent: "#FFD9A8",
+} as const;
+
+/** Opaque result of laying `foreground` over `background` at `alpha`. */
+export function compositeHex(foreground: string, background: string, alpha: number) {
+  const clean = (value: string) => value.replace("#", "");
+  const fg = clean(foreground);
+  const bg = clean(background);
+  const mix = (index: number) => Math.round(
+    Number.parseInt(fg.slice(index, index + 2), 16) * alpha
+    + Number.parseInt(bg.slice(index, index + 2), 16) * (1 - alpha),
+  );
+  const hex = (value: number) => value.toString(16).padStart(2, "0");
+  return `#${hex(mix(0))}${hex(mix(2))}${hex(mix(4))}`;
 }

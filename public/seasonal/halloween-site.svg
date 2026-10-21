@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-site">
+  <defs>
+    <linearGradient id="site-back" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4A2280"/>
+      <stop offset="1" stop-color="#241044"/>
+    </linearGradient>
+    <linearGradient id="site-mid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5C2E96"/>
+      <stop offset="1" stop-color="#2A1454"/>
+    </linearGradient>
+    <linearGradient id="site-front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6B46A3"/>
+      <stop offset="1" stop-color="#1A0C30"/>
+    </linearGradient>
+    <radialGradient id="site-window" cx="50%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#FFE2B8"/>
+      <stop offset="0.5" stop-color="#E8873A"/>
+      <stop offset="1" stop-color="#C46A22"/>
+    </radialGradient>
+    <radialGradient id="site-pumpkin" cx="38%" cy="32%" r="75%">
+      <stop offset="0" stop-color="#FFE7C2"/>
+      <stop offset="0.5" stop-color="#FF9A3C"/>
+      <stop offset="1" stop-color="#E07020"/>
+    </radialGradient>
+  </defs>
+  <path d="M0 360C180 270 340 330 520 280C720 220 880 310 1080 260C1260 220 1360 290 1440 240V900H0Z" fill="url(#site-back)"/>
+  <path d="M0 470C220 390 420 460 660 400C900 340 1100 440 1440 370V900H0Z" fill="url(#site-mid)"/>
+  <path d="M0 620C260 550 500 650 780 580C1040 520 1240 630 1440 560V900H0Z" fill="url(#site-front)"/>
+  <path d="M690 900C670 820 760 780 730 700C700 620 800 590 770 520" stroke="#C9A0D4" stroke-width="16" stroke-linecap="round"/>
+  <g id="tree">
+    <path d="M70 640c8-40 6-90 18-130" stroke="#2A1838" stroke-width="16" stroke-linecap="round"/>
+    <ellipse cx="78" cy="500" rx="54" ry="42" fill="#3A1868"/>
+    <ellipse cx="118" cy="520" rx="40" ry="32" fill="#542888"/>
+    <ellipse cx="48" cy="530" rx="34" ry="28" fill="#4A2278"/>
+    <circle cx="62" cy="508" r="3" fill="#F7F1FF"/>
+    <circle cx="78" cy="506" r="3" fill="#F7F1FF"/>
+    <path d="M64 520c6 5 14 5 20 0" stroke="#F7F1FF" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <g id="haunted-house">
+    <rect x="250" y="332" width="28" height="48" rx="3" fill="#3A2060" stroke="#1C1A1F" stroke-width="3"/>
+    <circle cx="264" cy="318" r="8" fill="#E6D8F6" opacity="0.7"/>
+    <circle cx="278" cy="300" r="11" fill="#F7F1FF" opacity="0.45"/>
+    <path d="M150 470L250 330L390 470Z" fill="#1C1228" stroke="#1C1A1F" stroke-width="4" stroke-linejoin="round"/>
+    <rect x="168" y="456" width="210" height="168" rx="10" fill="#E4D6FA" stroke="#1C1A1F" stroke-width="4"/>
+    <rect x="188" y="488" width="52" height="48" rx="6" fill="url(#site-window)" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M214 488v48M188 512h52" stroke="#1C1A1F" stroke-width="3"/>
+    <rect x="300" y="488" width="52" height="48" rx="6" fill="url(#site-window)" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M326 488v48M300 512h52" stroke="#1C1A1F" stroke-width="3"/>
+    <circle cx="270" cy="400" r="20" fill="url(#site-window)" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M270 384v32M254 400h32" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M242 530h56v94h-56z" fill="#2A1844" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M242 530c0-20 56-20 56 0" fill="#2A1844" stroke="#1C1A1F" stroke-width="3"/>
+    <circle cx="286" cy="582" r="4" fill="#E8873A"/>
+    <rect x="196" y="608" width="150" height="12" rx="3" fill="#3A2060"/>
+    <rect x="184" y="618" width="174" height="12" rx="3" fill="#2A1844"/>
+  </g>
+  <g id="roof-bat" transform="translate(300 348)">
+    <path d="M20 16c-6-8-16-6-22 0 6 2 8 8 4 12 6-4 12-4 18-1 6-3 12-3 18 1-4-4-2-10 4-12-6-6-16-8-22 0z" fill="#1C1A1F"/>
+    <circle cx="16" cy="16" r="1.4" fill="#F7F1FF"/>
+    <circle cx="24" cy="16" r="1.4" fill="#F7F1FF"/>
+  </g>
+  <g id="tombstones" fill="#FBF7FF" stroke="#1C1A1F" stroke-width="3">
+    <path d="M620 640h46v78h-46z"/>
+    <path d="M616 640c0-22 54-22 54 0"/>
+    <path d="M634 662c4 6 14 6 18 0" stroke="#6B46A3" fill="none"/>
+    <path d="M720 612h54v106h-54z"/>
+    <path d="M716 612c0-26 62-26 62 0"/>
+    <path d="M736 640h20M746 630v20" stroke="#E8873A"/>
+    <path d="M830 652h40v66h-40z"/>
+    <path d="M826 652c0-18 48-18 48 0"/>
+    <circle cx="850" cy="678" r="6" fill="#E8873A" stroke="#1C1A1F"/>
+  </g>
+  <g id="sitting-ghost" transform="translate(760 600)">
+    <path d="M8 62c0-30 18-50 38-50s38 20 38 50v30l-12-9-13 9-13-9-13 9-13-9-12 9V62z" fill="#FFF8F1" stroke="#1C1A1F" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="32" cy="54" r="3.2" fill="#1C1A1F"/>
+    <circle cx="54" cy="54" r="3.2" fill="#1C1A1F"/>
+    <path d="M36 68c5 5 15 5 20 0" stroke="#1C1A1F" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="22" cy="64" r="5" fill="#E8873A" opacity="0.85"/>
+    <circle cx="62" cy="64" r="5" fill="#C9B0E8"/>
+  </g>
+  <g id="pumpkin-patch">
+    <path d="M1040 760c40-20 80 10 130-8 40-14 90 6 140-10" stroke="#3E8A46" stroke-width="3" fill="none"/>
+    <path d="M1120 800c30-16 70 8 110-6" stroke="#3E8A46" stroke-width="3" fill="none"/>
+    <g fill="url(#site-pumpkin)" stroke="#1C1A1F" stroke-width="3">
+      <ellipse cx="1088" cy="748" rx="36" ry="30"/>
+      <ellipse cx="1188" cy="770" rx="48" ry="40"/>
+      <ellipse cx="1296" cy="742" rx="40" ry="34"/>
+      <ellipse cx="1372" cy="786" rx="32" ry="26"/>
+      <ellipse cx="1230" cy="820" rx="28" ry="22"/>
+    </g>
+    <g stroke="#2F6A36" stroke-width="3" stroke-linecap="round">
+      <path d="M1088 718c2-14 10-16 8-26"/>
+      <path d="M1188 730c4-16 12-14 8-28"/>
+      <path d="M1296 708c2-12 8-14 6-24"/>
+      <path d="M1372 760c2-12 8-10 6-20"/>
+    </g>
+    <g stroke="#C46A22" stroke-width="2" opacity="0.7">
+      <path d="M1088 730v36M1172 750c16 8 32 8 48 0M1296 724v40"/>
+    </g>
+    <g id="jack-o-lantern" fill="#1C1A1F">
+      <path d="M1168 758l10 10 10-10"/>
+      <path d="M1198 758l10 10 10-10"/>
+      <path d="M1176 786c8 8 20 8 28 0"/>
+    </g>
+  </g>
+  <g id="center-cast" transform="translate(640, 280)">
+    <ellipse cx="150" cy="210" rx="78" ry="64" fill="url(#site-pumpkin)" stroke="#1C1A1F" stroke-width="4"/>
+    <path d="M150 146c6-22 16-18 12-36" stroke="#2F6A36" stroke-width="4" stroke-linecap="round"/>
+    <path d="M118 196l16 16 16-16M166 196l16 16 16-16M130 230c14 14 32 14 46 0" fill="none" stroke="#1C1A1F" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M40 250c0-70 36-120 84-120s84 50 84 120v70l-28-20-28 20-28-20-28 20-28-20-28 20v-70z" fill="#FFF8F1" stroke="#1C1A1F" stroke-width="4"/>
+    <circle cx="96" cy="230" r="7" fill="#1C1A1F"/>
+    <circle cx="142" cy="230" r="7" fill="#1C1A1F"/>
+    <path d="M104 258c12 12 32 12 44 0" stroke="#1C1A1F" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="78" cy="252" r="10" fill="#E8873A"/>
+  </g>
+  <g id="fence" fill="#3A2060" stroke="#1C1A1F" stroke-width="2">
+    <rect x="430" y="700" width="10" height="36" rx="2"/>
+    <rect x="458" y="692" width="10" height="44" rx="2"/>
+    <rect x="486" y="700" width="10" height="36" rx="2"/>
+    <rect x="514" y="694" width="10" height="42" rx="2"/>
+    <rect x="430" y="710" width="94" height="6"/>
+  </g>
+</svg>

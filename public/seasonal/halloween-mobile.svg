@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" fill="none" id="scene-mobile">
+  <defs>
+    <linearGradient id="mobile-hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5C2E96"/>
+      <stop offset="1" stop-color="#1A0C30"/>
+    </linearGradient>
+    <radialGradient id="mobile-window" cx="50%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#FFE2B8"/>
+      <stop offset="1" stop-color="#E8873A"/>
+    </radialGradient>
+    <radialGradient id="mobile-pumpkin" cx="40%" cy="32%" r="70%">
+      <stop offset="0" stop-color="#FFE7C2"/>
+      <stop offset="1" stop-color="#E07020"/>
+    </radialGradient>
+  </defs>
+  <path d="M0 520C160 440 320 560 520 460C680 380 740 520 800 440V1200H0Z" fill="#3A1868"/>
+  <path d="M0 700C180 620 360 760 560 660C680 600 760 720 800 640V1200H0Z" fill="url(#mobile-hill)"/>
+  <g id="haunted-house" transform="translate(0,-180)">
+    <path d="M250 700L400 560L550 700Z" fill="#1C1228" stroke="#1C1A1F" stroke-width="4"/>
+    <rect x="280" y="690" width="240" height="180" rx="10" fill="#E4D6FA" stroke="#1C1A1F" stroke-width="4"/>
+    <rect x="310" y="730" width="48" height="44" rx="6" fill="url(#mobile-window)" stroke="#1C1A1F" stroke-width="3"/>
+    <rect x="442" y="730" width="48" height="44" rx="6" fill="url(#mobile-window)" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M370 790h60v80h-60z" fill="#2A1844" stroke="#1C1A1F" stroke-width="3"/>
+    <circle cx="400" cy="640" r="16" fill="url(#mobile-window)" stroke="#1C1A1F" stroke-width="3"/>
+  </g>
+  <g id="tombstones" fill="#FBF7FF" stroke="#1C1A1F" stroke-width="3" transform="translate(0,-180)">
+    <path d="M150 900h44v70h-44z"/>
+    <path d="M146 900c0-20 52-20 52 0"/>
+    <path d="M560 880h50v90h-50z"/>
+    <path d="M556 880c0-22 58-22 58 0"/>
+  </g>
+  <g id="sitting-ghost" transform="translate(200 700)">
+    <path d="M6 48c0-24 14-40 30-40s30 16 30 40v22l-10-7-10 7-10-7-10 7-10-7-10 7V48z" fill="#FFF8F1" stroke="#1C1A1F" stroke-width="3"/>
+    <circle cx="24" cy="42" r="2.6" fill="#1C1A1F"/>
+    <circle cx="42" cy="42" r="2.6" fill="#1C1A1F"/>
+    <path d="M28 54c4 4 12 4 16 0" stroke="#1C1A1F" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <g id="pumpkin-patch" fill="url(#mobile-pumpkin)" stroke="#1C1A1F" stroke-width="3" transform="translate(0,-160)">
+    <ellipse cx="300" cy="980" rx="40" ry="32"/>
+    <ellipse cx="390" cy="1010" rx="52" ry="42"/>
+    <ellipse cx="490" cy="970" rx="36" ry="30"/>
+  </g>
+  <g stroke="#2F6A36" stroke-width="3" stroke-linecap="round" transform="translate(0,-160)">
+    <path d="M300 948c2-12 8-12 6-22"/>
+    <path d="M390 968c4-14 10-12 8-24"/>
+  </g>
+  <path id="jack-o-lantern" d="M370 998l10 8 10-8M400 998l10 8 10-8M378 1020c8 6 18 6 26 0" stroke="#1C1A1F" stroke-width="2" fill="none" transform="translate(0,-160)"/>
+</svg>

@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
+  <defs>
+    <linearGradient id="portal-back" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A1868"/>
+      <stop offset="1" stop-color="#1C0E38"/>
+    </linearGradient>
+    <linearGradient id="portal-mid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#542888"/>
+      <stop offset="1" stop-color="#241044"/>
+    </linearGradient>
+    <linearGradient id="portal-front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6B46A3"/>
+      <stop offset="1" stop-color="#140A22"/>
+    </linearGradient>
+    <radialGradient id="portal-window" cx="45%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#FFF0D2"/>
+      <stop offset="0.45" stop-color="#F0A04A"/>
+      <stop offset="1" stop-color="#C46A22"/>
+    </radialGradient>
+    <radialGradient id="portal-pumpkin" cx="35%" cy="30%" r="75%">
+      <stop offset="0" stop-color="#FFE7C2"/>
+      <stop offset="0.45" stop-color="#FF9A3C"/>
+      <stop offset="1" stop-color="#E07020"/>
+    </radialGradient>
+  </defs>
+  <path d="M0 320C240 250 420 370 680 280C940 190 1160 330 1440 210V900H0Z" fill="url(#portal-back)"/>
+  <path d="M0 450C200 370 480 490 760 410C1040 330 1240 450 1440 350V900H0Z" fill="url(#portal-mid)"/>
+  <path d="M0 600C300 520 560 640 900 560C1160 500 1320 610 1440 540V900H0Z" fill="url(#portal-front)"/>
+  <path d="M180 880C240 800 300 760 420 700C540 640 700 680 860 600C980 540 1120 560 1180 500" stroke="#D7B4E4" stroke-width="18" stroke-linecap="round"/>
+  <g id="lantern-post">
+    <rect x="612" y="500" width="10" height="150" rx="3" fill="#2A1844" stroke="#1C1A1F" stroke-width="3"/>
+    <rect x="590" y="468" width="54" height="40" rx="8" fill="url(#portal-window)" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M617 468v40M590 488h54" stroke="#1C1A1F" stroke-width="2"/>
+  </g>
+  <g id="pumpkin-patch">
+    <path d="M40 760c80-30 140 16 230-10 70-20 120 14 210-8" stroke="#3E8A46" stroke-width="4" fill="none"/>
+    <path d="M80 830c60-16 120 10 190-8" stroke="#3E8A46" stroke-width="3" fill="none"/>
+    <g fill="url(#portal-pumpkin)" stroke="#1C1A1F" stroke-width="3">
+      <ellipse cx="120" cy="760" rx="58" ry="48"/>
+      <ellipse cx="230" cy="800" rx="70" ry="56"/>
+      <ellipse cx="360" cy="748" rx="50" ry="42"/>
+      <ellipse cx="450" cy="810" rx="36" ry="30"/>
+      <ellipse cx="300" cy="840" rx="32" ry="26"/>
+    </g>
+    <g stroke="#2F6A36" stroke-width="3" stroke-linecap="round">
+      <path d="M120 712c4-18 14-16 10-32"/>
+      <path d="M230 744c6-20 16-16 12-34"/>
+      <path d="M360 706c4-16 12-14 8-26"/>
+    </g>
+    <g id="jack-o-lantern" fill="#1C1A1F">
+      <path d="M200 784l14 14 14-14"/>
+      <path d="M244 784l14 14 14-14"/>
+      <path d="M214 822c12 10 28 10 40 0"/>
+      <path d="M230 770v56" stroke="#C46A22" stroke-width="2" fill="none"/>
+    </g>
+  </g>
+  <g id="tombstones" fill="#FBF7FF" stroke="#1C1A1F" stroke-width="3">
+    <path d="M500 650h50v90h-50z"/>
+    <path d="M496 650c0-24 58-24 58 0"/>
+    <path d="M516 678c6 7 16 7 22 0" stroke="#6B46A3" fill="none"/>
+    <path d="M820 630h62v120h-62z"/>
+    <path d="M816 630c0-30 70-30 70 0"/>
+    <circle cx="851" cy="678" r="7" fill="#E8873A"/>
+    <path d="M930 668h44v72h-44z"/>
+    <path d="M926 668c0-20 52-20 52 0"/>
+  </g>
+  <g id="sitting-ghost" transform="translate(560 640)">
+    <path d="M4 70c0-34 20-56 44-56s44 22 44 56v34l-14-10-15 10-15-10-15 10-15-10-14 10V70z" fill="#FFF8F1" stroke="#1C1A1F" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="32" cy="58" r="3.4" fill="#1C1A1F"/>
+    <circle cx="58" cy="58" r="3.4" fill="#1C1A1F"/>
+    <path d="M36 74c6 6 18 6 24 0" stroke="#1C1A1F" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="20" cy="70" r="6" fill="#E8873A"/>
+    <circle cx="72" cy="70" r="6" fill="#C9B0E8"/>
+  </g>
+  <g id="porch">
+    <rect x="1048" y="300" width="26" height="46" rx="3" fill="#3A2060" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M980 470L1140 300L1320 470Z" fill="#140C22" stroke="#1C1A1F" stroke-width="4" stroke-linejoin="round"/>
+    <rect x="1004" y="456" width="270" height="190" rx="12" fill="#E4D6FA" stroke="#1C1A1F" stroke-width="4"/>
+    <rect x="1030" y="490" width="58" height="54" rx="8" fill="url(#portal-window)" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M1059 490v54M1030 517h58" stroke="#1C1A1F" stroke-width="3"/>
+    <rect x="1188" y="490" width="58" height="54" rx="8" fill="url(#portal-window)" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M1217 490v54M1188 517h58" stroke="#1C1A1F" stroke-width="3"/>
+    <circle cx="1138" cy="400" r="22" fill="url(#portal-window)" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M1124 400h28M1138 386v28" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M1104 548h70v98h-70z" fill="#241433" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M1104 548c0-24 70-24 70 0" fill="#241433" stroke="#1C1A1F" stroke-width="3"/>
+    <circle cx="1160" cy="600" r="5" fill="#E8873A"/>
+    <rect x="990" y="646" width="300" height="16" rx="4" fill="#3A2060" stroke="#1C1A1F" stroke-width="3"/>
+    <rect x="1020" y="630" width="12" height="32" fill="#2A1844"/>
+    <rect x="1248" y="630" width="12" height="32" fill="#2A1844"/>
+    <rect x="978" y="660" width="324" height="14" rx="3" fill="#2A1844"/>
+    <rect x="1048" y="674" width="180" height="12" rx="3" fill="#3A2060"/>
+    <ellipse cx="1088" cy="668" rx="22" ry="18" fill="url(#portal-pumpkin)" stroke="#1C1A1F" stroke-width="3"/>
+    <path d="M1088 650c2-10 6-10 5-16" stroke="#2F6A36" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <g id="center-cast" transform="translate(760, 240)">
+    <path d="M20 180c0-78 40-130 90-130s90 52 90 130v64l-30-22-30 22-30-22-30 22-30-22-30 22v-64z" fill="#FFF8F1" stroke="#1C1A1F" stroke-width="4"/>
+    <circle cx="78" cy="160" r="7" fill="#1C1A1F"/>
+    <circle cx="128" cy="160" r="7" fill="#1C1A1F"/>
+    <path d="M86 190c14 12 36 12 50 0" stroke="#1C1A1F" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="210" cy="230" rx="54" ry="44" fill="url(#portal-pumpkin)" stroke="#1C1A1F" stroke-width="4"/>
+    <path d="M210 186c4-16 12-14 8-28" stroke="#2F6A36" stroke-width="4" stroke-linecap="round"/>
+    <path d="M188 220l12 12 12-12M214 220l12 12 12-12" fill="none" stroke="#1C1A1F" stroke-width="3"/>
+  </g>
+  <g id="porch-bat" transform="translate(1188 430)">
+    <path d="M16 10c-8-8-20-4-24 4 8 1 10 8 4 12 7-5 14-5 20 0 6-5 13-5 20 0-6-4-4-11 4-12-4-8-16-12-24-4z" fill="#1C1A1F"/>
+    <circle cx="12" cy="16" r="1.5" fill="#F7F1FF"/>
+    <circle cx="22" cy="16" r="1.5" fill="#F7F1FF"/>
+  </g>
+</svg>
