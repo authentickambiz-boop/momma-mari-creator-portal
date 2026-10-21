@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import { dismissSeasonalThemeAction, restoreSeasonalThemeAction } from "@/app/theme-actions";
 import { BatIcon, GhostIcon, PumpkinIcon } from "@/components/seasonal-icons";
@@ -31,6 +31,59 @@ function SeasonalOffSwitch({ themeId, themeName, mode }: { themeId: string; them
       <input type="hidden" name="theme" value={themeId} />
       <button className="seasonal-off" type="submit">{label}</button>
     </form>
+  );
+}
+
+function HarvestMark({ kind }: { kind: "maple" | "gourd" | "leaf" }) {
+  if (kind === "gourd") {
+    return (
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <ellipse cx="32" cy="40" rx="16" ry="11" fill="#E8C56A" stroke="#1C140E" strokeWidth="3" />
+        <path d="M32 29c3-12 12-14 8-20" fill="none" stroke="#2F6A36" strokeWidth="3" strokeLinecap="round" />
+        <path d="M18 40h28" stroke="#C4926A" strokeWidth="2" />
+      </svg>
+    );
+  }
+  if (kind === "maple") {
+    return (
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <path fill="#C4453A" stroke="#1C140E" strokeWidth="3" d="M32 6c6 10 16 12 22 6 4 8 2 16-6 18 8 4 10 14 4 20-8-2-14 2-16 10-2-8-8-12-16-10-6-6-4-16 4-20-8-2-10-10-6-18 6 6 16 4 22-6z" />
+        <path d="M32 28v28" stroke="#6B3414" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <path fill="#E09A3A" stroke="#1C140E" strokeWidth="3" d="M34 8c14 10 22 24 16 40-16-2-28-14-36-26C8 10 18 4 34 8z" />
+      <path d="M30 22c6 8 8 16 6 26" fill="none" stroke="#6B3414" strokeWidth="2.4" />
+    </svg>
+  );
+}
+
+const HARVEST_FRAME: { kind: "maple" | "gourd" | "leaf"; style: CSSProperties }[] = [
+  { kind: "maple", style: { top: 0, left: 0, width: 86, height: 86, transform: "rotate(-18deg)" } },
+  { kind: "gourd", style: { top: 0, left: "13%", width: 56, height: 56, transform: "rotate(12deg)" } },
+  { kind: "leaf", style: { top: "1%", left: "28%", width: 44, height: 44, transform: "rotate(-8deg)" } },
+  { kind: "maple", style: { top: 0, right: "16%", width: 68, height: 68, transform: "rotate(16deg)" } },
+  { kind: "gourd", style: { top: 0, right: 0, width: 58, height: 58, transform: "rotate(-12deg)" } },
+  { kind: "leaf", style: { top: "22%", left: 0, width: 64, height: 64, transform: "rotate(22deg)" } },
+  { kind: "gourd", style: { top: "48%", left: 0, width: 52, height: 52, transform: "rotate(-8deg)" } },
+  { kind: "maple", style: { top: "18%", right: 0, width: 74, height: 74, transform: "rotate(-20deg)" } },
+  { kind: "leaf", style: { top: "42%", right: 0, width: 56, height: 56, transform: "rotate(14deg)" } },
+  { kind: "gourd", style: { bottom: "2%", left: "2%", width: 60, height: 60, transform: "rotate(10deg)" } },
+  { kind: "maple", style: { bottom: 0, right: "1%", width: 70, height: 70, transform: "rotate(18deg)" } },
+  { kind: "leaf", style: { bottom: "3%", left: "42%", width: 48, height: 48, transform: "rotate(-10deg)" } },
+];
+
+function HarvestFrame() {
+  return (
+    <>
+      {HARVEST_FRAME.map((piece, index) => (
+        <span key={`${piece.kind}-${index}`} className="seasonal-harvest" style={piece.style}>
+          <HarvestMark kind={piece.kind} />
+        </span>
+      ))}
+    </>
   );
 }
 
@@ -222,6 +275,7 @@ function IllustratedScene({ theme, surface }: { theme: SeasonalTheme; surface: S
       ))}
       {theme.id === "halloween" ? <Cobweb className="seasonal-web seasonal-web-left" /> : null}
       {theme.id === "halloween" ? <Cobweb className="seasonal-web seasonal-web-right" /> : null}
+      {theme.id === "thanksgiving" ? <HarvestFrame /> : null}
     </div>
   );
 }

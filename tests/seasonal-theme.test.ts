@@ -146,6 +146,9 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     assert.match(sparkle, /seasonalEffects/);
     assert.match(sparkle, /decorationsOn: true/);
     assert.match(frame, /IllustratedScene/);
+    assert.match(frame, /HarvestFrame/);
+    assert.match(css, /seasonal-harvest/);
+    assert.match(css, /data-seasonal="thanksgiving"\] \.seasonal-scene[\s\S]*100dvh/);
     assert.match(frame, /mm_preview/);
     assert.match(frame, /loading="lazy"/);
     assert.match(frame, /requestIdleCallback/);

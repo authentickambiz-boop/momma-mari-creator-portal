@@ -210,6 +210,31 @@
 .seasonal-web-left { top: 0; left: 0; }
 .seasonal-web-right { top: 0; right: 0; transform: scaleX(-1); }
 
+.seasonal-harvest {
+  position: absolute;
+  z-index: 3;
+  width: 74px;
+  height: 74px;
+  pointer-events: none;
+}
+.seasonal-harvest svg { width: 100%; height: 100%; display: block; }
+
+html[data-seasonal="thanksgiving"] .seasonal-scene {
+  top: 0;
+  right: 0;
+  bottom: auto;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+}
+html[data-seasonal="thanksgiving"] .login-pane,
+html[data-seasonal="thanksgiving"] .login-forest {
+  background: rgba(42, 18, 10, 0.5) !important;
+  background-color: rgba(42, 18, 10, 0.5) !important;
+  color: #F7F1FF;
+}
+
 .seasonal-hello {
   display: flex;
   align-items: center;
@@ -558,6 +583,7 @@ html[data-seasonal] :focus-visible { outline-color: #F3C48A; }
   .seasonal-banner { padding-left: 12px; padding-right: 12px; }
   .seasonal-floater,
   .seasonal-lantern { display: none; }
+  .seasonal-harvest { width: 46px !important; height: 46px !important; }
   .seasonal-stars,
   .seasonal-moon,
   .seasonal-illustration,
