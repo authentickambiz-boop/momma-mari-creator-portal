@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
+  <path d="M0 480C260 390 520 470 800 370C1080 280 1260 410 1440 330V900H0Z" fill="#0E2248"/>
+  <path d="M0 680C320 600 680 740 1080 620C1260 570 1360 680 1440 620V900H0Z" fill="#071428"/>
+  <g id="dreidel">
+    <path d="M180 520l80 80-80 80-80-80z" fill="#1A3E78" stroke="#E2B657" stroke-width="4"/>
+    <path d="M180 520v-40" stroke="#E2B657" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="180" cy="472" r="12" fill="#E2B657"/>
+    <path d="M180 680l-20 40h40z" fill="#E2B657"/>
+    <path d="M340 600l48 48-48 48-48-48z" fill="#24508C" stroke="#F7F1FF" stroke-width="3"/>
+    <path d="M340 600v-24" stroke="#F7F1FF" stroke-width="6"/>
+  </g>
+  <g id="window-menorah" transform="translate(-200,-90)">
+    <rect x="860" y="300" width="420" height="360" rx="16" fill="#102848" stroke="#E2B657" stroke-width="6"/>
+    <rect x="900" y="340" width="340" height="280" rx="8" fill="#FFE7A8"/>
+    <path d="M980 580h180" stroke="#E2B657" stroke-width="10" stroke-linecap="round"/>
+    <path d="M1010 580c0-50 16-70 50-70M1130 580c0-50-16-70-50-70" stroke="#E2B657" stroke-width="8" fill="none"/>
+    <path d="M1040 580c0-80 18-100 30-100M1100 580c0-80-18-100-30-100" stroke="#E2B657" stroke-width="8" fill="none"/>
+    <path d="M1070 580V470" stroke="#E2B657" stroke-width="8"/>
+    <g fill="#FFF6EA">
+      <rect x="988" y="460" width="12" height="36" rx="2"/>
+      <rect x="1018" y="430" width="12" height="36" rx="2"/>
+      <rect x="1048" y="400" width="12" height="36" rx="2"/>
+      <rect x="1080" y="400" width="12" height="36" rx="2"/>
+      <rect x="1110" y="430" width="12" height="36" rx="2"/>
+      <rect x="1140" y="460" width="12" height="36" rx="2"/>
+      <rect x="1056" y="450" width="12" height="36" rx="2"/>
+      <rect x="1078" y="450" width="12" height="36" rx="2"/>
+      <rect x="1064" y="348" width="12" height="42" rx="2"/>
+    </g>
+    <g fill="#FFE7A8">
+      <ellipse cx="994" cy="452" rx="6" ry="10"/>
+      <ellipse cx="1024" cy="422" rx="6" ry="10"/>
+      <ellipse cx="1054" cy="392" rx="6" ry="10"/>
+      <ellipse cx="1086" cy="392" rx="6" ry="10"/>
+      <ellipse cx="1116" cy="422" rx="6" ry="10"/>
+      <ellipse cx="1146" cy="452" rx="6" ry="10"/>
+      <ellipse cx="1062" cy="442" rx="6" ry="10"/>
+      <ellipse cx="1084" cy="442" rx="6" ry="10"/>
+      <ellipse cx="1070" cy="338" rx="7" ry="12"/>
+    </g>
+  </g>
+  <g fill="#E2B657">
+    <path d="M640 160l7 18h18l-14 12 6 18-17-12-17 12 6-18-14-12h18z"/>
+    <path d="M520 240l5 12h12l-10 8 4 12-11-8-11 8 4-12-10-8h12z"/>
+  </g>
+</svg>

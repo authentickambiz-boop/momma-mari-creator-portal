@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" fill="none" id="scene-mobile">
+  <path d="M0 620C180 540 360 660 560 540C680 460 750 600 800 520V1200H0Z" fill="#1E4A32"/>
+  <path d="M0 860C200 800 420 920 640 820C720 790 770 880 800 840V1200H0Z" fill="#E8F4F8"/>
+  <g id="cottage" transform="translate(0,-120)">
+    <path d="M160 640L400 460L640 640Z" fill="#F4E6D4" stroke="#0C1812" stroke-width="4"/>
+    <rect x="210" y="620" width="380" height="200" rx="8" fill="#F7F1FF" stroke="#0C1812" stroke-width="4"/>
+    <rect x="260" y="670" width="70" height="60" fill="#FFE7A8" stroke="#0C1812" stroke-width="3"/>
+    <rect x="470" y="670" width="70" height="60" fill="#FFE7A8" stroke="#0C1812" stroke-width="3"/>
+    <path d="M360 720h80v100h-80z" fill="#164832" stroke="#0C1812" stroke-width="3"/>
+  </g>
+  <g id="tree" transform="translate(230,40)">
+    <path d="M40 520l130-180 130 180z" fill="#1E6A48"/>
+    <path d="M70 400l100-140 100 140z" fill="#164832"/>
+    <circle cx="170" cy="250" r="10" fill="#E2B657"/>
+    <circle cx="120" cy="470" r="8" fill="#C4453A"/>
+    <circle cx="210" cy="450" r="8" fill="#F7F1FF"/>
+  </g>
+</svg>

@@ -11,7 +11,7 @@ export const SEASONAL_TIME_ZONE = "America/New_York";
 
 export const THEME_OFF_COOKIE = "mm_theme_off";
 
-export type SeasonalThemeId = "halloween" | "thanksgiving" | "holiday" | "valentines" | "mothers-day";
+export type SeasonalThemeId = "halloween" | "thanksgiving" | "hanukkah" | "christmas" | "new-year" | "valentines" | "mothers-day";
 
 export type SeasonalPalette = {
   /** Page fallback behind the scene. Halloween text does not sit on this. */
@@ -57,30 +57,60 @@ export const SEASONAL_THEMES: readonly SeasonalTheme[] = [
     id: "thanksgiving",
     name: "Thanksgiving",
     start: "2026-11-02T00:00:00",
-    end: "2026-11-27T23:59:59",
-    placeholder: true,
-    greeting: null,
+    end: "2026-11-30T23:59:59",
+    placeholder: false,
+    greeting: "Happy Thanksgiving",
     palette: {
-      page: "#FBF6EE",
-      orange: "#E8C49A",
-      purple: "#C4A882",
-      black: "#3A342C",
-      paper: "#FFF8EE",
+      page: "#2A120C",
+      orange: "#E8873A",
+      purple: "#8C3E22",
+      black: "#1C140E",
+      paper: "#FFF6EA",
     },
   },
   {
-    id: "holiday",
-    name: "Holiday",
-    start: "2026-11-28T00:00:00",
-    end: "2027-01-01T23:59:59",
-    placeholder: true,
-    greeting: null,
+    id: "hanukkah",
+    name: "Hanukkah",
+    start: "2026-12-04T00:00:00",
+    end: "2026-12-12T23:59:59",
+    placeholder: false,
+    greeting: "Happy Hanukkah",
     palette: {
-      page: "#F3F7F6",
-      orange: "#E7D7B8",
-      purple: "#C5D4DC",
-      black: "#2C3336",
-      paper: "#F7FBFA",
+      page: "#07111F",
+      orange: "#E2B657",
+      purple: "#1A3E78",
+      black: "#0C1424",
+      paper: "#F7F1FF",
+    },
+  },
+  {
+    id: "christmas",
+    name: "Christmas",
+    start: "2026-12-24T00:00:00",
+    end: "2026-12-26T23:59:59",
+    placeholder: false,
+    greeting: "Merry Christmas",
+    palette: {
+      page: "#07140E",
+      orange: "#C4453A",
+      purple: "#1E4A32",
+      black: "#0C1812",
+      paper: "#F7F1FF",
+    },
+  },
+  {
+    id: "new-year",
+    name: "New Year",
+    start: "2026-12-31T00:00:00",
+    end: "2027-01-01T23:59:59",
+    placeholder: false,
+    greeting: "Happy New Year",
+    palette: {
+      page: "#0A0814",
+      orange: "#E2B657",
+      purple: "#2A2450",
+      black: "#100E1C",
+      paper: "#FFF6EA",
     },
   },
   {
@@ -163,6 +193,65 @@ export const HALLOWEEN_LANTERNS: readonly HalloweenLantern[] = [
   { surface: "portal", top: "58%", left: "78%", size: 120, delay: "-1.3s" },
 ];
 
+export type HolidayThemeId = "thanksgiving" | "hanukkah" | "christmas" | "new-year";
+
+export type HolidayFloater = {
+  theme: HolidayThemeId;
+  kind: "leaf" | "star" | "flake" | "spark";
+  surface: SeasonalSurface;
+  top: string;
+  left: string;
+  size: number;
+  duration: string;
+  delay: string;
+  drift: "a" | "b" | "c";
+};
+
+/** Each holiday has its own cast, and the portal arrangement is not the site's. */
+export const HOLIDAY_FLOATERS: readonly HolidayFloater[] = [
+  { theme: "thanksgiving", kind: "leaf", surface: "site", top: "12%", left: "18%", size: 42, duration: "18s", delay: "0s", drift: "a" },
+  { theme: "thanksgiving", kind: "leaf", surface: "site", top: "28%", left: "62%", size: 34, duration: "22s", delay: "-6s", drift: "b" },
+  { theme: "thanksgiving", kind: "leaf", surface: "site", top: "18%", left: "84%", size: 28, duration: "26s", delay: "-3s", drift: "c" },
+  { theme: "thanksgiving", kind: "leaf", surface: "portal", top: "16%", left: "48%", size: 36, duration: "20s", delay: "-4s", drift: "b" },
+  { theme: "thanksgiving", kind: "leaf", surface: "portal", top: "34%", left: "22%", size: 30, duration: "24s", delay: "-9s", drift: "a" },
+  { theme: "thanksgiving", kind: "leaf", surface: "portal", top: "22%", left: "74%", size: 26, duration: "28s", delay: "-2s", drift: "c" },
+  { theme: "hanukkah", kind: "star", surface: "site", top: "14%", left: "22%", size: 28, duration: "20s", delay: "0s", drift: "a" },
+  { theme: "hanukkah", kind: "star", surface: "site", top: "26%", left: "70%", size: 22, duration: "24s", delay: "-7s", drift: "c" },
+  { theme: "hanukkah", kind: "star", surface: "site", top: "40%", left: "46%", size: 18, duration: "28s", delay: "-3s", drift: "b" },
+  { theme: "hanukkah", kind: "star", surface: "portal", top: "12%", left: "58%", size: 26, duration: "22s", delay: "-5s", drift: "b" },
+  { theme: "hanukkah", kind: "star", surface: "portal", top: "30%", left: "28%", size: 20, duration: "26s", delay: "-8s", drift: "a" },
+  { theme: "hanukkah", kind: "star", surface: "portal", top: "20%", left: "80%", size: 16, duration: "18s", delay: "-1s", drift: "c" },
+  { theme: "christmas", kind: "flake", surface: "site", top: "10%", left: "16%", size: 22, duration: "16s", delay: "0s", drift: "a" },
+  { theme: "christmas", kind: "flake", surface: "site", top: "24%", left: "48%", size: 16, duration: "20s", delay: "-4s", drift: "b" },
+  { theme: "christmas", kind: "flake", surface: "site", top: "16%", left: "78%", size: 26, duration: "24s", delay: "-9s", drift: "c" },
+  { theme: "christmas", kind: "flake", surface: "portal", top: "14%", left: "36%", size: 20, duration: "18s", delay: "-2s", drift: "c" },
+  { theme: "christmas", kind: "flake", surface: "portal", top: "32%", left: "64%", size: 14, duration: "22s", delay: "-6s", drift: "a" },
+  { theme: "christmas", kind: "flake", surface: "portal", top: "20%", left: "18%", size: 18, duration: "26s", delay: "-11s", drift: "b" },
+  { theme: "new-year", kind: "spark", surface: "site", top: "12%", left: "20%", size: 18, duration: "16s", delay: "0s", drift: "a" },
+  { theme: "new-year", kind: "spark", surface: "site", top: "22%", left: "55%", size: 14, duration: "18s", delay: "-5s", drift: "b" },
+  { theme: "new-year", kind: "spark", surface: "site", top: "34%", left: "82%", size: 20, duration: "22s", delay: "-8s", drift: "c" },
+  { theme: "new-year", kind: "spark", surface: "portal", top: "16%", left: "40%", size: 16, duration: "17s", delay: "-3s", drift: "c" },
+  { theme: "new-year", kind: "spark", surface: "portal", top: "28%", left: "72%", size: 18, duration: "21s", delay: "-7s", drift: "a" },
+  { theme: "new-year", kind: "spark", surface: "portal", top: "12%", left: "24%", size: 12, duration: "19s", delay: "-1s", drift: "b" },
+];
+
+export const HOLIDAY_GLOWS: readonly (HalloweenLantern & { theme: HolidayThemeId })[] = [
+  { theme: "thanksgiving", surface: "site", top: "52%", left: "38%", size: 150, delay: "0s" },
+  { theme: "thanksgiving", surface: "portal", top: "58%", left: "72%", size: 150, delay: "-0.6s" },
+  { theme: "hanukkah", surface: "site", top: "44%", left: "38%", size: 170, delay: "0s" },
+  { theme: "hanukkah", surface: "portal", top: "48%", left: "58%", size: 170, delay: "-0.4s" },
+  { theme: "christmas", surface: "site", top: "42%", left: "78%", size: 130, delay: "0s" },
+  { theme: "christmas", surface: "portal", top: "40%", left: "62%", size: 150, delay: "-0.8s" },
+  { theme: "new-year", surface: "site", top: "28%", left: "70%", size: 180, delay: "0s" },
+  { theme: "new-year", surface: "portal", top: "26%", left: "30%", size: 160, delay: "-0.5s" },
+];
+
+const IMMERSIVE_THEMES = new Set<SeasonalThemeId>(["halloween", "thanksgiving", "hanukkah", "christmas", "new-year"]);
+
+export function themeHasScene(id: SeasonalThemeId) {
+  return IMMERSIVE_THEMES.has(id);
+}
+
 const SEASONAL_SITE_PATHS = [
   "/services",
   "/packages",
@@ -174,6 +263,13 @@ const SEASONAL_SITE_PATHS = [
   "/apply",
   "/apply/thanks",
   "/gift-guide",
+  "/curriculum",
+  "/about",
+  "/contact",
+  "/faq",
+  "/careers",
+  "/press",
+  "/feedback",
   "/privacy",
   "/terms",
 ] as const;
@@ -396,6 +492,28 @@ export const HALLOWEEN_GLASS = {
   link: "#FFE7C2",
   accent: "#FFD9A8",
 } as const;
+
+/** RGB channels for the glass fill. Text colors are the shared light set above. */
+export const THEME_GLASS: Partial<Record<SeasonalThemeId, { fill: string; button: string; buttonHover: string; pop: string; popInk: string }>> = {
+  halloween: { fill: "32, 14, 58", button: "#3A2460", buttonHover: "#6B46A3", pop: "#E8873A", popInk: "#1C1A1F" },
+  thanksgiving: { fill: "42, 18, 10", button: "#6B3414", buttonHover: "#8C4A1A", pop: "#E8873A", popInk: "#1C1A1F" },
+  hanukkah: { fill: "10, 22, 48", button: "#16325C", buttonHover: "#24508C", pop: "#E2B657", popInk: "#1C1A1F" },
+  christmas: { fill: "8, 24, 16", button: "#164832", buttonHover: "#1E6A48", pop: "#C4453A", popInk: "#FFF6EA" },
+  "new-year": { fill: "16, 14, 36", button: "#2A2458", buttonHover: "#3E3680", pop: "#E2B657", popInk: "#1C1A1F" },
+};
+
+export function seasonalCssVars(theme: SeasonalTheme): Record<string, string> {
+  const glass = THEME_GLASS[theme.id];
+  if (!glass) return { "--cream": theme.palette.page };
+  return {
+    "--cream": theme.palette.page,
+    "--seasonal-fill": glass.fill,
+    "--seasonal-button": glass.button,
+    "--seasonal-button-hover": glass.buttonHover,
+    "--seasonal-pop": glass.pop,
+    "--seasonal-pop-ink": glass.popInk,
+  };
+}
 
 /** Opaque result of laying `foreground` over `background` at `alpha`. */
 export function compositeHex(foreground: string, background: string, alpha: number) {

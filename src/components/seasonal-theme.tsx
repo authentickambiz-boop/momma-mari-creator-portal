@@ -9,22 +9,38 @@ import { publicBasePath, withBasePath } from "@/lib/format";
 import {
   HALLOWEEN_FLOATERS,
   HALLOWEEN_LANTERNS,
+  HOLIDAY_FLOATERS,
+  HOLIDAY_GLOWS,
   seasonalSurface,
-  type HalloweenFloater,
+  themeHasScene,
+  type HolidayThemeId,
   type SeasonalSurface,
   type SeasonalTheme,
+  type SeasonalThemeId,
 } from "@/lib/seasonal-theme";
 
 const SCENE_FILES = {
-  site: "halloween-site.svg",
-  portal: "halloween-portal.svg",
-  mobile: "halloween-mobile.svg",
+  halloween: { site: "halloween-site.svg", portal: "halloween-portal.svg", mobile: "halloween-mobile.svg" },
+  thanksgiving: { site: "thanksgiving-site.svg", portal: "thanksgiving-portal.svg", mobile: "thanksgiving-mobile.svg" },
+  hanukkah: { site: "hanukkah-site.svg", portal: "hanukkah-portal.svg", mobile: "hanukkah-mobile.svg" },
+  christmas: { site: "christmas-site.svg", portal: "christmas-portal.svg", mobile: "christmas-mobile.svg" },
+  "new-year": { site: "new-year-site.svg", portal: "new-year-portal.svg", mobile: "new-year-mobile.svg" },
 } as const;
+
+type SceneThemeId = keyof typeof SCENE_FILES;
 
 type Presentation = {
   active: SeasonalTheme | null;
   hidden: SeasonalTheme | null;
 };
+
+function isSceneTheme(id: SeasonalThemeId): id is SceneThemeId {
+  return id in SCENE_FILES;
+}
+
+function isHoliday(id: SeasonalThemeId): id is HolidayThemeId {
+  return id === "thanksgiving" || id === "hanukkah" || id === "christmas" || id === "new-year";
+}
 
 function SeasonalOffSwitch({ themeId, themeName, mode }: { themeId: string; themeName: string; mode: "hide" | "show" }) {
   const action = mode === "hide" ? dismissSeasonalThemeAction : restoreSeasonalThemeAction;
@@ -54,7 +70,52 @@ function Cobweb({ className }: { className: string }) {
   );
 }
 
-function Floater({ item }: { item: HalloweenFloater }) {
+function LeafIcon() {
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M8 36c12-2 22-12 28-26-14 2-26 12-28 26z" fill="#E8873A" stroke="#6B3414" strokeWidth="2" />
+      <path d="M14 32c8-6 16-14 20-20" fill="none" stroke="#8C3E22" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function StarIcon() {
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M24 4l4 12h12l-10 8 4 12-10-7-10 7 4-12-10-8h12z" fill="#E2B657" stroke="#1C1A1F" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function FlakeIcon() {
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <g fill="none" stroke="#F7FBFF" strokeWidth="2.2" strokeLinecap="round">
+        <path d="M24 6v36M10 14l28 20M38 14L10 34" />
+        <path d="M24 14l-4-4M24 14l4-4M24 34l-4 4M24 34l4 4" />
+      </g>
+    </svg>
+  );
+}
+
+function SparkIcon() {
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M24 2l3 15 15 3-15 3-3 15-3-15-15-3 15-3z" fill="#E2B657" />
+    </svg>
+  );
+}
+
+function FloaterGlyph({ kind }: { kind: string }) {
+  if (kind === "ghost") return <GhostIcon />;
+  if (kind === "bat") return <BatIcon />;
+  if (kind === "leaf") return <LeafIcon />;
+  if (kind === "star") return <StarIcon />;
+  if (kind === "flake") return <FlakeIcon />;
+  return <SparkIcon />;
+}
+
+function Floater({ item }: { item: { kind: string; top: string; left: string; size: number; duration: string; delay: string; drift: string } }) {
   return (
     <span
       className={`seasonal-floater seasonal-floater-${item.kind} seasonal-floater-${item.drift}`}
@@ -67,22 +128,35 @@ function Floater({ item }: { item: HalloweenFloater }) {
         animationDelay: item.delay,
       }}
     >
-      {item.kind === "ghost" ? <GhostIcon /> : <BatIcon />}
+      <FloaterGlyph kind={item.kind} />
+    </span>
+  );
+}
+
+function BannerMark({ themeId }: { themeId: SceneThemeId }) {
+  if (themeId === "halloween") return <PumpkinIcon className="seasonal-mark" />;
+  return (
+    <span className="seasonal-mark" aria-hidden="true">
+      {themeId === "thanksgiving" ? <LeafIcon /> : null}
+      {themeId === "hanukkah" ? <StarIcon /> : null}
+      {themeId === "christmas" ? <FlakeIcon /> : null}
+      {themeId === "new-year" ? <SparkIcon /> : null}
     </span>
   );
 }
 
 /**
- * The night sky paints immediately. The illustrated hill is requested after
- * idle, and phones get the smaller static file.
+ * The sky paints immediately. The illustrated hill is requested after idle,
+ * and phones get the smaller static file.
  */
-function useSceneSrc(surface: SeasonalSurface) {
+function useSceneSrc(themeId: SceneThemeId, surface: SeasonalSurface) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     const query = window.matchMedia("(max-width: 820px)");
     let cancelled = false;
     const load = () => {
-      const file = query.matches ? SCENE_FILES.mobile : SCENE_FILES[surface];
+      const files = SCENE_FILES[themeId];
+      const file = query.matches ? files.mobile : files[surface];
       const next = withBasePath(`/seasonal/${file}`);
       if (!cancelled) setSrc(next);
     };
@@ -101,35 +175,44 @@ function useSceneSrc(surface: SeasonalSurface) {
       if (timer) window.clearTimeout(timer);
       query.removeEventListener("change", load);
     };
-  }, [surface]);
+  }, [themeId, surface]);
   return src;
 }
 
-function HalloweenScene({ surface }: { surface: SeasonalSurface }) {
-  const src = useSceneSrc(surface);
-  const floaters = HALLOWEEN_FLOATERS.filter((item) => item.surface === surface);
-  const lanterns = HALLOWEEN_LANTERNS.filter((item) => item.surface === surface);
+function IllustratedScene({ themeId, surface }: { themeId: SceneThemeId; surface: SeasonalSurface }) {
+  const src = useSceneSrc(themeId, surface);
+  const floaters = themeId === "halloween"
+    ? HALLOWEEN_FLOATERS.filter((item) => item.surface === surface)
+    : HOLIDAY_FLOATERS.filter((item) => item.theme === themeId && item.surface === surface);
+  const lanterns = themeId === "halloween"
+    ? HALLOWEEN_LANTERNS.filter((item) => item.surface === surface)
+    : HOLIDAY_GLOWS.filter((item) => isHoliday(themeId) && item.theme === themeId && item.surface === surface);
   return (
-    <div className={`seasonal-scene seasonal-scene-${surface}`} aria-hidden="true">
+    <div className={`seasonal-scene seasonal-scene-${surface} seasonal-scene-${themeId}`} aria-hidden="true">
       <div className="seasonal-sky-paint" />
       <div className="seasonal-stars seasonal-stars-far" />
       <div className="seasonal-stars seasonal-stars-near" />
       <div className="seasonal-moon" />
+      <div className="seasonal-sun" />
       {src ? (
         <img className="seasonal-illustration" src={src} alt="" decoding="async" loading="lazy" fetchPriority="low" />
       ) : null}
       {lanterns.map((lantern) => (
         <span
           key={`${lantern.top}-${lantern.left}`}
-          className="seasonal-lantern"
+          className={`seasonal-lantern seasonal-lantern-${themeId}`}
           style={{ top: lantern.top, left: lantern.left, width: lantern.size, height: lantern.size, animationDelay: lantern.delay }}
         />
       ))}
       {floaters.map((item, index) => (
         <Floater key={`${item.kind}-${item.drift}-${index}`} item={item} />
       ))}
-      <Cobweb className="seasonal-web seasonal-web-left" />
-      <Cobweb className="seasonal-web seasonal-web-right" />
+      {themeId === "halloween" ? (
+        <>
+          <Cobweb className="seasonal-web seasonal-web-left" />
+          <Cobweb className="seasonal-web seasonal-web-right" />
+        </>
+      ) : null}
     </div>
   );
 }
@@ -138,11 +221,12 @@ export function SeasonalThemeFrame({ presentation }: { presentation: Presentatio
   const surface = seasonalSurface(usePathname() ?? "/", publicBasePath());
   const theme = presentation.active;
   const hidden = presentation.hidden;
+  const scene = theme && isSceneTheme(theme.id) && themeHasScene(theme.id) ? theme.id : null;
   return (
     <>
       {theme ? (
-        <div className={`seasonal-banner seasonal-banner-${surface}${theme.id === "halloween" ? " seasonal-banner-halloween" : ""}`}>
-          {theme.id === "halloween" ? <PumpkinIcon className="seasonal-mark" /> : <span className="seasonal-banner-label">{theme.name}</span>}
+        <div className={`seasonal-banner seasonal-banner-${surface}${scene ? " seasonal-banner-scene" : ""}`}>
+          {scene ? <BannerMark themeId={scene} /> : <span className="seasonal-banner-label">{theme.name}</span>}
           <SeasonalOffSwitch themeId={theme.id} themeName={theme.name} mode="hide" />
         </div>
       ) : hidden ? (
@@ -150,9 +234,9 @@ export function SeasonalThemeFrame({ presentation }: { presentation: Presentatio
           <SeasonalOffSwitch themeId={hidden.id} themeName={hidden.name} mode="show" />
         </div>
       ) : null}
-      {theme?.id === "halloween" ? (
+      {scene ? (
         <>
-          <HalloweenScene surface={surface} />
+          <IllustratedScene key={`${scene}-${surface}`} themeId={scene} surface={surface} />
           <SeasonalSparkle />
         </>
       ) : null}
