@@ -103,14 +103,18 @@ describe("meet our creators", { concurrency: 1 }, () => {
 
     const abbyInstagram = platform(abby, "Instagram");
     assert.equal(abbyInstagram.followers, "1,728");
-    assert.equal(abbyInstagram.engagement, "1.57%");
+    absent(abbyInstagram, "engagement");
     absent(abbyInstagram, "averageViews");
     assert.equal(JSON.stringify(abby).includes("saves"), false);
     absent(platform(abby, "TikTok"), "handle");
     assert.equal(platform(abby, "TikTok").averageViews, "6,237");
-    assert.equal(platform(kam, "Facebook").followers, "2");
-    absent(platform(kam, "Facebook"), "engagement");
-    absent(platform(kam, "Facebook"), "averageViews");
+    absent(platform(kam, "Instagram"), "engagement");
+    assert.equal(kam.platforms.some((item) => item.platform === "Facebook"), false);
+    const stored = await db.select().from(analyticsSnapshots);
+    const instagramEngagement = stored.filter((row) => row.platform === "Instagram" && row.metricsJson.includes("1.57%"));
+    assert.equal(instagramEngagement.length, 2);
+    const facebook = stored.find((row) => row.creatorId === "authentickam" && row.platform === "Facebook");
+    assert.match(facebook?.metricsJson ?? "", /"followers":"2"/);
 
     const packed = JSON.stringify(cards);
     assert.equal(packed.includes("@"), true);

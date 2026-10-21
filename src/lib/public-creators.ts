@@ -10,6 +10,9 @@ export const MEET_LABEL = "Meet Our Creators";
 
 const PHOTO_PATH = /^\/creators\/[a-z0-9-]+\.(jpg|jpeg|png|webp)$/;
 
+/** A public follower count under this is hidden. The snapshot row stays stored. */
+export const WEAK_PUBLIC_FOLLOWER_COUNT = 10;
+
 export type PublicAverageViews = { label: string; value: string };
 
 export type PublicPlatformCard = {
@@ -130,6 +133,49 @@ function platformCard(row: SnapshotRow): PublicPlatformCard {
   return card;
 }
 
+function publicFollowers(value: string | undefined) {
+  if (!value) return null;
+  const count = parseDisplayedCount(value);
+  if (count != null && count < WEAK_PUBLIC_FOLLOWER_COUNT) return null;
+  return value;
+}
+
+/** Hides a weak follower count, a platform with nothing left to show, and an engagement figure copied across creators. */
+export function hideWeakPublicStats(cards: PublicMeetCreator[]): PublicMeetCreator[] {
+  const engagementCounts = new Map<string, number>();
+  for (const card of cards) {
+    for (const platform of card.platforms) {
+      if (!platform.engagement) continue;
+      const key = `${platform.platform}\0${platform.engagement}`;
+      engagementCounts.set(key, (engagementCounts.get(key) ?? 0) + 1);
+    }
+  }
+  return cards.map((card) => ({
+    ...card,
+    platforms: card.platforms.flatMap((platform) => {
+      const followers = publicFollowers(platform.followers);
+      const engagement = platform.engagement && (engagementCounts.get(`${platform.platform}\0${platform.engagement}`) ?? 0) > 1
+        ? null
+        : platform.engagement;
+      const next: PublicPlatformCard = {
+        platform: platform.platform,
+        followersLabel: platform.followersLabel,
+        capturedOn: platform.capturedOn,
+      };
+      if (platform.handle) next.handle = platform.handle;
+      if (followers) next.followers = followers;
+      if (engagement) next.engagement = engagement;
+      if (platform.averageViews) next.averageViews = platform.averageViews;
+      if (platform.averageViewParts) next.averageViewParts = platform.averageViewParts;
+      if (platform.audience) next.audience = platform.audience;
+      if (platform.period) next.period = platform.period;
+      if (platform.source) next.source = platform.source;
+      const visible = Boolean(next.followers || next.engagement || next.averageViews || next.averageViewParts?.length || next.audience?.length || next.handle);
+      return visible ? [next] : [];
+    }),
+  }));
+}
+
 function followerSortKey(card: PublicPlatformCard) {
   return parseDisplayedCount(card.followers) ?? -1;
 }
@@ -181,12 +227,13 @@ export async function publicMeetCreators(db: PortalDb): Promise<PublicMeetCreato
     db.select().from(analyticsSnapshots),
   ]);
   const peopleById = new Map(people.map((creator) => [creator.id, creator]));
-  return showcases.flatMap((showcase) => {
+  const cards = showcases.flatMap((showcase) => {
     const creator = peopleById.get(showcase.creatorId);
     if (!creator) return [];
     const card = toPublicCard(creator, showcase, snapshots.filter((row) => row.creatorId === creator.id));
     return card ? [card] : [];
-  }).sort((left, right) => left.name.localeCompare(right.name));
+  });
+  return hideWeakPublicStats(cards).sort((left, right) => left.name.localeCompare(right.name));
 }
 
 export async function publicMeetCreator(db: PortalDb, id: string) {

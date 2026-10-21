@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { PublicShell } from "@/components/public-shell";
+import { LEGAL_EFFECTIVE_BANNER } from "@/lib/legal-banner";
 import { publicPageMeta } from "@/lib/public-meta";
 import { PUBLIC_ROBOTS } from "@/lib/public-site";
 
-// Pending lawyer review. The banner states the effective date; counsel has not signed off.
 export const metadata: Metadata = {
   ...publicPageMeta({
     title: "Terms · Momma Mari",
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <PublicShell title="Terms" lede="These terms cover mommamari.com and the Momma Mari creator portal.">
-      <p className="legal-banner">Effective October 20, 2026</p>
+      <p className="legal-banner">{LEGAL_EFFECTIVE_BANNER}</p>
       <div className="card stack">
         <p>Momma Mari LLC is a North Carolina company. Using the site or the portal means you agree to these terms and to the Privacy Policy.</p>
         <h2>The portal</h2>

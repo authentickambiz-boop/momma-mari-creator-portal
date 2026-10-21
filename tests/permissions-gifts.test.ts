@@ -457,7 +457,8 @@ test("gifted products require the draft terms, and a missed video is only flagge
   assert.equal(migration.includes("KOSBLING"), true);
   const terms = readFileSync(path.join(process.cwd(), "src/config/gifted-terms.ts"), "utf8");
   assert.equal(terms.includes("DRAFT"), true);
-  assert.equal(/pending lawyer review/i.test(terms), true);
+  assert.equal(/pending legal review/i.test(terms), true);
+  assert.equal(terms.includes("Have an attorney review"), false);
   assert.equal(/stripe/i.test(readFileSync(path.join(process.cwd(), "src/lib/gifted.ts"), "utf8")), false);
   assert.equal(GIFTED_FINDERS_FEE_CENTS, 5000);
 

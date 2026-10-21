@@ -7,7 +7,7 @@ export const GUARDIAN_LABEL = "I am the parent or guardian, and I am signing for
 
 export const CONTENT_MINOR_LABEL = "I am the parent or guardian for any minor who appears in this content.";
 
-export const ATTORNEY_NOTE = "Have an attorney review this e-sign wording before you rely on it.";
+export const ATTORNEY_NOTE = "Electronic signatures on this page are pending legal review.";
 
 export function isFullLegalName(value: string) {
   const parts = value.trim().split(/\s+/).filter(Boolean);

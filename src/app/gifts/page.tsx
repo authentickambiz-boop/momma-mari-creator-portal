@@ -7,9 +7,10 @@ import {
   postGiftedAction,
   shipGiftedAction,
 } from "@/app/gift-actions";
+import { GiftedTermsNotice } from "@/components/gifted-terms-notice";
 import { PrivacyNotice } from "@/components/privacy-notice";
 import { PortalFrame } from "@/components/portal-frame";
-import { GIFTED_TERMS_TEXT, GIFTED_TERMS_VERSION } from "@/config/gifted-terms";
+import { GIFTED_TERMS_VERSION } from "@/config/gifted-terms";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
 import { listGiftedBoard, listGiftedOverdue } from "@/lib/gifted";
@@ -18,13 +19,7 @@ import { giftErrorNote } from "@/lib/gift-notes";
 export const dynamic = "force-dynamic";
 
 function TermsNote() {
-  return (
-    <div className="callout">
-      <b>DRAFT. Pending lawyer review.</b>
-      <p style={{ whiteSpace: "pre-wrap" }}>{GIFTED_TERMS_TEXT}</p>
-      <p className="note">Version {GIFTED_TERMS_VERSION}. Have an attorney review this wording before you rely on it. Nothing is charged from this page.</p>
-    </div>
-  );
+  return <GiftedTermsNotice />;
 }
 
 export default async function GiftsPage({ searchParams }: { searchParams: Promise<{ saved?: string; giftsError?: string }> }) {
@@ -34,7 +29,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
   if (portal.viewer.role === "manager") {
     return (
       <PortalFrame viewer={portal.viewer} tab="gifts" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Free products</h1>}>
-        <p className="note">Free products stay with Kamron.</p>
+        <p className="note">Free products stay on the owner sign-in.</p>
       </PortalFrame>
     );
   }
@@ -51,14 +46,14 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
         <div className="hello">
           <div>
             <h1>Free products</h1>
-            <p>{creatorView ? "Gifted products you can apply for. Kamron approves each person." : "Post a gifted product. You approve who receives it. Nothing is charged automatically."}</p>
+            <p>{creatorView ? "Gifted products you can apply for. Momma Mari reviews each request." : "Post a gifted product. You approve who receives it. Nothing is charged automatically."}</p>
           </div>
         </div>
       }
     >
       {giftsError ? <p className="private-note">{giftsError}</p> : null}
       {params.saved === "posted" ? <p className="note">Posted. The brand is tagged as a future paid prospect. Nothing was emailed.</p> : null}
-      {params.saved === "applied" ? <p className="note">Applied. Kamron still has to approve you. Nothing was charged.</p> : null}
+      {params.saved === "applied" ? <p className="note">Applied. Momma Mari will review your request.</p> : null}
       {params.saved === "approved" ? <p className="note">Approved. Nothing was charged or emailed.</p> : null}
       {params.saved === "shipped" ? <p className="note">Marked shipped. Nothing was charged.</p> : null}
       {params.saved === "delivered" ? <p className="note">Marked delivered. Nothing was charged.</p> : null}
@@ -124,7 +119,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
                 <input type="hidden" name="termsVersion" value={GIFTED_TERMS_VERSION} />
                 <label className="contract-choices">
                   <input type="checkbox" name="acceptTerms" value="1" required />
-                  I accept the draft terms. If I receive the product and miss the video, the retail cost plus a $50 finder&apos;s fee can be flagged.
+                  I accept these terms. If I receive the product and miss the video, the retail cost plus a $50 finder&apos;s fee can be flagged.
                 </label>
                 <PrivacyNotice />
                 <button className="btn" type="submit">Apply</button>
