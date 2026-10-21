@@ -3,6 +3,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Webflow Cloud sets basePath from the environment mount path (/portal).
   // Do not set basePath or assetPrefix here.
+  // Source and destination are prefixed with that basePath at build time,
+  // so /plans becomes /portal/plans in production.
+  async redirects() {
+    return [
+      { source: "/plans", destination: "/pricing", permanent: false },
+    ];
+  },
   serverExternalPackages: ["node:sqlite"],
   experimental: {
     // Next 16 turns this on by default. In dev it waits on the HMR debug

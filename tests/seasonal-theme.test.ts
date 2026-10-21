@@ -286,8 +286,15 @@ describe("seasonal themes", { concurrency: 1 }, () => {
   test("the Christmas scene keeps the decor brief and stays a preview", () => {
     const theme = SEASONAL_THEMES.find((item) => item.id === "christmas");
     assert.equal(theme?.preview, true);
-    assert.equal(theme?.start, "2026-12-20T00:00:00");
+    assert.equal(theme?.start, "2026-12-13T00:00:00");
     assert.equal(theme?.end, "2026-12-26T23:59:59");
+    const hanukkah = SEASONAL_THEMES.find((item) => item.id === "hanukkah");
+    assert.equal(hanukkah?.end, "2026-12-12T23:59:59");
+    assert.equal(parseThemeInstant(theme?.start ?? ""), parseThemeInstant(hanukkah?.end ?? "") + 1000);
+    assert.equal(selectSeasonalTheme({ now: dateInNewYork("2026-12-13T00:00:00") }), null);
+    assert.equal(selectSeasonalTheme({ now: dateInNewYork("2026-12-26T23:59:59") }), null);
+    assert.equal(selectSeasonalTheme({ now: dateInNewYork("2026-12-13T00:00:00"), preview: "christmas" })?.id, "christmas");
+    assert.equal(selectSeasonalTheme({ now: dateInNewYork("2026-12-12T23:59:59"), preview: "hanukkah" })?.id, "hanukkah");
     for (const file of ["christmas-site.svg", "christmas-portal.svg", "christmas-mobile.svg"]) {
       const art = source(`public/seasonal/${file}`);
       assert.match(art, /id="christmas-tree"/, file);

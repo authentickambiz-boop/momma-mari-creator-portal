@@ -9,8 +9,8 @@
  * The flag is not stored, and the public calendar does not turn those themes on.
  *
  * Hanukkah 2026 begins at sundown on Friday, December 4, 2026 and ends at
- * nightfall on Saturday, December 12, 2026 (eight nights). The Hanukkah row is
- * those calendar days. It does not overlap Christmas.
+ * nightfall on Saturday, December 12, 2026 (eight nights). Christmas starts the
+ * next calendar day, December 13, and runs through December 26. The two do not overlap.
  */
 
 export const SEASONAL_PREVIEW_PARAM = "mm_preview";
@@ -94,22 +94,13 @@ export const SEASONAL_CALENDAR: readonly CalendarEntry[] = [
     note: "Hanukkah 2026 begins at sundown Friday, December 4 and ends at nightfall Saturday, December 12 (eight nights).",
   },
   {
-    id: "gap-before-christmas",
-    name: "Neutral",
-    kind: "neutral",
-    start: "2026-12-13T00:00:00",
-    end: "2026-12-19T23:59:59",
-    preview: false,
-    note: "Default. No scene between Hanukkah and Christmas.",
-  },
-  {
     id: "christmas",
     name: "Christmas",
     kind: "theme",
-    start: "2026-12-20T00:00:00",
+    start: "2026-12-13T00:00:00",
     end: "2026-12-26T23:59:59",
     preview: true,
-    note: "December 20 through the day after Christmas, December 26, 2026.",
+    note: "December 13, the day after Hanukkah, through December 26, 2026. Preview only until that window.",
   },
   {
     id: "gap-before-new-year",

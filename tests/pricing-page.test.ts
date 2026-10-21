@@ -127,6 +127,10 @@ describe("plans and services page", { concurrency: 1 }, () => {
     const lib = source("src/lib/pricing-page.ts");
     assert.match(page, /paymentsEnabled\(\)/);
     assert.match(page, /PricingWaitlist/);
+    const redirects = source("next.config.ts");
+    assert.match(redirects, /source:\s*"\/plans"/);
+    assert.match(redirects, /destination:\s*"\/pricing"/);
+    assert.match(redirects, /permanent:\s*false/);
     assert.match(page, /preview=\{false\}/);
     assert.match(source("src/components/pricing-waitlist.tsx"), /Coming soon, join waitlist/);
     assert.equal(source("src/components/pricing-waitlist.tsx").includes("$"), false);
