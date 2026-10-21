@@ -29,19 +29,48 @@ export function isDealReviewDecision(value: string): value is DealReviewDecision
   return (DEAL_REVIEW_DECISIONS as readonly string[]).includes(value);
 }
 
+export type OfferReviewStatus = "waiting" | "passed" | "declined" | "accepted" | "countered";
+
+/** A stored answer, including a reply such as "passed on Oct 21", is not waiting. */
+export function offerReviewStatus(decision: string | null | undefined): OfferReviewStatus {
+  const value = (decision ?? "").trim().toLowerCase();
+  if (!value) return "waiting";
+  if (value === "accept" || value === "accepted") return "accepted";
+  if (value === "counter" || value === "countered") return "countered";
+  if (value.includes("declin")) return "declined";
+  if (value.includes("pass")) return "passed";
+  return "waiting";
+}
+
 export function dealReviewLabel(decision: string | null) {
-  if (decision === "accept") return "Accepted";
-  if (decision === "counter") return "Countered";
-  if (decision === "pass") return "Passed to roster";
+  const status = offerReviewStatus(decision);
+  if (status === "accepted") return "Accepted";
+  if (status === "countered") return "Countered";
+  if (status === "passed") return decision === "pass" ? "Passed to roster" : "Passed";
+  if (status === "declined") return "Declined";
   return "Waiting for her answer";
 }
 
-/** What the creator is allowed to send. Counter-only and info-only never include accept. */
+/** What the creator is allowed to send. Passed, declined, counter-only, and info-only never include accept. */
 export function reviewChoices(mode: string | null, decision: string | null): DealReviewDecision[] {
+  const status = offerReviewStatus(decision);
+  if (status === "passed" || status === "declined" || status === "accepted" || status === "countered") return [];
   if (decision) return [];
   if (mode === "info") return [];
   if (mode === "counter") return ["counter"];
   return ["accept", "counter", "pass"];
+}
+
+/** Bot-settable card status. A reply like "passed on Oct 21" counts as passed, not waiting. */
+export function normalizeOfferStatus(value: unknown): "passed" | "declined" | "waiting" | "invalid" | "absent" {
+  if (value == null) return "absent";
+  if (typeof value !== "string") return "invalid";
+  const status = value.trim().toLowerCase().replace(/[\s_]+/g, "-");
+  if (!status) return "absent";
+  if (status.includes("declin")) return "declined";
+  if (status.includes("pass")) return "passed";
+  if (status === "waiting" || status === "pending" || status === "open") return "waiting";
+  return "invalid";
 }
 
 export function normalizeReviewMode(value: unknown): ReviewMode | null | "invalid" {
@@ -95,6 +124,7 @@ export async function listBotOfferReviews(db: PortalDb, creatorKey: string | nul
         decision: offer.decision,
         counterNote: offer.counterNote,
         decidedAt: offer.decidedAt,
+        status: offerReviewStatus(offer.decision),
         choices: reviewChoices(offer.reviewMode, offer.decision),
         answerLabel: dealReviewLabel(offer.decision),
       })),
@@ -185,6 +215,15 @@ export async function upsertOfferReview(db: PortalDb, body: unknown) {
   if (reviewMode === "invalid") {
     return { status: 400, body: { error: "reviewMode must be counter, info, or omitted." } };
   }
+  const fromStatus = "status" in body ? normalizeOfferStatus(body.status) : "absent";
+  if (fromStatus === "invalid") {
+    return { status: 400, body: { error: "status must be passed, declined, or waiting." } };
+  }
+  let offerStatus = fromStatus;
+  if (offerStatus === "absent" && "decision" in body) {
+    const parsed = normalizeOfferStatus(body.decision);
+    if (parsed === "passed" || parsed === "declined" || parsed === "waiting") offerStatus = parsed;
+  }
   const id = body.id.trim();
   const existing = await db.select().from(creatorOfferReviews).where(eq(creatorOfferReviews.id, id));
   const current = existing[0];
@@ -198,10 +237,14 @@ export async function upsertOfferReview(db: PortalDb, body: unknown) {
         creatorId: current.creatorId,
         brand: current.brand,
         decision: current.decision,
+        status: offerReviewStatus(current.decision),
+        choices: reviewChoices(current.reviewMode, current.decision),
         reviewMode: current.reviewMode ?? null,
       },
     };
   }
+  const closed = offerStatus === "passed" || offerStatus === "declined";
+  const decision = closed ? offerStatus : null;
   const before = (await db.select().from(approvalEmails)).length;
   const row = {
     creatorId: creator.id,
@@ -210,6 +253,8 @@ export async function upsertOfferReview(db: PortalDb, body: unknown) {
     offerLabel,
     summary,
     reviewMode,
+    decision,
+    decidedAt: decision ? nowIso() : null,
   };
   if (current) {
     await db.update(creatorOfferReviews).set(row).where(eq(creatorOfferReviews.id, id));
@@ -217,9 +262,7 @@ export async function upsertOfferReview(db: PortalDb, body: unknown) {
     await db.insert(creatorOfferReviews).values({
       ...row,
       id,
-      decision: null,
       counterNote: null,
-      decidedAt: null,
       createdAt: nowIso(),
     });
   }
@@ -227,6 +270,15 @@ export async function upsertOfferReview(db: PortalDb, body: unknown) {
   if (after !== before) return { status: 500, body: { error: "Offer reviews do not send mail." } };
   return {
     status: current ? 200 : 201,
-    body: { id, created: !current, kept: false, creatorId: creator.id, reviewMode },
+    body: {
+      id,
+      created: !current,
+      kept: false,
+      creatorId: creator.id,
+      reviewMode,
+      decision,
+      status: offerReviewStatus(decision),
+      choices: reviewChoices(reviewMode, decision),
+    },
   };
 }
