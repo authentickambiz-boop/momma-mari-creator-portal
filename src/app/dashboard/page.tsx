@@ -13,6 +13,7 @@ import { paymentsEnabled } from "@/lib/payments";
 import { MEMBER_ONE_TIME_PERCENT_OFF, memberServiceIncluded } from "@/lib/payments-config";
 import { applyReviewNote, listCreatorApplications, type CreatorApplicationView } from "@/lib/creator-apply";
 import { listBrandReports } from "@/lib/brand-report";
+import { listDueBrandRecaps, queueBrandRecapDrafts } from "@/lib/brand-recap";
 import { listOwnerDealReviews } from "@/lib/creator-deal-review";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
@@ -151,6 +152,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   }
   const today = new Date().toISOString().slice(0, 10);
   await queueUsageRenewalDrafts(portal.db, today);
+  await queueBrandRecapDrafts(portal.db, today);
   const usageCards = await listUsageRights(portal.db, portal.viewer, today);
   const endingSoon = await listUsageEndingSoon(portal.db, portal.viewer, today);
   const reviewBoard = await listOwnerDealReviews(portal.db, portal.viewer);
@@ -160,6 +162,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       endingSoon={endingSoon}
       reviews={reviewBoard.ok ? reviewBoard.reviews : []}
       reports={await listBrandReports(portal.db, portal.viewer)}
+      recaps={await listDueBrandRecaps(portal.db, portal.viewer, today)}
       deals={(await listDealsForViewer(portal.db, portal.viewer, "all")).map((deal) => ({ id: deal.id, brand: deal.brand }))}
     />
   );

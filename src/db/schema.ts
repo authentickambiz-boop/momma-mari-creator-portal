@@ -650,6 +650,20 @@ export const usageRenewalFees = sqliteTable(
   (table) => [uniqueIndex("usage_renewal_fees_window").on(table.dealId, table.windowEndsOn)],
 );
 
+export const brandRecapDrafts = sqliteTable(
+  "brand_recap_drafts",
+  {
+    id: text("id").primaryKey(),
+    dealId: text("deal_id").notNull(),
+    milestone: text("milestone").notNull(),
+    goLiveOn: text("go_live_on").notNull(),
+    approvalId: text("approval_id").notNull(),
+    token: text("token").notNull().unique(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("brand_recap_drafts_deal_milestone").on(table.dealId, table.milestone)],
+);
+
 export const mediaKits = sqliteTable("media_kits", {
   creatorId: text("creator_id").primaryKey(),
   slug: text("slug").notNull().unique(),
@@ -1213,6 +1227,7 @@ export const brandCampaignReports = sqliteTable("brand_campaign_reports", {
   engagementLabel: text("engagement_label"),
   clicksLabel: text("clicks_label"),
   commentsLabel: text("comments_label"),
+  codesLabel: text("codes_label"),
   contentLinks: text("content_links"),
   createdAt: text("created_at").notNull(),
 });

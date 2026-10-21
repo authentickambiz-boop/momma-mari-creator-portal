@@ -12,11 +12,11 @@ import {
 } from "@/lib/brand-brief";
 import { INQUIRY_SUBMIT_LABEL } from "@/lib/public-site";
 
-export function BrandBriefForm({ featuredId }: { featuredId?: string | null }) {
+export function BrandBriefForm({ featuredId, brand }: { featuredId?: string | null; brand?: string | null }) {
   return (
     <form action={brandInquiryAction} className="card stack public-form">
       <label>Brand / company name
-        <input name="brand" required autoComplete="organization" />
+        <input name="brand" required autoComplete="organization" defaultValue={brand ?? ""} />
       </label>
       <label>Website
         <input name="companyWebsite" type="url" placeholder="https://" autoComplete="url" />

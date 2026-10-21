@@ -19,6 +19,7 @@ export const APPROVAL_GATES = [
   { id: "reminder", label: "Due date reminder" },
   { id: "report", label: "Monthly report" },
   { id: "usage_renewal", label: "Usage renewal" },
+  { id: "brand_recap", label: "Brand recap" },
 ] as const;
 
 export type ApprovalGate = (typeof APPROVAL_GATES)[number]["id"];
@@ -112,7 +113,7 @@ export async function createApprovalEmail(
     return { ok: false, status: 400, error: `Brand email has to go out from ${BRAND_EMAIL_SENDER}.` };
   }
   if (!isApprovalGate(input.gate)) {
-    return { ok: false, status: 400, error: "gate must be interest, revision, signed_contract, video, decline, post_link, reminder, or report." };
+    return { ok: false, status: 400, error: "gate must be interest, revision, signed_contract, video, decline, post_link, reminder, report, usage_renewal, or brand_recap." };
   }
   const to = clean(input.to);
   const subject = clean(input.subject);

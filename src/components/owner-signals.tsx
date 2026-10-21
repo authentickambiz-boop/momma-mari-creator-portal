@@ -15,6 +15,17 @@ type Review = {
 
 type ReportLink = { token: string; brand: string; title: string };
 
+type RecapRow = {
+  dealId: string;
+  milestone: number;
+  brand: string;
+  creatorName: string;
+  milestoneLabel: string;
+  dueOn: string;
+  statusLabel: string;
+  href: string | null;
+};
+
 type DealChoice = { id: string; brand: string };
 
 export function OwnerSignals({
@@ -22,12 +33,14 @@ export function OwnerSignals({
   endingSoon,
   reviews,
   reports,
+  recaps,
   deals,
 }: {
   alerts: ExpiryAlert[];
   endingSoon: UsageEndingRow[];
   reviews: Review[];
   reports: ReportLink[];
+  recaps: RecapRow[];
   deals: DealChoice[];
 }) {
   return (
@@ -100,6 +113,26 @@ export function OwnerSignals({
             ))}
           </ul>
         ) : null}
+      </div>
+      <div className="card" style={{ marginTop: 14 }}>
+        <div className="sec-title">Brand recaps</div>
+        <p className="note">A 7-day recap and a 30-day recap are drafted after a campaign goes live. Each one waits in Approvals. Nothing is sent until you approve it.</p>
+        {recaps.length === 0 ? <p className="note empty">No recap is due.</p> : (
+          <table>
+            <thead><tr><th>Brand</th><th>Creator</th><th>Recap</th><th>Due</th><th>Status</th></tr></thead>
+            <tbody>
+              {recaps.map((recap) => (
+                <tr key={`${recap.dealId}-${recap.milestone}`}>
+                  <td>{recap.brand}</td>
+                  <td>{recap.creatorName}</td>
+                  <td>{recap.href ? <a href={recap.href}>{recap.milestoneLabel}</a> : recap.milestoneLabel}</td>
+                  <td>{recap.dueOn}</td>
+                  <td>{recap.statusLabel}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </>
   );

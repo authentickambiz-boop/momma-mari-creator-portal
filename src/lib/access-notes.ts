@@ -26,7 +26,7 @@ const ACCESS_ERROR_TEXT = {
   to: "to must be an email address.",
   subject: "subject is required.",
   body: "body is required.",
-  gate: "gate must be interest, revision, signed_contract, video, decline, post_link, reminder, or report.",
+  gate: "gate must be interest, revision, signed_contract, video, decline, post_link, reminder, report, usage_renewal, or brand_recap.",
 } as const;
 
 export const ACCESS_NOTES: Record<string, string> = {
