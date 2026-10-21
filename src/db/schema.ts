@@ -1487,3 +1487,18 @@ export const statusIncidents = sqliteTable("status_incidents", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const briefNotices = sqliteTable("brief_notices", {
+  id: text("id").primaryKey(),
+  source: text("source").notNull(),
+  sourceId: text("source_id").notNull(),
+  brand: text("brand").notNull(),
+  contactName: text("contact_name").notNull(),
+  contactEmail: text("contact_email").notNull(),
+  program: text("program").notNull(),
+  budget: text("budget").notNull(),
+  emailStatus: text("email_status").notNull(),
+  emailDetail: text("email_detail"),
+  createdAt: text("created_at").notNull(),
+  deliveredAt: text("delivered_at"),
+});

@@ -9,6 +9,7 @@ import type { PortalDb } from "@/db";
 import { approvalEmails, approvalEvents, brandContacts, brandCrmEntries, giftGuideReservations } from "@/db/schema";
 import { BRAND_EMAIL_SENDER } from "./approvals";
 import { isOwner } from "./authz";
+import { recordBriefNotice } from "./brief-notify";
 import { recordBrandInquiry } from "./brand-crm";
 import { formatMoney, normalizeEmail, nowIso } from "./format";
 import type { Viewer } from "./types";
@@ -368,7 +369,7 @@ export async function listGiftGuideReservations(db: PortalDb, viewer: Viewer) {
   return { ok: true as const, summary, reservations };
 }
 
-/** Stores a reservation, a brand contact, and a pending confirmation draft. Nothing is sent or charged. */
+/** Stores a reservation, a brand contact, and a pending confirmation draft. The brand draft is not sent and nothing is charged. A staff notice is stored for Kamron. */
 export async function saveGiftGuideReservation(
   db: PortalDb,
   input: GiftGuideReservationInput,
@@ -504,5 +505,14 @@ export async function saveGiftGuideReservation(
   });
   const crm = await db.select().from(brandCrmEntries).where(eq(brandCrmEntries.id, saved.id));
   if (!crm[0]) return { ok: false, status: 500, error: "The reservation was not saved." };
+  await recordBriefNotice(db, {
+    source: "gift-guide",
+    sourceId: id,
+    brand,
+    contactName,
+    contactEmail: email,
+    program: GIFT_GUIDE_OFFER.program,
+    budget: `${chosen.name}: ${priceLabel}`,
+  });
   return { ok: true, id, approvalId };
 }

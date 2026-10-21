@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { creators, gmailBridgeMessages, gmailBridgeThreads } from "@/db/schema";
+import { recordBriefNotice } from "./brief-notify";
 import { recordBrandInquiry } from "./brand-crm";
 import { nowIso } from "./format";
 
@@ -145,7 +146,7 @@ async function fileBriefInDealInbox(
   });
 }
 
-/** A public brand brief. It is stored on the brand list and in the deal inbox. Nothing is emailed. */
+/** A public brand brief. It is stored on the brand list and in the deal inbox. The brand is not emailed. A staff notice is stored for Kamron. */
 export async function saveBrandBrief(db: PortalDb, input: BrandBriefInput): Promise<Result<{ id: string }>> {
   if (input.honeypot?.trim()) return { ok: true, id: "dropped" };
   const creatorsChosen = (input.creators ?? []).map((id) => id.trim()).filter((id) => CREATOR_IDS.has(id));
@@ -168,6 +169,15 @@ export async function saveBrandBrief(db: PortalDb, input: BrandBriefInput): Prom
     name: input.name?.trim() || "Brand",
     note,
     creatorIds: creatorsChosen,
+  });
+  await recordBriefNotice(db, {
+    source: "inquire",
+    sourceId: saved.id,
+    brand: input.brand.trim(),
+    contactName: input.name?.trim() || "Brand",
+    contactEmail: input.email.trim().toLowerCase(),
+    program: "inquire",
+    budget: input.budget.trim(),
   });
   return saved;
 }
