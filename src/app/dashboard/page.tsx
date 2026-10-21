@@ -16,6 +16,7 @@ import { MEMBER_ONE_TIME_PERCENT_OFF, memberServiceIncluded } from "@/lib/paymen
 import { applyReviewNote, listCreatorApplications, type CreatorApplicationView } from "@/lib/creator-apply";
 import { listBrandReports } from "@/lib/brand-report";
 import { listDueBrandRecaps, queueBrandRecapDrafts } from "@/lib/brand-recap";
+import { listCommissionCampaignsForOwner } from "@/lib/commission-campaigns";
 import { listGiftGuideReservations } from "@/lib/gift-guide";
 import { listOwnerDealReviews } from "@/lib/creator-deal-review";
 import { listOwnerTasks } from "@/lib/creator-tasks";
@@ -188,6 +189,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const paymentsOn = paymentsEnabled();
   const dash = await ownerDashboard(portal.db, portal.viewer);
   const applications = await listCreatorApplications(portal.db, portal.viewer);
+  const commissionBoard = await listCommissionCampaignsForOwner(portal.db, portal.viewer);
+  const commissionCard = (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="sec-title">Commission campaigns</div>
+      <p className="note">Open and closed commission campaigns. The rate stays TBD. Interest is a count. Nothing is emailed.</p>
+      {!commissionBoard.ok ? <p className="note">{commissionBoard.error}</p> : commissionBoard.campaigns.length === 0 ? <p className="note empty">No commission campaigns yet.</p> : (
+        <ul>
+          {commissionBoard.campaigns.map((campaign) => (
+            <li key={campaign.id}>
+              {campaign.brand} · {campaign.title} · {campaign.status} · {campaign.interestCount} {campaign.interestCount === 1 ? "creator" : "creators"} interested
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
   const giftGuide = await listGiftGuideReservations(portal.db, portal.viewer);
   const giftGuideCard = giftGuide.ok
     ? <GiftGuideReservationsPanel summary={giftGuide.summary} reservations={giftGuide.reservations} />
@@ -210,6 +227,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
         {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
         <ApplicationsCard applications={applications} note={applyNote} />
+        {commissionCard}
         {giftGuideCard}
         {taskCard}
         {signals}
@@ -232,6 +250,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
       {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
       <ApplicationsCard applications={applications} note={applyNote} />
+      {commissionCard}
       {giftGuideCard}
       {taskCard}
       {signals}
