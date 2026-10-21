@@ -7,7 +7,7 @@ import { clearMailboxReconnect, gmailConnectionState, mailboxReconnectReason, ma
 import { getDealStage } from "./stages";
 import { AGENCY_MAILBOX_ID, KAMRON_AGENCY_EMAIL, clearAgencyMailboxToken } from "./agency-mailbox";
 import { gmailSyncEnabled } from "./gmail-sync-flag";
-import { gmailMutationAllowed, prepareReplyAndLabels, type MailSort } from "./gmail-live";
+import { gmailMutationAllowed, isAutomatedSender, isPersonalMail, prepareReplyAndLabels, type MailSort } from "./gmail-live";
 import { revokeGoogleToken, type GoogleTokenRevoker } from "./google-oauth";
 import { decryptToken } from "./token-crypto";
 
@@ -29,6 +29,30 @@ export type PubSubClaims = {
   exp?: number;
   email_verified?: boolean;
 };
+
+export type ListedDraft = {
+  id?: string;
+  message?: { id?: string; threadId?: string; snippet?: string; labelIds?: string[] };
+};
+
+/** Drafts already on the thread. threads.get can omit an unsent draft, so drafts.list fills that gap. */
+export function draftsOnThread(
+  threadId: string,
+  threadMessages: { id?: string; snippet?: string; labelIds?: string[] }[],
+  listed: ListedDraft[],
+) {
+  const found = new Map<string, { id: string; snippet: string }>();
+  for (const message of threadMessages) {
+    if (!message.id || !(message.labelIds ?? []).includes("DRAFT")) continue;
+    found.set(message.id, { id: message.id, snippet: message.snippet ?? "" });
+  }
+  for (const draft of listed) {
+    const message = draft.message;
+    if (!message?.id || message.threadId !== threadId) continue;
+    if (!found.has(message.id)) found.set(message.id, { id: message.id, snippet: message.snippet ?? "" });
+  }
+  return [...found.values()];
+}
 
 export type GmailHistoryMessage = {
   id: string;
@@ -552,6 +576,15 @@ export function recentInboxMessages(pages: { messages?: { id?: string; threadId?
   return messages;
 }
 
+/** Automated senders and personal notes never become a reply draft. A known brand contact still can. */
+async function leaveUnanswered(db: PortalDb, creatorId: string, mailbox: string, message: GmailHistoryMessage) {
+  if (isAutomatedSender(message.from)) return true;
+  if (!isPersonalMail(message.from, message.subject)) return false;
+  const { isBrandInquiry } = await import("./gmail-bridge");
+  const decision = await isBrandInquiry(db, creatorId, message, mailbox);
+  return !(decision.keep && decision.classification !== "not_deal");
+}
+
 async function settleMail(
   db: PortalDb,
   mailbox: string,
@@ -656,7 +689,7 @@ async function applyAddedMessages(
       if (!settled.ok) return settled;
       continue;
     }
-    if (isWatchedMailboxSender(message.from) || isBulkMail(message.labelIds)) {
+    if (isWatchedMailboxSender(message.from) || isBulkMail(message.labelIds) || await leaveUnanswered(db, creatorId, mailbox, message)) {
       const settled = await settleMail(db, mailbox, creatorId, creatorLabel, client, secrets, message, "not_deal", null, brand);
       if (!settled.ok) return settled;
       skippedSpam += 1;
@@ -1079,11 +1112,21 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
     },
     async listThreadDrafts(threadId) {
       const loaded = await gmailGet(accessToken, `/threads/${encodeURIComponent(threadId)}?format=metadata`);
-      if (loaded.missing || !loaded.json) return [];
-      const messages = (loaded.json as { messages?: { id?: string; snippet?: string; labelIds?: string[] }[] }).messages ?? [];
-      return messages
-        .filter((message) => (message.labelIds ?? []).includes("DRAFT") && message.id)
-        .map((message) => ({ id: message.id ?? "", snippet: message.snippet ?? "" }));
+      const messages = loaded.missing || !loaded.json
+        ? []
+        : ((loaded.json as { messages?: { id?: string; snippet?: string; labelIds?: string[] }[] }).messages ?? []);
+      const listed: ListedDraft[] = [];
+      let pageToken = "";
+      for (let page = 0; page < 5; page += 1) {
+        const token = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "";
+        const result = await gmailGet(accessToken, `/drafts?maxResults=100${token}`);
+        if (result.missing || !result.json) break;
+        const json = result.json as { drafts?: ListedDraft[]; nextPageToken?: string };
+        listed.push(...(json.drafts ?? []));
+        if (!json.nextPageToken) break;
+        pageToken = json.nextPageToken;
+      }
+      return draftsOnThread(threadId, messages, listed);
     },
     async createDraft(input) {
       const created = await gmailJson(accessToken, "/drafts", {

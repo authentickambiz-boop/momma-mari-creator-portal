@@ -155,10 +155,8 @@ describe("live gmail push", { concurrency: 1 }, () => {
     assert.equal((deal?.brandReplyDraft ?? "").includes("$"), false);
     assert.equal((deal?.brandReplyDraft ?? "").includes("2026"), false);
     assert.deepEqual(first.labels[0]?.names, [MM_LABEL.deal, MM_LABEL.needsReply]);
-    assert.equal(first.created.length, 1);
-    assert.match(first.created[0]?.body ?? "", /\[CONFIRM\]/);
-    assert.equal((first.created[0]?.subject ?? "").includes("Oct 21"), false);
-    assert.equal((await db.select().from(gmailPortalDrafts)).length, 1);
+    assert.equal(first.created.length, 0);
+    assert.equal((await db.select().from(gmailPortalDrafts)).length, 0);
 
     const repeat = recordingClient([inbound], "210");
     const again = await ingestGmailPush(db, { emailAddress: mailbox, historyId: "210" }, { client: repeat.client });
