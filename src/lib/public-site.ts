@@ -14,6 +14,7 @@ export const PUBLIC_MARKETING_PATHS = [
   "/gift-guide",
   "/apply",
   "/apply/thanks",
+  "/curriculum",
   "/privacy",
   "/terms",
 ] as const;
