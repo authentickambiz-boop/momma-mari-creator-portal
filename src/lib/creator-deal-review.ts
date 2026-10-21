@@ -74,6 +74,34 @@ export async function listCreatorDealReviews(db: PortalDb, creatorId: string) {
   return rows.map(toReview);
 }
 
+/** Bot read of the cards on a creator's home. Rates and staff notes are not on these rows. */
+export async function listBotOfferReviews(db: PortalDb, creatorKey: string | null) {
+  const key = creatorKey?.trim() ?? "";
+  if (!key) return { status: 400, body: { error: "creator is required." } };
+  const creator = key.includes("@") ? await findCreatorByEmail(db, key) : await findCreatorById(db, key);
+  if (!creator) return { status: 404, body: { error: "Creator not found." } };
+  const reviews = await listCreatorDealReviews(db, creator.id);
+  return {
+    status: 200,
+    body: {
+      creatorId: creator.id,
+      reviews: reviews.map((offer) => ({
+        id: offer.id,
+        brand: offer.brand,
+        contactEmail: offer.contactEmail,
+        offerLabel: offer.offerLabel,
+        summary: offer.summary,
+        reviewMode: offer.reviewMode,
+        decision: offer.decision,
+        counterNote: offer.counterNote,
+        decidedAt: offer.decidedAt,
+        choices: reviewChoices(offer.reviewMode, offer.decision),
+        answerLabel: dealReviewLabel(offer.decision),
+      })),
+    },
+  };
+}
+
 export async function listOwnerDealReviews(db: PortalDb, viewer: Viewer) {
   if (viewer.role !== "admin") return { ok: false as const, status: 403, error: "Only the owner can see these answers." };
   const [rows, people] = await Promise.all([
