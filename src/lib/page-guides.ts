@@ -23,12 +23,12 @@ export const PAGE_GUIDES: { [K in PortalTab]: PageGuide } = {
   deals: {
     id: "deals",
     who: "Everyone signed in. Creators only see their own deals. Hidden deals and owner notes stay private.",
-    purpose: "This is home. It shows the brand deals in progress and what needs a person this week.",
+    purpose: "This is home for work already underway. An offer nobody has answered lives on Offers, not here.",
     principle: "You should always be able to see the next step. Nothing goes to a brand until it is approved.",
     steps: [
       "Read the line under the title. It says how many deals are moving and how many need you.",
       "Open a deal to see the brief, the dates, and what to upload.",
-      "If a brand offer is waiting, follow the link to Offers and answer there.",
+      "If a callout says an offer is waiting, open Offers and answer it there.",
       "Staff can switch creators at the top. All creators is the roster you are allowed to see.",
     ],
   },
@@ -53,7 +53,7 @@ export const PAGE_GUIDES: { [K in PortalTab]: PageGuide } = {
       "Connect Gmail from Connect accounts if the list is empty. The connection is read-only.",
       "Open a thread and read who wrote and what they want.",
       "Write a reply draft if you want something sent later. It does not go out from this page.",
-      "Creators can keep a thread private. The owner can mark it as a deal, an inquiry, or not a deal.",
+      "Creators can keep a thread private. The owner can mark a thread as not a deal, and it leaves this list.",
     ],
   },
   earnings: {
@@ -215,11 +215,11 @@ export const PAGE_GUIDES: { [K in PortalTab]: PageGuide } = {
   offers: {
     id: "offers",
     who: "Creators and the owner. Managers do not see brand offers.",
-    purpose: "A number a brand will pay. Creators see the offer. The owner sees who fits.",
+    purpose: "Offers that are still waiting for an answer. Brand deals is for the work after someone says yes.",
     principle: "A creator's minimum stays private. Saving or answering an offer does not send email.",
     steps: [
-      "Creators read what the brand will pay, then answer yes, no, or a question.",
-      "A no can become a polite note for the owner to approve. It does not send itself.",
+      "Creators read what the brand will pay, then say they are interested, suggest a counter, or pass.",
+      "A pass stays in the portal. It does not email the brand by itself.",
       "The owner saves an offer for creators whose minimum and monthly cap fit. Lowest rank goes first.",
       "Leave someone off when the fit is wrong.",
     ],
@@ -300,10 +300,10 @@ export const PAGE_GUIDES: { [K in PortalTab]: PageGuide } = {
   ranking: {
     id: "ranking",
     who: "Owner only.",
-    purpose: "A 0 to 100 score for who should see the best-fit deals first.",
-    principle: "Rank decides who is offered a fit first. It does not email anyone, and only your sign-in can see the score.",
+    purpose: "A 0 to 100 score, shown as ten ranks, for who should see the best-fit deals first.",
+    principle: "Fit still decides who can take a campaign. Rank only sorts the people who clear that gate. It does not email anyone.",
     steps: [
-      "Read the board from the top. Higher means first look at the best-fit deals.",
+      "Read the board from the top. A higher rank gets first look at a deal they already fit.",
       "Open one creator and check the inputs if a score looks off.",
       "Change the weights only when you mean to change who goes first.",
       "Refresh ranks after you save. Nothing is emailed.",
