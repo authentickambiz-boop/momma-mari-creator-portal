@@ -4,12 +4,12 @@ import path from "node:path";
 import { before, describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { GET as listDeals } from "../src/app/api/bot/deals/route";
-import { PUT as putOfferReview } from "../src/app/api/bot/offer-reviews/route";
+import { GET as listOfferReviews, PUT as putOfferReview } from "../src/app/api/bot/offer-reviews/route";
 import { GET as listTasks, POST as postTask, PUT as putTask } from "../src/app/api/bot/tasks/route";
 import type { PortalDb } from "../src/db/index";
 import { approvalEmails, creatorQuestionnaires, creatorTasks } from "../src/db/schema";
 import { listBotDeals, upsertDeal } from "../src/lib/bot-api";
-import { decideCreatorDealReview, listCreatorDealReviews, reviewChoices, upsertOfferReview } from "../src/lib/creator-deal-review";
+import { decideCreatorDealReview, listBotOfferReviews, listCreatorDealReviews, reviewChoices, upsertOfferReview } from "../src/lib/creator-deal-review";
 import {
   listBotTasks,
   listCreatorOpenTasks,
@@ -140,6 +140,34 @@ describe("creator to-dos and offer reviews", { concurrency: 1 }, () => {
     assert.deepEqual(reviewChoices("info", null), []);
     assert.equal(reviewChoices(null, null).includes("accept"), true);
 
+    const missingCreator = await listBotOfferReviews(db, "  ");
+    assert.equal(missingCreator.status, 400);
+    const unknown = await listBotOfferReviews(db, "no-such-creator");
+    assert.equal(unknown.status, 404);
+    const listed = await listBotOfferReviews(db, "mariclare");
+    assert.equal(listed.status, 200);
+    const byEmail = await listBotOfferReviews(db, "mmaclamroc@gmail.com");
+    assert.equal(byEmail.status, 200);
+    const cards = listed.body as {
+      creatorId: string;
+      reviews: { id: string; brand: string; choices: string[]; answerLabel: string; reviewMode: string | null; decision: string | null }[];
+    };
+    assert.equal(cards.creatorId, "mariclare");
+    const momCard = cards.reviews.find((offer) => offer.id === "review-momcozy");
+    const temuCard = cards.reviews.find((offer) => offer.id === "review-temu");
+    assert.equal(momCard?.brand, "Momcozy");
+    assert.deepEqual(momCard?.choices, ["counter"]);
+    assert.equal(momCard?.answerLabel, "Waiting for her answer");
+    assert.equal(temuCard?.reviewMode, "info");
+    assert.deepEqual(temuCard?.choices, []);
+    assert.equal(cards.reviews.some((offer) => offer.id === "review-abby-only"), false);
+    const packedReviews = JSON.stringify(cards);
+    assert.equal(packedReviews.toLowerCase().includes("floor"), false);
+    assert.equal(packedReviews.toLowerCase().includes("minimum"), false);
+    assert.equal(packedReviews.includes("rateCents"), false);
+    const deniedGet = await listOfferReviews(new Request("http://localhost/api/bot/offer-reviews?creator=mariclare"));
+    assert.equal(deniedGet.status, 401);
+
     const home = source("src/app/page.tsx");
     const card = source("src/components/creator-deal-review.tsx");
     assert.match(home, /listCreatorDealReviews/);
@@ -150,6 +178,8 @@ describe("creator to-dos and offer reviews", { concurrency: 1 }, () => {
     assert.match(card, /Nothing to accept/);
     assert.match(source("src/app/api/bot/offer-reviews/route.ts"), /botGuard/);
     assert.match(source("src/app/api/bot/offer-reviews/route.ts"), /upsertOfferReview/);
+    assert.match(source("src/app/api/bot/offer-reviews/route.ts"), /export async function GET/);
+    assert.match(source("src/app/api/bot/offer-reviews/route.ts"), /listBotOfferReviews/);
 
     const accept = await decideCreatorDealReview(db, {
       offerId: "review-momcozy",
@@ -197,6 +227,12 @@ describe("creator to-dos and offer reviews", { concurrency: 1 }, () => {
     assert.equal(keptBody.decision, "counter");
     const after = (await listCreatorDealReviews(db, "mariclare")).find((offer) => offer.id === "review-momcozy");
     assert.equal(after?.brand, "Momcozy");
+    const answered = await listBotOfferReviews(db, "mariclare");
+    const answeredCard = (answered.body as { reviews: { id: string; decision: string | null; choices: string[]; counterNote: string | null; answerLabel: string }[] }).reviews.find((offer) => offer.id === "review-momcozy");
+    assert.equal(answeredCard?.decision, "counter");
+    assert.equal(answeredCard?.counterNote, "Can we start next month?");
+    assert.deepEqual(answeredCard?.choices, []);
+    assert.equal(answeredCard?.answerLabel, "Countered");
     assert.equal(after?.summary, "One TikTok. No usage.");
     assert.equal(after?.decision, "counter");
     assert.equal(after?.reviewMode, "counter");
