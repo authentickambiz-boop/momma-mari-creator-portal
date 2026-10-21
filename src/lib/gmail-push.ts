@@ -269,6 +269,30 @@ async function verifyGoogleJwt(token: string): Promise<PubSubClaims | null> {
   }
 }
 
+/** Live push URL. www and the apex host are the same audience. */
+export const GMAIL_PUSH_URL = "https://www.mommamari.com/portal/api/gmail/push";
+
+/** Compare a Pub/Sub audience to the configured one. www.mommamari.com and mommamari.com match. */
+export function pushAudiencesMatch(expected: string, presented: string | string[]) {
+  const wanted = canonicalPushAudience(expected);
+  const values = Array.isArray(presented) ? presented : [presented];
+  return Boolean(wanted) && values.some((value) => canonicalPushAudience(value) === wanted);
+}
+
+function canonicalPushAudience(value: string) {
+  const trimmed = value.trim().replace(/\/$/, "");
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "https:") return trimmed;
+    const host = url.hostname.toLowerCase();
+    const canonicalHost = host === "mommamari.com" ? "www.mommamari.com" : host;
+    const path = url.pathname.replace(/\/$/, "");
+    return `https://${canonicalHost}${path}`;
+  } catch {
+    return trimmed;
+  }
+}
+
 export async function verifyPubSubOidc(
   authorization: string | null,
   options?: {
@@ -294,7 +318,7 @@ export async function verifyPubSubOidc(
     return { ok: false as const, status: 401, error: "Pub/Sub token issuer was rejected." };
   }
   const audiences = Array.isArray(claims.aud) ? claims.aud : claims.aud ? [claims.aud] : [];
-  if (!audiences.includes(audience)) return { ok: false as const, status: 401, error: "Pub/Sub token audience was rejected." };
+  if (!pushAudiencesMatch(audience, audiences)) return { ok: false as const, status: 401, error: "Pub/Sub token audience was rejected." };
   if (!claims.email || normalizeEmail(claims.email) !== normalizeEmail(serviceAccount) || claims.email_verified === false) {
     return { ok: false as const, status: 401, error: "Pub/Sub token identity was rejected." };
   }

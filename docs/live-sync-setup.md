@@ -45,11 +45,11 @@ Do this once, in order. Use the same Google Cloud project that already has the p
 Pub/Sub will call the portal with a Google ID token. You check that token. The token’s email is a service account you own.
 
 1. **IAM & Admin → Service accounts → Create service account**.
-2. Name: `portal-gmail-push`.
+2. Name: `gmail-push-sender`.
 3. Skip optional role grants. This account does not need a key file. Do not download a JSON key.
 4. Copy the email, which looks like:
 
-   `portal-gmail-push@YOUR_PROJECT_ID.iam.gserviceaccount.com`
+   `gmail-push-sender@momma-mari-portal.iam.gserviceaccount.com`
 
    That value is the Webflow secret `GMAIL_PUSH_SERVICE_ACCOUNT`.
 
@@ -61,13 +61,13 @@ Pub/Sub will call the portal with a Google ID token. You check that token. The t
 4. Delivery type: **Push**.
 5. Endpoint URL, exactly, with no trailing slash:
 
-   `https://mommamari.com/portal/api/gmail/push`
+   `https://www.mommamari.com/portal/api/gmail/push`
 
 6. Check **Enable authentication**.
-7. Service account: the `portal-gmail-push@...` email from step 4.
+7. Service account: the `gmail-push-sender@...` email from step 4.
 8. Audience, exactly the same URL as the endpoint:
 
-   `https://mommamari.com/portal/api/gmail/push`
+   `https://www.mommamari.com/portal/api/gmail/push`
 
    That value is the Webflow secret `GMAIL_PUSH_AUDIENCE`. If the audience and the URL differ by even a slash, the portal rejects the call.
 
@@ -91,7 +91,7 @@ The per-creator **Connect Gmail (read only)** button stays on `gmail.readonly`. 
 4. While the app is in Testing, Google expires refresh tokens after 7 days. Publishing the app (after Google’s review, because Gmail read is a restricted scope) stops that expiry. Until then, reconnect the inbox when the token dies. The watch itself also lasts at most 7 days, which is why the daily renewal in step 9 exists.
 5. The OAuth client stays a **Web application**. Authorized redirect URI, already used by sign-in:
 
-   `https://mommamari.com/portal/api/auth/callback`
+   `https://www.mommamari.com/portal/api/auth/callback`
 
    Do not add a second redirect URI for Gmail.
 
@@ -105,10 +105,10 @@ In the Webflow Cloud environment for this site, set:
 | `GOOGLE_CLIENT_SECRET` | OAuth web client secret | yes |
 | `TOKEN_ENCRYPTION_KEY` | 64 hex characters. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` | yes |
 | `GMAIL_WATCH_TOPIC` | `projects/YOUR_PROJECT_ID/topics/gmail-push` | no |
-| `GMAIL_PUSH_AUDIENCE` | `https://mommamari.com/portal/api/gmail/push` | no |
-| `GMAIL_PUSH_SERVICE_ACCOUNT` | `portal-gmail-push@YOUR_PROJECT_ID.iam.gserviceaccount.com` | no |
+| `GMAIL_PUSH_AUDIENCE` | `https://www.mommamari.com/portal/api/gmail/push` | no |
+| `GMAIL_PUSH_SERVICE_ACCOUNT` | `gmail-push-sender@momma-mari-portal.iam.gserviceaccount.com` | no |
 | `GMAIL_WATCH_CRON_SECRET` | a long random string you invent | yes |
-| `APP_BASE_URL` | `https://mommamari.com/portal` | no |
+| `APP_BASE_URL` | `https://www.mommamari.com/portal` | no |
 | `BOT_API_TOKEN` | the token the drafting bot already uses | yes |
 
 `TOKEN_ENCRYPTION_KEY` must stay the same for as long as you want old refresh tokens to keep working. Refresh tokens are stored as `v1:` ciphertext. The database never gets the raw token.
@@ -138,7 +138,7 @@ There is no timer inside Webflow Cloud. Use Google Cloud Scheduler (3 jobs a mon
 2. Name: `gmail-watch-renew`.
 3. Frequency: `0 12 * * *`. Time zone: `America/New_York`. That is 12:00 noon Eastern, once a day.
 4. Target type: **HTTP**.
-5. URL: `https://mommamari.com/portal/api/cron/gmail-watch`
+5. URL: `https://www.mommamari.com/portal/api/cron/gmail-watch`
 6. Method: **POST**.
 7. Auth header: **Add header**
    - Header: `Authorization`
@@ -211,7 +211,7 @@ Leave `GMAIL_SYNC_ENABLED` empty until you want that sync. The portal does not r
 5. Add a second Cloud Scheduler job so a missed push still gets read:
    - Name: `gmail-inbox-sync`
    - Frequency: `*/15 * * * *`. Time zone: `America/New_York`.
-   - URL: `https://mommamari.com/portal/api/cron/gmail-sync`
+   - URL: `https://www.mommamari.com/portal/api/cron/gmail-sync`
    - Method: **POST**
    - Header: `Authorization` = `Bearer YOUR_GMAIL_WATCH_CRON_SECRET` (the same secret as the watch job)
 6. A creator (or you, the owner) opens **Deal inbox** or **Connect accounts** and uses **Connect Gmail (read only)**. A manager does not get that button and does not get her password or token.
@@ -222,12 +222,12 @@ Leave `GMAIL_SYNC_ENABLED` empty until you want that sync. The portal does not r
 | `GMAIL_SYNC_ENABLED` | `true` only when you want live sync. Leave empty until then. | no |
 | `GMAIL_WATCH_CRON_SECRET` | the same secret already used for watch renewal | yes |
 | `GMAIL_WATCH_TOPIC` | the topic from step 3 | no |
-| `GMAIL_PUSH_AUDIENCE` | `https://mommamari.com/portal/api/gmail/push` | no |
+| `GMAIL_PUSH_AUDIENCE` | `https://www.mommamari.com/portal/api/gmail/push` | no |
 | `GMAIL_PUSH_SERVICE_ACCOUNT` | the push service account from step 4 | no |
 | `TOKEN_ENCRYPTION_KEY` | the existing 64 hex character key. Do not rotate it here. | yes |
 | `GOOGLE_CLIENT_ID` | the existing OAuth web client | no |
 | `GOOGLE_CLIENT_SECRET` | that client's secret | yes |
-| `APP_BASE_URL` | `https://mommamari.com/portal` | no |
+| `APP_BASE_URL` | `https://www.mommamari.com/portal` | no |
 
 ## Cost
 
@@ -246,16 +246,16 @@ The portal cannot create the Google Cloud project, the topic, or the Webflow sec
 1. In the Google Cloud project that owns the portal OAuth client, enable **Gmail API** and **Cloud Pub/Sub API**.
 2. Create the Pub/Sub topic `gmail-push`. Copy `projects/YOUR_PROJECT_ID/topics/gmail-push`.
 3. On that topic, grant **Pub/Sub Publisher** to `gmail-api-push@system.gserviceaccount.com`. That principal is Google's. Do not create a key for it.
-4. Create the service account `portal-gmail-push`. Do not download a JSON key. Copy `portal-gmail-push@YOUR_PROJECT_ID.iam.gserviceaccount.com`.
+4. The push service account is `gmail-push-sender@momma-mari-portal.iam.gserviceaccount.com`. Do not download a JSON key.
 5. Create the push subscription `gmail-push-portal` on topic `gmail-push`.
-   - Endpoint and audience, both exactly: `https://mommamari.com/portal/api/gmail/push`
+   - Endpoint and audience, both exactly: `https://www.mommamari.com/portal/api/gmail/push`
    - Authentication on, service account from step 4.
 6. On the OAuth consent screen, add `https://www.googleapis.com/auth/gmail.modify` and these test users while the app is in Testing: `mmaclamroc@gmail.com`, `authentickambiz@gmail.com`, `Kamron@mommamari.com`. Do not add `gmail.send` or `https://mail.google.com/`.
-7. In Webflow Cloud, set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY` (the key already there; do not rotate it), `GMAIL_WATCH_TOPIC`, `GMAIL_PUSH_AUDIENCE`, `GMAIL_PUSH_SERVICE_ACCOUNT`, `GMAIL_WATCH_CRON_SECRET`, and `APP_BASE_URL` (`https://mommamari.com/portal`). Redeploy.
+7. In Webflow Cloud, `APP_BASE_URL` is `https://www.mommamari.com/portal`. `GMAIL_PUSH_AUDIENCE` is `https://www.mommamari.com/portal/api/gmail/push`. `GMAIL_PUSH_SERVICE_ACCOUNT` is `gmail-push-sender@momma-mari-portal.iam.gserviceaccount.com`. `GMAIL_WATCH_TOPIC` is `projects/momma-mari-portal/topics/gmail-push`.
 8. Sign in as the owner and connect the three watched inboxes. Reconnect any inbox that was connected before `gmail.modify`.
 9. Create two Cloud Scheduler jobs, both with `Authorization: Bearer YOUR_GMAIL_WATCH_CRON_SECRET`:
-   - `gmail-watch-renew`, `0 12 * * *`, `America/New_York`, POST `https://mommamari.com/portal/api/cron/gmail-watch`
-   - `gmail-inbox-sync`, `*/15 * * * *`, `America/New_York`, POST `https://mommamari.com/portal/api/cron/gmail-sync`
+   - `gmail-watch-renew`, `0 12 * * *`, `America/New_York`, POST `https://www.mommamari.com/portal/api/cron/gmail-watch`
+   - `gmail-inbox-sync`, `*/15 * * * *`, `America/New_York`, POST `https://www.mommamari.com/portal/api/cron/gmail-sync`
 10. Leave `GMAIL_SYNC_ENABLED` empty until other creators' inboxes should be read. The three watched inboxes catch up without that switch.
 
 Google's restricted-scope review (and CASA, if Google requires it) is still outstanding. Until the app is published, refresh tokens in Testing expire after 7 days and those three people have to reconnect. The daily job renews the 7-day watch. It cannot renew a dead refresh token.

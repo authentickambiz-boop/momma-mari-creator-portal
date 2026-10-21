@@ -18,11 +18,13 @@ import {
   catchUpWatchedMailboxes,
   clearCreatorGmail,
   ingestGmailPush,
+  pushAudiencesMatch,
   renewGmailWatches,
+  verifyPubSubOidc,
   type GmailHistoryClient,
   type GmailHistoryMessage,
 } from "../src/lib/gmail-push";
-import { GMAIL_WATCH_SCOPE, googleGmailWatchAuthUrl } from "../src/lib/google-oauth";
+import { GMAIL_WATCH_SCOPE, googleGmailWatchAuthUrl, googleRedirectUri } from "../src/lib/google-oauth";
 import { gmailConnectionState } from "../src/lib/onboarding";
 import { getDealForViewer } from "../src/lib/queries";
 import { admin, mariclare, openTestDb } from "./harness";
@@ -73,6 +75,31 @@ describe("live gmail push", { concurrency: 1 }, () => {
     const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
     const kosblingDrafts = kosblingBefore?.drafts.length;
     const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
+
+    const wwwPush = "https://www.mommamari.com/portal/api/gmail/push";
+    const apexPush = "https://mommamari.com/portal/api/gmail/push";
+    assert.equal(pushAudiencesMatch(wwwPush, wwwPush), true);
+    assert.equal(pushAudiencesMatch(wwwPush, apexPush), true);
+    assert.equal(pushAudiencesMatch(apexPush, wwwPush), true);
+    assert.equal(pushAudiencesMatch(wwwPush, "https://evil.example/portal/api/gmail/push"), false);
+    const wwwClaims = {
+      iss: "https://accounts.google.com",
+      aud: wwwPush,
+      email: "gmail-push-sender@momma-mari-portal.iam.gserviceaccount.com",
+      email_verified: true,
+      exp: Math.floor(Date.now() / 1000) + 600,
+    };
+    const accepted = await verifyPubSubOidc("Bearer t", {
+      audience: wwwPush,
+      serviceAccount: wwwClaims.email,
+      verifyToken: async () => wwwClaims,
+    });
+    assert.equal(accepted.ok, true);
+    const previousBase = process.env.APP_BASE_URL;
+    process.env.APP_BASE_URL = "https://www.mommamari.com/portal";
+    assert.equal(googleRedirectUri(), "https://www.mommamari.com/portal/api/auth/callback");
+    if (previousBase == null) delete process.env.APP_BASE_URL;
+    else process.env.APP_BASE_URL = previousBase;
 
     assert.deepEqual(WATCH_MAILBOXES.map((box) => box.email), [
       "mmaclamroc@gmail.com",
