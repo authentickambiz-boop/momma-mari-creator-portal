@@ -285,6 +285,18 @@ a.deal, button.deal, a.card { max-width: 100%; }
 .c-blue { background: var(--blue-l); color: var(--blue); }
 .c-gray { background: var(--sand); color: var(--ink); }
 
+.rank-badge { margin: 0 6px 0 0; }
+.rank-seedling { background: var(--sage-l); color: #1b4030; }
+.rank-sprout { background: var(--sage-l); color: var(--sage); box-shadow: inset 0 0 0 1px var(--sage); }
+.rank-bronze { background: var(--blush); color: var(--clay); }
+.rank-silver { background: var(--sand); color: var(--ink); }
+.rank-gold { background: var(--sun-l); color: #5c4310; }
+.rank-platinum { background: var(--blue-l); color: var(--blue); }
+.rank-emerald { background: var(--sage-l); color: var(--terra); box-shadow: inset 0 0 0 1px var(--terra); }
+.rank-ruby { background: var(--red-l); color: #7a1f1f; }
+.rank-sapphire { background: var(--blue-l); color: var(--terra-d); box-shadow: inset 0 0 0 1px var(--blue); }
+.rank-diamond { background: var(--ivory); color: var(--terra); box-shadow: inset 0 0 0 1px var(--terra); }
+
 .sec-title {
   font-size: 12.5px;
   text-transform: uppercase;

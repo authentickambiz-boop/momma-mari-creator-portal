@@ -4,7 +4,7 @@ import { approvalEmails, approvalEvents, benchCreators, benchOffers, creators, p
 import { BRAND_EMAIL_SENDER } from "./approvals";
 import { campaignById, listCampaigns, rankRoster, rosterHasAFit } from "./campaigns";
 import { feeAndPayout, nowIso } from "./format";
-import { tierFor } from "./creator-rank";
+import { rankAtLeast, tierFor } from "./creator-rank";
 import { BENCH_PROMOTE_SCORE } from "./platforms";
 import type { Viewer } from "./types";
 
@@ -41,8 +41,7 @@ function tagsOf(value: string) {
 
 export function benchPromotionSuggested(score: number | null) {
   if (score == null) return false;
-  const tier = tierFor(score);
-  return score >= BENCH_PROMOTE_SCORE && (tier === "Gold" || tier === "Platinum");
+  return score >= BENCH_PROMOTE_SCORE && rankAtLeast(score, "Ruby");
 }
 
 export function benchJobFeeCents(amountCents: number) {

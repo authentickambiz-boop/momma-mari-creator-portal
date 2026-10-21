@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { approveBenchOfferAction, promoteBenchAction, queueBenchOfferAction, recordBenchPaidAction, setBenchScoreAction } from "@/app/bench-actions";
 import { PortalFrame } from "@/components/portal-frame";
+import { RankBadge } from "@/components/rank-badge";
 import { leftoverCampaigns, listBench, listBenchOffers } from "@/lib/bench";
 import { benchErrorNote } from "@/lib/bench-notes";
 import { listFlaggedOffers } from "@/lib/brand-offers";
 import { loadPortal } from "@/lib/current-user";
+import { pointsToNextLabel } from "@/lib/creator-rank";
 import { formatMoney } from "@/lib/format";
 
 export default async function BenchPage({ searchParams }: { searchParams: Promise<{ saved?: string; benchError?: string }> }) {
@@ -13,7 +15,7 @@ export default async function BenchPage({ searchParams }: { searchParams: Promis
   if (portal.viewer.role !== "admin") {
     return (
       <PortalFrame viewer={portal.viewer} tab="bench" creators={portal.creators} viewedId={portal.viewedId} hello={<h1>Bench</h1>}>
-        <p className="note">The bench stays on the owner's sign-in.</p>
+        <p className="note">The bench stays on the owner&apos;s sign-in.</p>
       </PortalFrame>
     );
   }
@@ -38,7 +40,14 @@ export default async function BenchPage({ searchParams }: { searchParams: Promis
           <div className="card" key={person.id}>
             <b>{person.name}</b>
             <p>{person.niches.join(", ") || "Niche not set"} · {person.platforms.join(", ") || "Platform not set"}</p>
-            <p>{person.status === "promoted" ? `On the roster${person.promotedAt ? ` since ${person.promotedAt.slice(0, 10)}` : ""}` : person.suggestPromote ? `Score ${person.score} · ${person.tier}. Suggested for the roster.` : `Score ${person.score ?? "not set"}`}</p>
+            <p>
+              {person.status === "promoted" ? `On the roster${person.promotedAt ? ` since ${person.promotedAt.slice(0, 10)}` : ""}` : person.score == null ? "Score not set" : (
+                <>
+                  Score {person.score} · <RankBadge score={person.score} /> · {pointsToNextLabel(person.score)}
+                  {person.suggestPromote ? ". Suggested for the roster." : ""}
+                </>
+              )}
+            </p>
             <p><Link href={`/bench/${person.slug}`}>Portfolio</Link></p>
             {person.status === "bench" ? (
               <>

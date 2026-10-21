@@ -1,6 +1,7 @@
 import { refreshRanksAction, saveRankInputsAction, saveRankSettingsAction } from "@/app/growth-actions";
 import { PortalFrame } from "@/components/portal-frame";
-import { RANK_FIELDS, inputsFor, leaderboard, rankHistory, rankSettings } from "@/lib/creator-rank";
+import { RankBadge } from "@/components/rank-badge";
+import { RANK_FIELDS, inputsFor, leaderboard, pointsToNextLabel, rankHistory, rankSettings } from "@/lib/creator-rank";
 import { loadPortal } from "@/lib/current-user";
 import { growthErrorNote } from "@/lib/growth-notes";
 
@@ -35,14 +36,15 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
         <p className="note">Updates {settings.cadence}. Fit still decides who can take a campaign. Rank only sorts the creators who clear that gate.</p>
         {board.rows.length === 0 ? <p className="note empty">No ranks yet. Nothing is emailed.</p> : null}
         <table>
-          <thead><tr><th>Rank</th><th>Creator</th><th>Score</th><th>Tier</th></tr></thead>
+          <thead><tr><th>Rank</th><th>Creator</th><th>Score</th><th>Standing</th><th>To next</th></tr></thead>
           <tbody>
             {board.rows.map((row) => (
               <tr key={row.creatorId}>
-                <td>{row.rank ?? "—"}</td>
+                <td>{row.rank}</td>
                 <td>{row.name}</td>
                 <td>{row.score}</td>
-                <td>{row.tier}</td>
+                <td><RankBadge score={row.score} /></td>
+                <td>{pointsToNextLabel(row.score)}</td>
               </tr>
             ))}
           </tbody>
@@ -52,7 +54,9 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
       {history?.ok && history.rows.length ? (
         <div className="card" style={{ marginTop: 14 }}>
           <div className="sec-title">History</div>
-          {history.rows.map((row) => <p key={row.recordedOn}>{row.recordedOn}: {row.score} · {row.tier} · rank {row.rank}</p>)}
+          {history.rows.map((row) => (
+            <p key={row.recordedOn}>{row.recordedOn}: {row.score} · <RankBadge score={row.score} /> · rank {row.rank} · {pointsToNextLabel(row.score)}</p>
+          ))}
         </div>
       ) : null}
       {inputs ? (
