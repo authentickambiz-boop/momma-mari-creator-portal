@@ -3,6 +3,7 @@ import type { PortalDb } from "@/db";
 import { creatorQuestionnaires, creatorTasks, creators, deals, podGoals, podMembers } from "@/db/schema";
 import { isFakeCalendarDay } from "./deadlines";
 import { agencyTimeZone, nowIso, parseJson } from "./format";
+import { profileIntakeMissing, profileIntakeTaskId } from "./profile-intake";
 import { findCreatorByEmail, findCreatorById } from "./queries";
 import type { QuestionnaireAnswers } from "./questionnaire";
 import type { Viewer } from "./types";
@@ -117,6 +118,26 @@ async function insertIfMissing(
   });
 }
 
+/** Asks every creator who has not saved contract details to finish them. */
+export async function ensureProfileIntakeTask(db: PortalDb, creatorId: string) {
+  const missing = await profileIntakeMissing(db, creatorId);
+  const id = profileIntakeTaskId(creatorId);
+  if (!missing) {
+    const tasks = await db.select().from(creatorTasks).where(eq(creatorTasks.id, id));
+    if (tasks[0] && tasks[0].status !== "done") {
+      await db.update(creatorTasks).set({ status: "done", updatedAt: nowIso() }).where(eq(creatorTasks.id, id));
+    }
+    return;
+  }
+  await insertIfMissing(db, {
+    id,
+    creatorId,
+    title: "Complete your profile",
+    detail: "Add your legal name, mailing address, phone, and handles.",
+    category: "profile",
+  });
+}
+
 /** Starter tasks from a questionnaire or a saved goal. Rates and floors are not copied. */
 export async function seedCreatorGoalTasks(db: PortalDb, creatorId: string) {
   const people = await db.select().from(creators).where(eq(creators.id, creatorId));
@@ -214,6 +235,7 @@ function toTodo(row: typeof creatorTasks.$inferSelect, today: string): CreatorTo
 
 export async function listCreatorOpenTasks(db: PortalDb, creatorId: string) {
   await seedCreatorGoalTasks(db, creatorId);
+  await ensureProfileIntakeTask(db, creatorId);
   const today = portalToday();
   const rows = await db.select().from(creatorTasks).where(eq(creatorTasks.creatorId, creatorId));
   return byDueDate(rows.filter((row) => row.status === "open").map((row) => toTodo(row, today)));
@@ -222,7 +244,10 @@ export async function listCreatorOpenTasks(db: PortalDb, creatorId: string) {
 export async function listOwnerTasks(db: PortalDb, viewer: Viewer) {
   if (viewer.role !== "admin") return { ok: false as const, error: "Only the owner can edit creator to-dos." };
   const people = await db.select({ id: creators.id, name: creators.name }).from(creators).orderBy(asc(creators.name));
-  for (const person of people) await seedCreatorGoalTasks(db, person.id);
+  for (const person of people) {
+    await seedCreatorGoalTasks(db, person.id);
+    await ensureProfileIntakeTask(db, person.id);
+  }
   const today = portalToday();
   const rows = await db.select().from(creatorTasks);
   const names = new Map(people.map((person) => [person.id, person.name]));
@@ -290,6 +315,7 @@ export async function listBotTasks(db: PortalDb, creatorKey: string | null) {
   const creator = await creatorByKey(db, creatorKey);
   if (!creator) return { status: 404, body: { error: "Creator not found." } };
   await seedCreatorGoalTasks(db, creator.id);
+  await ensureProfileIntakeTask(db, creator.id);
   const rows = await db.select().from(creatorTasks).where(eq(creatorTasks.creatorId, creator.id));
   return {
     status: 200,

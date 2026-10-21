@@ -10,6 +10,7 @@ import { openBrandReport, publicBrandReport } from "../src/lib/brand-report";
 import { listBrandCrm } from "../src/lib/brand-crm";
 import { decideCreatorDealReview, listCreatorDealReviews, listOwnerDealReviews } from "../src/lib/creator-deal-review";
 import { creatorStartPath } from "../src/lib/questionnaire";
+import { saveProfileIntake } from "../src/lib/profile-intake";
 import { gmailSyncEnabled } from "../src/lib/gmail-sync-flag";
 import { paymentsEnabled } from "../src/lib/payments-config";
 import { visibleCaseStudies, visibleTestimonials, WORKED_WITH } from "../src/lib/proof";
@@ -279,7 +280,7 @@ describe("site gap fixes", { concurrency: 1 }, () => {
     const packed = JSON.stringify(offers);
     assert.equal(packed.toLowerCase().includes("minimum"), false);
     assert.equal(packed.includes("$1,000"), false);
-    assert.equal(await creatorStartPath(db, mariclare), "/");
+    assert.equal(await creatorStartPath(db, mariclare), "/profile/intake");
 
     const stranger = await decideCreatorDealReview(db, {
       offerId: persona?.id ?? "",
@@ -338,6 +339,17 @@ describe("site gap fixes", { concurrency: 1 }, () => {
       decision: "pass",
     });
     assert.equal(passed.ok, true);
+    assert.equal((await saveProfileIntake(db, mariclare, {
+      legalName: "Mari Clare",
+      phone: "9805550100",
+      addressLine1: "1 Sample Street",
+      addressLine2: "",
+      city: "Charlotte",
+      addressState: "NC",
+      zip: "28202",
+      country: "United States",
+      handles: [{ platform: "TikTok", handle: "@mariclare", url: "", followers: "" }],
+    })).ok, true);
     assert.equal(await creatorStartPath(db, mariclare), "/onboarding");
 
     const board = await listOwnerDealReviews(db, admin);

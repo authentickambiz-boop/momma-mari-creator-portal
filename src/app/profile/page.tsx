@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { hideProfileAction, saveProfileAction } from "@/app/profile-actions";
 import { PrivacyNotice } from "@/components/privacy-notice";
 import { PortalFrame } from "@/components/portal-frame";
@@ -41,6 +42,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     <PortalFrame viewer={portal.viewer} tab="profile" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>My profile</h1><p>Hidden until you turn it on. Others only see the fields you check.</p></div>}>
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {profileError ? <p className="private-note">{profileError}</p> : null}
+      <p className="note"><Link href="/profile/intake">Complete your profile</Link> saves your legal name, mailing address, phone, and handles for your contract. Nothing is emailed.</p>
       <div className="card">
         <div className="sec-title">How others see me</div>
         {preview ? (
