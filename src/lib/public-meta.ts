@@ -20,6 +20,7 @@ export const PUBLIC_SITEMAP_PATHS = [
   "/faq",
   "/careers",
   "/press",
+  "/feedback",
   "/privacy",
   "/terms",
 ] as const;

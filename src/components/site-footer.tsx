@@ -12,6 +12,7 @@ export function SiteFooter() {
         <Link href="/faq">FAQ</Link>
         <Link href="/careers">Careers</Link>
         <Link href="/press">Press</Link>
+        <Link href="/feedback">Feedback</Link>
         <Link href="/privacy">Privacy</Link>
         <Link href="/terms">Terms</Link>
         <Link href="/our-standard">Kids in content</Link>
