@@ -43,14 +43,43 @@ export const FREE_MAIL_DOMAINS = new Set([
 export const BRAND_INQUIRY = /\b(collab|collaboration|partnership|sponsor|sponsored|campaign|ugc|ambassador|gifted|paid post|brand deal|rate card|media kit)\b/i;
 
 const AUTOMATED_LOCAL = /(?:^|[._+-])(?:no[-_.]?reply|do[-_.]?not[-_.]?reply|notifications?|notify|automated|mailer-daemon|postmaster)(?:[._+-]|$)/i;
+const AUTOMATED_ADDRESS = /(?:^|[^\w])(?:no[-_.]?reply|do[-_.]?not[-_.]?reply|notifications?|notify|automated|mailer-daemon|postmaster)@/i;
+const NOREPLY_DOMAIN = /@(?:[a-z0-9.-]+\.)?noreply\./i;
 
 function addressIn(from: string) {
   const match = from.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
   return match ? match[0].toLowerCase() : "";
 }
 
-/** no-reply, noreply, notification, and other senders that must never get a reply draft. */
-export function isAutomatedSender(from: string) {
+export function senderDisplayName(from: string) {
+  const quoted = from.match(/^\s*"([^"]*)"\s*</);
+  if (quoted) return quoted[1].trim();
+  const bare = from.match(/^\s*([^"<]+?)\s*</);
+  return bare?.[1]?.trim() ?? "";
+}
+
+/** GitHub and other bots sign the display name this way: cursor[bot]. */
+export function isBotSenderName(from: string) {
+  return /\[bot\]\s*$/i.test(senderDisplayName(from));
+}
+
+export type MailHeaders = Record<string, string>;
+
+/** List mail and auto-submitted notes. Precedence "list" is how GitHub marks notifications. */
+export function isBulkHeader(headers: MailHeaders | null | undefined) {
+  if (!headers) return false;
+  const value = (name: string) => (headers[name.toLowerCase()] ?? headers[name] ?? "").trim();
+  if (value("list-unsubscribe") || value("list-id")) return true;
+  const precedence = value("precedence").toLowerCase();
+  if (precedence === "bulk" || precedence === "list" || precedence === "junk") return true;
+  const auto = value("auto-submitted").toLowerCase();
+  return Boolean(auto) && auto !== "no";
+}
+
+/** no-reply, notifications@, noreply domains, [bot] names, and bulk headers. Never a deal. */
+export function isAutomatedSender(from: string, headers?: MailHeaders | null) {
+  if (isBotSenderName(from) || isBulkHeader(headers)) return true;
+  if (AUTOMATED_ADDRESS.test(from) || NOREPLY_DOMAIN.test(from)) return true;
   const local = addressIn(from).split("@")[0] ?? "";
   if (!local) return false;
   return AUTOMATED_LOCAL.test(local);
@@ -157,6 +186,7 @@ export async function prepareReplyAndLabels(
 }
 
 async function saveConfirmPortalDraft(db: PortalDb, dealId: string, body: string) {
+  if (hasUnfilledPlaceholder(body)) return "placeholder" as const;
   const existing = await db.select().from(brandReplyDrafts).where(eq(brandReplyDrafts.dealId, dealId));
   const row = existing[0];
   if (row) {

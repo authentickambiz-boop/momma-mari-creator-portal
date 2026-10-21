@@ -297,6 +297,7 @@ async function applyEffect(
     return { ok: true, applied: true };
   }
   if (effect.kind === "draft_replies") {
+    if (/\[CONFIRM\]/i.test(effect.body)) return { ok: false, status: 400, error: "Fill in the rate and date. A draft cannot contain [CONFIRM]." };
     const existing = await db.select().from(brandReplyDrafts).where(eq(brandReplyDrafts.dealId, deal.id));
     if (existing[0]) {
       await db.update(brandReplyDrafts).set({ body: effect.body, updatedBy: actorEmail, updatedAt: timestamp }).where(eq(brandReplyDrafts.dealId, deal.id));

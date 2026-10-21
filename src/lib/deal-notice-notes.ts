@@ -2,6 +2,7 @@ const DEAL_NOTICE_TEXT = {
   owner: "Only Kamron can review deals.",
   missing: "Deal not found.",
   reply: "Write the reply first.",
+  confirm: "Fill in the rate and date. A draft cannot contain [CONFIRM].",
   rate: "Set the agreed rate before asking the creator to confirm it.",
   creator: "Only the creator can confirm this rate.",
   own: "You can only confirm your own deal.",

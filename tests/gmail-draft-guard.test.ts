@@ -163,25 +163,28 @@ describe("gmail draft guards", { concurrency: 1 }, () => {
     }
     const mapleDeal = await getDealForViewer(db, admin, "mail-maple");
     assert.equal(mapleDeal?.visibleToCreator, false);
-    assert.match(mapleDeal?.brandReplyDraft ?? "", /Rate: \[CONFIRM\]/);
-    assert.match(mapleDeal?.brandReplyDraft ?? "", /Thanks for writing about MariClare/);
+    assert.equal(mapleDeal?.brandReplyDraft ?? null, null);
     assert.equal(opened.created.some((draft) => draft.body.includes("[CONFIRM]") || draft.body.includes("Hi Google")), false);
     assert.equal(await getDealForViewer(db, mariclare, "mail-maple"), null);
 
-    await db.update(brandReplyDrafts).set({
+    await db.insert(brandReplyDrafts).values({
+      dealId: "mail-gmail-collab",
       body: "Rate: [CONFIRM] but let's talk",
       updatedBy: "kamron@mommamari.com",
-    }).where(eq(brandReplyDrafts.dealId, "mail-gmail-collab"));
+      updatedAt: "2026-10-21T22:00:00.000Z",
+    });
     const unfilled = message("gmail-collab-2", { threadId: "thread-gmail-collab", from: "Sam <sam.friend@gmail.com>", subject: "Re: Paid collab" });
     const unfilledRun = recordingClient([unfilled], "1200");
     await ingestGmailPush(db, { emailAddress: mailbox, historyId: "1200" }, { client: unfilledRun.client });
     assert.equal(unfilledRun.created.length, 0);
 
     const reply = "Hi Bea, MariClare can do the Maple video for $1,200 on November 2.";
-    await db.update(brandReplyDrafts).set({
+    await db.insert(brandReplyDrafts).values({
+      dealId: "mail-maple",
       body: reply,
       updatedBy: "kamron@mommamari.com",
-    }).where(eq(brandReplyDrafts.dealId, "mail-maple"));
+      updatedAt: "2026-10-21T22:00:00.000Z",
+    });
     const followUps = [
       message("maple-2", { threadId: "thread-maple", subject: "Re: Maple partnership" }),
       message("maple-3", { threadId: "thread-maple", subject: "One more detail" }),
@@ -210,10 +213,12 @@ describe("gmail draft guards", { concurrency: 1 }, () => {
     const occupied = message("harbor", { from: "Nina <nina@harbor.example>", subject: "Harbor campaign" });
     const occupiedRun = recordingClient([occupied], "1600", [{ id: "already", snippet: "A reply is already sitting here" }]);
     await ingestGmailPush(db, { emailAddress: mailbox, historyId: "1600" }, { client: occupiedRun.client });
-    await db.update(brandReplyDrafts).set({
+    await db.insert(brandReplyDrafts).values({
+      dealId: "mail-harbor",
       body: "Hi Nina, we can talk next week.",
       updatedBy: "kamron@mommamari.com",
-    }).where(eq(brandReplyDrafts.dealId, "mail-harbor"));
+      updatedAt: "2026-10-21T22:00:00.000Z",
+    });
     const occupiedFollow = message("harbor-2", { threadId: "thread-harbor", from: "Nina <nina@harbor.example>", subject: "Re: Harbor campaign" });
     const occupiedFollowRun = recordingClient([occupiedFollow], "1700", [{ id: "already", snippet: "A reply is already sitting here" }]);
     await ingestGmailPush(db, { emailAddress: mailbox, historyId: "1700" }, { client: occupiedFollowRun.client });
@@ -224,10 +229,12 @@ describe("gmail draft guards", { concurrency: 1 }, () => {
     const sintraMail = message("sintra-brand", { from: "Ada <ada@cedar.example>", subject: "Cedar campaign" });
     const sintraOpen = recordingClient([sintraMail], "1800");
     await ingestGmailPush(db, { emailAddress: mailbox, historyId: "1800" }, { client: sintraOpen.client });
-    await db.update(brandReplyDrafts).set({
+    await db.insert(brandReplyDrafts).values({
+      dealId: "mail-sintra-brand",
       body: "Hi Ada, the rate is $800.",
       updatedBy: "kamron@mommamari.com",
-    }).where(eq(brandReplyDrafts.dealId, "mail-sintra-brand"));
+      updatedAt: "2026-10-21T22:00:00.000Z",
+    });
     const sintraFollow = message("sintra-brand-2", { threadId: "thread-sintra-brand", from: "Ada <ada@cedar.example>", subject: "Re: Cedar campaign" });
     const sintraRun = recordingClient([sintraFollow], "1900", [{ id: "sintra-1", snippet: "Drafted with Sintra" }]);
     await ingestGmailPush(db, { emailAddress: mailbox, historyId: "1900" }, { client: sintraRun.client });
