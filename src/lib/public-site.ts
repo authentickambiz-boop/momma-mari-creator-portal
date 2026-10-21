@@ -11,6 +11,7 @@ export const PUBLIC_MARKETING_PATHS = [
   "/work",
   "/our-standard",
   "/inquire",
+  "/gift-guide",
   "/apply",
   "/apply/thanks",
   "/privacy",

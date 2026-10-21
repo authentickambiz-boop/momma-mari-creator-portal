@@ -2,6 +2,7 @@ import { approveCreatorApplicationAction, declineCreatorApplicationAction } from
 import { setCreatorSignedAction } from "@/app/billing-actions";
 import { addReinvestmentAction, saveReinvestTargetAction } from "@/app/growth-actions";
 import { PlatformInviteCard } from "@/components/platform-invite-card";
+import { GiftGuideReservationsPanel } from "@/components/gift-guide-reservations";
 import { OwnerSignals } from "@/components/owner-signals";
 import { OwnerTasks } from "@/components/owner-tasks";
 import { PipelineFollowUps } from "@/components/pipeline-follow-ups";
@@ -15,6 +16,7 @@ import { MEMBER_ONE_TIME_PERCENT_OFF, memberServiceIncluded } from "@/lib/paymen
 import { applyReviewNote, listCreatorApplications, type CreatorApplicationView } from "@/lib/creator-apply";
 import { listBrandReports } from "@/lib/brand-report";
 import { listDueBrandRecaps, queueBrandRecapDrafts } from "@/lib/brand-recap";
+import { listGiftGuideReservations } from "@/lib/gift-guide";
 import { listOwnerDealReviews } from "@/lib/creator-deal-review";
 import { listOwnerTasks } from "@/lib/creator-tasks";
 import { loadPortal } from "@/lib/current-user";
@@ -186,6 +188,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const paymentsOn = paymentsEnabled();
   const dash = await ownerDashboard(portal.db, portal.viewer);
   const applications = await listCreatorApplications(portal.db, portal.viewer);
+  const giftGuide = await listGiftGuideReservations(portal.db, portal.viewer);
+  const giftGuideCard = giftGuide.ok
+    ? <GiftGuideReservationsPanel summary={giftGuide.summary} reservations={giftGuide.reservations} />
+    : (
+      <div className="card" style={{ marginTop: 14 }}>
+        <div className="sec-title">Gift guide reservations</div>
+        <p className="note">{giftGuide.error}</p>
+      </div>
+    );
   const invites = await listPlatformInvites(portal.db, portal.viewer);
   const month = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
   const reinvest = await reinvestmentSummary(portal.db, portal.viewer, month);
@@ -199,6 +210,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
         {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
         <ApplicationsCard applications={applications} note={applyNote} />
+        {giftGuideCard}
         {taskCard}
         {signals}
         <FulfillmentCard orders={orders} enabled={paymentsOn} />
@@ -220,6 +232,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
       {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
       <ApplicationsCard applications={applications} note={applyNote} />
+      {giftGuideCard}
       {taskCard}
       {signals}
       <FulfillmentCard orders={orders} enabled={paymentsOn} />

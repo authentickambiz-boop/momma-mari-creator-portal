@@ -12,6 +12,7 @@ export const PUBLIC_SITEMAP_PATHS = [
   "/work",
   "/our-standard",
   "/inquire",
+  "/gift-guide",
   "/apply",
   "/roster",
   "/privacy",

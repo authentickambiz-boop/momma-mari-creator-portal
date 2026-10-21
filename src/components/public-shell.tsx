@@ -16,6 +16,7 @@ export function PublicShell({ title, lede, children }: { title: string; lede: st
           <Link href="/pricing">Plans</Link>
           <Link href={MEET_HREF}>{MEET_LABEL}</Link>
           <Link href="/work">Work</Link>
+          <Link href="/gift-guide">Gift guide</Link>
           <Link href="/inquire">Work with us</Link>
           <Link href="/apply">Apply</Link>
           <Link href="/login">Creator login</Link>

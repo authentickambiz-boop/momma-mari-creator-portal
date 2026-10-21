@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { saveBrandBrief } from "@/lib/brand-brief";
+import { giftGuideErrorCode, GIFT_GUIDE_OFFER, saveGiftGuideReservation } from "@/lib/gift-guide";
 import { inquiryErrorCode } from "@/lib/inquiry-notes";
 
 export async function brandInquiryAction(formData: FormData) {
@@ -39,4 +40,29 @@ export async function brandInquiryAction(formData: FormData) {
   });
   if (!result.ok) redirect(`/inquire?error=${inquiryErrorCode(result.error)}`);
   redirect("/inquire?sent=1");
+}
+
+export async function giftGuideReservationAction(formData: FormData) {
+  const db = await getDb();
+  const result = await saveGiftGuideReservation(db, {
+    brand: String(formData.get("brand") ?? ""),
+    contactName: String(formData.get("name") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    website: String(formData.get("website") ?? ""),
+    productName: String(formData.get("productName") ?? ""),
+    productUrl: String(formData.get("productUrl") ?? ""),
+    retailPrice: String(formData.get("retailPrice") ?? ""),
+    category: String(formData.get("category") ?? ""),
+    packageId: String(formData.get("packageId") ?? ""),
+    promoCode: String(formData.get("promoCode") ?? ""),
+    notes: String(formData.get("notes") ?? ""),
+    ackPaid: String(formData.get("ackPaid") ?? ""),
+    ackApproval: String(formData.get("ackApproval") ?? ""),
+    ackKids: String(formData.get("ackKids") ?? ""),
+    ackUpfront: String(formData.get("ackUpfront") ?? ""),
+    honeypot: String(formData.get("fax") ?? ""),
+  });
+  const path = GIFT_GUIDE_OFFER.inquiryPath;
+  if (!result.ok) redirect(`${path}&error=${giftGuideErrorCode(result.error)}`);
+  redirect(`${path}&sent=1`);
 }
