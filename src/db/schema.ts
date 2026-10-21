@@ -1364,3 +1364,58 @@ export const brandPipelineCards = sqliteTable("brand_pipeline_cards", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const creatorIntake = sqliteTable("creator_intake", {
+  id: text("id").primaryKey(),
+  applicationId: text("application_id"),
+  creatorId: text("creator_id"),
+  legalName: text("legal_name"),
+  preferredName: text("preferred_name"),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  addressLine1: text("address_line1"),
+  addressLine2: text("address_line2"),
+  city: text("city"),
+  addressState: text("address_state"),
+  zip: text("zip"),
+  country: text("country"),
+  stateOfResidence: text("state_of_residence"),
+  nichesJson: text("niches_json").notNull().default("[]"),
+  goalsJson: text("goals_json").notNull().default("[]"),
+  goalsText: text("goals_text"),
+  currentRates: text("current_rates"),
+  kidsInContent: integer("kids_in_content", { mode: "boolean" }),
+  kidsCount: integer("kids_count"),
+  kidsAges: text("kids_ages"),
+  familyNotes: text("family_notes"),
+  analyticsMode: text("analytics_mode"),
+  consentJson: text("consent_json").notNull().default("{}"),
+  status: text("status").notNull(),
+  submittedAt: text("submitted_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const creatorPlatforms = sqliteTable("creator_platforms", {
+  id: text("id").primaryKey(),
+  intakeId: text("intake_id").notNull(),
+  platform: text("platform").notNull(),
+  handle: text("handle").notNull(),
+  url: text("url"),
+  followers: integer("followers"),
+  avgViews: integer("avg_views"),
+  capturedAt: text("captured_at"),
+  source: text("source").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const intakeFiles = sqliteTable("intake_files", {
+  id: text("id").primaryKey(),
+  intakeId: text("intake_id").notNull(),
+  platformId: text("platform_id"),
+  filename: text("filename").notNull(),
+  contentType: text("content_type").notNull(),
+  byteLength: integer("byte_length").notNull(),
+  storageKey: text("storage_key").notNull(),
+  createdAt: text("created_at").notNull(),
+});
