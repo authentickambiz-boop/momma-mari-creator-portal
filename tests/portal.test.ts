@@ -4360,10 +4360,18 @@ test("owner ranks drive campaign priority, pods stay private, and reinvestment i
   );
   assert.ok(high.score > low.score);
   assert.ok(high.score <= 100 && low.score >= 0);
-  assert.equal(tierFor(high.score), "Platinum");
-  assert.equal(tierFor(70), "Gold");
-  assert.equal(tierFor(50), "Silver");
-  assert.equal(tierFor(49), "Bronze");
+  assert.equal(tierFor(0), "Seedling");
+  assert.equal(tierFor(9), "Seedling");
+  assert.equal(tierFor(10), "Sprout");
+  assert.equal(tierFor(20), "Bronze");
+  assert.equal(tierFor(30), "Silver");
+  assert.equal(tierFor(49), "Gold");
+  assert.equal(tierFor(50), "Platinum");
+  assert.equal(tierFor(60), "Emerald");
+  assert.equal(tierFor(70), "Ruby");
+  assert.equal(tierFor(80), "Sapphire");
+  assert.equal(tierFor(90), "Diamond");
+  assert.equal(tierFor(100), "Diamond");
   assert.equal(collabLift([{ followers: 100, collabPosts: 0 }, { followers: 110, collabPosts: 0 }, { followers: 200, collabPosts: 3 }]), 80);
 
   const manager: Viewer = { role: "manager", email: "casey.manager@gmail.com", name: "Casey", creatorId: null, managerId: "not-a-real-manager" };

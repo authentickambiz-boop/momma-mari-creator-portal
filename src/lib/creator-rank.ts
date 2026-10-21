@@ -26,11 +26,15 @@ export type RankWeights = Record<RankFieldId, number>;
 
 const LOWER_IS_BETTER = new Set<RankFieldId>(["revisions", "response"]);
 
+// A 100 on followers is 5 million and a 100 on average views is 200,000.
+// The old caps (1 million followers, 100,000 views) saturated MariClare, and
+// equal weights let empty revision and response values score as perfect, so
+// Abby, AuthenticKam, and MariClare all landed in a narrow band.
 const CAPS: Record<RankFieldId, number> = {
   audienceGrowth: 40,
   engagement: 10,
-  averageViews: 100000,
-  followers: 1000000,
+  averageViews: 200000,
+  followers: 5000000,
   completion: 100,
   onTime: 100,
   revisions: 8,
@@ -40,6 +44,25 @@ const CAPS: Record<RankFieldId, number> = {
   community: 20,
   collabs: 8,
 };
+
+const AUDIENCE_FIELDS = new Set<RankFieldId>(["engagement", "averageViews", "followers"]);
+const AUDIENCE_WEIGHT = 6;
+
+export const RANKS = [
+  { id: "seedling", label: "Seedling", min: 0, max: 9 },
+  { id: "sprout", label: "Sprout", min: 10, max: 19 },
+  { id: "bronze", label: "Bronze", min: 20, max: 29 },
+  { id: "silver", label: "Silver", min: 30, max: 39 },
+  { id: "gold", label: "Gold", min: 40, max: 49 },
+  { id: "platinum", label: "Platinum", min: 50, max: 59 },
+  { id: "emerald", label: "Emerald", min: 60, max: 69 },
+  { id: "ruby", label: "Ruby", min: 70, max: 79 },
+  { id: "sapphire", label: "Sapphire", min: 80, max: 89 },
+  { id: "diamond", label: "Diamond", min: 90, max: 100 },
+] as const;
+
+export type RankId = (typeof RANKS)[number]["id"];
+export type RankLabel = (typeof RANKS)[number]["label"];
 
 export function emptyInputs(): RankInputs {
   return {
@@ -60,7 +83,7 @@ export function emptyInputs(): RankInputs {
 
 export function defaultWeights(): RankWeights {
   const weights = emptyInputs();
-  for (const field of RANK_FIELDS) weights[field.id] = 1;
+  for (const field of RANK_FIELDS) weights[field.id] = AUDIENCE_FIELDS.has(field.id) ? AUDIENCE_WEIGHT : 1;
   return weights;
 }
 
@@ -89,11 +112,34 @@ export function compositeScore(inputs: RankInputs, weights: RankWeights) {
   return { score: Math.max(0, Math.min(100, score)), parts };
 }
 
-export function tierFor(score: number) {
-  if (score >= 85) return "Platinum";
-  if (score >= 70) return "Gold";
-  if (score >= 50) return "Silver";
-  return "Bronze";
+export function rankFor(score: number) {
+  const rounded = Math.max(0, Math.min(100, Math.round(score)));
+  return RANKS.find((rank) => rounded >= rank.min && rounded <= rank.max) ?? RANKS[0];
+}
+
+export function tierFor(score: number): RankLabel {
+  return rankFor(score).label;
+}
+
+export function pointsToNextRank(score: number): { points: number; next: RankLabel | null } {
+  const rounded = Math.max(0, Math.min(100, Math.round(score)));
+  const index = RANKS.findIndex((rank) => rounded >= rank.min && rounded <= rank.max);
+  const next = RANKS[index + 1];
+  if (!next) return { points: 0, next: null };
+  return { points: next.min - rounded, next: next.label };
+}
+
+export function pointsToNextLabel(score: number) {
+  const next = pointsToNextRank(score);
+  if (!next.next) return "0 points";
+  const noun = next.points === 1 ? "point" : "points";
+  return `${next.points} ${noun} to ${next.next}`;
+}
+
+export function rankAtLeast(score: number, label: RankLabel) {
+  const current = RANKS.findIndex((rank) => rank.label === tierFor(score));
+  const target = RANKS.findIndex((rank) => rank.label === label);
+  return current >= target;
 }
 
 export function sizeBand(followers: number) {
@@ -217,7 +263,7 @@ export async function rankHistory(db: PortalDb, viewer: Viewer, creatorId: strin
   return {
     ok: true as const,
     rows: rows
-      .map((row) => ({ recordedOn: row.recordedOn, score: row.score, rank: row.rank, tier: row.tier }))
+      .map((row) => ({ recordedOn: row.recordedOn, score: row.score, rank: row.rank, tier: tierFor(row.score) }))
       .sort((a, b) => a.recordedOn.localeCompare(b.recordedOn)),
   };
 }
@@ -232,17 +278,23 @@ export async function leaderboard(db: PortalDb, viewer: Viewer) {
     const saved = ranks.get(person.id);
     const inputs = await scoringInputs(db, person.id);
     const scored = compositeScore(inputs, settings.weights);
+    const next = pointsToNextRank(scored.score);
     rows.push({
       creatorId: person.id,
       name: person.name,
-      score: saved?.score ?? scored.score,
-      rank: saved?.rank ?? null,
-      tier: saved?.tier ?? tierFor(scored.score),
+      score: scored.score,
+      rank: 0,
+      tier: tierFor(scored.score),
+      pointsToNext: next.points,
+      nextRank: next.next,
       recordedOn: saved?.recordedOn ?? null,
       parts: scored.parts,
     });
   }
-  rows.sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999) || b.score - a.score || a.name.localeCompare(b.name));
+  rows.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  rows.forEach((row, index) => {
+    row.rank = index + 1;
+  });
   return { ok: true as const, cadence: settings.cadence, weights: settings.weights, rows };
 }
 

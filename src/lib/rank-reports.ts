@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { PortalDb } from "@/db";
 import { creators, rankReports } from "@/db/schema";
-import { compositeScore, latestRanks, rankHistory, rankSettings, scoringInputs, tierFor } from "./creator-rank";
+import { compositeScore, latestRanks, pointsToNextLabel, rankHistory, rankSettings, scoringInputs, tierFor } from "./creator-rank";
 import { listPods, podCollabs } from "./pods";
 import type { Viewer } from "./types";
 
@@ -56,7 +56,7 @@ export async function buildReportBody(
     const score = saved?.score ?? scored.score;
     if (choices.breakdown) {
       if (input.showRanks) {
-        linesOf(sections, "Score", [`Score ${score}`, `Rank ${saved?.rank ?? "not saved yet"}`, tierFor(score)]);
+        linesOf(sections, "Score", [`Score ${score}`, `Rank ${saved?.rank ?? "not saved yet"}`, tierFor(score), pointsToNextLabel(score)]);
         linesOf(sections, "Breakdown", scored.parts.map((part) => `${part.label}: ${part.unit}`));
       } else {
         linesOf(sections, "Score", ["Rank numbers are hidden on this copy.", tierFor(score)]);
