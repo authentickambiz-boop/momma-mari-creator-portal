@@ -1215,7 +1215,22 @@ export const creatorOfferReviews = sqliteTable("creator_offer_reviews", {
   decision: text("decision"),
   counterNote: text("counter_note"),
   decidedAt: text("decided_at"),
+  reviewMode: text("review_mode"),
   createdAt: text("created_at").notNull(),
+});
+
+export const creatorTasks = sqliteTable("creator_tasks", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  dealId: text("deal_id"),
+  title: text("title").notNull(),
+  detail: text("detail"),
+  dueDate: text("due_date"),
+  category: text("category").notNull(),
+  status: text("status").notNull(),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
 export const brandCampaignReports = sqliteTable("brand_campaign_reports", {

@@ -3,6 +3,7 @@ import { setCreatorSignedAction } from "@/app/billing-actions";
 import { addReinvestmentAction, saveReinvestTargetAction } from "@/app/growth-actions";
 import { PlatformInviteCard } from "@/components/platform-invite-card";
 import { OwnerSignals } from "@/components/owner-signals";
+import { OwnerTasks } from "@/components/owner-tasks";
 import { PipelineFollowUps } from "@/components/pipeline-follow-ups";
 import { PortalFrame } from "@/components/portal-frame";
 import { ownerDashboard } from "@/lib/campaigns";
@@ -15,6 +16,7 @@ import { applyReviewNote, listCreatorApplications, type CreatorApplicationView }
 import { listBrandReports } from "@/lib/brand-report";
 import { listDueBrandRecaps, queueBrandRecapDrafts } from "@/lib/brand-recap";
 import { listOwnerDealReviews } from "@/lib/creator-deal-review";
+import { listOwnerTasks } from "@/lib/creator-tasks";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
 import { growthErrorNote } from "@/lib/growth-notes";
@@ -131,7 +133,17 @@ function DashboardNotices({ growthError, saved }: { growthError?: string; saved?
   );
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ creator?: string; growthError?: string; saved?: string; invite?: string; apply?: string; applyError?: string; signed?: string }> }) {
+const TODO_NOTES: Record<string, string> = {
+  role: "You can't edit these to-dos.",
+  missing: "That to-do is not on your list.",
+  title: "Add a title.",
+  category: "Choose a category.",
+  status: "Choose a status.",
+  date: "Due date must be a real day like 2026-11-20.",
+  "1": "That to-do was not saved.",
+};
+
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ creator?: string; growthError?: string; saved?: string; invite?: string; apply?: string; applyError?: string; signed?: string; todo?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
   const inviteNote = inviteErrorNote(params.invite);
@@ -168,6 +180,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   );
   const orders = await listFulfillmentOrders(portal.db, portal.viewer);
   const signing = await listCreatorSigning(portal.db, portal.viewer);
+  const taskBoard = await listOwnerTasks(portal.db, portal.viewer);
+  const taskNote = params.todo ? TODO_NOTES[params.todo] ?? TODO_NOTES["1"] : null;
+  const taskCard = <OwnerTasks tasks={taskBoard.ok ? taskBoard.tasks : []} note={taskNote} />;
   const paymentsOn = paymentsEnabled();
   const dash = await ownerDashboard(portal.db, portal.viewer);
   const applications = await listCreatorApplications(portal.db, portal.viewer);
@@ -184,6 +199,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
         {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
         <ApplicationsCard applications={applications} note={applyNote} />
+        {taskCard}
         {signals}
         <FulfillmentCard orders={orders} enabled={paymentsOn} />
         <SignedCreatorsCard people={signing} />
@@ -204,6 +220,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
       {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
       <ApplicationsCard applications={applications} note={applyNote} />
+      {taskCard}
       {signals}
       <FulfillmentCard orders={orders} enabled={paymentsOn} />
       <SignedCreatorsCard people={signing} />

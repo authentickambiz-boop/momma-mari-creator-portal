@@ -880,6 +880,11 @@ p.note.empty, .empty-state {
 .panel > p.note.empty { margin: 0 18px 18px; }
 .empty-state > b { font-family: var(--heading); font-weight: 500; font-size: 22px; color: var(--terra); }
 .empty-state > .note { margin-top: 6px; }
+.task-overdue {
+  background: var(--red-l);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
 .note.alert, .private-note[role="alert"] {
   display: block;
   margin: 8px 0;

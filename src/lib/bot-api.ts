@@ -202,12 +202,20 @@ export async function upsertDeal(db: PortalDb, body: unknown) {
   if (typeof body.workflowStage === "string" && !isDealStage(body.workflowStage)) {
     return { status: 400, body: { error: "workflowStage is not a known deal stage." } };
   }
+  if (typeof body.stage === "string" && !isDealStage(body.stage)) {
+    return { status: 400, body: { error: "stage is not a known deal stage." } };
+  }
+  const explicitStage = typeof body.workflowStage === "string"
+    ? body.workflowStage
+    : typeof body.stage === "string"
+      ? body.stage
+      : null;
   if (existing[0]) {
     await db.update(deals).set({ ...base, ...optional }).where(eq(deals.id, body.id));
-    if (typeof body.workflowStage === "string") {
+    if (explicitStage) {
       const moved = await setDealStage(db, {
         dealId: body.id,
-        toStage: body.workflowStage,
+        toStage: explicitStage,
         actorEmail: "bot",
         actorRole: "bot",
       });
@@ -234,9 +242,10 @@ export async function upsertDeal(db: PortalDb, body: unknown) {
     updatedAt: timestamp,
     ...optional,
   });
-  const openingStage = typeof body.workflowStage === "string"
-    ? body.workflowStage
-    : workflowStageForLegacy(optional.status ?? "pitch", typeof optional.stage === "number" ? optional.stage : null);
+  const openingStage = explicitStage
+    ?? (optional.status === "negotiating"
+      ? "interest_sent"
+      : workflowStageForLegacy(optional.status ?? "pitch", typeof optional.stage === "number" ? optional.stage : null));
   const moved = await setDealStage(db, {
     dealId: body.id,
     toStage: openingStage,
@@ -244,7 +253,7 @@ export async function upsertDeal(db: PortalDb, body: unknown) {
     actorRole: "bot",
   });
   if (!moved.ok) return { status: moved.status, body: { error: moved.error } };
-  if (typeof body.workflowStage === "string") await reapplyExplicitDealFlags(db, body.id, optional);
+  if (explicitStage) await reapplyExplicitDealFlags(db, body.id, optional);
   else if (typeof optional.visibleToCreator === "boolean") {
     await db.update(deals).set({ visibleToCreator: optional.visibleToCreator }).where(eq(deals.id, body.id));
   }
@@ -530,6 +539,41 @@ export async function syncDeals(db: PortalDb, body: unknown) {
     });
   }
   return { status: 200, body: { results } };
+}
+
+/** Bot read-back. Rates, floors, and staff notes stay off this payload. */
+export async function listBotDeals(db: PortalDb, creatorKey: string | null) {
+  const creator = await creatorByKey(db, creatorKey);
+  if (!creatorKey?.trim()) return { status: 400, body: { error: "creator is required." } };
+  if (!creator) return { status: 404, body: { error: "Creator not found." } };
+  const rows = await db.select().from(deals).where(eq(deals.creatorId, creator.id)).orderBy(asc(deals.sortOrder));
+  return {
+    status: 200,
+    body: {
+      creatorId: creator.id,
+      deals: rows.map((row) => ({
+        id: row.id,
+        creatorId: row.creatorId,
+        brand: row.brand,
+        subtitle: row.subtitle,
+        status: row.status,
+        workflowStage: row.workflowStage,
+        visibleToCreator: row.visibleToCreator,
+        needsCreator: row.needsCreator,
+        nextStep: row.nextStep,
+        postDate: row.postDate,
+        draftDue: row.draftDue,
+        updatedAt: row.updatedAt,
+      })),
+    },
+  };
+}
+
+async function creatorByKey(db: PortalDb, creatorKey: string | null) {
+  const key = creatorKey?.trim() ?? "";
+  if (!key) return null;
+  if (key.includes("@")) return findCreatorByEmail(db, key);
+  return findCreatorById(db, key);
 }
 
 export async function setDealFolder(db: PortalDb, dealId: string, folderId: string) {
