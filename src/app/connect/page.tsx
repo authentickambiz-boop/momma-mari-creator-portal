@@ -86,7 +86,7 @@ export default async function ConnectPage({
       {watched.length > 0 ? (
         <section className="card" style={{ marginBottom: 16 }}>
           <h2>Watched inboxes</h2>
-          <p className="note">Brand mail in these inboxes becomes a hidden offer within seconds of arriving. The portal files it under an MM/ label and keeps the reply draft here. Prices and dates stay [CONFIRM] until you fill them in. That draft is not saved in Gmail until the reply is filled in. It never sends or deletes mail, and it leaves Sintra&apos;s drafts alone. Disconnect asks you to confirm and does not sign you out.</p>
+          <p className="note">Brand mail in these inboxes becomes a hidden offer within seconds of arriving. The portal files it under an MM/ label. A reply is saved only after the rate and date are filled in, and a draft that still says [CONFIRM] is never saved. GitHub notifications and other automated mail are not filed as a deal. It never sends or deletes mail, and it leaves Sintra&apos;s drafts alone. Disconnect asks you to confirm and does not sign you out.</p>
           {watched.map(({ box, state }) => {
             const matches = state.connected && state.gmailEmail === box.email;
             const status = storedConnectionStatus(matches, matches && state.needsReconnect);

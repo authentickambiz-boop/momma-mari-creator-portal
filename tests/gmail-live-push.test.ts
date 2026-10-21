@@ -151,9 +151,7 @@ describe("live gmail push", { concurrency: 1 }, () => {
     assert.equal(deal?.visibleToCreator, false);
     assert.equal(deal?.workflowStage, "offer_received");
     assert.equal(await getDealForViewer(db, mariclare, "mail-kam-1"), null);
-    assert.match(deal?.brandReplyDraft ?? "", /Rate: \[CONFIRM\]/);
-    assert.equal((deal?.brandReplyDraft ?? "").includes("$"), false);
-    assert.equal((deal?.brandReplyDraft ?? "").includes("2026"), false);
+    assert.equal(deal?.brandReplyDraft ?? null, null);
     assert.deepEqual(first.labels[0]?.names, [MM_LABEL.deal, MM_LABEL.needsReply]);
     assert.equal(first.created.length, 0);
     assert.equal((await db.select().from(gmailPortalDrafts)).length, 0);
@@ -167,7 +165,12 @@ describe("live gmail push", { concurrency: 1 }, () => {
     assert.equal((await db.select().from(deals).where(eq(deals.id, "mail-kam-1"))).length, 1);
     assert.equal((await db.select().from(gmailSeenMessages).where(eq(gmailSeenMessages.messageId, "kam-1"))).length, 1);
 
-    await db.update(brandReplyDrafts).set({ body: "Sintra already wrote this.", updatedBy: "Sintra" }).where(eq(brandReplyDrafts.dealId, "mail-kam-1"));
+    await db.insert(brandReplyDrafts).values({
+      dealId: "mail-kam-1",
+      body: "Sintra already wrote this.",
+      updatedBy: "Sintra",
+      updatedAt: "2026-10-21T22:00:00.000Z",
+    });
     const follow = message("kam-2", { threadId: "thread-kam-1", subject: "Checking in" });
     const sintra = recordingClient([follow], "220", [{ id: "sintra-1", snippet: "Drafted with Sintra" }]);
     const matched = await ingestGmailPush(db, { emailAddress: mailbox, historyId: "220" }, { client: sintra.client });

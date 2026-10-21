@@ -142,6 +142,7 @@ export async function saveBrandReplyDraft(
   if (!deal) return { ok: false as const, status: 404, error: "Deal not found." };
   const body = input.body.trim();
   if (!body) return { ok: false as const, status: 400, error: "Write the reply first." };
+  if (/\[CONFIRM\]/i.test(body)) return { ok: false as const, status: 400, error: "Fill in the rate and date. A draft cannot contain [CONFIRM]." };
   const timestamp = nowIso();
   const existing = await db.select().from(brandReplyDrafts).where(eq(brandReplyDrafts.dealId, deal.id));
   if (existing[0]) {

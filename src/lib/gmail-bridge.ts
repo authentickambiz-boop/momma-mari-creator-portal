@@ -178,7 +178,7 @@ export async function isBrandInquiry(
   mailbox: string,
 ): Promise<{ keep: boolean; classification: "deal" | "inquiry" | "not_deal" }> {
   const from = senderEmail(message.from);
-  if (!message.threadId || isSpamSender(message.from) || isAutomatedSender(message.from) || isBulkMail(message.labelIds) || isDraftMail(message.labelIds) || isWatchedMailboxSender(message.from)) {
+  if (!message.threadId || isSpamSender(message.from) || isAutomatedSender(message.from, message.headers) || isBulkMail(message.labelIds) || isDraftMail(message.labelIds) || isWatchedMailboxSender(message.from)) {
     return { keep: false, classification: "not_deal" };
   }
   const existing = await db
@@ -443,6 +443,7 @@ export async function queueBrandReply(db: PortalDb, viewer: Viewer, input: { thr
   if (!thread) return { ok: false as const, status: 404, error: "That thread is not on your list." };
   const body = input.body.trim();
   if (!body) return { ok: false as const, status: 400, error: "Write the reply first." };
+  if (/\[CONFIRM\]/i.test(body)) return { ok: false as const, status: 400, error: "Fill in the rate and date. A draft cannot contain [CONFIRM]." };
   if (!thread.dealId) return { ok: false as const, status: 400, error: "This thread is not on a deal yet." };
   const to = thread.fromEmail;
   if (!to.includes("@")) return { ok: false as const, status: 400, error: "That thread has no brand address." };

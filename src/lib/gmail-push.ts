@@ -7,7 +7,7 @@ import { clearMailboxReconnect, gmailConnectionState, mailboxReconnectReason, ma
 import { getDealStage } from "./stages";
 import { AGENCY_MAILBOX_ID, KAMRON_AGENCY_EMAIL, clearAgencyMailboxToken } from "./agency-mailbox";
 import { gmailSyncEnabled } from "./gmail-sync-flag";
-import { gmailMutationAllowed, isAutomatedSender, isPersonalMail, prepareReplyAndLabels, type MailSort } from "./gmail-live";
+import { gmailMutationAllowed, hasUnfilledPlaceholder, isAutomatedSender, isPersonalMail, prepareReplyAndLabels, type MailSort } from "./gmail-live";
 import { revokeGoogleToken, type GoogleTokenRevoker } from "./google-oauth";
 import { decryptToken } from "./token-crypto";
 
@@ -61,6 +61,7 @@ export type GmailHistoryMessage = {
   to: string;
   subject: string;
   labelIds: string[];
+  headers?: Record<string, string>;
 };
 
 export type GmailHistoryClient = {
@@ -578,7 +579,7 @@ export function recentInboxMessages(pages: { messages?: { id?: string; threadId?
 
 /** Automated senders and personal notes never become a reply draft. A known brand contact still can. */
 async function leaveUnanswered(db: PortalDb, creatorId: string, mailbox: string, message: GmailHistoryMessage) {
-  if (isAutomatedSender(message.from)) return true;
+  if (isAutomatedSender(message.from, message.headers)) return true;
   if (!isPersonalMail(message.from, message.subject)) return false;
   const { isBrandInquiry } = await import("./gmail-bridge");
   const decision = await isBrandInquiry(db, creatorId, message, mailbox);
@@ -649,6 +650,12 @@ async function applyAddedMessages(
     if (isDraftMail(message.labelIds)) {
       const settled = await settleMail(db, mailbox, creatorId, creatorLabel, client, secrets, message, "skip", null, brand);
       if (!settled.ok) return settled;
+      continue;
+    }
+    if (isAutomatedSender(message.from, message.headers)) {
+      const settled = await settleMail(db, mailbox, creatorId, creatorLabel, client, secrets, message, "not_deal", null, brand);
+      if (!settled.ok) return settled;
+      skippedSpam += 1;
       continue;
     }
     if (isSpamSender(message.from)) {
@@ -1082,9 +1089,12 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
       return recentInboxMessages(pages);
     },
     async getMessage(id: string) {
+      const headerQuery = ["From", "To", "Subject", "List-Unsubscribe", "List-Id", "Precedence", "Auto-Submitted"]
+        .map((name) => `metadataHeaders=${encodeURIComponent(name)}`)
+        .join("&");
       const loaded = await gmailGet(
         accessToken,
-        `/messages/${encodeURIComponent(id)}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject`,
+        `/messages/${encodeURIComponent(id)}?format=metadata&${headerQuery}`,
       );
       if (loaded.missing) return messageGone(id);
       if (!loaded.json) throw new Error("Gmail message failed.");
@@ -1094,8 +1104,14 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
         labelIds?: string[];
         payload?: { headers?: { name?: string; value?: string }[] };
       };
-      const headers = json.payload?.headers ?? [];
-      const header = (name: string) => headers.find((item) => item.name?.toLowerCase() === name.toLowerCase())?.value ?? "";
+      const rawHeaders = json.payload?.headers ?? [];
+      const header = (name: string) => rawHeaders.find((item) => item.name?.toLowerCase() === name.toLowerCase())?.value ?? "";
+      const headers: Record<string, string> = {};
+      for (const item of rawHeaders) {
+        const name = item.name?.toLowerCase();
+        if (!name || !item.value) continue;
+        headers[name] = headers[name] ? `${headers[name]}, ${item.value}` : item.value;
+      }
       return {
         id: json.id ?? id,
         threadId: json.threadId ?? "",
@@ -1103,6 +1119,7 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
         to: header("To"),
         subject: header("Subject"),
         labelIds: json.labelIds ?? [],
+        headers,
       };
     },
     async applyLabels(messageId, names) {
@@ -1129,6 +1146,7 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
       return draftsOnThread(threadId, messages, listed);
     },
     async createDraft(input) {
+      if (hasUnfilledPlaceholder(input.body) || hasUnfilledPlaceholder(input.subject)) return null;
       const created = await gmailJson(accessToken, "/drafts", {
         message: { raw: draftRaw(input), threadId: input.threadId },
       });
