@@ -17,6 +17,7 @@ export const PORTAL_TABS = [
   { id: "brands", href: "/brands", label: "Brands" },
   { id: "rules", href: "/rules", label: "Deal rules" },
   { id: "campaigns", href: "/campaigns", label: "Campaigns" },
+  { id: "commission", href: "/commission", label: "Commission" },
   { id: "offers", href: "/offers", label: "Offers" },
   { id: "gifts", href: "/gifts", label: "Free products" },
   { id: "review", href: "/review", label: "Review" },
@@ -55,6 +56,7 @@ export function visiblePortalTabs(viewer: Viewer) {
     if (item.id === "brands") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "rules") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "campaigns") return viewer.role === "admin" || viewer.role === "manager";
+    if (item.id === "commission") return viewer.role === "creator" || viewer.role === "admin";
     if (item.id === "offers") return viewer.role === "admin" || viewer.role === "creator";
     if (item.id === "gifts") return viewer.role === "admin" || viewer.role === "creator";
     if (item.id === "review") return viewer.role === "admin";

@@ -1502,3 +1502,24 @@ export const briefNotices = sqliteTable("brief_notices", {
   createdAt: text("created_at").notNull(),
   deliveredAt: text("delivered_at"),
 });
+
+export const commissionCampaigns = sqliteTable("commission_campaigns", {
+  id: text("id").primaryKey(),
+  brand: text("brand").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  terms: text("terms").notNull(),
+  trackingLink: text("tracking_link"),
+  bonus: text("bonus"),
+  rateLabel: text("rate_label").notNull(),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const commissionCampaignInterest = sqliteTable("commission_campaign_interest", {
+  id: text("id").primaryKey(),
+  campaignId: text("campaign_id").notNull(),
+  creatorId: text("creator_id").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [uniqueIndex("commission_interest_once").on(table.campaignId, table.creatorId)]);
