@@ -15,6 +15,11 @@ export const PUBLIC_SITEMAP_PATHS = [
   "/gift-guide",
   "/apply",
   "/roster",
+  "/about",
+  "/contact",
+  "/faq",
+  "/careers",
+  "/press",
   "/privacy",
   "/terms",
 ] as const;
