@@ -1189,3 +1189,37 @@ export const analyticsSnapshots = sqliteTable(
   },
   (table) => [uniqueIndex("analytics_snapshot_key").on(table.creatorId, table.platform, table.capturedOn, table.periodKey)],
 );
+
+export const brandInvoices = sqliteTable("brand_invoices", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull().unique(),
+  brand: text("brand").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  currency: text("currency").notNull().default("usd"),
+  netDays: integer("net_days").notNull(),
+  issuedOn: text("issued_on").notNull(),
+  dueOn: text("due_on").notNull(),
+  poNumber: text("po_number"),
+  status: text("status").notNull(),
+  stripeInvoiceId: text("stripe_invoice_id"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const invoiceReminders = sqliteTable(
+  "invoice_reminders",
+  {
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id").notNull(),
+    kind: text("kind").notNull(),
+    dueOn: text("due_on").notNull(),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    status: text("status").notNull(),
+    approvedAt: text("approved_at"),
+    approvedBy: text("approved_by"),
+    sentAt: text("sent_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("invoice_reminders_invoice_kind").on(table.invoiceId, table.kind)],
+);

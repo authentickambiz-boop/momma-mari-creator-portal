@@ -32,6 +32,7 @@ export const PORTAL_TABS = [
   { id: "support", href: "/support", label: "Support" },
   { id: "settings", href: "/settings", label: "Settings" },
   { id: "billing", href: "/billing", label: "Billing and usage" },
+  { id: "invoices", href: "/invoices", label: "Invoices" },
   { id: "team", href: "/team", label: "Team" },
 ] as const;
 
@@ -42,6 +43,7 @@ export function visiblePortalTabs(viewer: Viewer) {
   return PORTAL_TABS.filter((item) => {
     if (isMenuTab(item.id)) return false;
     if (item.id === "team") return viewer.role === "admin";
+    if (item.id === "invoices") return viewer.role === "admin";
     if (item.id === "safety") return viewer.role === "admin" || viewer.role === "manager";
     if (item.id === "earnings") return viewer.role !== "manager";
     if (item.id === "report") return viewer.role !== "manager";
