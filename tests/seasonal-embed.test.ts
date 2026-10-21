@@ -91,8 +91,12 @@ describe("webflow seasonal embed", () => {
     assert.match(css, /backdrop-filter:\s*none/);
     assert.match(css, /data-mm-theme="thanksgiving"\] body \{ backdrop-filter: none !important; \}/);
     assert.match(css, /data-mm-theme="thanksgiving"\] \.mm-scene[\s\S]*100dvh/);
+    assert.match(css, /data-mm-theme="christmas"\] body \{ backdrop-filter: none !important; \}/);
+    assert.match(css, /data-mm-theme="christmas"\] \.mm-scene[\s\S]*100dvh/);
     assert.match(js, /mm-harvest/);
     assert.match(js, /scene\.id === "thanksgiving"/);
+    assert.match(js, /mm-bulb/);
+    assert.match(js, /scene\.id === "christmas"/);
     assert.equal(embed.shouldSkip("/portal"), true);
     assert.equal(embed.shouldSkip("/portal/services"), true);
     assert.equal(embed.shouldSkip("/"), false);

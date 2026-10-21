@@ -264,6 +264,26 @@
     }).join("");
   }
 
+  function lightFrame() {
+    var colors = ["#C4453A", "#E2B657", "#F7F1FF", "#3E9A56", "#FFE7A8"];
+    var bulbs = [];
+    function add(style, index) {
+      bulbs.push('<span class="mm-bulb" style="' + style + ";background:" + colors[index % colors.length] + ";animation-delay:" + ((index % 6) * -0.28) + 's"></span>');
+    }
+    var across = 16;
+    var down = 9;
+    var i;
+    for (i = 0; i < across; i += 1) {
+      add("top:92px;left:" + (4 + i * (92 / (across - 1))) + "%", i);
+      add("bottom:12px;left:" + (5 + i * (90 / (across - 1))) + "%", i + 2);
+    }
+    for (i = 0; i < down; i += 1) {
+      add("left:12px;top:" + (8 + i * (84 / (down - 1))) + "%", i + 1);
+      add("right:12px;top:" + (8 + i * (84 / (down - 1))) + "%", i + 3);
+    }
+    return '<span class="mm-light-wire mm-light-wire-top"></span><span class="mm-light-wire mm-light-wire-bottom"></span><span class="mm-light-wire mm-light-wire-left"></span><span class="mm-light-wire mm-light-wire-right"></span>' + bulbs.join("");
+  }
+
   function web() {
     return '<svg class="mm-web mm-web-LEFT" viewBox="0 0 140 140" aria-hidden="true"><g fill="none" stroke="#E6D8F6" stroke-width="1.3" stroke-linecap="round"><path d="M6 8 C 48 18, 86 28, 132 14"/><path d="M6 8 C 18 52, 28 92, 16 132"/><path d="M6 8 L 126 118"/><path d="M6 8 L 78 132"/><path d="M6 8 L 132 70"/></g></svg>';
   }
@@ -380,6 +400,7 @@
       root.insertAdjacentHTML("beforeend", left + right);
     }
     if (scene.id === "thanksgiving") root.insertAdjacentHTML("beforeend", harvestFrame());
+    if (scene.id === "christmas") root.insertAdjacentHTML("beforeend", lightFrame());
     return root;
   }
 

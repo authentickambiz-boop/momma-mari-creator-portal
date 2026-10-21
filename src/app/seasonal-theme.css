@@ -76,7 +76,9 @@
 .seasonal-illustration,
 .seasonal-lantern,
 .seasonal-floater,
-.seasonal-web {
+.seasonal-web,
+.seasonal-light-wire,
+.seasonal-bulb {
   position: absolute;
   pointer-events: none;
 }
@@ -193,6 +195,10 @@
 .seasonal-floater-leaf.seasonal-floater-a { animation-name: seasonal-leaf-a; }
 .seasonal-floater-leaf.seasonal-floater-b { animation-name: seasonal-leaf-b; }
 .seasonal-floater-leaf.seasonal-floater-c { animation-name: seasonal-leaf-c; }
+.seasonal-floater-flake { animation-timing-function: linear; }
+.seasonal-floater-flake.seasonal-floater-a { animation-name: seasonal-snow-a; }
+.seasonal-floater-flake.seasonal-floater-b { animation-name: seasonal-snow-b; }
+.seasonal-floater-flake.seasonal-floater-c { animation-name: seasonal-snow-c; }
 .seasonal-floater-bat.seasonal-floater-a { animation-name: seasonal-bat-a; }
 .seasonal-floater-bat.seasonal-floater-b { animation-name: seasonal-bat-b; }
 .seasonal-floater-bat.seasonal-floater-c { animation-name: seasonal-bat-c; }
@@ -233,6 +239,44 @@ html[data-seasonal="thanksgiving"] .login-forest {
   background: rgba(42, 18, 10, 0.5) !important;
   background-color: rgba(42, 18, 10, 0.5) !important;
   color: #F7F1FF;
+}
+html[data-seasonal="christmas"] .seasonal-scene {
+  top: 0;
+  right: 0;
+  bottom: auto;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+}
+html[data-seasonal="christmas"] .login-pane,
+html[data-seasonal="christmas"] .login-forest {
+  background: rgba(8, 24, 16, 0.68) !important;
+  background-color: rgba(8, 24, 16, 0.68) !important;
+  color: #F7F1FF;
+}
+
+.seasonal-light-wire {
+  z-index: 4;
+  background: #1E6A48;
+  border-radius: 4px;
+  pointer-events: none;
+}
+.seasonal-light-wire-top { top: 90px; left: 1.5%; right: 1.5%; height: 4px; }
+.seasonal-light-wire-bottom { bottom: 12px; left: 2%; right: 2%; height: 4px; }
+.seasonal-light-wire-left { top: 3%; bottom: 3%; left: 12px; width: 4px; }
+.seasonal-light-wire-right { top: 3%; bottom: 3%; right: 12px; width: 4px; }
+.seasonal-bulb {
+  z-index: 5;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  margin-top: -8px;
+  border-radius: 50%;
+  border: 2px solid #0C1812;
+  box-shadow: 0 0 10px rgba(255, 231, 168, 0.95);
+  animation: seasonal-twinkle 1.7s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .seasonal-hello {
@@ -498,6 +542,26 @@ html[data-seasonal] :focus-visible { outline-color: #F3C48A; }
   50% { transform: translate3d(12px, 22px, 0) rotate(20deg); }
 }
 
+@keyframes seasonal-snow-a {
+  0% { transform: translate3d(0, -70vh, 0); }
+  100% { transform: translate3d(28px, 105vh, 0); }
+}
+
+@keyframes seasonal-snow-b {
+  0% { transform: translate3d(0, -80vh, 0); }
+  100% { transform: translate3d(-22px, 110vh, 0); }
+}
+
+@keyframes seasonal-snow-c {
+  0% { transform: translate3d(8px, -60vh, 0); }
+  100% { transform: translate3d(-10px, 100vh, 0); }
+}
+
+@keyframes seasonal-twinkle {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
 @keyframes seasonal-bat-a {
   0%, 100% { transform: translate3d(0, 0, 0); }
   50% { transform: translate3d(86px, 16px, 0); }
@@ -583,7 +647,9 @@ html[data-seasonal] :focus-visible { outline-color: #F3C48A; }
   .seasonal-banner { padding-left: 12px; padding-right: 12px; }
   .seasonal-floater,
   .seasonal-lantern { display: none; }
+  html[data-seasonal="christmas"] .seasonal-floater-flake { display: block; }
   .seasonal-harvest { width: 46px !important; height: 46px !important; }
+  .seasonal-bulb { width: 10px; height: 10px; margin-left: -5px; margin-top: -5px; }
   .seasonal-stars,
   .seasonal-moon,
   .seasonal-illustration,
@@ -603,7 +669,8 @@ html[data-seasonal] :focus-visible { outline-color: #F3C48A; }
   .seasonal-lantern,
   .seasonal-illustration,
   .seasonal-web,
-  .seasonal-mark { animation-play-state: paused; }
+  .seasonal-mark,
+  .seasonal-bulb { animation-play-state: paused; }
   .seasonal-sparkles { display: none; }
 }
 
