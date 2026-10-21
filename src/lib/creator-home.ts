@@ -54,7 +54,7 @@ export function creatorHomeCards(input: { offersWaiting: number; payoutsPending:
     {
       href: "/#deals",
       title: "Brand deals",
-      status: offers === 0 ? "No offers waiting" : offers === 1 ? "1 offer waiting" : `${offers} offers waiting`,
+      status: offers === 0 ? "Nothing needs you right now" : offers === 1 ? "1 deal needs you" : `${offers} deals need you`,
     },
     {
       href: "/inbox",
@@ -69,13 +69,50 @@ export function creatorHomeCards(input: { offersWaiting: number; payoutsPending:
   ];
 }
 
-export function creatorNeedsYou(rows: { id: string; brand: string; visibleToCreator: boolean; needsCreator: boolean; workflowStage: string | null }[]) {
+/** Stages where the creator still has something to do on a deal she already accepted. */
+const CREATOR_WORK_STAGES = new Set([
+  "approved_by_agency",
+  "awaiting_signature",
+  "waiting_for_product",
+  "product_received",
+  "draft_due",
+  "brand_revisions",
+  "brand_approved",
+]);
+
+const CREATOR_QUIET_STAGES = new Set([
+  "on_hold",
+  "brand_quiet",
+  "cancelled",
+  "creator_declined",
+  "offer_received",
+  "offer_shared",
+  "paid",
+]);
+
+/** Creator Brand deals list. Pre-acceptance offers stay on Offers. Quiet and waiting-on-the-brand cards stay off this list. */
+export function creatorBrandDealNeedsAction(deal: {
+  visibleToCreator: boolean;
+  needsCreator: boolean;
+  uploadEnabled?: boolean;
+  workflowStage: string | null;
+  status?: string | null;
+}) {
+  if (!deal.visibleToCreator) return false;
+  if (deal.status === "paid" || deal.workflowStage === "paid") return false;
+  const stage = deal.workflowStage;
+  if (!stage || CREATOR_QUIET_STAGES.has(stage)) return false;
+  if (deal.needsCreator || deal.uploadEnabled) return true;
+  return CREATOR_WORK_STAGES.has(stage);
+}
+
+export function creatorNeedsYou(rows: { id: string; brand: string; visibleToCreator: boolean; needsCreator: boolean; uploadEnabled?: boolean; workflowStage: string | null; status?: string | null }[]) {
   return rows
-    .filter((deal) => deal.visibleToCreator && (deal.needsCreator || deal.workflowStage === "offer_shared"))
+    .filter((deal) => creatorBrandDealNeedsAction(deal))
     .map((deal) => ({
       id: deal.id,
       title: deal.brand,
-      detail: deal.workflowStage === "offer_shared" ? "Offer waiting for your answer" : "This deal needs you",
+      detail: "This deal needs you",
       href: `/deals/${deal.id}`,
     }));
 }

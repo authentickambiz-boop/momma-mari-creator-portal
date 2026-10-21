@@ -171,7 +171,8 @@ describe("creator to-dos and offer reviews", { concurrency: 1 }, () => {
     const home = source("src/app/page.tsx");
     const card = source("src/components/creator-deal-review.tsx");
     assert.match(home, /listCreatorDealReviews/);
-    assert.match(home, /CreatorDealReviewCard/);
+    assert.match(source("src/app/offers/page.tsx"), /CreatorDealReviewCard/);
+    assert.equal(home.includes("CreatorDealReviewCard"), false);
     assert.match(card, /\{offer\.brand\}/);
     assert.match(card, /\{offer\.summary\}/);
     assert.match(card, /reviewChoices/);

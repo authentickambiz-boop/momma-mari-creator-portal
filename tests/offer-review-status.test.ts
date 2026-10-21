@@ -125,7 +125,7 @@ describe("offer review passed and declined", { concurrency: 1 }, () => {
     const closed = card.slice(card.indexOf("closed ?"), card.indexOf(": offer.decision"));
     assert.match(closed, /Nothing to accept/);
     assert.equal(closed.includes("Accept"), false);
-    assert.match(card, />Accept</);
+    assert.match(card, /I&apos;m interested/);
 
     assert.equal((await db.select().from(approvalEmails)).length, approvalsBefore);
     const kosblingAfter = await getDealForViewer(db, admin, "kosbling");

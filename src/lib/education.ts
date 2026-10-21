@@ -4,8 +4,8 @@ export const LESSONS = [
     title: "How deals work",
     body: [
       "A brand writes to Momma Mari. Kamron screens the offer before a creator sees it.",
-      "When an offer is shared, it shows the deliverables, the dates, and how the brand wants to use the post. The creator can say yes or no.",
-      "A yes moves into a contract, then a draft, then the post. The brand pays the invoice. The creator is paid after that money arrives.",
+      "When Kamron shares an offer, it is on the Offers page. The creator can say she's interested, pass, or suggest a counter.",
+      "A yes moves onto Brand deals: the contract, the product, the draft, the post, and payment. A card shows there when it needs her. The brand pays the invoice. The creator is paid after that money arrives.",
       "This page does not sign a contract and it does not send email.",
     ],
   },

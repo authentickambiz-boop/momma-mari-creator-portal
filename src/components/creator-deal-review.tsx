@@ -1,13 +1,15 @@
 import { decideDealReviewAction } from "@/app/deal-review-actions";
-import { dealReviewLabel, offerReviewStatus, reviewChoices, type CreatorDealReview } from "@/lib/creator-deal-review";
+import { CREATOR_REVIEW_EMPTY, creatorReviewNeedsAction, dealReviewLabel, offerReviewStatus, reviewChoices, type CreatorDealReview } from "@/lib/creator-deal-review";
 
-export function CreatorDealReviewCard({ offers, note }: { offers: CreatorDealReview[]; note?: string | null }) {
-  if (!offers.length) return null;
+export function CreatorDealReviewCard({ offers, note, title = "Needs your answer" }: { offers: CreatorDealReview[]; note?: string | null; title?: string }) {
+  const actionable = offers.filter(creatorReviewNeedsAction);
+  if (!actionable.length && !note) return null;
   return (
     <section className="card stack" style={{ marginBottom: 14 }}>
-      <div className="sec-title">Deals for your review</div>
+      <div className="sec-title">{title}</div>
       {note ? <p className="note">{note}</p> : null}
-      {offers.map((offer) => {
+      {actionable.length === 0 ? <p className="note empty">{CREATOR_REVIEW_EMPTY}</p> : null}
+      {actionable.map((offer) => {
         const status = offerReviewStatus(offer.decision);
         const choices = reviewChoices(offer.reviewMode, offer.decision);
         const closed = status === "passed" || status === "declined";
@@ -29,24 +31,24 @@ export function CreatorDealReviewCard({ offers, note }: { offers: CreatorDealRev
                   <form action={decideDealReviewAction}>
                     <input type="hidden" name="offerId" value={offer.id} />
                     <input type="hidden" name="decision" value="accept" />
-                    <button className="btn" type="submit">Accept</button>
+                    <button className="btn" type="submit">I&apos;m interested</button>
                   </form>
                 ) : <p className="note">You can counter this. Accepting it is closed.</p>}
                 {choices.includes("counter") ? (
                   <form action={decideDealReviewAction} className="stack">
                     <input type="hidden" name="offerId" value={offer.id} />
                     <input type="hidden" name="decision" value="counter" />
-                    <label>What should we ask for instead?
+                    <label>Suggest a counter
                       <textarea name="note" rows={2} />
                     </label>
-                    <button className="btn ghost" type="submit">Counter</button>
+                    <button className="btn ghost" type="submit">Suggest a counter</button>
                   </form>
                 ) : null}
                 {choices.includes("pass") ? (
                   <form action={decideDealReviewAction}>
                     <input type="hidden" name="offerId" value={offer.id} />
                     <input type="hidden" name="decision" value="pass" />
-                    <button className="btn ghost" type="submit">Pass to roster</button>
+                    <button className="btn ghost" type="submit">Pass</button>
                   </form>
                 ) : null}
               </div>

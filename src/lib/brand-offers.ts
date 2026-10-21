@@ -7,6 +7,7 @@ import { latestRanks } from "./creator-rank";
 import { setDealStage } from "./deal-stage";
 import { dollarsToCents, rulesFor, videoMinimumCents } from "./deal-rules";
 import { agencyTimeZone, formatMoney, nowIso } from "./format";
+import { notifyStaff } from "./managers";
 import { getDealStage } from "./stages";
 import type { Viewer } from "./types";
 
@@ -317,34 +318,56 @@ export async function respondToOffer(
   if (viewer.role !== "creator" || !viewer.creatorId) {
     return { ok: false as const, error: "Open this from your own sign-in." };
   }
-  if (input.decision !== "accepted") {
-    return { ok: false as const, error: "Tell Kamron you're interested. Passing and questions stay with him." };
+  const decision = input.decision;
+  if (decision !== "accepted" && decision !== "declined" && decision !== "question") {
+    return { ok: false as const, error: "Choose I'm interested, pass, or a counter." };
+  }
+  const question = input.question?.trim().slice(0, 500) ?? "";
+  if (decision === "question" && !question) {
+    return { ok: false as const, error: "Write the counter you want Kamron to ask for." };
   }
   const rows = await db.select().from(campaignAllocations).where(eq(campaignAllocations.id, input.allocationId));
   const row = rows[0];
   if (!row || row.creatorId !== viewer.creatorId) return { ok: false as const, error: "That offer is not on your list." };
+  if (row.response === "accepted" || row.response === "declined") {
+    return { ok: false as const, error: "You already answered this offer." };
+  }
   const offerRows = await db.select().from(campaigns).where(eq(campaigns.id, row.campaignId));
   const offer = offerRows[0];
   if (!offer || offer.kind !== "offer") return { ok: false as const, error: "That offer is not on your list." };
   const timestamp = nowIso();
   await db.update(campaignAllocations).set({
-    response: "accepted",
-    question: row.question,
+    response: decision,
+    question: decision === "question" ? question : row.question,
     respondedAt: timestamp,
   }).where(eq(campaignAllocations.id, row.id));
-  const dealWrite = await applyOfferToDeal(db, viewer, offer, row, "accepted", "");
+  const dealWrite = await applyOfferToDeal(db, viewer, offer, row, decision, question);
   if (!dealWrite.ok) return dealWrite;
+  if (decision === "accepted" && dealWrite.dealId) {
+    await db.update(deals).set({
+      visibleToCreator: true,
+      reviewStatus: "published",
+      updatedAt: timestamp,
+    }).where(eq(deals.id, dealWrite.dealId));
+  }
+  const outcome = decision === "accepted" ? "accepted" : decision === "declined" ? "declined" : "counter";
   await upsertBrandCrm(db, {
     brand: offer.brand,
     creatorId: viewer.creatorId,
-    outcome: "accepted",
+    outcome,
     contactName: offer.contactName,
     contactEmail: offer.contactEmail,
     nextFollowUp: offer.nextFollowUp ?? undefined,
-    ratePaidCents: row.amountCents,
+    ratePaidCents: decision === "accepted" ? row.amountCents : null,
     actorName: viewer.name,
-    note: null,
+    note: decision === "question" ? question : null,
   });
+  const lead = decision === "accepted"
+    ? `${viewer.name} accepted ${offer.brand}. It's on Brand deals.`
+    : decision === "declined"
+      ? `${viewer.name} passed on ${offer.brand}.`
+      : `${viewer.name} suggested a counter on ${offer.brand}. ${question}`;
+  await notifyStaff(db, { kind: "offer_response", creatorId: viewer.creatorId, message: lead });
   return { ok: true as const };
 }
 
@@ -416,7 +439,7 @@ async function applyOfferToDeal(
     });
     if (!moved.ok) return { ok: false as const, error: moved.error };
     await db.update(deals).set({ visibleToCreator: false, reviewStatus: "pending" }).where(eq(deals.id, id));
-    return { ok: true as const };
+    return { ok: true as const, dealId: id };
   }
   await db.update(deals).set(patch).where(eq(deals.id, deal.id));
   if (earlyOfferStage(deal.workflowStage) && deal.workflowStage !== target) {
@@ -430,5 +453,5 @@ async function applyOfferToDeal(
     });
     if (!moved.ok) return { ok: false as const, error: moved.error };
   }
-  return { ok: true as const };
+  return { ok: true as const, dealId: deal.id };
 }
