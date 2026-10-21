@@ -13,7 +13,7 @@
     { id: "halloween", start: "2026-10-01T00:00:00", end: "2026-11-01T23:59:59", preview: false },
     { id: "thanksgiving", start: "2026-11-20T00:00:00", end: "2026-11-29T23:59:59", preview: true },
     { id: "hanukkah", start: "2026-12-04T00:00:00", end: "2026-12-12T23:59:59", preview: true },
-    { id: "christmas", start: "2026-12-20T00:00:00", end: "2026-12-26T23:59:59", preview: true },
+    { id: "christmas", start: "2026-12-13T00:00:00", end: "2026-12-26T23:59:59", preview: true },
     { id: "new-year", start: "2026-12-31T00:00:00", end: "2027-01-02T23:59:59", preview: true },
     { id: "valentines", start: "2027-02-08T00:00:00", end: "2027-02-15T23:59:59", preview: true },
     { id: "st-patricks", start: "2027-03-10T00:00:00", end: "2027-03-17T23:59:59", preview: true },
