@@ -448,6 +448,10 @@ html[data-seasonal] :is(
   .choice,
   .community-panel,
   .community-log article,
+  .page-guide,
+  .pipeline-card,
+  .pipeline-sum,
+  .pipeline-dialog,
   .logo-wall li,
   .home-install,
   .note.empty,
@@ -720,6 +724,10 @@ html[data-seasonal] :focus-visible { outline-color: #F3C48A; }
     .choice,
     .community-panel,
     .community-log article,
+    .page-guide,
+    .pipeline-card,
+    .pipeline-sum,
+    .pipeline-dialog,
     .logo-wall li,
     .home-install,
     .note.empty,
@@ -950,4 +958,36 @@ html[data-seasonal="back-to-school"] {
 }
 .seasonal-scene-portal[data-theme="back-to-school"] .seasonal-sky-paint {
   background: linear-gradient(195deg, #E8A05A 0%, #C4783A 50%, #6B3414 100%);
+}
+
+html[data-seasonal] .pipeline-value,
+html[data-seasonal] .pipeline-sum b,
+html[data-seasonal] .pipeline-col h2,
+html[data-seasonal] .page-guide-heading,
+html[data-seasonal] .pipeline-dialog h2 {
+  color: var(--mm-heading);
+}
+
+html[data-seasonal] .pipeline-col-head {
+  background: rgba(22, 10, 40, 0.94);
+}
+
+html[data-seasonal] .pipeline-dialog {
+  background: rgba(22, 10, 40, 0.96);
+  color: #F7F1FF;
+}
+
+html[data-seasonal] .pipeline-flag.is-overdue,
+html[data-seasonal] .pipeline-card.is-overdue {
+  border-color: var(--mm-pop);
+}
+
+html[data-seasonal] .pipeline-flag.is-overdue {
+  background: var(--mm-pop);
+  color: var(--mm-pop-ink);
+}
+
+html[data-seasonal] .page-guide-who {
+  background: rgba(232, 135, 58, 0.28);
+  color: #FFF6EA;
 }

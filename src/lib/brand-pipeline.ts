@@ -6,16 +6,76 @@ import { nowIso } from "./format";
 import type { Viewer } from "./types";
 
 export const PIPELINE_STAGES = [
-  { id: "lead", label: "Lead" },
-  { id: "intake", label: "Intake" },
-  { id: "brief", label: "Brief" },
-  { id: "negotiating", label: "Negotiating" },
-  { id: "contracted", label: "Contracted" },
-  { id: "in_production", label: "In production" },
-  { id: "posted", label: "Posted" },
-  { id: "invoiced", label: "Invoiced" },
-  { id: "paid", label: "Paid" },
-  { id: "rebook", label: "Rebook" },
+  {
+    id: "lead",
+    label: "Lead",
+    blurb: "A brand has shown up. Nobody has answered yet.",
+    forward: "It moves on when you send the first hello or log the contact.",
+    nextAction: "Say hello",
+  },
+  {
+    id: "intake",
+    label: "Intake",
+    blurb: "The offer is in the door and needs a look.",
+    forward: "It moves on when you share it with the creator.",
+    nextAction: "Share it with the creator",
+  },
+  {
+    id: "brief",
+    label: "Brief",
+    blurb: "You know what the brand wants.",
+    forward: "It moves on when the brief is clear enough to price.",
+    nextAction: "Lock the brief",
+  },
+  {
+    id: "negotiating",
+    label: "Negotiating",
+    blurb: "Money, usage, and terms are still open.",
+    forward: "It moves on when both sides agree and a contract is out.",
+    nextAction: "Agree on terms",
+  },
+  {
+    id: "contracted",
+    label: "Contracted",
+    blurb: "The deal is signed.",
+    forward: "It moves on when the work actually starts.",
+    nextAction: "Start the work",
+  },
+  {
+    id: "in_production",
+    label: "In production",
+    blurb: "The creator is making the post.",
+    forward: "It moves on when the post goes live.",
+    nextAction: "Get the post live",
+  },
+  {
+    id: "posted",
+    label: "Posted",
+    blurb: "The post is up.",
+    forward: "It moves on when the invoice goes to the brand.",
+    nextAction: "Send the invoice",
+  },
+  {
+    id: "invoiced",
+    label: "Invoiced",
+    blurb: "The brand has the bill.",
+    forward: "It moves on when the money lands.",
+    nextAction: "Collect payment",
+  },
+  {
+    id: "paid",
+    label: "Paid",
+    blurb: "The brand paid.",
+    forward: "It moves on when you are ready to ask them back.",
+    nextAction: "Ask them back",
+  },
+  {
+    id: "rebook",
+    label: "Rebook",
+    blurb: "This brand is worth another round.",
+    forward: "This is the last column. It stays here until you open the next conversation.",
+    nextAction: "Open the next conversation",
+  },
 ] as const;
 
 export type PipelineStageId = (typeof PIPELINE_STAGES)[number]["id"];
@@ -54,6 +114,114 @@ export function isPipelineStage(value: string): value is PipelineStageId {
 
 export function pipelineStageLabel(stage: string) {
   return PIPELINE_STAGES.find((item) => item.id === stage)?.label ?? stage;
+}
+
+export function pipelineStage(stage: string) {
+  return PIPELINE_STAGES.find((item) => item.id === stage) ?? null;
+}
+
+export function nextPipelineStage(stage: PipelineStageId): PipelineStageId | null {
+  const index = PIPELINE_STAGES.findIndex((item) => item.id === stage);
+  return PIPELINE_STAGES[index + 1]?.id ?? null;
+}
+
+export type FollowUpStatus = "none" | "upcoming" | "today" | "overdue";
+
+export function followUpStatus(nextFollowUp: string | null, today: string): FollowUpStatus {
+  if (!nextFollowUp) return "none";
+  if (nextFollowUp < today) return "overdue";
+  if (nextFollowUp === today) return "today";
+  return "upcoming";
+}
+
+export function shortFollowUp(iso: string | null) {
+  if (!iso) return "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return iso;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(date);
+}
+
+export function followUpLabel(status: FollowUpStatus, iso: string | null) {
+  if (status === "none") return "No follow-up date";
+  const day = shortFollowUp(iso);
+  if (status === "overdue") return `Overdue · ${day}`;
+  if (status === "today") return `Due today · ${day}`;
+  return `Follow up ${day}`;
+}
+
+export function pipelineCardNextLine(note: string | null, nextAction: string) {
+  const trimmed = note?.replace(/\s+/g, " ").trim() ?? "";
+  if (!trimmed) return nextAction;
+  return trimmed.length > 90 ? `${trimmed.slice(0, 87)}…` : trimmed;
+}
+
+export function pipelineDollarsInput(cents: number | null) {
+  if (cents == null) return "";
+  const dollars = cents / 100;
+  return Number.isInteger(dollars) ? String(dollars) : dollars.toFixed(2);
+}
+
+export function pipelineSumLabel(count: number, valueCents: number, unknownValues: number, format: (cents: number) => string) {
+  if (count === 0) return "—";
+  if (count - unknownValues <= 0) return "TBD";
+  if (unknownValues > 0) return `${format(valueCents)} + TBD`;
+  return format(valueCents);
+}
+
+export function filterPipelineColumns<T extends { cards: { creatorId: string | null }[] }>(columns: T[], creatorId: string | "all"): T[] {
+  if (creatorId === "all") return columns;
+  return columns.map((column) => ({
+    ...column,
+    cards: column.cards.filter((card) => card.creatorId === creatorId),
+  }));
+}
+
+export function summarizePipeline(
+  columns: { id: PipelineStageId; label: string; cards: { valueCents: number | null; nextFollowUp: string | null }[] }[],
+  today: string,
+) {
+  let overdue = 0;
+  let dueToday = 0;
+  const stages = columns.map((column) => {
+    let valueCents = 0;
+    let unknownValues = 0;
+    for (const card of column.cards) {
+      if (card.valueCents == null) unknownValues += 1;
+      else valueCents += card.valueCents;
+      const status = followUpStatus(card.nextFollowUp, today);
+      if (status === "overdue") overdue += 1;
+      if (status === "today") dueToday += 1;
+    }
+    return { id: column.id, label: column.label, count: column.cards.length, valueCents, unknownValues };
+  });
+  return { stages, overdue, dueToday };
+}
+
+const PIPELINE_NOTE_LIMIT = 500;
+const PIPELINE_VALUE_LIMIT = 1_000_000_000;
+
+export function parsePipelineFollowUp(raw: string): string | null | "bad" {
+  const trimmed = raw.trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (!trimmed) return null;
+  if (!match) return "bad";
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return "bad";
+  return trimmed;
+}
+
+export function parsePipelineDollars(raw: string): number | null | "bad" {
+  const trimmed = raw.trim();
+  if (!trimmed || /^tbd$/i.test(trimmed)) return null;
+  const cleaned = trimmed.replace(/[$,\s]/g, "");
+  if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return "bad";
+  const cents = Math.round(Number(cleaned) * 100);
+  if (!Number.isSafeInteger(cents) || cents < 0 || cents > PIPELINE_VALUE_LIMIT) return "bad";
+  return cents;
 }
 
 export function stageFromWorkflow(workflow: string | null) {
@@ -272,4 +440,30 @@ export async function pipelineReminders(db: PortalDb, viewer: Viewer, today = ci
   }
   reminders.sort((left, right) => (left.nextFollowUp ?? "").localeCompare(right.nextFollowUp ?? "") || left.brand.localeCompare(right.brand));
   return { ok: true, reminders };
+}
+
+export async function savePipelineCard(
+  db: PortalDb,
+  viewer: Viewer,
+  cardId: string,
+  input: { stage: string; nextFollowUp: string; note: string; value: string },
+): Promise<{ ok: true } | Fail> {
+  if (!isOwner(viewer)) return { ok: false, status: 403, error: "The pipeline stays with the owner.", code: "forbidden" };
+  if (!isPipelineStage(input.stage)) return { ok: false, status: 400, error: "That is not a pipeline stage.", code: "stage" };
+  const follow = parsePipelineFollowUp(input.nextFollowUp);
+  if (follow === "bad") return { ok: false, status: 400, error: "Use a YYYY-MM-DD date.", code: "date" };
+  const value = parsePipelineDollars(input.value);
+  if (value === "bad") return { ok: false, status: 400, error: "Use a dollar amount, or leave it blank for TBD.", code: "value" };
+  const note = input.note.trim();
+  if (note.length > PIPELINE_NOTE_LIMIT) return { ok: false, status: 400, error: "Keep the private note under 500 characters.", code: "note" };
+  const rows = await db.select().from(brandPipelineCards).where(eq(brandPipelineCards.id, cardId));
+  if (!rows[0]) return { ok: false, status: 404, error: "That card was not found.", code: "missing" };
+  await db.update(brandPipelineCards).set({
+    stage: input.stage,
+    nextFollowUp: follow,
+    note: note || null,
+    valueCents: value,
+    updatedAt: nowIso(),
+  }).where(eq(brandPipelineCards.id, cardId));
+  return { ok: true };
 }
