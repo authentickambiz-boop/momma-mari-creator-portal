@@ -68,7 +68,7 @@ export default async function ConnectPage({
         <h2>Brand inbox</h2>
         <p className="note">{gmailSyncStatusLine(portal.viewer.role)} The connect button asks Google for read-only access. It does not send mail.</p>
         {!gmailSyncEnabled() ? <p className="note">Live sync is off.</p> : null}
-        {portal.viewer.role === "manager" ? <p className="note">You can see whether an inbox is connected. You do not get the creator's login.</p> : null}
+        {portal.viewer.role === "manager" ? <p className="note">You can see whether an inbox is connected. You do not get the creator&apos;s login.</p> : null}
         {creators.map((creator) => {
           const href = gmailBridgeConnectHref(portal.viewer, creator.id);
           if (!href) return null;
@@ -86,7 +86,7 @@ export default async function ConnectPage({
       {watched.length > 0 ? (
         <section className="card" style={{ marginBottom: 16 }}>
           <h2>Watched inboxes</h2>
-          <p className="note">Brand mail in these inboxes becomes a hidden offer within seconds of arriving. The portal files it under an MM/ label and saves a reply draft. Prices and dates stay [CONFIRM] until you fill them in. It never sends or deletes mail, and it leaves Sintra&apos;s drafts alone. Disconnect asks you to confirm and does not sign you out.</p>
+          <p className="note">Brand mail in these inboxes becomes a hidden offer within seconds of arriving. The portal files it under an MM/ label and keeps the reply draft here. Prices and dates stay [CONFIRM] until you fill them in. That draft is not saved in Gmail until the reply is filled in. It never sends or deletes mail, and it leaves Sintra&apos;s drafts alone. Disconnect asks you to confirm and does not sign you out.</p>
           {watched.map(({ box, state }) => {
             const matches = state.connected && state.gmailEmail === box.email;
             const status = storedConnectionStatus(matches, matches && state.needsReconnect);
