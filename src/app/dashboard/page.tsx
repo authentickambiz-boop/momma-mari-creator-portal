@@ -21,7 +21,8 @@ import { inviteErrorNote } from "@/lib/invite-notes";
 import { listPlatformInvites } from "@/lib/platform-invites";
 import { REINVEST_CATEGORIES, reinvestmentSummary } from "@/lib/reinvestment";
 import { getDealStage } from "@/lib/stages";
-import { listUsageRights, usageExpiryAlerts } from "@/lib/usage";
+import { listUsageEndingSoon, listUsageRights, usageExpiryAlerts } from "@/lib/usage";
+import { queueUsageRenewalDrafts } from "@/lib/usage-renewal";
 import { listDealsForViewer } from "@/lib/queries";
 import { listCreatorSigning, signedCreatorNote } from "@/lib/signed-creators";
 
@@ -149,11 +150,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     );
   }
   const today = new Date().toISOString().slice(0, 10);
+  await queueUsageRenewalDrafts(portal.db, today);
   const usageCards = await listUsageRights(portal.db, portal.viewer, today);
+  const endingSoon = await listUsageEndingSoon(portal.db, portal.viewer, today);
   const reviewBoard = await listOwnerDealReviews(portal.db, portal.viewer);
   const signals = (
     <OwnerSignals
       alerts={usageExpiryAlerts(usageCards, today)}
+      endingSoon={endingSoon}
       reviews={reviewBoard.ok ? reviewBoard.reviews : []}
       reports={await listBrandReports(portal.db, portal.viewer)}
       deals={(await listDealsForViewer(portal.db, portal.viewer, "all")).map((deal) => ({ id: deal.id, brand: deal.brand }))}

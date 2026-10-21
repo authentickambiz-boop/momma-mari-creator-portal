@@ -3,6 +3,12 @@ const RIGHTS_ERROR_TEXT = {
   date: "Use dates like 2026-10-21.",
   end: "The end date has to be on or after the start.",
   missing: "Deal not found.",
+  perpetual: "Perpetual usage stays off unless the owner turns it on.",
+  tier: "Pick a usage tier of 30, 60, 90, 180, or 365 days.",
+  channel: "Pick at least one channel.",
+  fee: "Enter a dollar amount.",
+  ownerFee: "Only the owner can record a renewal fee.",
+  window: "Set a usage window before recording a renewal fee.",
 } as const;
 
 export const RIGHTS_NOTES: Record<string, string> = {

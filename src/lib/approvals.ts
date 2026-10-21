@@ -18,6 +18,7 @@ export const APPROVAL_GATES = [
   { id: "post_link", label: "Post link to brand" },
   { id: "reminder", label: "Due date reminder" },
   { id: "report", label: "Monthly report" },
+  { id: "usage_renewal", label: "Usage renewal" },
 ] as const;
 
 export type ApprovalGate = (typeof APPROVAL_GATES)[number]["id"];

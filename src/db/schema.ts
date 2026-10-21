@@ -614,9 +614,41 @@ export const usageRights = sqliteTable("usage_rights", {
   territory: text("territory"),
   exclusivityCategory: text("exclusivity_category"),
   exclusivityEndsOn: text("exclusivity_ends_on"),
+  tier: text("tier"),
+  channelsJson: text("channels_json"),
+  perpetualOverride: integer("perpetual_override", { mode: "boolean" }).notNull().default(false),
+  renewalFeeCents: integer("renewal_fee_cents"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const usageRenewalDrafts = sqliteTable(
+  "usage_renewal_drafts",
+  {
+    id: text("id").primaryKey(),
+    dealId: text("deal_id").notNull(),
+    windowEndsOn: text("window_ends_on").notNull(),
+    approvalId: text("approval_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("usage_renewal_drafts_window").on(table.dealId, table.windowEndsOn)],
+);
+
+export const usageRenewalFees = sqliteTable(
+  "usage_renewal_fees",
+  {
+    id: text("id").primaryKey(),
+    dealId: text("deal_id").notNull(),
+    windowEndsOn: text("window_ends_on").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    creatorCents: integer("creator_cents").notNull(),
+    agencyCents: integer("agency_cents").notNull(),
+    payoutLineId: text("payout_line_id"),
+    invoiceId: text("invoice_id"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("usage_renewal_fees_window").on(table.dealId, table.windowEndsOn)],
+);
 
 export const mediaKits = sqliteTable("media_kits", {
   creatorId: text("creator_id").primaryKey(),

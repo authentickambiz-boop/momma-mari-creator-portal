@@ -56,7 +56,7 @@ function ApprovalCard({ item, creatorQuery }: { item: ApprovalQueueItem; creator
       </div>
       <p className="note">{item.creatorName} · {item.brand}</p>
       <p className="note">From {item.fromEmail} · To {item.toEmail}</p>
-      {item.gate === "brand_reply" ? <p className="note">This stays a draft until you approve it. The portal does not send it.</p> : null}
+      {item.gate === "brand_reply" || item.gate === "usage_renewal" ? <p className="note">This stays a draft until you approve it. The portal does not send it.</p> : null}
       {item.copies.length > 0 ? (
         <div className="private-note">
           <div className="sec-title">Saved copy</div>
