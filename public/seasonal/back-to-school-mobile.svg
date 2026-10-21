@@ -1,17 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" fill="none" id="scene-mobile">
 
-  
-  <path d="M0 540C160 450 340 540 540 450C680 390 760 520 800 440V1200H0Z" fill="#E09A3A"/>
-  <path d="M0 820C200 740 420 880 640 760C720 720 770 820 800 770V1200H0Z" fill="#6B3414"/>
-  <g id="schoolhouse" transform="translate(80,200)">
-    <rect x="250" y="80" width="24" height="60" fill="#F4E7C8" stroke="#1C140E" stroke-width="3"/>
-    <path d="M80 260L320 80L560 260Z" fill="#8C2E22" stroke="#1C140E" stroke-width="4"/>
-    <rect x="130" y="250" width="380" height="220" fill="#F4E0C4" stroke="#1C140E" stroke-width="4"/>
-    <rect x="270" y="340" width="80" height="130" fill="#6B3414" stroke="#1C140E" stroke-width="3"/>
+  <g id="falling-leaves"><g transform="translate(80 80) rotate(10) scale(0.9)"><path fill="#E09A3A" stroke="#1C140E" stroke-width="2" d="M0 2c8 7 13 16 7 26-9-1-16-9-22-16-4-8 4-14 15-10z"/><path d="M-4 20c6-6 11-9 16-11" stroke="#6B3414" stroke-width="1.6" fill="none"/></g><g transform="translate(500 120) rotate(-14) scale(0.8)"><path fill="#C4453A" stroke="#1C140E" stroke-width="2" d="M0 2c8 7 13 16 7 26-9-1-16-9-22-16-4-8 4-14 15-10z"/><path d="M-4 20c6-6 11-9 16-11" stroke="#6B3414" stroke-width="1.6" fill="none"/></g><g transform="translate(300 50) rotate(8) scale(0.6)"><path fill="#F2C14E" stroke="#1C140E" stroke-width="2" d="M0 2c8 7 13 16 7 26-9-1-16-9-22-16-4-8 4-14 15-10z"/><path d="M-4 20c6-6 11-9 16-11" stroke="#6B3414" stroke-width="1.6" fill="none"/></g></g>
+  <path d="M0 460C180 380 360 520 560 400C700 340 760 460 800 380V1200H0Z" fill="#C4783A"/>
+  <g id="schoolhouse" transform="translate(200 460) scale(1)">
+    <rect x="70" y="-40" width="28" height="50" fill="#F4E0C4" stroke="#1C140E" stroke-width="3"/>
+    <path d="M64 -40h40l-20-24z" fill="#C4453A" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="84" cy="-8" r="6" fill="#E2B657" stroke="#1C140E" stroke-width="2"/>
+    <path d="M0 20 L110 -20 L220 20 Z" fill="#8C2E22" stroke="#1C140E" stroke-width="4"/>
+    <rect y="16" width="220" height="130" fill="#F4E0C4" stroke="#1C140E" stroke-width="4"/>
+    <rect x="24" y="40" width="40" height="36" rx="4" fill="#FFE7C2" stroke="#1C140E" stroke-width="3"/><path d="M44 40v36M24 58h40" stroke="#1C140E" stroke-width="2.5"/>
+    <rect x="156" y="40" width="40" height="36" rx="4" fill="#FFE7C2" stroke="#1C140E" stroke-width="3"/><path d="M176 40v36M156 58h40" stroke="#1C140E" stroke-width="2.5"/>
+    <path d="M90 78h40v68h-40z" fill="#6B3414" stroke="#1C140E" stroke-width="3"/>
+    <path d="M18 146h184" stroke="#C4453A" stroke-width="6"/>
   </g>
-  <g id="satchel" transform="translate(300 860)">
-    <rect width="160" height="110" rx="12" fill="#6B3414" stroke="#1C140E" stroke-width="3"/>
-    <path d="M40 0c0-24 80-24 80 0" stroke="#1C140E" stroke-width="4" fill="none"/>
+  <g id="school-bus" transform="translate(160 820) scale(0.9 0.9)">
+    <rect width="220" height="78" rx="10" fill="#F2C14E" stroke="#1C140E" stroke-width="4"/>
+    <rect y="34" width="220" height="10" fill="#1C140E"/>
+    <rect x="16" y="12" width="36" height="26" rx="3" fill="#C9DFF2" stroke="#1C140E" stroke-width="2"/>
+    <rect x="60" y="12" width="36" height="26" rx="3" fill="#C9DFF2" stroke="#1C140E" stroke-width="2"/>
+    <rect x="104" y="12" width="36" height="26" rx="3" fill="#C9DFF2" stroke="#1C140E" stroke-width="2"/>
+    <rect x="148" y="12" width="28" height="26" rx="3" fill="#C9DFF2" stroke="#1C140E" stroke-width="2"/>
+    <circle cx="48" cy="78" r="16" fill="#1C140E" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="168" cy="78" r="16" fill="#1C140E" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="48" cy="78" r="6" fill="#E2B657"/>
+    <circle cx="168" cy="78" r="6" fill="#E2B657"/>
   </g>
+  <circle id="apples" cx="120" cy="980" r="14" fill="#C4453A" stroke="#1C140E" stroke-width="2"/>
+  <path d="M0 1080C200 1020 400 1160 800 1060V1200H0Z" fill="#6B3414"/>
 
 </svg>

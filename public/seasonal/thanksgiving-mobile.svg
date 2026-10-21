@@ -1,16 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" fill="none" id="scene-mobile">
-  <path d="M0 520C160 440 340 520 520 440C660 380 740 500 800 420V1200H0Z" fill="#A85A28"/>
-  <path d="M0 760C180 680 380 800 600 700C700 660 760 760 800 700V1200H0Z" fill="#6B3414"/>
-  <g id="porch-table" transform="translate(0,-80)">
-    <rect x="180" y="420" width="440" height="220" rx="10" fill="#F4E0C4" stroke="#1C140E" stroke-width="4"/>
-    <path d="M160 430L400 280L640 430Z" fill="#8C2E22" stroke="#1C140E" stroke-width="4"/>
-    <rect x="250" y="470" width="70" height="60" rx="6" fill="#FFE7C2" stroke="#1C140E" stroke-width="3"/>
-    <rect x="480" y="470" width="70" height="60" rx="6" fill="#FFE7C2" stroke="#1C140E" stroke-width="3"/>
-    <path d="M220 700h360l24 22H196z" fill="#8C4A1A" stroke="#1C140E" stroke-width="4"/>
-    <ellipse cx="340" cy="660" rx="48" ry="34" fill="#F7E2C2" stroke="#1C140E" stroke-width="3"/>
-    <path d="M340 634c-24-6-40-28-28-46 16 8 30 4 42-6 6 18 4 36-14 52z" fill="#E8873A"/>
-    <circle cx="386" cy="646" r="14" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
-    <ellipse cx="500" cy="656" rx="52" ry="22" fill="#FFE7C2" stroke="#1C140E" stroke-width="3"/>
-    <ellipse cx="500" cy="646" rx="42" ry="16" fill="#E09A3A" stroke="#1C140E" stroke-width="3"/>
+
+  <defs><linearGradient id="back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E09A3A"/><stop offset="1" stop-color="#6B3414"/></linearGradient><radialGradient id="pumpkin" cx="40%" cy="32%" r="72%"><stop offset="0" stop-color="#FFE7C2"/><stop offset="0.5" stop-color="#FF9A3C"/><stop offset="1" stop-color="#E07020"/></radialGradient></defs>
+  <g id="falling-leaves"><g transform="translate(80 80) rotate(-10) scale(1)"><path fill="#C4453A" stroke="#1C140E" stroke-width="2" d="M0 2c8 7 13 16 7 26-9-1-16-9-22-16-4-8 4-14 15-10z"/><path d="M-4 20c6-6 11-9 16-11" stroke="#6B3414" stroke-width="1.6" fill="none"/></g><g transform="translate(220 140) rotate(20) scale(0.8)"><path fill="#E09A3A" stroke="#1C140E" stroke-width="2" d="M0 2c8 7 13 16 7 26-9-1-16-9-22-16-4-8 4-14 15-10z"/><path d="M-4 20c6-6 11-9 16-11" stroke="#6B3414" stroke-width="1.6" fill="none"/></g><g transform="translate(520 90) rotate(-16) scale(0.9)"><path fill="#F2C14E" stroke="#1C140E" stroke-width="2" d="M0 2c8 7 13 16 7 26-9-1-16-9-22-16-4-8 4-14 15-10z"/><path d="M-4 20c6-6 11-9 16-11" stroke="#6B3414" stroke-width="1.6" fill="none"/></g><g transform="translate(640 180) rotate(12) scale(0.7)"><path fill="#C4783A" stroke="#1C140E" stroke-width="2" d="M0 2c8 7 13 16 7 26-9-1-16-9-22-16-4-8 4-14 15-10z"/><path d="M-4 20c6-6 11-9 16-11" stroke="#6B3414" stroke-width="1.6" fill="none"/></g></g>
+  <g transform="translate(120 70)" fill="#FFF1D6" stroke="#1C140E" stroke-width="2" opacity="0.9"><ellipse cx="0" cy="8" rx="40" ry="16"/><ellipse cx="30" cy="2" rx="28" ry="14"/><ellipse cx="-28" cy="4" rx="24" ry="12"/></g>
+  <path d="M0 420C160 340 360 460 560 380C680 320 760 420 800 360V1200H0Z" fill="url(#back)"/>
+  <g id="autumn-tree" transform="translate(40 360) scale(0.9)">
+    <path d="M0 150c6-50 4-100 14-150" stroke="#3A2414" stroke-width="16" stroke-linecap="round"/>
+    <ellipse cx="8" cy="-10" rx="70" ry="52" fill="#C4453A"/>
+    <ellipse cx="58" cy="8" rx="48" ry="38" fill="#E09A3A"/>
+    <ellipse cx="-36" cy="16" rx="40" ry="32" fill="#A85A28"/>
+    <ellipse cx="24" cy="-28" rx="28" ry="20" fill="#E09A3A" opacity="0.9"/>
+    <circle cx="-8" cy="-6" r="3" fill="#F7F1FF"/><circle cx="12" cy="-4" r="3" fill="#F7F1FF"/>
+    <path d="M-6 10c6 5 16 5 22 0" stroke="#F7F1FF" stroke-width="2" stroke-linecap="round"/>
   </g>
+  <g id="harvest-table"><path d="M160 760h420l24 22H140z" fill="#F4E0C4" stroke="#1C140E" stroke-width="4"/><rect x="200" y="782" width="14" height="50" fill="#6B3414"/><rect x="520" y="782" width="14" height="50" fill="#6B3414"/><ellipse cx="340" cy="720" rx="40" ry="30" fill="#F4E0C4" stroke="#1C140E" stroke-width="3"/><path d="M340 698c-20-6-36-24-24-40 12 6 24 4 34-4 4 14 2 26-10 44z" fill="#C4453A"/><circle cx="380" cy="708" r="12" fill="#F4E0C4" stroke="#1C140E" stroke-width="2"/><g id="pumpkin"><ellipse cx="470" cy="730" rx="28" ry="22" fill="url(#pumpkin)" stroke="#1C140E" stroke-width="3"/><path d="M470 708c3-16 12-14 8-30" stroke="#2F6A36" stroke-width="3" stroke-linecap="round"/><path d="M470 716v35.2" stroke="#C46A22" stroke-width="2" opacity="0.75"/></g></g>
+  <g id="pumpkin"><ellipse cx="160" cy="980" rx="40" ry="32" fill="url(#pumpkin)" stroke="#1C140E" stroke-width="3"/><path d="M160 948c3-16 12-14 8-30" stroke="#2F6A36" stroke-width="3" stroke-linecap="round"/><path d="M160 956v51.2" stroke="#C46A22" stroke-width="2" opacity="0.75"/><path d="M144 976l8 8 8-8M162 976l8 8 8-8M150 992c8 8 18 8 26 0" stroke="#1C140E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g><g id="pumpkin"><ellipse cx="280" cy="1020" rx="50" ry="38" fill="url(#pumpkin)" stroke="#1C140E" stroke-width="3"/><path d="M280 982c3-16 12-14 8-30" stroke="#2F6A36" stroke-width="3" stroke-linecap="round"/><path d="M280 990v60.800000000000004" stroke="#C46A22" stroke-width="2" opacity="0.75"/></g><g id="pumpkin"><ellipse cx="430" cy="970" rx="34" ry="26" fill="url(#pumpkin)" stroke="#1C140E" stroke-width="3"/><path d="M430 944c3-16 12-14 8-30" stroke="#2F6A36" stroke-width="3" stroke-linecap="round"/><path d="M430 952v41.6" stroke="#C46A22" stroke-width="2" opacity="0.75"/></g>
+
 </svg>

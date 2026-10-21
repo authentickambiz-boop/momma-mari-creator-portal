@@ -1,19 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" fill="none" id="scene-mobile">
 
-  
-  <path d="M0 540C160 450 340 540 540 450C680 390 760 520 800 440V1200H0Z" fill="#C45A3A"/>
-  <path d="M0 820C200 740 420 880 640 760C720 720 770 820 800 770V1200H0Z" fill="#1B3A6B"/>
-  <g id="spark-bursts" fill="#F2C14E">
-    <path d="M120 160l8 20 20 4-16 12 6 20-18-12-18 12 6-20-16-12 20-4z"/>
-    <path d="M560 120l6 16 16 3-12 8 4 14-14-8-14 8 4-14-12-8 16-3z"/>
-  </g>
-  <g id="porch-bunting" transform="translate(40,200)">
-    <path d="M40 80c180 30 360 10 560 36" stroke="#1C140E" stroke-width="3"/>
-    <path d="M160 100l22 40h-44z" fill="#C4453A"/><path d="M280 108l22 40h-44z" fill="#FFF6EA"/><path d="M400 102l22 40h-44z" fill="#1B3A6B"/>
-  </g>
-  <g id="picnic" transform="translate(180 760)">
-    <rect width="400" height="120" rx="10" fill="#C4453A" stroke="#1C140E" stroke-width="3"/>
-    <path d="M0 40h400M100 0v120M200 0v120M300 0v120" stroke="#FFF6EA" stroke-width="5"/>
-  </g>
+  <g id="firework" transform="translate(180 140)"><path d="M20.6 4.2L35.3 7.2" stroke="#E2B657" stroke-width="2" stroke-linecap="round"/><path d="M11.2 8.5L39.8 30.2" stroke="#E2B657" stroke-width="3" stroke-linecap="round"/><path d="M9.6 18.7L16.4 32.0" stroke="#E2B657" stroke-width="2" stroke-linecap="round"/><path d="M0.3 14.0L1.2 50.0" stroke="#E2B657" stroke-width="3" stroke-linecap="round"/><path d="M-8.6 19.1L-14.8 32.8" stroke="#E2B657" stroke-width="2" stroke-linecap="round"/><path d="M-10.7 9.0L-38.3 32.1" stroke="#E2B657" stroke-width="3" stroke-linecap="round"/><path d="M-20.4 5.2L-34.9 8.9" stroke="#E2B657" stroke-width="2" stroke-linecap="round"/><path d="M-13.7 -2.8L-49.0 -9.9" stroke="#E2B657" stroke-width="3" stroke-linecap="round"/><path d="M-16.7 -12.7L-28.7 -21.8" stroke="#E2B657" stroke-width="2" stroke-linecap="round"/><path d="M-6.4 -12.5L-22.8 -44.5" stroke="#E2B657" stroke-width="3" stroke-linecap="round"/><path d="M-0.5 -21.0L-0.9 -36.0" stroke="#E2B657" stroke-width="2" stroke-linecap="round"/><path d="M5.8 -12.8L20.6 -45.6" stroke="#E2B657" stroke-width="3" stroke-linecap="round"/><path d="M16.1 -13.5L27.6 -23.1" stroke="#E2B657" stroke-width="2" stroke-linecap="round"/><path d="M13.6 -3.4L48.5 -12.3" stroke="#E2B657" stroke-width="3" stroke-linecap="round"/><circle r="7" fill="#E2B657" stroke="#1C140E" stroke-width="2"/></g><g id="firework" transform="translate(560 100)"><path d="M16.5 3.3L28.2 5.7" stroke="#E8873A" stroke-width="2" stroke-linecap="round"/><path d="M8.9 6.8L31.9 24.2" stroke="#E8873A" stroke-width="3" stroke-linecap="round"/><path d="M7.7 15.0L13.1 25.6" stroke="#E8873A" stroke-width="2" stroke-linecap="round"/><path d="M0.3 11.2L1.0 40.0" stroke="#E8873A" stroke-width="3" stroke-linecap="round"/><path d="M-6.9 15.3L-11.9 26.2" stroke="#E8873A" stroke-width="2" stroke-linecap="round"/><path d="M-8.6 7.2L-30.7 25.7" stroke="#E8873A" stroke-width="3" stroke-linecap="round"/><path d="M-16.3 4.1L-27.9 7.1" stroke="#E8873A" stroke-width="2" stroke-linecap="round"/><path d="M-11.0 -2.2L-39.2 -7.9" stroke="#E8873A" stroke-width="3" stroke-linecap="round"/><path d="M-13.4 -10.2L-22.9 -17.4" stroke="#E8873A" stroke-width="2" stroke-linecap="round"/><path d="M-5.1 -10.0L-18.2 -35.6" stroke="#E8873A" stroke-width="3" stroke-linecap="round"/><path d="M-0.4 -16.8L-0.7 -28.8" stroke="#E8873A" stroke-width="2" stroke-linecap="round"/><path d="M4.6 -10.2L16.5 -36.5" stroke="#E8873A" stroke-width="3" stroke-linecap="round"/><path d="M12.9 -10.8L22.1 -18.5" stroke="#E8873A" stroke-width="2" stroke-linecap="round"/><path d="M10.9 -2.8L38.8 -9.8" stroke="#E8873A" stroke-width="3" stroke-linecap="round"/><circle r="7" fill="#E8873A" stroke="#1C140E" stroke-width="2"/></g>
+  <g id="flags" transform="translate(80 360) scale(1.1)"><rect x="-2" width="4" height="78" fill="#F4E0C4" stroke="#1C140E" stroke-width="2"/><path d="M2 4h46v28H2z" fill="#F7F1FF" stroke="#1C140E" stroke-width="2"/><path d="M2 4h20v14H2z" fill="#1B3A6B"/><path d="M2 18h46M2 26h46" stroke="#C4453A" stroke-width="3"/></g>
+  <path d="M0 560C180 480 360 620 560 520C680 460 760 580 800 500V1200H0Z" fill="#1E6A48"/>
+  <g id="flags"><path d="M200 520c80 20 160 16 240-8" stroke="#F4E0C4" stroke-width="3" fill="none"/><path d="M240 530l12 20h-24z" fill="#C4453A" stroke="#1C140E" stroke-width="2"/><path d="M320 540l12 20h-24z" fill="#1B3A6B" stroke="#1C140E" stroke-width="2"/></g>
+  <path d="M220 860l180-10 20 50-190 16z" fill="#C4453A" stroke="#1C140E" stroke-width="3"/>
+  <path d="M0 1040C200 980 400 1120 800 1020V1200H0Z" fill="#0C2418"/>
 
 </svg>

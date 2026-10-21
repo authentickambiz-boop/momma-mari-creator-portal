@@ -1,26 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
 
-  
-  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#C4783A"/>
-  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#6B3414"/>
-  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#3A1E10"/>
-  <g id="desk-window">
-    <rect x="120" y="220" width="340" height="260" rx="8" fill="#F4E0C4" stroke="#1C140E" stroke-width="4"/>
-    <rect x="150" y="250" width="130" height="120" fill="#F2C14E" stroke="#1C140E" stroke-width="3"/>
-    <circle cx="200" cy="300" r="24" fill="#C4453A"/>
-    <path d="M230 360c-8-40 4-70 8-100" stroke="#4A3424" stroke-width="4"/>
+  <defs><linearGradient id="back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C4783A"/><stop offset="1" stop-color="#6B3414"/></linearGradient></defs>
+  <g id="falling-leaves"><g transform="translate(80 70) rotate(16) scale(1)"><path fill="#C4453A" stroke="#1C140E" stroke-width="2" d="M0 2c8 7 13 16 7 26-9-1-16-9-22-16-4-8 4-14 15-10z"/><path d="M-4 20c6-6 11-9 16-11" stroke="#6B3414" stroke-width="1.6" fill="none"/></g><g transform="translate(300 40) rotate(-10) scale(0.7)"><path fill="#E09A3A" stroke="#1C140E" stroke-width="2" d="M0 2c8 7 13 16 7 26-9-1-16-9-22-16-4-8 4-14 15-10z"/><path d="M-4 20c6-6 11-9 16-11" stroke="#6B3414" stroke-width="1.6" fill="none"/></g><g transform="translate(560 120) rotate(22) scale(0.8)"><path fill="#F2C14E" stroke="#1C140E" stroke-width="2" d="M0 2c8 7 13 16 7 26-9-1-16-9-22-16-4-8 4-14 15-10z"/><path d="M-4 20c6-6 11-9 16-11" stroke="#6B3414" stroke-width="1.6" fill="none"/></g><g transform="translate(1000 50) rotate(-18) scale(0.9)"><path fill="#C4783A" stroke="#1C140E" stroke-width="2" d="M0 2c8 7 13 16 7 26-9-1-16-9-22-16-4-8 4-14 15-10z"/><path d="M-4 20c6-6 11-9 16-11" stroke="#6B3414" stroke-width="1.6" fill="none"/></g><g transform="translate(1280 130) rotate(8) scale(0.75)"><path fill="#E09A3A" stroke="#1C140E" stroke-width="2" d="M0 2c8 7 13 16 7 26-9-1-16-9-22-16-4-8 4-14 15-10z"/><path d="M-4 20c6-6 11-9 16-11" stroke="#6B3414" stroke-width="1.6" fill="none"/></g></g>
+  <path d="M0 300C320 210 600 360 940 240C1180 150 1360 290 1440 190V900H0Z" fill="url(#back)"/>
+  <g id="school-bus" transform="translate(40 470) scale(0.95 0.95)">
+    <rect width="220" height="78" rx="10" fill="#F2C14E" stroke="#1C140E" stroke-width="4"/>
+    <rect y="34" width="220" height="10" fill="#1C140E"/>
+    <rect x="16" y="12" width="36" height="26" rx="3" fill="#C9DFF2" stroke="#1C140E" stroke-width="2"/>
+    <rect x="60" y="12" width="36" height="26" rx="3" fill="#C9DFF2" stroke="#1C140E" stroke-width="2"/>
+    <rect x="104" y="12" width="36" height="26" rx="3" fill="#C9DFF2" stroke="#1C140E" stroke-width="2"/>
+    <rect x="148" y="12" width="28" height="26" rx="3" fill="#C9DFF2" stroke="#1C140E" stroke-width="2"/>
+    <circle cx="48" cy="78" r="16" fill="#1C140E" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="168" cy="78" r="16" fill="#1C140E" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="48" cy="78" r="6" fill="#E2B657"/>
+    <circle cx="168" cy="78" r="6" fill="#E2B657"/>
   </g>
-  <g id="study-desk" transform="translate(560 520)">
-    <rect x="0" y="60" width="460" height="20" fill="#6B3414" stroke="#1C140E" stroke-width="3"/>
-    <rect x="40" y="10" width="70" height="16" fill="#C4453A" stroke="#1C140E" stroke-width="2"/>
-    <rect x="48" y="0" width="70" height="16" fill="#1B3A6B" stroke="#1C140E" stroke-width="2"/>
-    <rect x="56" y="-12" width="70" height="16" fill="#F4E7C8" stroke="#1C140E" stroke-width="2"/>
+  <g id="schoolhouse" transform="translate(1040 280) scale(0.85)">
+    <rect x="70" y="-40" width="28" height="50" fill="#F4E0C4" stroke="#1C140E" stroke-width="3"/>
+    <path d="M64 -40h40l-20-24z" fill="#C4453A" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="84" cy="-8" r="6" fill="#E2B657" stroke="#1C140E" stroke-width="2"/>
+    <path d="M0 20 L110 -20 L220 20 Z" fill="#8C2E22" stroke="#1C140E" stroke-width="4"/>
+    <rect y="16" width="220" height="130" fill="#F4E0C4" stroke="#1C140E" stroke-width="4"/>
+    <rect x="24" y="40" width="40" height="36" rx="4" fill="#FFE7C2" stroke="#1C140E" stroke-width="3"/><path d="M44 40v36M24 58h40" stroke="#1C140E" stroke-width="2.5"/>
+    <rect x="156" y="40" width="40" height="36" rx="4" fill="#FFE7C2" stroke="#1C140E" stroke-width="3"/><path d="M176 40v36M156 58h40" stroke="#1C140E" stroke-width="2.5"/>
+    <path d="M90 78h40v68h-40z" fill="#6B3414" stroke="#1C140E" stroke-width="3"/>
+    <path d="M18 146h184" stroke="#C4453A" stroke-width="6"/>
   </g>
-  <g id="pencil-cup" transform="translate(1100 470)">
-    <path d="M20 40h70l-8 70H28z" fill="#E09A3A" stroke="#1C140E" stroke-width="3"/>
-    <rect x="34" y="8" width="8" height="40" fill="#F2C14E"/>
-    <rect x="50" y="0" width="8" height="48" fill="#C4453A"/>
-    <rect x="66" y="12" width="8" height="36" fill="#1B3A6B"/>
+  <g id="autumn-tree" transform="translate(760 200) scale(1.2)">
+    <path d="M0 150c6-50 4-100 14-150" stroke="#3A2414" stroke-width="16" stroke-linecap="round"/>
+    <ellipse cx="8" cy="-10" rx="70" ry="52" fill="#E09A3A"/>
+    <ellipse cx="58" cy="8" rx="48" ry="38" fill="#C4453A"/>
+    <ellipse cx="-36" cy="16" rx="40" ry="32" fill="#8C2E22"/>
+    <ellipse cx="24" cy="-28" rx="28" ry="20" fill="#C4453A" opacity="0.9"/>
+    <circle cx="-8" cy="-6" r="3" fill="#F7F1FF"/><circle cx="12" cy="-4" r="3" fill="#F7F1FF"/>
+    <path d="M-6 10c6 5 16 5 22 0" stroke="#F7F1FF" stroke-width="2" stroke-linecap="round"/>
   </g>
+  <path d="M0 600C300 530 640 700 1000 560C1220 490 1360 620 1440 540V900H0Z" fill="#A85A28"/>
+  <g id="stop"><rect x="360" y="560" width="10" height="90" fill="#6B3414"/><rect x="330" y="530" width="70" height="36" rx="4" fill="#C4453A" stroke="#1C140E" stroke-width="3"/><path d="M348 548h34" stroke="#F7F1FF" stroke-width="4"/></g>
+  <g id="bench"><rect x="500" y="650" width="160" height="14" rx="3" fill="#6B3414" stroke="#1C140E" stroke-width="2"/><rect x="516" y="664" width="10" height="28" fill="#6B3414"/><rect x="634" y="664" width="10" height="28" fill="#6B3414"/></g>
+  <g id="satchel"><path d="M540 610h50v36h-50z" fill="#8C4A1A" stroke="#1C140E" stroke-width="3"/><path d="M552 610c0-12 26-12 26 0" stroke="#1C140E" stroke-width="3" fill="none"/></g>
+  <g id="apples"><circle cx="200" cy="760" r="16" fill="#C4453A" stroke="#1C140E" stroke-width="2"/><path d="M200 744c2-8 8-6 6 0" stroke="#1E6A48" stroke-width="2"/></g>
+  <path d="M0 830C400 790 800 890 1440 810V900H0Z" fill="#5C2E14"/>
 
 </svg>

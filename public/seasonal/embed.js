@@ -51,33 +51,99 @@
     { top: "62%", left: "74%", size: 150, delay: "0s" },
     { top: "70%", left: "86%", size: 110, delay: "-0.8s" },
   ];
-  function bits(kind, a, b, c) {
-    return [
-      { kind: kind, top: a[0], left: a[1], size: a[2], duration: "22s", delay: "0s", drift: "a" },
-      { kind: kind, top: b[0], left: b[1], size: b[2], duration: "26s", delay: "-6s", drift: "b" },
-      { kind: kind, top: c[0], left: c[1], size: c[2], duration: "24s", delay: "-3s", drift: "c" },
-    ];
+  function drift(kind, top, left, size, duration, delay, name) {
+    return { kind: kind, top: top, left: left, size: size, duration: duration, delay: delay, drift: name };
   }
   var CAST = {
     halloween: FLOATERS,
-    thanksgiving: bits("leaf", ["16%", "18%", 42], ["28%", "64%", 34], ["12%", "82%", 28]),
-    hanukkah: bits("star", ["14%", "20%", 28], ["26%", "72%", 22], ["40%", "48%", 18]),
-    christmas: bits("flake", ["12%", "22%", 26], ["24%", "68%", 18], ["36%", "40%", 22]),
-    "new-year": bits("spark", ["14%", "16%", 28], ["22%", "74%", 20], ["38%", "46%", 16]),
-    valentines: bits("heart", ["16%", "14%", 36], ["28%", "70%", 24], ["20%", "44%", 20]),
-    "st-patricks": bits("clover", ["18%", "16%", 34], ["30%", "72%", 24], ["12%", "48%", 18]),
-    easter: bits("petal", ["14%", "20%", 26], ["26%", "66%", 18], ["18%", "84%", 22]),
-    "mothers-day": bits("petal", ["16%", "18%", 28], ["24%", "74%", 22], ["36%", "42%", 18]),
-    "fathers-day": bits("leaf", ["14%", "22%", 30], ["28%", "70%", 22], ["20%", "46%", 16]),
-    summer: bits("burst", ["12%", "18%", 32], ["22%", "64%", 18], ["18%", "84%", 24]),
-    "back-to-school": bits("leaf", ["14%", "16%", 34], ["26%", "68%", 28], ["18%", "42%", 22]),
+    thanksgiving: [
+      drift("leaf", "8%", "12%", 64, "22s", "0s", "a"),
+      drift("leaf", "18%", "78%", 48, "26s", "-8s", "c"),
+      drift("leaf", "6%", "42%", 36, "20s", "-4s", "b"),
+      drift("leaf", "28%", "24%", 42, "28s", "-12s", "a"),
+      drift("leaf", "22%", "60%", 30, "24s", "-2s", "c"),
+    ],
+    hanukkah: [
+      drift("star", "10%", "16%", 36, "22s", "0s", "a"),
+      drift("star", "20%", "74%", 28, "26s", "-7s", "c"),
+      drift("spark", "8%", "46%", 22, "20s", "-3s", "b"),
+      drift("star", "32%", "28%", 24, "28s", "-11s", "a"),
+      drift("spark", "16%", "88%", 18, "24s", "-5s", "c"),
+    ],
+    christmas: [
+      drift("flake", "6%", "14%", 34, "20s", "0s", "a"),
+      drift("flake", "16%", "70%", 26, "26s", "-8s", "c"),
+      drift("flake", "28%", "36%", 22, "24s", "-4s", "b"),
+      drift("flake", "10%", "88%", 30, "28s", "-12s", "a"),
+      drift("flake", "34%", "56%", 18, "22s", "-2s", "c"),
+    ],
+    "new-year": [
+      drift("spark", "8%", "12%", 36, "18s", "0s", "a"),
+      drift("burst", "14%", "62%", 44, "24s", "-6s", "c"),
+      drift("spark", "26%", "34%", 22, "22s", "-3s", "b"),
+      drift("burst", "10%", "84%", 30, "28s", "-11s", "a"),
+      drift("spark", "32%", "48%", 18, "20s", "-2s", "c"),
+    ],
+    valentines: [
+      drift("heart", "10%", "14%", 52, "22s", "0s", "a"),
+      drift("heart", "22%", "76%", 36, "26s", "-7s", "c"),
+      drift("petal", "8%", "48%", 28, "24s", "-3s", "b"),
+      drift("heart", "30%", "28%", 30, "28s", "-12s", "a"),
+      drift("petal", "18%", "62%", 22, "20s", "-5s", "c"),
+    ],
+    "st-patricks": [
+      drift("clover", "12%", "16%", 48, "22s", "0s", "a"),
+      drift("clover", "24%", "74%", 34, "26s", "-6s", "c"),
+      drift("clover", "8%", "46%", 26, "20s", "-2s", "b"),
+      drift("clover", "30%", "28%", 30, "28s", "-10s", "a"),
+      drift("clover", "18%", "88%", 22, "24s", "-4s", "c"),
+    ],
+    easter: [
+      drift("petal", "10%", "18%", 36, "22s", "0s", "a"),
+      drift("petal", "22%", "72%", 26, "26s", "-5s", "c"),
+      drift("petal", "8%", "48%", 22, "20s", "-9s", "b"),
+      drift("petal", "30%", "30%", 28, "28s", "-3s", "a"),
+      drift("petal", "16%", "86%", 20, "24s", "-7s", "c"),
+    ],
+    "mothers-day": [
+      drift("petal", "10%", "16%", 40, "22s", "0s", "a"),
+      drift("heart", "20%", "76%", 34, "26s", "-6s", "c"),
+      drift("petal", "8%", "44%", 24, "20s", "-2s", "b"),
+      drift("petal", "28%", "28%", 30, "28s", "-11s", "a"),
+      drift("heart", "16%", "60%", 22, "24s", "-4s", "c"),
+    ],
+    "fathers-day": [
+      drift("leaf", "10%", "18%", 44, "22s", "0s", "a"),
+      drift("spark", "22%", "64%", 22, "18s", "-6s", "c"),
+      drift("leaf", "8%", "42%", 30, "26s", "-3s", "b"),
+      drift("leaf", "28%", "82%", 36, "28s", "-10s", "a"),
+      drift("spark", "34%", "30%", 18, "20s", "-2s", "c"),
+    ],
+    summer: [
+      drift("burst", "8%", "16%", 48, "20s", "0s", "a"),
+      drift("spark", "18%", "58%", 24, "24s", "-6s", "c"),
+      drift("burst", "12%", "82%", 36, "28s", "-2s", "b"),
+      drift("spark", "28%", "34%", 20, "22s", "-9s", "a"),
+      drift("burst", "6%", "46%", 28, "26s", "-4s", "c"),
+    ],
+    "back-to-school": [
+      drift("leaf", "8%", "14%", 52, "22s", "0s", "a"),
+      drift("apple", "20%", "70%", 36, "26s", "-6s", "c"),
+      drift("leaf", "12%", "42%", 30, "24s", "-3s", "b"),
+      drift("leaf", "28%", "84%", 40, "28s", "-11s", "a"),
+      drift("apple", "32%", "24%", 26, "20s", "-2s", "c"),
+    ],
   };
   var GLOW = {
     halloween: LANTERNS,
-    hanukkah: [{ top: "48%", left: "58%", size: 140, delay: "0s" }],
-    christmas: [{ top: "46%", left: "78%", size: 130, delay: "0s" }],
-    "new-year": [{ top: "22%", left: "30%", size: 120, delay: "0s" }],
-    summer: [{ top: "16%", left: "70%", size: 140, delay: "0s" }],
+    thanksgiving: [{ top: "64%", left: "24%", size: 90, delay: "0s" }, { top: "62%", left: "54%", size: 80, delay: "-0.8s" }],
+    hanukkah: [{ top: "36%", left: "50%", size: 180, delay: "0s" }, { top: "38%", left: "12%", size: 90, delay: "-1.1s" }],
+    christmas: [{ top: "52%", left: "82%", size: 140, delay: "0s" }, { top: "48%", left: "18%", size: 100, delay: "-0.9s" }],
+    "new-year": [{ top: "16%", left: "16%", size: 150, delay: "0s" }, { top: "14%", left: "72%", size: 130, delay: "-0.7s" }],
+    valentines: [{ top: "46%", left: "78%", size: 100, delay: "0s" }],
+    "fathers-day": [{ top: "62%", left: "60%", size: 120, delay: "0s" }],
+    summer: [{ top: "14%", left: "14%", size: 150, delay: "0s" }, { top: "12%", left: "74%", size: 160, delay: "-0.9s" }],
+    "back-to-school": [{ top: "42%", left: "32%", size: 100, delay: "0s" }],
   };
   var GLASS = { fill: "#200E3A", alpha: 0.68, mobileAlpha: 0.84, ink: "#F7F1FF", heading: "#FFF6EA", link: "#FFE7C2" };
   var scriptEl = typeof document !== "undefined" ? document.currentScript : null;

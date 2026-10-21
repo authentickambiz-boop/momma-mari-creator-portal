@@ -1,26 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-site">
 
-  
-  <path d="M0 430C220 340 460 420 720 340C980 260 1200 380 1440 300V900H0Z" fill="#C4926A"/>
-  <path d="M0 580C280 500 560 640 900 540C1160 470 1320 580 1440 500V900H0Z" fill="#8A6248"/>
-  <path d="M0 740C320 680 680 800 1040 710C1240 670 1360 750 1440 700V900H0Z" fill="#4A3424"/>
-  <g id="workshop">
-    <path d="M160 500L340 340L520 500Z" fill="#6B3414" stroke="#1C140E" stroke-width="4"/>
-    <rect x="190" y="490" width="300" height="190" fill="#E7D3B0" stroke="#1C140E" stroke-width="4"/>
-    <path d="M250 540h180v140H250z" fill="#3A2C24" stroke="#1C140E" stroke-width="3"/>
-    <path d="M340 540v140" stroke="#E0A060" stroke-width="3"/>
-    <rect x="210" y="520" width="36" height="28" fill="#C9E4F2" stroke="#1C140E" stroke-width="3"/>
+  <defs><linearGradient id="back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E0B07A"/><stop offset="1" stop-color="#8C6244"/></linearGradient><linearGradient id="mid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C4926A"/><stop offset="1" stop-color="#6B5344"/></linearGradient></defs>
+  <g transform="translate(200 80)" fill="#FFF6EA" stroke="#1C140E" stroke-width="2" opacity="0.9"><ellipse cx="0" cy="8" rx="40" ry="16"/><ellipse cx="30" cy="2" rx="28" ry="14"/><ellipse cx="-28" cy="4" rx="24" ry="12"/></g><g transform="translate(1100 60)" fill="#F4E0C4" stroke="#1C140E" stroke-width="2" opacity="0.9"><ellipse cx="0" cy="8" rx="40" ry="16"/><ellipse cx="30" cy="2" rx="28" ry="14"/><ellipse cx="-28" cy="4" rx="24" ry="12"/></g>
+  <path d="M0 300C260 220 500 340 800 250C1100 160 1280 280 1440 200V900H0Z" fill="url(#back)"/>
+  <g id="autumn-tree" transform="translate(40 240) scale(0.85)">
+    <path d="M0 150c6-50 4-100 14-150" stroke="#3A2414" stroke-width="16" stroke-linecap="round"/>
+    <ellipse cx="8" cy="-10" rx="70" ry="52" fill="#3E8A46"/>
+    <ellipse cx="58" cy="8" rx="48" ry="38" fill="#2F6A36"/>
+    <ellipse cx="-36" cy="16" rx="40" ry="32" fill="#1E6A48"/>
+    <ellipse cx="24" cy="-28" rx="28" ry="20" fill="#2F6A36" opacity="0.9"/>
+    <circle cx="-8" cy="-6" r="3" fill="#F7F1FF"/><circle cx="12" cy="-4" r="3" fill="#F7F1FF"/>
+    <path d="M-6 10c6 5 16 5 22 0" stroke="#F7F1FF" stroke-width="2" stroke-linecap="round"/>
   </g>
-  <g id="mug-stool" transform="translate(760 620)">
-    <rect x="20" y="50" width="70" height="16" fill="#6B5344"/>
-    <rect x="48" y="66" width="14" height="40" fill="#4A3424"/>
-    <rect x="36" y="10" width="36" height="42" rx="4" fill="#1B3A6B" stroke="#1C140E" stroke-width="3"/>
+  <g id="house-edge"><rect x="1180" y="300" width="200" height="160" fill="#F4E0C4" stroke="#1C140E" stroke-width="4"/><path d="M1160 300l120-70 120 70" fill="#8C4A1A" stroke="#1C140E" stroke-width="3"/><rect x="1220" y="340" width="40" height="36" rx="4" fill="#FFE7C2" stroke="#1C140E" stroke-width="3"/><path d="M1240 340v36M1220 358h40" stroke="#1C140E" stroke-width="2.5"/><rect x="1300" y="340" width="40" height="36" rx="4" fill="#FFE7C2" stroke="#1C140E" stroke-width="3"/><path d="M1320 340v36M1300 358h40" stroke="#1C140E" stroke-width="2.5"/></g>
+  <path d="M0 520C300 450 600 600 940 500C1180 430 1340 560 1440 470V900H0Z" fill="url(#mid)"/>
+  <g id="grill" transform="translate(860 600) scale(1.15)">
+    <ellipse cx="0" cy="10" rx="54" ry="16" fill="#2A241C" stroke="#1C140E" stroke-width="3"/>
+    <path d="M-48 -10h96v24c0 20-96 20-96 0z" fill="#1C140E" stroke="#1C140E" stroke-width="3"/>
+    <path d="M-40 -4h80M-40 6h80M-20 -12v24M0 -12v24M20 -12v24" stroke="#6B5344" stroke-width="2"/>
+    <ellipse cx="-10" cy="-2" rx="8" ry="5" fill="#C46A22"/>
+    <ellipse cx="12" cy="2" rx="7" ry="4" fill="#E8873A"/>
+    <rect x="-6" y="24" width="6" height="28" fill="#3A2414"/>
+    <rect x="18" y="24" width="6" height="28" fill="#3A2414"/>
+    <path d="M-16 -28c4-16 8-18 6-32" stroke="#E7E0D8" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+    <path d="M4 -24c6-18 4-20 10-34" stroke="#F7F1FF" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+    <g transform="translate(-8 -8) scale(0.7)"><path d="M0 26c10-12 8-24 14-38-14 4-24 16-18 32 8-6 12-2 4 6z" fill="#FFE7A8" stroke="#E8873A" stroke-width="2"/><path d="M2 20c4-10 4-16 8-24-8 4-12 10-10 18z" fill="#FFF6EA"/></g>
   </g>
-  <g id="leaning-rod" transform="translate(980 420)">
-    <path d="M40 280L180 40" stroke="#6B3414" stroke-width="6" stroke-linecap="round"/>
-    <path d="M168 40c20 8 28 20 16 28" stroke="#1C140E" stroke-width="3" fill="none"/>
-    <circle cx="40" cy="286" r="10" fill="#3A3A3A"/>
-  </g>
-  <ellipse cx="1200" cy="760" rx="90" ry="16" fill="#3E6A48" opacity="0.7"/>
+  <g id="picnic"><path d="M180 680h340l16 16H164z" fill="#A67C58" stroke="#1C140E" stroke-width="4"/><rect x="210" y="696" width="12" height="40" fill="#6B3414"/><rect x="470" y="696" width="12" height="40" fill="#6B3414"/><ellipse cx="280" cy="668" rx="16" ry="8" fill="#C4453A" stroke="#1C140E" stroke-width="2"/><ellipse cx="360" cy="672" rx="18" ry="8" fill="#F4E0C4" stroke="#1C140E" stroke-width="2"/><rect x="420" y="656" width="22" height="14" rx="2" fill="#3E8A46" stroke="#1C140E" stroke-width="2"/></g>
+  <g transform="translate(620 700)"><path d="M0 20h48l6 8H-6z" fill="#C4783A" stroke="#1C140E" stroke-width="3"/><path d="M4 28v26M40 28v26M8 0v24M40 0v24M8 4h32" stroke="#1C140E" stroke-width="3" stroke-linecap="round"/></g><g transform="translate(700 730)"><path d="M0 20h48l6 8H-6z" fill="#8C6244" stroke="#1C140E" stroke-width="3"/><path d="M4 28v26M40 28v26M8 0v24M40 0v24M8 4h32" stroke="#1C140E" stroke-width="3" stroke-linecap="round"/></g>
+  <g id="fence" stroke="#6B3414" stroke-width="3"><path d="M40 760h400M60 740v40M140 732v48M220 740v40M300 734v46M380 740v40"/></g>
+  <g id="lights"><path d="M200 520C400 490 700 530 980 500" stroke="#F4E0C4" stroke-width="2" fill="none"/><circle cx="260" cy="508" r="5" fill="#E2B657" stroke="#1C140E" stroke-width="1.5"/><circle cx="400" cy="496" r="5" fill="#E2B657" stroke="#1C140E" stroke-width="1.5"/><circle cx="560" cy="512" r="5" fill="#E2B657" stroke="#1C140E" stroke-width="1.5"/><circle cx="740" cy="500" r="5" fill="#E2B657" stroke="#1C140E" stroke-width="1.5"/><circle cx="900" cy="492" r="5" fill="#E2B657" stroke="#1C140E" stroke-width="1.5"/></g>
+  <g id="shrubs"><ellipse cx="500" cy="760" rx="36" ry="18" fill="#2F6A36" stroke="#1C140E" stroke-width="2"/><ellipse cx="1100" cy="740" rx="42" ry="20" fill="#1E6A48" stroke="#1C140E" stroke-width="2"/><ellipse cx="200" cy="800" rx="28" ry="14" fill="#3E8A46" stroke="#1C140E" stroke-width="2"/></g>
+  <g id="rod"><path d="M1280 560l80 140" stroke="#6B3414" stroke-width="3"/><path d="M1360 700c20 8 24 8 30-4" stroke="#E2B657" stroke-width="2" fill="none"/></g>
+  <path d="M0 820C400 770 800 880 1440 790V900H0Z" fill="#3A2C24"/>
 
 </svg>
