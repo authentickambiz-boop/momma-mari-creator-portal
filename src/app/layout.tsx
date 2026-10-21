@@ -7,6 +7,7 @@ import { HomeScreen } from "@/components/home-screen";
 import { SeasonalThemeFrame } from "@/components/seasonal-theme";
 import { SiteFooter } from "@/components/site-footer";
 import { loadSeasonalPresentation } from "@/lib/seasonal-theme-request";
+import { seasonalCssVars, themeHasScene } from "@/lib/seasonal-theme";
 import "./globals.css";
 import "./seasonal-theme.css";
 
@@ -27,10 +28,10 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const seasonal = await loadSeasonalPresentation();
   const pageStyle: CSSProperties | undefined = seasonal.active
-    ? ({ "--cream": seasonal.active.palette.page } as CSSProperties)
+    ? (seasonalCssVars(seasonal.active) as CSSProperties)
     : undefined;
   return (
-    <html lang="en" className={`${inter.variable} ${fraunces.variable}`} data-seasonal={seasonal.active?.id} style={pageStyle}>
+    <html lang="en" className={`${inter.variable} ${fraunces.variable}`} data-seasonal={seasonal.active?.id} data-immersive={seasonal.active && themeHasScene(seasonal.active.id) ? "true" : undefined} style={pageStyle}>
       <body>
         <SeasonalThemeFrame presentation={{ active: seasonal.active, hidden: seasonal.hidden }} />
         {children}

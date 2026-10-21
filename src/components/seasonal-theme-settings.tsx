@@ -8,8 +8,8 @@ export async function SeasonalThemeSettings() {
     <form action={saveSeasonalThemeAction} className="card stack" style={{ marginTop: 14 }}>
       <div className="sec-title">Seasonal theme</div>
       <p className="note">
-        Themes follow Eastern Time and switch off on their own. Halloween runs through Nov 1, 2026.
-        Force a theme, or choose none. The later themes are palettes waiting for you to fill in.
+        Themes follow Eastern Time and switch off on their own. Force a theme, or choose none.
+        The valentine and mother-day themes are still palettes waiting for art.
       </p>
       <label htmlFor="seasonal-theme">Theme</label>
       <select id="seasonal-theme" name="theme" defaultValue={override}>

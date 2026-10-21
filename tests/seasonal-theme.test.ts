@@ -11,6 +11,9 @@ import {
   HALLOWEEN_FLOATERS,
   HALLOWEEN_GLASS,
   HALLOWEEN_LANTERNS,
+  HOLIDAY_FLOATERS,
+  THEME_GLASS,
+  themeHasScene,
   parseThemeInstant,
   SEASONAL_THEMES,
   SEASONAL_TIME_ZONE,
@@ -40,9 +43,16 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     assert.equal(at("2026-10-21T15:00:00"), "halloween");
     assert.equal(at("2026-11-01T23:59:59"), "halloween");
     assert.equal(at("2026-11-02T00:00:00"), "thanksgiving");
-    assert.equal(at("2026-11-27T23:59:59"), "thanksgiving");
-    assert.equal(at("2026-11-28T00:00:00"), "holiday");
-    assert.equal(at("2027-01-01T23:59:59"), "holiday");
+    assert.equal(at("2026-11-30T23:59:59"), "thanksgiving");
+    assert.equal(at("2026-12-01T00:00:00"), null);
+    assert.equal(at("2026-12-04T00:00:00"), "hanukkah");
+    assert.equal(at("2026-12-12T23:59:59"), "hanukkah");
+    assert.equal(at("2026-12-13T00:00:00"), null);
+    assert.equal(at("2026-12-24T00:00:00"), "christmas");
+    assert.equal(at("2026-12-26T23:59:59"), "christmas");
+    assert.equal(at("2026-12-27T00:00:00"), null);
+    assert.equal(at("2026-12-31T00:00:00"), "new-year");
+    assert.equal(at("2027-01-01T23:59:59"), "new-year");
     assert.equal(at("2027-01-02T00:00:00"), null);
     assert.equal(at("2027-02-01T00:00:00"), "valentines");
     assert.equal(at("2027-02-14T23:59:59"), "valentines");
@@ -115,19 +125,22 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     assert.match(css, /pointer-events:\s*none/);
     assert.match(css, /seasonal-scene-site/);
     assert.match(css, /seasonal-scene-portal/);
-    assert.match(css, /rgba\(32, 14, 58, 0\.68\)/);
-    assert.match(css, /rgba\(32, 14, 58, 0\.84\)/);
+    assert.match(css, /rgba\(var\(--seasonal-fill\), 0\.68\)/);
+    assert.match(css, /rgba\(var\(--seasonal-fill\), 0\.84\)/);
     assert.match(css, /backdrop-filter/);
+    assert.doesNotMatch(css, /-webkit-backdrop-filter/);
     assert.doesNotMatch(css, /clip-path:\s*inset\(64px/);
     assert.match(sparkle, /seasonalEffects/);
     assert.match(sparkle, /decorationsOn: true/);
-    assert.match(frame, /theme\?\.id === "halloween"/);
-    assert.match(frame, /HalloweenScene/);
+    assert.match(frame, /themeHasScene/);
+    assert.match(frame, /IllustratedScene/);
     assert.match(frame, /loading="lazy"/);
     assert.match(frame, /requestIdleCallback/);
-    assert.match(frame, /halloween-site\.svg/);
-    assert.match(frame, /halloween-portal\.svg/);
-    assert.match(frame, /halloween-mobile\.svg/);
+    for (const name of ["halloween", "thanksgiving", "hanukkah", "christmas", "new-year"]) {
+      assert.match(frame, new RegExp(`${name}-site\\.svg`));
+      assert.match(frame, new RegExp(`${name}-portal\\.svg`));
+      assert.match(frame, new RegExp(`${name}-mobile\\.svg`));
+    }
   });
 
   test("the public site and the portal get different full-viewport scenes", () => {
@@ -150,13 +163,28 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     const siteLamps = HALLOWEEN_LANTERNS.filter((item) => item.surface === "site");
     const portalLamps = HALLOWEEN_LANTERNS.filter((item) => item.surface === "portal");
     assert.notEqual(places(siteLamps), places(portalLamps));
-    const siteArt = source("public/seasonal/halloween-site.svg");
-    const portalArt = source("public/seasonal/halloween-portal.svg");
-    const mobileArt = source("public/seasonal/halloween-mobile.svg");
-    assert.match(siteArt, /id="haunted-house"/);
-    assert.match(portalArt, /id="porch"/);
-    assert.notEqual(siteArt, portalArt);
-    assert.ok(mobileArt.length < siteArt.length, "the phone scene should be the lighter file");
+    const scenes = [
+      ["halloween", "haunted-house", "porch"],
+      ["thanksgiving", "harvest-table", "harvest-porch"],
+      ["hanukkah", "menorah", "window-menorah"],
+      ["christmas", "cottage", "tree"],
+      ["new-year", "clock", "year-lights"],
+    ] as const;
+    for (const [name, siteId, portalId] of scenes) {
+      const siteArt = source(`public/seasonal/${name}-site.svg`);
+      const portalArt = source(`public/seasonal/${name}-portal.svg`);
+      const mobileArt = source(`public/seasonal/${name}-mobile.svg`);
+      assert.match(siteArt, new RegExp(`id="${siteId}"`));
+      assert.match(portalArt, new RegExp(`id="${portalId}"`));
+      assert.notEqual(siteArt, portalArt, name);
+      assert.ok(mobileArt.length < siteArt.length, `${name} phone scene should be the lighter file`);
+    }
+    for (const theme of ["thanksgiving", "hanukkah", "christmas", "new-year"] as const) {
+      const site = HOLIDAY_FLOATERS.filter((item) => item.theme === theme && item.surface === "site");
+      const portal = HOLIDAY_FLOATERS.filter((item) => item.theme === theme && item.surface === "portal");
+      assert.notEqual(places(site), places(portal), theme);
+      for (const item of [...site, ...portal]) assert.ok(Number.parseFloat(item.duration) >= 16);
+    }
     assert.match(source("src/app/seasonal-theme.css"), /max-width:\s*820px/);
     const paths = ["/", "/services", "/meet", "/pricing", "/pricing/preview", "/apply/thanks", "/gift-guide", "/login", "/portal/services", "/brand-report/abc", "/deals/kosbling"];
     for (const path of paths) {
@@ -187,9 +215,34 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     assert.ok(contrastRatio("#FFF6EA", "#6B46A3") >= 4.5);
     assert.ok(contrastRatio("#1C1A1F", "#E8873A") >= 4.5);
     assert.ok(contrastRatio("#1C1A1F", "#FFFFFF") >= 4.5);
+    const greetings: Record<string, string> = {
+      thanksgiving: "Happy Thanksgiving",
+      hanukkah: "Happy Hanukkah",
+      christmas: "Merry Christmas",
+      "new-year": "Happy New Year",
+    };
     for (const theme of SEASONAL_THEMES) {
-      if (theme.id === "halloween") continue;
-      assert.equal(theme.placeholder, true);
+      if (themeHasScene(theme.id)) {
+        assert.equal(theme.placeholder, false, theme.id);
+        const glass = THEME_GLASS[theme.id];
+        assert.ok(glass, theme.id);
+        if (!glass) continue;
+        const channels = glass.fill.split(",").map((part) => Number(part.trim()));
+        const fill = `#${channels.map((part) => part.toString(16).padStart(2, "0")).join("")}`;
+        for (const alpha of [HALLOWEEN_GLASS.alpha, HALLOWEEN_GLASS.mobileAlpha]) {
+          const worst = compositeHex(fill, HALLOWEEN_GLASS.scene, alpha);
+          for (const ink of inks) {
+            const ratio = contrastRatio(ink, worst);
+            assert.ok(ratio >= 4.5, `${theme.id} ${ink} on glass ${worst} at ${alpha} is ${ratio.toFixed(2)}`);
+          }
+        }
+        assert.ok(contrastRatio("#FFF6EA", glass.button) >= 4.5, `${theme.id} button`);
+        assert.ok(contrastRatio("#FFF6EA", glass.buttonHover) >= 4.5, `${theme.id} button hover`);
+        assert.ok(contrastRatio(glass.popInk, glass.pop) >= 4.5, `${theme.id} pop`);
+        if (greetings[theme.id]) assert.equal(theme.greeting, greetings[theme.id]);
+        continue;
+      }
+      assert.equal(theme.placeholder, true, theme.id);
       for (const ink of PAGE_TEXT) {
         const ratio = contrastRatio(ink, theme.palette.page);
         assert.ok(ratio >= 4.5, `${theme.id} ${ink} on ${theme.palette.page} is ${ratio.toFixed(2)}`);

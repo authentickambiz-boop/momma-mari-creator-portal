@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" fill="none" id="scene-mobile">
+  <path d="M0 560C180 470 360 560 560 460C680 400 760 520 800 450V1200H0Z" fill="#12305C"/>
+  <path d="M0 820C200 740 420 860 640 760C720 730 770 820 800 780V1200H0Z" fill="#071428"/>
+  <g id="menorah" transform="translate(80,-40)">
+    <path d="M180 760h280" stroke="#E2B657" stroke-width="12" stroke-linecap="round"/>
+    <path d="M220 760c0-70 18-90 60-90M420 760c0-70-18-90-60-90" stroke="#E2B657" stroke-width="8" fill="none"/>
+    <path d="M260 760c0-120 24-150 60-150M380 760c0-120-24-150-60-150" stroke="#E2B657" stroke-width="8" fill="none"/>
+    <path d="M320 760V520" stroke="#E2B657" stroke-width="10"/>
+    <g fill="#FFF6EA">
+      <rect x="210" y="560" width="14" height="40" rx="3"/>
+      <rect x="250" y="500" width="14" height="40" rx="3"/>
+      <rect x="376" y="500" width="14" height="40" rx="3"/>
+      <rect x="416" y="560" width="14" height="40" rx="3"/>
+      <rect x="313" y="540" width="14" height="40" rx="3"/>
+      <rect x="313" y="450" width="14" height="48" rx="3"/>
+    </g>
+    <g fill="#FFE7A8">
+      <ellipse cx="217" cy="552" rx="6" ry="10"/>
+      <ellipse cx="257" cy="492" rx="6" ry="10"/>
+      <ellipse cx="383" cy="492" rx="6" ry="10"/>
+      <ellipse cx="423" cy="552" rx="6" ry="10"/>
+      <ellipse cx="320" cy="532" rx="6" ry="10"/>
+      <ellipse cx="320" cy="440" rx="7" ry="12"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" fill="none" id="scene-portal">
+  <defs>
+    <radialGradient id="tp-window" cx="50%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#FFE7C2"/>
+      <stop offset="1" stop-color="#E8873A"/>
+    </radialGradient>
+    <radialGradient id="tp-pie" cx="40%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#FFF6EA"/>
+      <stop offset="1" stop-color="#E09A3A"/>
+    </radialGradient>
+  </defs>
+  <path d="M0 400C240 320 480 390 760 300C1040 220 1240 340 1440 260V900H0Z" fill="#B86A32"/>
+  <path d="M0 560C280 470 560 590 900 500C1160 430 1320 540 1440 470V900H0Z" fill="#8C4A1A"/>
+  <path d="M0 740C340 680 700 800 1100 700C1280 660 1380 730 1440 700V900H0Z" fill="#6B3414"/>
+  <g id="harvest-porch">
+    <rect x="70" y="360" width="340" height="250" rx="8" fill="#F4E0C4" stroke="#1C140E" stroke-width="4"/>
+    <path d="M50 370L240 220L430 370Z" fill="#8C2E22" stroke="#1C140E" stroke-width="4"/>
+    <rect x="110" y="410" width="70" height="64" rx="6" fill="url(#tp-window)" stroke="#1C140E" stroke-width="3"/>
+    <rect x="290" y="410" width="70" height="64" rx="6" fill="url(#tp-window)" stroke="#1C140E" stroke-width="3"/>
+    <path d="M190 500h90v110h-90z" fill="#6B3414" stroke="#1C140E" stroke-width="3"/>
+    <rect x="40" y="590" width="400" height="22" rx="4" fill="#C4783A" stroke="#1C140E" stroke-width="3"/>
+    <rect x="70" y="612" width="16" height="70" fill="#6B3414"/>
+    <rect x="390" y="612" width="16" height="70" fill="#6B3414"/>
+    <path d="M150 340c20 16 40 16 60 0" stroke="#F2C14E" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <g id="porch-table">
+    <path d="M860 560h420l28 26H832z" fill="#A85A28" stroke="#1C140E" stroke-width="4"/>
+    <rect x="890" y="586" width="20" height="100" fill="#6B3414"/>
+    <rect x="1230" y="586" width="20" height="100" fill="#6B3414"/>
+    <ellipse cx="980" cy="520" rx="54" ry="40" fill="#F4E0C4" stroke="#1C140E" stroke-width="3"/>
+    <path d="M980 488c-34-8-56-40-40-66 22 10 42 6 60-8 8 26 4 50-20 74z" fill="#C4453A"/>
+    <path d="M980 488c34-8 56-40 40-66-22 10-42 6-60-8-8 26-4 50 20 74z" fill="#E8873A"/>
+    <circle cx="1030" cy="500" r="18" fill="#FFF6EA" stroke="#1C140E" stroke-width="3"/>
+    <circle cx="1036" cy="496" r="2.4" fill="#1C140E"/>
+    <path d="M1044 506l14 4-14 4z" fill="#E8873A"/>
+    <ellipse cx="1160" cy="520" rx="70" ry="30" fill="#F7E2C2" stroke="#1C140E" stroke-width="3"/>
+    <ellipse cx="1160" cy="508" rx="58" ry="22" fill="url(#tp-pie)" stroke="#1C140E" stroke-width="3"/>
+    <path d="M1116 508h88M1160 488v40" stroke="#FFF6EA" stroke-width="2.4"/>
+    <ellipse cx="1060" cy="548" rx="34" ry="20" fill="#FF9A3C" stroke="#1C140E" stroke-width="3"/>
+  </g>
+  <g id="center-pumpkins" fill="#FF9A3C" stroke="#1C140E" stroke-width="3">
+    <ellipse cx="680" cy="560" rx="48" ry="36"/>
+    <ellipse cx="760" cy="590" rx="36" ry="28"/>
+    <path d="M680 524c2-16 8-14 6-28" stroke="#2F6A36" fill="none"/>
+  </g>
+  <g fill="#E8873A">
+    <path d="M640 160c20 10 22 24 8 34-16-2-30-14-8-34z"/>
+    <path d="M500 240c16 8 18 20 6 28-14 0-22-12-6-28z"/>
+  </g>
+</svg>
