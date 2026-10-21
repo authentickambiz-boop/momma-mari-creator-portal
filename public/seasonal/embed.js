@@ -67,11 +67,12 @@
       drift("leaf", "24%", "74%", 32, "26s", "-1s", "b"),
     ],
     hanukkah: [
-      drift("star", "10%", "16%", 36, "22s", "0s", "a"),
-      drift("star", "20%", "74%", 28, "26s", "-7s", "c"),
-      drift("spark", "8%", "46%", 22, "20s", "-3s", "b"),
-      drift("star", "32%", "28%", 24, "28s", "-11s", "a"),
-      drift("spark", "16%", "88%", 18, "24s", "-5s", "c"),
+      drift("star", "8%", "18%", 42, "24s", "0s", "a"),
+      drift("dreidel", "18%", "72%", 54, "26s", "-7s", "c"),
+      drift("spark", "6%", "48%", 20, "20s", "-3s", "b"),
+      drift("star", "28%", "30%", 28, "28s", "-11s", "a"),
+      drift("dreidel", "14%", "88%", 40, "22s", "-5s", "b"),
+      drift("spark", "34%", "60%", 16, "24s", "-9s", "c"),
     ],
     christmas: [
       drift("flake", "6%", "14%", 34, "20s", "0s", "a"),
@@ -224,7 +225,8 @@
       return '<svg viewBox="0 0 72 40" aria-hidden="true"><path fill="#6B46A3" stroke="#1C1A1F" stroke-width="2" d="M36 20c-4-8-12-8-20-3 4 2 6 7 4 11 6-4 11-4 16-2 5-2 10-2 16 2-2-4 0-9 4-11-8-5-16-5-20 3z"/><ellipse cx="36" cy="22" rx="8" ry="7" fill="#F6F0FC" stroke="#1C1A1F" stroke-width="2"/><circle cx="33" cy="21" r="1.3" fill="#1C1A1F"/><circle cx="39" cy="21" r="1.3" fill="#1C1A1F"/></svg>';
     }
     if (kind === "leaf") return '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#E09A3A" stroke="#1C140E" stroke-width="2" d="M24 6c10 8 16 18 12 30-12-2-20-10-26-18C6 10 14 4 24 6z"/></svg>';
-    if (kind === "star") return '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#E2B657" stroke="#1C140E" stroke-width="2" d="M24 4l5 14h14l-11 8 4 14-12-8-12 8 4-14L5 18h14z"/></svg>';
+    if (kind === "star") return '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#F7FBFF" stroke="#1C2430" stroke-width="2" stroke-linejoin="round" d="M24 4 L40 32 H8 Z"/><path fill="#C9D4E4" stroke="#1C2430" stroke-width="2" stroke-linejoin="round" d="M24 44 L8 16 H40 Z"/></svg>';
+    if (kind === "dreidel") return '<svg viewBox="0 0 48 64" aria-hidden="true"><rect x="21" y="2" width="6" height="16" rx="2" fill="#E8EEF6" stroke="#1C2430" stroke-width="2"/><path d="M24 16 L40 30 L24 58 L8 30 Z" fill="#24508C" stroke="#1C2430" stroke-width="2.5" stroke-linejoin="round"/><path d="M18 34 h12 M24 28 v12" stroke="#F7FBFF" stroke-width="2"/></svg>';
     if (kind === "flake") return '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="none" stroke="#F7F1FF" stroke-width="2.4" stroke-linecap="round" d="M24 6v36M8 14l32 20M8 34l32-20"/></svg>';
     if (kind === "spark" || kind === "burst") return '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#E2B657" stroke="#1C140E" stroke-width="2" d="M24 4l4 14 14 2-12 8 4 14-10-8-10 8 4-14L6 20l14-2z"/></svg>';
     if (kind === "heart") return '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#E7A0B4" stroke="#1C140E" stroke-width="2" d="M24 40C8 28 6 16 14 12c6-3 10 2 10 2s4-5 10-2c8 4 6 16-10 28z"/></svg>';
@@ -352,6 +354,128 @@
     }
   }
 
+  function wallParts(date) {
+    var fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    var parts = {};
+    fmt.formatToParts(date).forEach(function (part) {
+      if (part.type !== "literal") parts[part.type] = part.value;
+    });
+    var hour = Number(parts.hour);
+    if (hour === 24) hour = 0;
+    return {
+      year: Number(parts.year),
+      month: Number(parts.month),
+      day: Number(parts.day),
+      hour: hour,
+      minute: Number(parts.minute),
+      second: Number(parts.second),
+    };
+  }
+
+  function parseHanukkahNight(value) {
+    if (value == null || !/^[0-8]$/.test(String(value))) return null;
+    return Number(value);
+  }
+
+  function hanukkahLabel(night, daysUntil) {
+    if (night <= 0) {
+      var days = daysUntil == null ? 0 : daysUntil;
+      if (days === 0) return "Hanukkah begins at sundown";
+      if (days === 1) return "1 day until Hanukkah";
+      return days + " days until Hanukkah";
+    }
+    if (night === 1) return "Night 1 · the shamash and one candle";
+    return "Night " + night + " · the shamash and " + night + " candles";
+  }
+
+  function hanukkahView(now, nightOverride) {
+    var parts = wallParts(now || new Date());
+    var key = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+    var first = Date.UTC(2026, 11, 4, 17, 0, 0);
+    var today = Date.UTC(parts.year, parts.month - 1, parts.day);
+    var startDay = Date.UTC(2026, 11, 4);
+    var daysUntil = Math.max(0, Math.round((startDay - today) / 86400000));
+    var night;
+    if (nightOverride !== null && nightOverride !== undefined && nightOverride >= 0 && nightOverride <= 8) night = nightOverride;
+    else if (key < first) night = 0;
+    else night = Math.min(8, Math.floor((key - first) / 86400000) + 1);
+    var candles = [];
+    var fromLeft;
+    for (fromLeft = 0; fromLeft < 8; fromLeft += 1) {
+      var placedNight = 8 - fromLeft;
+      var lit = night > 0 && placedNight <= night;
+      candles.push({
+        night: placedNight,
+        fromLeft: fromLeft,
+        lit: lit,
+        lightIndex: lit ? fromLeft - (8 - night) : null,
+      });
+    }
+    return {
+      night: night,
+      daysUntil: night === 0 ? daysUntil : null,
+      shamashLit: night > 0,
+      candles: candles,
+      label: hanukkahLabel(night, night === 0 ? daysUntil : null),
+    };
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"]/g, function (ch) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch];
+    });
+  }
+
+  function menorahMarkup(view) {
+    var branches = [
+      [40, 190, 8], [86, 180, -5], [132, 172, 7], [176, 166, -3],
+      [284, 165, 4], [330, 171, -6], [376, 180, 5], [422, 191, -4],
+    ];
+    var parts = [];
+    parts.push('<path d="M158 232 C196 220 268 222 304 234 L316 262 C248 274 196 272 146 260 Z" fill="#D5DEEA" stroke="#1C2430" stroke-width="3"/>');
+    parts.push('<path d="M214 230 L207 156 C220 150 242 150 254 156 L246 230 Z" fill="#B7C6DA" stroke="#1C2430" stroke-width="3"/>');
+    parts.push('<rect x="132" y="258" width="196" height="18" rx="7" fill="#F4F7FB" stroke="#1C2430" stroke-width="3"/>');
+    function arm(x, y, bend) {
+      var midX = 230 + (x - 230) * 0.42;
+      var midY = Math.min(y, 168) - 18 + bend;
+      return "M230 214 C " + (230 + bend) + " " + (y + 10) + ", " + midX + " " + midY + ", " + x + " " + y;
+    }
+    branches.forEach(function (branch) {
+      parts.push('<path d="' + arm(branch[0], branch[1], branch[2]) + '" fill="none" stroke="#D5DEEA" stroke-width="7" stroke-linecap="round"/>');
+    });
+    function flame(delay) {
+      return '<g class="mm-flame" style="animation-delay:' + delay + 's,' + (delay + 0.45) + 's"><ellipse cx="0" cy="2" rx="11" ry="16" fill="#FFE7A8" opacity="0.55"/><path d="M0 14 C7 4 5 -8 9 -22 C2 -10 -3 -4 -5 2 C-3 8 -2 12 0 14 Z" fill="#FFE7A8" stroke="#C4922A" stroke-width="1.5"/><path d="M0 10 C3 2 2 -4 4 -10 C1 -4 -1 0 -2 4 C-1 7 -1 9 0 10 Z" fill="#FFFDF8"/></g>';
+    }
+    branches.forEach(function (branch, index) {
+      var candle = view.candles[index];
+      var body = '<ellipse cx="0" cy="2" rx="11" ry="5" fill="#F4F7FB" stroke="#1C2430" stroke-width="2.4"/>';
+      if (candle.lit) {
+        var delay = 0.28 + candle.lightIndex * 0.16;
+        body += '<rect x="-6.5" y="-36" width="13" height="40" rx="3" fill="#F7FBFF" stroke="#1C2430" stroke-width="2.3"/>';
+        body += '<g transform="translate(0 -36)">' + flame(delay) + "</g>";
+      }
+      parts.push('<g transform="translate(' + branch[0] + " " + branch[1] + ')">' + body + "</g>");
+    });
+    parts.push('<ellipse cx="230" cy="126" rx="12" ry="5.5" fill="#F4F7FB" stroke="#1C2430" stroke-width="2.4"/>');
+    if (view.shamashLit) {
+      parts.push('<g transform="translate(230 124)"><rect x="-7" y="-46" width="14" height="48" rx="3" fill="#F7FBFF" stroke="#1C2430" stroke-width="2.4"/><g transform="translate(0 -46)">' + flame(0.05) + "</g></g>");
+    }
+    if (view.night === 0) {
+      var tag = view.daysUntil === 0 ? "Tonight" : String(view.daysUntil);
+      parts.push('<g transform="translate(230 78)"><ellipse cx="0" cy="0" rx="58" ry="30" fill="#F7FBFF" stroke="#1C2430" stroke-width="3"/><text x="0" y="8" text-anchor="middle" font-family="Georgia, Times New Roman, serif" font-size="26" fill="#16325C" font-weight="700">' + escapeHtml(tag) + "</text></g>");
+    }
+    return '<div class="mm-menorah" data-hanukkah-night="' + view.night + '"><svg class="mm-menorah-art" viewBox="0 0 460 300" aria-hidden="true">' + parts.join("") + '</svg><p class="mm-menorah-label">' + escapeHtml(view.label) + "</p></div>";
+  }
+
   function build(scene) {
     var mobile = window.matchMedia("(max-width: 820px)").matches;
     var file = mobile ? scene.mobile : scene.desktop;
@@ -401,6 +525,15 @@
     }
     if (scene.id === "thanksgiving") root.insertAdjacentHTML("beforeend", harvestFrame());
     if (scene.id === "christmas") root.insertAdjacentHTML("beforeend", lightFrame());
+    if (scene.id === "hanukkah") {
+      var night = null;
+      try {
+        night = parseHanukkahNight(new URLSearchParams(window.location.search).get("mm_night"));
+      } catch (error) {
+        night = null;
+      }
+      root.insertAdjacentHTML("beforeend", menorahMarkup(hanukkahView(new Date(), night)));
+    }
     return root;
   }
 
@@ -431,6 +564,7 @@
     themeAt: themeAt,
     activeScene: activeScene,
     shouldSkip: shouldSkip,
+    hanukkahView: hanukkahView,
     mount: mount,
   };
 });

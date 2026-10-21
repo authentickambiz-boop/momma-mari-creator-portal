@@ -255,6 +255,90 @@ html[data-seasonal="christmas"] .login-forest {
   background-color: rgba(8, 24, 16, 0.68) !important;
   color: #F7F1FF;
 }
+html[data-seasonal="hanukkah"] .seasonal-scene {
+  top: 0;
+  right: 0;
+  bottom: auto;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+}
+html[data-seasonal="hanukkah"] .login-pane,
+html[data-seasonal="hanukkah"] .login-forest {
+  background: rgba(10, 22, 48, 0.62) !important;
+  background-color: rgba(10, 22, 48, 0.62) !important;
+  color: #F7F1FF;
+}
+
+.seasonal-menorah {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+}
+.seasonal-menorah-site {
+  left: 1.2%;
+  bottom: 1%;
+  width: min(500px, 44vw);
+}
+.seasonal-menorah-portal {
+  right: 2%;
+  bottom: 3%;
+  width: min(430px, 36vw);
+}
+.seasonal-menorah-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 14px 18px rgba(4, 10, 24, 0.45));
+}
+.seasonal-menorah-label {
+  margin: -4px auto 0;
+  width: fit-content;
+  max-width: 96%;
+  padding: 5px 14px 6px;
+  color: #F7FBFF;
+  background: #0A1830;
+  border: 2px solid #E8EEF6;
+  border-radius: 999px;
+  box-shadow: 2px 3px 0 #1C2430;
+  font-family: var(--heading), Georgia, serif;
+  font-size: 16px;
+  line-height: 1.3;
+  text-align: center;
+}
+.seasonal-menorah-site .seasonal-menorah-label { transform: rotate(-1.5deg); }
+.seasonal-menorah-portal .seasonal-menorah-label {
+  background: #16325C;
+  border-color: #C9D4E4;
+  transform: rotate(1.4deg);
+}
+.hanukkah-flame {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation:
+    hanukkah-catch 0.45s ease-out both,
+    hanukkah-flicker 1.8s ease-in-out infinite;
+}
+@keyframes hanukkah-catch {
+  from { opacity: 0; transform: scaleY(0.25) scaleX(0.7); }
+  to { opacity: 1; transform: scaleY(1) scaleX(1); }
+}
+@keyframes hanukkah-flicker {
+  0%, 100% { transform: scaleY(1) rotate(-1.5deg); opacity: 0.88; }
+  45% { transform: scaleY(1.12) rotate(2deg); opacity: 1; }
+  72% { transform: scaleY(0.92) rotate(-1deg); opacity: 0.8; }
+}
+.seasonal-floater-dreidel svg {
+  animation: hanukkah-dreidel 6.5s ease-in-out infinite;
+  transform-origin: 50% 60%;
+}
+@keyframes hanukkah-dreidel {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(10deg); }
+}
+.seasonal-scene[data-theme="hanukkah"] .seasonal-moon { display: none; }
 
 .seasonal-light-wire {
   z-index: 4;
@@ -655,6 +739,15 @@ html[data-seasonal] :focus-visible { outline-color: #F3C48A; }
   .seasonal-illustration,
   .seasonal-web,
   .seasonal-mark { animation: none; }
+  .seasonal-menorah-site,
+  .seasonal-menorah-portal {
+    left: 50%;
+    right: auto;
+    bottom: 2px;
+    width: min(300px, 86vw);
+    transform: translateX(-50%);
+  }
+  .seasonal-menorah-label { font-size: 13px; transform: none; }
   .seasonal-scene-portal .seasonal-moon { left: auto; right: 8%; top: 4%; width: 84px; height: 84px; }
 }
 
@@ -671,6 +764,8 @@ html[data-seasonal] :focus-visible { outline-color: #F3C48A; }
   .seasonal-web,
   .seasonal-mark,
   .seasonal-bulb { animation-play-state: paused; }
+  .hanukkah-flame,
+  .seasonal-floater-dreidel svg { animation: none; }
   .seasonal-sparkles { display: none; }
 }
 

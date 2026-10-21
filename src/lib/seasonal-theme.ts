@@ -69,7 +69,7 @@ export type ThemeOverride = "auto" | "none" | "halloween";
 
 export type SeasonalSurface = "site" | "portal";
 
-export type FloaterKind = "ghost" | "bat" | "leaf" | "star" | "flake" | "spark" | "heart" | "clover" | "petal" | "burst" | "apple";
+export type FloaterKind = "ghost" | "bat" | "leaf" | "star" | "flake" | "spark" | "heart" | "clover" | "petal" | "burst" | "apple" | "dreidel";
 
 export type ThemeFloater = {
   theme: SeasonalThemeId;
@@ -114,15 +114,17 @@ export const THEME_FLOATERS: readonly ThemeFloater[] = [
   { theme: "thanksgiving", kind: "leaf", surface: "portal", top: "12%", left: "88%", size: 40, duration: "26s", delay: "-12s", drift: "a" },
   { theme: "thanksgiving", kind: "leaf", surface: "portal", top: "30%", left: "64%", size: 36, duration: "20s", delay: "-2s", drift: "b" },
   { theme: "thanksgiving", kind: "leaf", surface: "portal", top: "20%", left: "8%", size: 30, duration: "30s", delay: "-7s", drift: "c" },
-  { theme: "hanukkah", kind: "star", surface: "site", top: "10%", left: "16%", size: 36, duration: "22s", delay: "0s", drift: "a" },
-  { theme: "hanukkah", kind: "star", surface: "site", top: "20%", left: "74%", size: 28, duration: "26s", delay: "-7s", drift: "c" },
-  { theme: "hanukkah", kind: "spark", surface: "site", top: "8%", left: "46%", size: 22, duration: "20s", delay: "-3s", drift: "b" },
-  { theme: "hanukkah", kind: "star", surface: "site", top: "32%", left: "28%", size: 24, duration: "28s", delay: "-11s", drift: "a" },
-  { theme: "hanukkah", kind: "spark", surface: "site", top: "16%", left: "88%", size: 18, duration: "24s", delay: "-5s", drift: "c" },
-  { theme: "hanukkah", kind: "star", surface: "portal", top: "12%", left: "22%", size: 32, duration: "24s", delay: "-4s", drift: "b" },
-  { theme: "hanukkah", kind: "spark", surface: "portal", top: "24%", left: "48%", size: 20, duration: "28s", delay: "-8s", drift: "a" },
-  { theme: "hanukkah", kind: "star", surface: "portal", top: "8%", left: "70%", size: 26, duration: "22s", delay: "-2s", drift: "c" },
-  { theme: "hanukkah", kind: "spark", surface: "portal", top: "30%", left: "84%", size: 18, duration: "26s", delay: "-10s", drift: "b" },
+  { theme: "hanukkah", kind: "star", surface: "site", top: "8%", left: "18%", size: 42, duration: "24s", delay: "0s", drift: "a" },
+  { theme: "hanukkah", kind: "dreidel", surface: "site", top: "18%", left: "72%", size: 54, duration: "26s", delay: "-7s", drift: "c" },
+  { theme: "hanukkah", kind: "spark", surface: "site", top: "6%", left: "48%", size: 20, duration: "20s", delay: "-3s", drift: "b" },
+  { theme: "hanukkah", kind: "star", surface: "site", top: "28%", left: "30%", size: 28, duration: "28s", delay: "-11s", drift: "a" },
+  { theme: "hanukkah", kind: "dreidel", surface: "site", top: "14%", left: "88%", size: 40, duration: "22s", delay: "-5s", drift: "b" },
+  { theme: "hanukkah", kind: "spark", surface: "site", top: "34%", left: "60%", size: 16, duration: "24s", delay: "-9s", drift: "c" },
+  { theme: "hanukkah", kind: "dreidel", surface: "portal", top: "16%", left: "18%", size: 48, duration: "26s", delay: "-4s", drift: "b" },
+  { theme: "hanukkah", kind: "star", surface: "portal", top: "8%", left: "62%", size: 34, duration: "22s", delay: "-2s", drift: "a" },
+  { theme: "hanukkah", kind: "spark", surface: "portal", top: "22%", left: "40%", size: 18, duration: "28s", delay: "-8s", drift: "c" },
+  { theme: "hanukkah", kind: "star", surface: "portal", top: "30%", left: "78%", size: 26, duration: "24s", delay: "-6s", drift: "b" },
+  { theme: "hanukkah", kind: "spark", surface: "portal", top: "10%", left: "28%", size: 16, duration: "20s", delay: "-1s", drift: "a" },
   { theme: "christmas", kind: "flake", surface: "site", top: "6%", left: "14%", size: 34, duration: "20s", delay: "0s", drift: "a" },
   { theme: "christmas", kind: "flake", surface: "site", top: "16%", left: "70%", size: 26, duration: "26s", delay: "-8s", drift: "c" },
   { theme: "christmas", kind: "flake", surface: "site", top: "28%", left: "36%", size: 22, duration: "24s", delay: "-4s", drift: "b" },

@@ -91,7 +91,7 @@ export const SEASONAL_CALENDAR: readonly CalendarEntry[] = [
     start: "2026-12-04T00:00:00",
     end: "2026-12-12T23:59:59",
     preview: true,
-    note: "Hanukkah 2026 begins at sundown Friday, December 4 and ends at nightfall Saturday, December 12 (eight nights).",
+    note: "Hanukkah 2026 begins at sundown Friday, December 4 and ends at nightfall Saturday, December 12 (eight nights). Preview only.",
   },
   {
     id: "christmas",

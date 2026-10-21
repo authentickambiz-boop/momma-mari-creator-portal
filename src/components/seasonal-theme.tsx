@@ -3,6 +3,7 @@
 import { useEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import { dismissSeasonalThemeAction, restoreSeasonalThemeAction } from "@/app/theme-actions";
+import { HanukkahMenorah } from "@/components/seasonal-menorah";
 import { BatIcon, GhostIcon, PumpkinIcon } from "@/components/seasonal-icons";
 import { SeasonalSparkle } from "@/components/seasonal-sparkle";
 import { SEASONAL_PREVIEW_PARAM } from "@/lib/seasonal-calendar";
@@ -152,7 +153,17 @@ function FloaterGlyph({ kind }: { kind: FloaterKind }) {
   if (kind === "star") {
     return (
       <svg viewBox="0 0 48 48" aria-hidden="true">
-        <path fill="#E2B657" stroke="#1C140E" strokeWidth="2" d="M24 4l5 14h14l-11 8 4 14-12-8-12 8 4-14L5 18h14z" />
+        <path fill="#F7FBFF" stroke="#1C2430" strokeWidth="2" strokeLinejoin="round" d="M24 4 L40 32 H8 Z" />
+        <path fill="#C9D4E4" stroke="#1C2430" strokeWidth="2" strokeLinejoin="round" d="M24 44 L8 16 H40 Z" />
+      </svg>
+    );
+  }
+  if (kind === "dreidel") {
+    return (
+      <svg viewBox="0 0 48 64" aria-hidden="true">
+        <rect x="21" y="2" width="6" height="16" rx="2" fill="#E8EEF6" stroke="#1C2430" strokeWidth="2" />
+        <path d="M24 16 L40 30 L24 58 L8 30 Z" fill="#24508C" stroke="#1C2430" strokeWidth="2.5" strokeLinejoin="round" />
+        <path d="M18 34 h12 M24 28 v12" stroke="#F7FBFF" strokeWidth="2" />
       </svg>
     );
   }
@@ -311,6 +322,7 @@ function IllustratedScene({ theme, surface }: { theme: SeasonalTheme; surface: S
       {theme.id === "halloween" ? <Cobweb className="seasonal-web seasonal-web-right" /> : null}
       {theme.id === "thanksgiving" ? <HarvestFrame /> : null}
       {theme.id === "christmas" ? <LightFrame /> : null}
+      {theme.id === "hanukkah" ? <HanukkahMenorah surface={surface} /> : null}
     </div>
   );
 }

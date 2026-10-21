@@ -11,7 +11,8 @@ export async function SeasonalThemeSettings() {
         The public calendar follows Eastern Time. Halloween runs through November 1, 2026.
         The other seasons are drafted and stay off. Open any page with ?mm_preview=thanksgiving
         (hanukkah, christmas, new-year, valentines, st-patricks, easter, mothers-day, fathers-day,
-        summer, or back-to-school) to look. That link does not change the site for anyone else.
+        summer, or back-to-school) to look. Hanukkah can also take ?mm_night=0 for the countdown
+        or ?mm_night=1 through 8 for that night. That link does not change the site for anyone else.
       </p>
       <label htmlFor="seasonal-theme">Theme</label>
       <select id="seasonal-theme" name="theme" defaultValue={override}>
