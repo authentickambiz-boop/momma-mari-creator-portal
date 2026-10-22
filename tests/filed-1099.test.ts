@@ -184,7 +184,7 @@ describe("filed 1099s and yearly summary", { concurrency: 1 }, () => {
 
     const page = readFileSync(path.join(process.cwd(), "src/app/payouts/page.tsx"), "utf8");
     const library = readFileSync(path.join(process.cwd(), "src/lib/payout-ledger.ts"), "utf8");
-    const sql = readFileSync(path.join(process.cwd(), "drizzle/0055_filed_1099.sql"), "utf8");
+    const sql = readFileSync(path.join(process.cwd(), "drizzle/0056_filed_1099.sql"), "utf8");
     assert.match(page, /https:\/\/www\.irs\.gov\/pub\/irs-pdf\/fw9\.pdf/);
     assert.match(page, /Download blank W-9/);
     assert.match(page, /Download your W-9/);
