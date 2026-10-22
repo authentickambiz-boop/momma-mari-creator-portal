@@ -5,7 +5,7 @@ import type { PortalDb } from "../src/db/index";
 import { brandReplyDrafts, deals, gmailPortalDrafts, gmailWatches } from "../src/db/schema";
 import { saveBrandReplyDraft } from "../src/lib/deal-review";
 import { dealNoticeCode } from "../src/lib/deal-notice-notes";
-import { isAutomatedSender, isBotSenderName, isBulkHeader, MM_LABEL } from "../src/lib/gmail-live";
+import { confirmDraftBody, gmailDraftCreateAllowed, gmailDraftRequestAllowed, isAutomatedSender, isBotSenderName, isBulkHeader, isGithubSender, MM_LABEL } from "../src/lib/gmail-live";
 import { ingestGmailPush, type GmailHistoryClient, type GmailHistoryMessage } from "../src/lib/gmail-push";
 import { admin, openTestDb } from "./harness";
 
@@ -58,8 +58,25 @@ describe("automated mail is not a deal", { concurrency: 1 }, () => {
 
   test("github notifications, bot names, noreply domains, and bulk headers are automated", () => {
     const github = '"cursor[bot]" <notifications@github.com>';
+    const exact = "cursor[bot] <notifications@github.com>";
     assert.equal(isAutomatedSender(github), true);
+    assert.equal(isAutomatedSender(exact), true);
     assert.equal(isBotSenderName(github), true);
+    assert.equal(isBotSenderName(exact), true);
+    assert.equal(isGithubSender(exact), true);
+    assert.equal(isAutomatedSender("notifications@github.com"), true);
+    assert.equal(isAutomatedSender("dev@github.com"), true);
+    assert.equal(isAutomatedSender("Ada <ada@reply.github.com>"), true);
+    assert.equal(isAutomatedSender("no-reply@brand.example"), true);
+    assert.equal(isAutomatedSender("notifications@brand.example"), true);
+    const placeholder = confirmDraftBody({ creatorLabel: "AuthenticKam", brand: "cursor[bot]" });
+    assert.equal(placeholder.includes("Hi cursor[bot],"), true);
+    assert.equal(placeholder.includes("Thanks for writing about AuthenticKam."), true);
+    assert.equal(placeholder.includes("Rate: [CONFIRM]"), true);
+    assert.equal(gmailDraftCreateAllowed({ to: "notifications@github.com", subject: "Re: PR #174", body: placeholder }), false);
+    const raw = Buffer.from(["To: notifications@github.com", "Subject: Re: PR #174", "", placeholder].join("\r\n")).toString("base64url");
+    assert.equal(gmailDraftRequestAllowed("/drafts", { message: { raw, threadId: "thread-exact" } }), false);
+    assert.equal(gmailDraftRequestAllowed("/labels", { message: { raw } }), true);
     assert.equal(isAutomatedSender("cursor[bot] <cursor[bot]@users.noreply.github.com>"), true);
     assert.equal(isAutomatedSender("GitHub <noreply@github.com>"), true);
     assert.equal(isAutomatedSender("Author <author@noreply.github.com>"), true);
@@ -153,5 +170,30 @@ describe("automated mail is not a deal", { concurrency: 1 }, () => {
     assert.equal(drafted.created.length, 1);
     assert.equal(drafted.created[0]?.body, reply);
     assert.equal(drafted.created.some((draft) => draft.body.includes("[CONFIRM]")), false);
+
+    const exactFrom = "cursor[bot] <notifications@github.com>";
+    const exactNote = message("gh-exact", {
+      from: exactFrom,
+      subject: "Re: [authentickambiz-boop/momma-mari-creator-portal] Do not file GitHub notifications as deals or placeholder drafts (PR #174)",
+      headers: {},
+      labelIds: ["INBOX", "CATEGORY_UPDATES"],
+    });
+    const exactOnDeal = message("gh-exact-thread", {
+      from: exactFrom,
+      threadId: "thread-brand-pitch",
+      subject: "Re: Maple partnership",
+      headers: {},
+      labelIds: ["INBOX"],
+    });
+    const exactRun = recordingClient([exactNote, exactOnDeal], "2400");
+    const filed = await ingestGmailPush(db, { emailAddress: mailbox, historyId: "2400" }, { client: exactRun.client });
+    if (!("createdDealIds" in filed.body) || !("matchedDealIds" in filed.body)) throw new Error("expected a filing");
+    assert.deepEqual(filed.body.createdDealIds, []);
+    assert.deepEqual(filed.body.matchedDealIds, []);
+    assert.equal(exactRun.created.length, 0);
+    assert.equal(exactRun.created.some((draft) => draft.body.includes("[CONFIRM]")), false);
+    for (const row of [exactNote, exactOnDeal]) {
+      assert.deepEqual(exactRun.labels.find((label) => label.id === row.id)?.names, [MM_LABEL.notDeal]);
+    }
   });
 });

@@ -490,13 +490,19 @@ html[data-seasonal] :is(h1, h2, h3, .brand-mark, .brand-mark strong, .home-card 
   color: var(--mm-heading);
 }
 
-html[data-seasonal] :where(h1, h2, h3, h4, h5, h6, p, li, a, span, label, dt, dd, figcaption, blockquote, button) {
+html[data-seasonal] :where(h1, h2, h3, h4, h5, h6, p, li, a, span, label, dt, dd, figcaption, blockquote, button, strong, b, em, small, div),
+html body {
   text-shadow:
+    0 0 2px rgba(255, 248, 241, 0.92),
     0 1px 1px rgba(16, 8, 28, 0.72),
     0 0 2px rgba(16, 8, 28, 0.65),
-    -1px 0 0 rgba(16, 8, 28, 0.4),
-    1px 0 0 rgba(16, 8, 28, 0.4);
+    -1px 0 0 rgba(16, 8, 28, 0.55),
+    1px 0 0 rgba(16, 8, 28, 0.55),
+    0 -1px 0 rgba(16, 8, 28, 0.45),
+    0 1px 0 rgba(16, 8, 28, 0.45);
 }
+
+html body :where(input, textarea, select) { text-shadow: none; }
 
 html[data-seasonal] .brand-mark small,
 html[data-seasonal] .brand small { color: #F0E4FF; }

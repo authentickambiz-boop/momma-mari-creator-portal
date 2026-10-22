@@ -537,12 +537,171 @@
     return root;
   }
 
+  var RANK_LABELS = ["Seedling", "Sprout", "Bronze", "Silver", "Gold", "Platinum", "Emerald", "Ruby", "Sapphire", "Diamond"];
+  var RANK_IDS = ["seedling", "sprout", "bronze", "silver", "gold", "platinum", "emerald", "ruby", "sapphire", "diamond"];
+  var RANK_HOW = "How to reach this rank: details coming soon";
+  var RANK_INTRO = "Ranks reflect a 0-100 creator score. How each rank is reached is coming soon.";
+  var STORY_IMAGE = "https://cdn.prod.website-files.com/6930c02a157263872fbd655d/6ad2680fd6b2cc409007c310_maclamroc-mariclare-image%5B1%5D.jpg";
+  var FOUNDER_IMAGE = "https://cdn.prod.website-files.com/6930c02a157263872fbd655d/6ad268743448708cf2d55775_authentickam-image%5B1%5D.jpg";
+  var STORY_ALT = "MariClare, Momma Mari creator";
+  var FOUNDER_ALT = "Kamron Santo, founder of Momma Mari";
+  var publishedFixed = false;
+
+  function classText(el) {
+    var value = el && el.className;
+    return typeof value === "string" ? value : "";
+  }
+
+  function insideTrail(el, root) {
+    var node = el.parentNode;
+    while (node && node !== root) {
+      var cls = classText(node);
+      if (cls.indexOf("trail-collection") !== -1 || cls.indexOf("mobile-images") !== -1) return true;
+      node = node.parentNode;
+    }
+    return false;
+  }
+
+  function remember(list, el) {
+    var i;
+    if (!el) return;
+    for (i = 0; i < list.length; i += 1) if (list[i] === el) return;
+    list.push(el);
+  }
+
+  function careerRoots(doc) {
+    var roots = [];
+    var marked = doc.querySelectorAll('[trail-image="component"]');
+    var i;
+    var h;
+    for (i = 0; i < marked.length; i += 1) remember(roots, marked[i]);
+    var sections = doc.querySelectorAll("section");
+    for (i = 0; i < sections.length; i += 1) {
+      var headings = sections[i].querySelectorAll("h1, h2, h3");
+      var match = false;
+      for (h = 0; h < headings.length; h += 1) {
+        if ((headings[h].textContent || "").indexOf("Ready to Grow Your Creator Career") !== -1) match = true;
+      }
+      if (!match) continue;
+      remember(roots, sections[i].querySelector(".content-cta") || sections[i]);
+    }
+    return roots;
+  }
+
+  function calmCareerSections(doc) {
+    var roots = careerRoots(doc);
+    var r;
+    for (r = 0; r < roots.length; r += 1) {
+      var root = roots[r];
+      if (root.hasAttribute && root.hasAttribute("trail-image") && root.parentNode) {
+        var copy = root.cloneNode(true);
+        root.parentNode.replaceChild(copy, root);
+        root = copy;
+      }
+      if (root.removeAttribute) root.removeAttribute("trail-image");
+      var lists = root.querySelectorAll('[trail-image="list"]');
+      var n;
+      for (n = 0; n < lists.length; n += 1) lists[n].removeAttribute("trail-image");
+      var trails = root.querySelectorAll(".trail-collection, .mobile-images");
+      for (n = 0; n < trails.length; n += 1) {
+        trails[n].setAttribute("hidden", "hidden");
+        trails[n].style.display = "none";
+      }
+      if (root.querySelector(".mm-cta-still")) continue;
+      var images = root.querySelectorAll("img");
+      var loose = null;
+      for (n = 0; n < images.length; n += 1) {
+        if (!insideTrail(images[n], root)) loose = images[n];
+      }
+      if (loose) continue;
+      var figure = doc.createElement("figure");
+      figure.className = "mm-cta-still";
+      var image = doc.createElement("img");
+      image.setAttribute("src", STORY_IMAGE);
+      image.setAttribute("alt", STORY_ALT);
+      image.setAttribute("decoding", "async");
+      figure.appendChild(image);
+      var button = root.querySelector(".cta-button");
+      if (button && button.parentNode === root) root.insertBefore(figure, button);
+      else root.appendChild(figure);
+    }
+  }
+
+  function rewriteRankCards(doc) {
+    var boxes = doc.querySelectorAll(".income-tiers-box-wrapper");
+    if (!boxes.length) return;
+    var headings = doc.querySelectorAll("h1, h2, h3, h4, h5, h6, .centered-heading");
+    var i;
+    for (i = 0; i < headings.length; i += 1) {
+      if ((headings[i].textContent || "").indexOf("Creator Income Tiers") !== -1) headings[i].textContent = "Creator Ranks";
+    }
+    var subs = doc.querySelectorAll(".sub-heading");
+    for (i = 0; i < subs.length; i += 1) {
+      if (/monthly income/i.test(subs[i].textContent || "")) subs[i].textContent = RANK_INTRO;
+    }
+    for (i = 0; i < boxes.length && i < RANK_LABELS.length; i += 1) {
+      var box = boxes[i];
+      var name = box.querySelector(".desination");
+      if (name) name.textContent = RANK_LABELS[i];
+      var line = box.querySelector(".paragraph-4");
+      if (line) line.textContent = RANK_HOW;
+      var reson = box.querySelector(".reson");
+      if (reson) {
+        reson.textContent = "";
+        reson.setAttribute("hidden", "hidden");
+        reson.style.display = "none";
+      }
+      box.setAttribute("data-mm-rank", RANK_IDS[i]);
+    }
+  }
+
+  function usePhoto(img, src, alt) {
+    if ((img.getAttribute("src") || "") !== src) img.setAttribute("src", src);
+    img.removeAttribute("srcset");
+    img.setAttribute("alt", alt);
+  }
+
+  function swapStoryPhotos(doc) {
+    var stories = doc.querySelectorAll("img.about-img");
+    var i;
+    for (i = 0; i < stories.length; i += 1) {
+      var src = stories[i].getAttribute("src") || "";
+      var alt = stories[i].getAttribute("alt") || "";
+      var neon = /Neon Portrait/i.test(src) || /Neon Portrait/i.test(alt) || /Momma Mari story/i.test(alt);
+      var ours = src.indexOf("6ad2680fd6b2cc409007c310") !== -1;
+      if (!neon && !ours) continue;
+      usePhoto(stories[i], STORY_IMAGE, STORY_ALT);
+    }
+    var cards = doc.querySelectorAll(".our-team-card");
+    for (i = 0; i < cards.length; i += 1) {
+      var who = cards[i].querySelector(".course-details-text");
+      if (!who || (who.textContent || "").indexOf("Kamron Santo") === -1) continue;
+      var photo = cards[i].querySelector("img");
+      if (!photo) continue;
+      usePhoto(photo, FOUNDER_IMAGE, FOUNDER_ALT);
+    }
+  }
+
+  function applyPublishedFixes(doc) {
+    calmCareerSections(doc);
+    rewriteRankCards(doc);
+    swapStoryPhotos(doc);
+  }
+
+  function presentPublishedSite() {
+    if (publishedFixed || typeof document === "undefined") return;
+    if (shouldSkip(window.location.pathname)) return;
+    publishedFixed = true;
+    applyPublishedFixes(document);
+  }
+
   function mount() {
     if (typeof document === "undefined") return;
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", mount);
       return;
     }
+    presentPublishedSite();
     if (started || document.querySelector(".mm-scene")) return;
     if (document.documentElement.getAttribute("data-seasonal")) return;
     if (shouldSkip(window.location.pathname)) return;
@@ -566,5 +725,11 @@
     shouldSkip: shouldSkip,
     hanukkahView: hanukkahView,
     mount: mount,
+    RANK_LABELS: RANK_LABELS,
+    RANK_HOW: RANK_HOW,
+    RANK_INTRO: RANK_INTRO,
+    STORY_IMAGE: STORY_IMAGE,
+    FOUNDER_IMAGE: FOUNDER_IMAGE,
+    applyPublishedFixes: applyPublishedFixes,
   };
 });

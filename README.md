@@ -560,6 +560,21 @@ Watched brand inboxes (MariClare, AuthenticKam, and Kamron@mommamari.com) use Gm
 
 Each creator can also connect her own Gmail from **Deal inbox** or **Connect accounts**. That button asks only for `gmail.readonly`. The refresh token is encrypted with `TOKEN_ENCRYPTION_KEY`. Live sync stays off until `GMAIL_SYNC_ENABLED` is the string `true`. While it is off, nothing is read from that inbox. When it is on, brand threads show in her deal inbox. Personal mail is left out. A reply is a draft on the approval queue until Kamron approves it. The portal does not send it. A manager can read threads for creators assigned to her and never receives the creator's login or token.
 
+## Connect a calendar
+
+**Connect calendar** on the Calendar page is a Google sign-in for that creator. It uses the same OAuth client as Gmail (`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`) and the same `TOKEN_ENCRYPTION_KEY`. No new secret. The only scope is `https://www.googleapis.com/auth/calendar.readonly`. `include_granted_scopes` is false, so this consent does not add Gmail or Drive access. The redirect URI stays `/api/auth/callback`.
+
+Kamron has enabled the Calendar API, added that scope on the consent screen, and checked test users. The steps below are the exact console path, for a re-check. The portal still shows portal due dates if Google refuses the call.
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and select the project that owns the OAuth client in `GOOGLE_CLIENT_ID`.
+2. **APIs & Services → Library**. Search **Google Calendar API**. Open it and click **Enable**.
+3. **APIs & Services → OAuth consent screen → Edit app → Data access** (or **Scopes**). **Add or remove scopes**. Add only `https://www.googleapis.com/auth/calendar.readonly`. Do not add `https://www.googleapis.com/auth/calendar` or a scope that can edit events. Save.
+4. The app is in **Testing**. **OAuth consent screen → Audience** (or **Test users**). Confirm each creator Gmail who will connect, and `Kamron@mommamari.com`, are on the test-user list. Testing allows up to 100 users. A scope added after someone already consented means she has to press **Connect calendar** again.
+5. **APIs & Services → Credentials →** the existing Web client. Authorized redirect URIs already include `http://localhost:43123/api/auth/callback` and `https://mommamari.com/portal/api/auth/callback`. Do not add another one.
+6. Leave `TOKEN_ENCRYPTION_KEY` as it is. Do not rotate it. If it is empty, Connect calendar does not start.
+
+A creator opens **Calendar** and presses **Connect calendar**. After consent, the week and month views show her Google events next to draft and post due dates. **Disconnect calendar** revokes the token at Google and deletes the ciphertext. Kamron can switch creators and see each connected calendar. `GET /api/bot/calendars?creatorId=` with `Authorization: Bearer $BOT_API_TOKEN` returns busy blocks and portal due dates only. It does not return event titles, locations, guests, or the token.
+
 ## Google Drive
 
 Uploads need one of these. Do not commit either value.

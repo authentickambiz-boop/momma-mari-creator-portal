@@ -1,50 +1,70 @@
-import { connectCalendarAction, saveDeliverableDateAction } from "@/app/calendar-actions";
+import { disconnectCalendarAction, saveDeliverableDateAction } from "@/app/calendar-actions";
+import { CalendarBoard } from "@/components/calendar-board";
 import { PortalFrame } from "@/components/portal-frame";
-import { calendarConnected, listCalendar } from "@/lib/calendar";
-import { calendarErrorNote } from "@/lib/calendar-notes";
+import { anchorDate, calendarView, monthDates, shiftAnchor, visibleSpan, weekDates } from "@/lib/calendar-view";
+import { calendarErrorNote, calendarGoogleNote } from "@/lib/calendar-notes";
 import { loadPortal } from "@/lib/current-user";
 import { withBasePath } from "@/lib/format";
+import { creatorSchedule } from "@/lib/google-calendar";
 import { listDealsForViewer } from "@/lib/queries";
 
-export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ creator?: string; saved?: string; calendarError?: string }> }) {
+function calendarHref(view: "week" | "month", on: string, creator: string | undefined) {
+  const params = new URLSearchParams({ view, on });
+  if (creator) params.set("creator", creator);
+  return `/calendar?${params.toString()}`;
+}
+
+export default async function CalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ creator?: string; saved?: string; calendarError?: string; view?: string; on?: string }>;
+}) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
   const staff = portal.viewer.role === "admin" || portal.viewer.role === "manager";
-  const dates = await listCalendar(portal.db, portal.viewer);
   const deals = await listDealsForViewer(portal.db, portal.viewer, portal.viewedId);
-  const connected = portal.viewer.role === "creator" && portal.viewer.creatorId
-    ? await calendarConnected(portal.db, portal.viewer.creatorId)
-    : false;
   const calendarError = calendarErrorNote(params.calendarError);
+  const view = calendarView(params.view);
+  const anchor = anchorDate(params.on);
+  const span = visibleSpan(anchor, view);
+  const targetId = portal.viewer.role === "creator"
+    ? portal.viewer.creatorId
+    : portal.viewedId === "all"
+      ? null
+      : portal.viewedId;
+  const schedule = targetId
+    ? await creatorSchedule(portal.db, portal.viewer, targetId, span)
+    : null;
+  const events = schedule?.ok ? schedule.events : [];
+  const days = view === "week"
+    ? weekDates(anchor).map((date) => ({ date, inMonth: true }))
+    : monthDates(anchor);
+  const googleNote = schedule?.ok ? calendarGoogleNote(schedule.google) : null;
+  const self = portal.viewer.role === "creator" && portal.viewer.creatorId === targetId;
   return (
     <PortalFrame
       viewer={portal.viewer}
       tab="calendar"
       creators={portal.creators}
       viewedId={portal.viewedId}
-      hello={<div className="hello"><h1>Calendar</h1><p>Draft and post dates. A reminder lands 3 days ahead, in the portal or in the approval queue. Nothing is emailed on its own.</p></div>}
+      hello={<div className="hello"><h1>Calendar</h1><p>Draft and post dates, next to the week from Google Calendar. A reminder lands 3 days ahead, in the portal or in the approval queue. Nothing is emailed on its own.</p></div>}
     >
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {calendarError ? <p className="private-note">{calendarError}</p> : null}
-      {dates.length === 0 ? <p className="note empty">No due dates yet.</p> : null}
-      {dates.length > 0 ? (
-        <div className="card">
-          <table>
-            <thead>
-              <tr><th>Brand</th><th>What</th><th>Due</th><th>Reminder</th></tr>
-            </thead>
-            <tbody>
-              {dates.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.brand}</td>
-                  <td>{item.kind === "draft" ? "Draft" : "Post"}</td>
-                  <td>{item.dueOn}</td>
-                  <td>{item.remindOn}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {googleNote ? <p className="note">{googleNote}</p> : null}
+      {!targetId ? <p className="note">Pick a creator to see her calendar.</p> : null}
+      {targetId && events.length === 0 ? <p className="note empty">No due dates yet.</p> : null}
+      {targetId ? (
+        <CalendarBoard
+          view={view}
+          days={days}
+          entries={events}
+          anchor={anchor}
+          prevHref={calendarHref(view, shiftAnchor(anchor, view, -1), params.creator)}
+          nextHref={calendarHref(view, shiftAnchor(anchor, view, 1), params.creator)}
+          weekHref={calendarHref("week", anchor, params.creator)}
+          monthHref={calendarHref("month", anchor, params.creator)}
+        />
       ) : null}
       {staff ? (
         <form action={saveDeliverableDateAction} className="card stack" style={{ marginTop: 14 }}>
@@ -64,16 +84,29 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           <button className="btn" type="submit">Save date</button>
         </form>
       ) : null}
-      {portal.viewer.role === "creator" ? (
+      {self ? (
         <div className="card" style={{ marginTop: 14 }}>
           <div className="sec-title">Your calendar</div>
-          <p className="note">{connected ? "Connected. Download the file and add it to your calendar. The portal does not send the dates anywhere else." : "Off. Dates stay in this portal until you connect."}</p>
-          <form action={connectCalendarAction}>
-            <input type="hidden" name="connected" value={connected ? "0" : "1"} />
-            <button className="btn ghost" type="submit">{connected ? "Disconnect calendar" : "Connect calendar"}</button>
-          </form>
-          {connected ? <p style={{ marginTop: 10 }}><a href={withBasePath("/api/calendar")}>Download calendar file</a></p> : null}
+          {schedule?.ok && schedule.linked ? (
+            <>
+              <p className="note">
+                Connected{schedule.email ? ` as ${schedule.email}` : ""}. The portal only reads the calendar. It does not change events.
+              </p>
+              <form action={disconnectCalendarAction}>
+                <button className="btn ghost" type="submit">Disconnect calendar</button>
+              </form>
+            </>
+          ) : (
+            <>
+              <p className="note">Connect Google Calendar to see your week here. The portal only asks to read the calendar.</p>
+              <a className="btn" href={withBasePath("/api/auth/calendar")}>Connect calendar</a>
+            </>
+          )}
+          {schedule?.ok && schedule.fileReady ? <p style={{ marginTop: 10 }}><a href={withBasePath("/api/calendar")}>Download portal dates</a></p> : null}
         </div>
+      ) : null}
+      {staff && schedule?.ok ? (
+        <p className="note">{schedule.linked ? "This creator connected Google Calendar. You are seeing her schedule." : "This creator has not connected Google Calendar. Portal dates still show."}</p>
       ) : null}
     </PortalFrame>
   );

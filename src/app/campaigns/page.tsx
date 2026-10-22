@@ -2,6 +2,7 @@ import { filterCampaignsAction, saveCampaignAction } from "@/app/campaign-action
 import { PortalFrame } from "@/components/portal-frame";
 import Link from "next/link";
 import { offerFlagLabel } from "@/lib/brand-offers";
+import { formatGoalTarget, goalTypeLabel } from "@/lib/brand-recap-report";
 import { TagPicker } from "@/components/tag-picker";
 import { canSeeMoney, listCampaigns } from "@/lib/campaigns";
 import { campaignErrorNote } from "@/lib/campaign-notes";
@@ -51,6 +52,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
           <Link className="card" key={campaign.id} href={`/campaigns/${campaign.id}?creator=${portal.viewedId}`}>
             <b>{campaign.brand}</b> · {campaign.name}
             <p>{campaign.niches.join(", ") || "Any niche"} · {campaign.platforms.join(", ") || "Any platform"} · {campaign.slots} slots · {campaign.status}{campaign.openOutside ? " · Open to outside creators" : ""}{campaign.kind === "offer" ? ` · Brand offer${offerFlagLabel(campaign.offerFlag) ? `: ${offerFlagLabel(campaign.offerFlag)}` : ""}` : ""}</p>
+            {goalTypeLabel(campaign.goalType ?? "") && campaign.goalTarget ? <p>Kickoff goal: {formatGoalTarget(campaign.goalTarget)} {goalTypeLabel(campaign.goalType ?? "")?.toLowerCase()}</p> : null}
             {priced ? <p>{formatMoney(campaign.budgetCents)} budget</p> : <p className="note">Budget stays with the owner unless your pricing toggle is on.</p>}
           </Link>
         )) : <p className="note empty">No campaigns match that filter.</p>}
@@ -70,6 +72,16 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
           <TagPicker name="niches" label="Niches" options={NICHE_CATALOG} selected={[]} />
           <TagPicker name="platforms" label="Platforms" options={PLATFORM_OPTIONS} selected={[]} />
           <TagPicker name="deliverables" label="Deliverables" options={DELIVERABLES.map((item) => item.label)} selected={[]} />
+          <label>Kickoff goal
+            <select name="goalType" defaultValue="">
+              <option value="">No goal yet</option>
+              <option value="views">Views</option>
+              <option value="clicks">Clicks</option>
+              <option value="sales">Sales</option>
+              <option value="ugc_assets">UGC assets</option>
+            </select>
+          </label>
+          <label>Target number<input name="goalTarget" inputMode="numeric" placeholder="100000" /></label>
           <button className="btn" type="submit">Save campaign</button>
         </form>
       ) : null}

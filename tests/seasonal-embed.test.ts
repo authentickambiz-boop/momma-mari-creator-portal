@@ -97,7 +97,13 @@ describe("webflow seasonal embed", () => {
     assert.match(css, /div\.card-image-wrapper > a > \.image-30/);
     assert.match(css, /object-position:\s*center center/);
     assert.match(css, /html\.mm-seasonal :where\([\s\S]*text-shadow:/);
+    assert.match(css, /rgba\(255, 248, 241, 0\.92\)/);
+    assert.match(css, /\.mm-cta-still img/);
+    assert.match(css, /section\.cta \.trail-collection/);
     assert.doesNotMatch(css, /\.mm-scene\s*\{[^}]*z-index:\s*(?!-1)\d/);
+    assert.match(js, /kind: "ghost", top: "14%", left: "12%", size: 120, duration: "22s"/);
+    assert.match(js, /kind: "ghost", top: "30%", left: "58%", size: 88, duration: "26s"/);
+    assert.match(js, /kind: "ghost", top: "46%", left: "82%", size: 54, duration: "28s"/);
     assert.match(js, /mm-harvest/);
     assert.match(js, /scene\.id === "thanksgiving"/);
     assert.match(js, /mm-bulb/);

@@ -34,14 +34,26 @@ export const PAGE_GUIDES: { [K in PortalTab]: PageGuide } = {
   },
   learn: {
     id: "learn",
-    who: "Everyone signed in.",
-    purpose: "Short lessons on deals, usage, and gifted posts, plus templates you can download.",
-    principle: "Read it here before you sign or send anything. A template is a starting point, and a lawyer should review it.",
+    who: "Everyone signed in. A creator sees lessons for everyone, plus lessons written for her.",
+    purpose: "Short how-to lessons on hooks, filming, editing, posting, growth, and UGC.",
+    principle: "These are skills, not a contract. Private rates stay off this page.",
     steps: [
-      "Pick a lesson and read it from top to bottom. They are short on purpose.",
+      "Open a topic and read the short lesson.",
+      "A label says whether the lesson is for everyone or for one creator.",
+      "Kamron or a manager can add a lesson, or edit one, and choose who sees it.",
+      "Deal paperwork and the templates live on How Momma Mari works.",
+    ],
+  },
+  how: {
+    id: "how",
+    who: "Everyone signed in.",
+    purpose: "How a brand deal moves, how rates get talked through, and how usage works.",
+    principle: "The downloads are templates. Have a lawyer review them. Nothing here is signed or sent.",
+    steps: [
+      "Read how a deal moves from an offer to a post.",
+      "Read the notes on rates and usage before you talk numbers with a brand.",
       "Download a template only when you need that paper.",
-      "Have a lawyer review anything you would sign. Nothing on this page is signed or sent.",
-      "Come back when a deal asks about usage or a gifted post.",
+      "Have a lawyer review anything you would sign. This page does not sign or send it.",
     ],
   },
   inbox: {
@@ -107,13 +119,13 @@ export const PAGE_GUIDES: { [K in PortalTab]: PageGuide } = {
   calendar: {
     id: "calendar",
     who: "Everyone signed in. You see dates for the creators you are allowed to see.",
-    purpose: "Draft due dates and post dates, with a reminder 3 days ahead.",
-    principle: "A reminder lands in the portal or in the approval queue. Nothing is emailed on its own.",
+    purpose: "The week and month, with draft and post dates next to Google Calendar.",
+    principle: "A reminder lands in the portal or in the approval queue. Nothing is emailed on its own. Google is read-only.",
     steps: [
-      "Scan the table for what is due and when the reminder fires.",
-      "Open the deal if you need the brief behind a date.",
-      "Add or change a date when a deadline moves.",
-      "Connect a calendar only if you want those dates on your own calendar too.",
+      "Switch between week and month. Portal dates stay even if Google Calendar is quiet.",
+      "Connect calendar only reads the calendar. It does not change events.",
+      "Disconnect calendar revokes the connection and deletes the saved token.",
+      "The owner picks a creator to see her schedule. The bot only receives busy blocks.",
     ],
   },
   kit: {
@@ -437,8 +449,8 @@ export const PAGE_GUIDES: { [K in PortalTab]: PageGuide } = {
     steps: [
       "Read the gross, then the fees, then what is left.",
       "Check that the brand payment is marked before you expect a creator payout.",
-      "Creators: a missing row means the brand is not marked paid, or the deal is not yours.",
-      "The owner records what is true. This page does not transfer funds.",
+      "Download a blank W-9, or the W-9 stored for you. Only you and the owner can open a stored copy.",
+      "The owner uploads a filed 1099-NEC. Download yearly summary for paid lines. It is not a tax form.",
     ],
   },
   team: {

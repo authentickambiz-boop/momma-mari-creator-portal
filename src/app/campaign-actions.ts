@@ -9,6 +9,7 @@ import {
   markOpenOutside,
   queueOutsideOffer,
   saveCampaign,
+  saveCampaignGoal,
 } from "@/lib/campaigns";
 import { campaignErrorCode } from "@/lib/campaign-notes";
 import { currentViewer } from "@/lib/current-user";
@@ -62,9 +63,28 @@ export async function saveCampaignAction(formData: FormData) {
     slots: Number(formData.get("slots") ?? ""),
     startsOn: String(formData.get("startsOn") ?? ""),
     endsOn: String(formData.get("endsOn") ?? ""),
+    goalType: String(formData.get("goalType") ?? ""),
+    goalTarget: String(formData.get("goalTarget") ?? ""),
   });
   if (!result.ok) redirect(`/campaigns?campaignError=${campaignErrorCode(result.error)}`);
   redirect(`/campaigns/${result.id}?saved=1`);
+}
+
+export async function saveCampaignGoalAction(formData: FormData) {
+  const viewer = await currentViewer();
+  if (!viewer) redirect("/login");
+  const campaignId = String(formData.get("campaignId") ?? "");
+  const db = await getDb();
+  const result = await saveCampaignGoal(
+    db,
+    viewer,
+    campaignId,
+    String(formData.get("goalType") ?? ""),
+    String(formData.get("goalTarget") ?? ""),
+  );
+  const back = `/campaigns/${encodeURIComponent(campaignId)}`;
+  if (!result.ok) redirect(`${back}?campaignError=${campaignErrorCode(result.error)}`);
+  redirect(`${back}?saved=1`);
 }
 
 export async function allocateCampaignAction(formData: FormData) {

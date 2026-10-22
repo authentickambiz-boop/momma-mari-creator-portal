@@ -7,7 +7,7 @@ import { clearMailboxReconnect, gmailConnectionState, mailboxReconnectReason, ma
 import { getDealStage } from "./stages";
 import { AGENCY_MAILBOX_ID, KAMRON_AGENCY_EMAIL, clearAgencyMailboxToken } from "./agency-mailbox";
 import { gmailSyncEnabled } from "./gmail-sync-flag";
-import { gmailMutationAllowed, hasUnfilledPlaceholder, isAutomatedSender, isPersonalMail, prepareReplyAndLabels, type MailSort } from "./gmail-live";
+import { gmailDraftCreateAllowed, gmailDraftRequestAllowed, gmailMutationAllowed, isAutomatedSender, isPersonalMail, prepareReplyAndLabels, type MailSort } from "./gmail-live";
 import { revokeGoogleToken, type GoogleTokenRevoker } from "./google-oauth";
 import { decryptToken } from "./token-crypto";
 
@@ -607,6 +607,8 @@ async function settleMail(
       dealId,
       brand,
       replyTo: senderEmail(message.from),
+      from: message.from,
+      headers: message.headers,
     });
   } catch (error) {
     return { ok: false as const, failure: await finishReadFailure(db, creatorId, error, secrets) };
@@ -1023,6 +1025,7 @@ function draftRaw(input: { to: string; subject: string; body: string }) {
 }
 
 async function gmailJson(accessToken: string, path: string, body: unknown) {
+  if (!gmailDraftRequestAllowed(path, body)) return {};
   const response = await gmailFetch(accessToken, path, { method: "POST", body: JSON.stringify(body) });
   if (!response.ok) {
     throw new Error(safeGoogleMessage("Gmail write failed", response.status, await readJsonBody(response), [accessToken]));
@@ -1146,7 +1149,7 @@ export async function gmailReadClient(refreshToken: string): Promise<GmailHistor
       return draftsOnThread(threadId, messages, listed);
     },
     async createDraft(input) {
-      if (hasUnfilledPlaceholder(input.body) || hasUnfilledPlaceholder(input.subject)) return null;
+      if (!gmailDraftCreateAllowed(input)) return null;
       const created = await gmailJson(accessToken, "/drafts", {
         message: { raw: draftRaw(input), threadId: input.threadId },
       });

@@ -396,6 +396,8 @@ export const livePosts = sqliteTable("live_posts", {
   meetsBrief: integer("meets_brief", { mode: "boolean" }),
   confirmedAt: text("confirmed_at"),
   confirmedBy: text("confirmed_by"),
+  postedOn: text("posted_on"),
+  deliverableLabel: text("deliverable_label"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -550,6 +552,25 @@ export const creatorProfiles = sqliteTable("creator_profiles", {
   childAge: text("child_age"),
   familyOn: integer("family_on", { mode: "boolean" }).notNull().default(false),
   joinedOn: integer("joined_on", { mode: "boolean" }).notNull().default(true),
+  coverOn: integer("cover_on", { mode: "boolean" }).notNull().default(false),
+  avatarImage: text("avatar_image"),
+  avatarMime: text("avatar_mime"),
+  avatarFilename: text("avatar_filename"),
+  coverImage: text("cover_image"),
+  coverMime: text("cover_mime"),
+  coverFilename: text("cover_filename"),
+  platformsJson: text("platforms_json"),
+  platformsOn: integer("platforms_on", { mode: "boolean" }).notNull().default(false),
+  pinsJson: text("pins_json"),
+  pinsOn: integer("pins_on", { mode: "boolean" }).notNull().default(false),
+  snack: text("snack"),
+  snackOn: integer("snack_on", { mode: "boolean" }).notNull().default(false),
+  loving: text("loving"),
+  lovingOn: integer("loving_on", { mode: "boolean" }).notNull().default(false),
+  weekend: text("weekend"),
+  weekendOn: integer("weekend_on", { mode: "boolean" }).notNull().default(false),
+  safetyKinds: text("safety_kinds"),
+  photoHold: integer("photo_hold", { mode: "boolean" }).notNull().default(false),
   updatedAt: text("updated_at").notNull(),
 });
 
@@ -585,6 +606,9 @@ export const deliverableNudges = sqliteTable("deliverable_nudges", {
 export const creatorCalendars = sqliteTable("creator_calendars", {
   creatorId: text("creator_id").primaryKey(),
   connected: integer("connected", { mode: "boolean" }).notNull().default(false),
+  refreshToken: text("refresh_token"),
+  calendarEmail: text("calendar_email"),
+  status: text("status").notNull().default("off"),
   updatedAt: text("updated_at").notNull(),
 });
 
@@ -659,10 +683,29 @@ export const brandRecapDrafts = sqliteTable(
     goLiveOn: text("go_live_on").notNull(),
     approvalId: text("approval_id").notNull(),
     token: text("token").notNull().unique(),
+    nextCampaignNote: text("next_campaign_note"),
     createdAt: text("created_at").notNull(),
   },
   (table) => [uniqueIndex("brand_recap_drafts_deal_milestone").on(table.dealId, table.milestone)],
 );
+
+export const brandRecapGoals = sqliteTable("brand_recap_goals", {
+  dealId: text("deal_id").primaryKey(),
+  goalType: text("goal_type").notNull(),
+  targetValue: text("target_value").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const brandRecapSnapshots = sqliteTable("brand_recap_snapshots", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull(),
+  postId: text("post_id"),
+  window: text("window").notNull(),
+  metric: text("metric").notNull(),
+  value: text("value").notNull(),
+  source: text("source").notNull(),
+  createdAt: text("created_at").notNull(),
+});
 
 export const mediaKits = sqliteTable("media_kits", {
   creatorId: text("creator_id").primaryKey(),
@@ -776,6 +819,8 @@ export const campaigns = sqliteTable("campaigns", {
   offerFlag: text("offer_flag"),
   nextFollowUp: text("next_follow_up"),
   kind: text("kind").notNull().default("campaign"),
+  goalType: text("goal_type"),
+  goalTarget: text("goal_target"),
 });
 
 export const campaignAllocations = sqliteTable("campaign_allocations", {
@@ -1565,4 +1610,28 @@ export const promoImageFiles = sqliteTable("promo_image_files", {
   visualId: text("visual_id").primaryKey(),
   mimeType: text("mime_type").notNull(),
   bytesBase64: text("bytes_base64").notNull(),
+});
+
+export const skillLessons = sqliteTable("skill_lessons", {
+  id: text("id").primaryKey(),
+  topic: text("topic").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  creatorId: text("creator_id"),
+  createdBy: text("created_by").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const creatorFiled1099s = sqliteTable("creator_filed_1099s", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  taxYear: integer("tax_year").notNull(),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  ciphertext: text("ciphertext").notNull(),
+  byteLength: integer("byte_length").notNull(),
+  uploadedBy: text("uploaded_by").notNull(),
+  createdAt: text("created_at").notNull(),
 });

@@ -560,12 +560,100 @@ div.card-image-wrapper :is(.course-details-text, .niche, .followin-coun) {
   overflow-wrap: anywhere;
 }
 
-/* A soft dark edge so type stays readable over the illustrated scenes.
-   Only while a seasonal theme is on. The scene itself stays at z-index -1. */
-html.mm-seasonal :where(h1, h2, h3, h4, h5, h6, p, li, a, span, label, dt, dd, figcaption, blockquote, button) {
+/* A light halo plus a dark edge so type stays readable over white cards,
+   busy photos, and the illustrated scenes. The scene itself stays at z-index -1. */
+html.mm-seasonal :where(h1, h2, h3, h4, h5, h6, p, li, a, span, label, dt, dd, figcaption, blockquote, button, strong, b, em, small, div),
+html body :where(h1, h2, h3, h4, h5, h6, p, li, a, span, label, dt, dd, figcaption, blockquote, button, strong, b, em, small, div) {
   text-shadow:
+    0 0 2px rgba(255, 248, 241, 0.92),
     0 1px 1px rgba(16, 8, 28, 0.72),
     0 0 2px rgba(16, 8, 28, 0.65),
-    -1px 0 0 rgba(16, 8, 28, 0.4),
-    1px 0 0 rgba(16, 8, 28, 0.4);
+    -1px 0 0 rgba(16, 8, 28, 0.55),
+    1px 0 0 rgba(16, 8, 28, 0.55),
+    0 -1px 0 rgba(16, 8, 28, 0.45),
+    0 1px 0 rgba(16, 8, 28, 0.45) !important;
+}
+
+/* Career CTA: the cursor trail is hidden and one still photo sits with the heading. */
+section.cta .trail-collection,
+section.cta .mobile-images {
+  display: none !important;
+}
+
+section.cta:has(.mm-cta-still) {
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+section.cta .content-cta:has(.mm-cta-still) {
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 48px 20px 64px;
+  position: relative;
+  z-index: 1;
+}
+
+.mm-cta-still {
+  width: min(320px, 78vw);
+  aspect-ratio: 1;
+  margin: 0;
+  border-radius: 28px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  box-shadow: 0 16px 36px rgba(16, 8, 28, 0.28);
+}
+
+.mm-cta-still img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+  opacity: 1 !important;
+  position: static !important;
+  transform: none !important;
+  max-width: 100% !important;
+  visibility: visible !important;
+}
+
+@media (min-width: 992px) {
+  section.cta .content-cta:has(.mm-cta-still) {
+    flex-flow: row nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+  }
+  .mm-cta-still { width: min(360px, 34vw); }
+}
+
+img.about-img,
+img.our-team-img {
+  object-fit: cover;
+  object-position: center center;
+}
+
+.income-tiers-box-wrapper[data-mm-rank] .desination {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  text-shadow: none !important;
+}
+.income-tiers-box-wrapper[data-mm-rank="seedling"] .desination { background: #E7EEE8; color: #1b4030; }
+.income-tiers-box-wrapper[data-mm-rank="sprout"] .desination { background: #E7EEE8; color: #2C5240; box-shadow: inset 0 0 0 1px #2C5240; }
+.income-tiers-box-wrapper[data-mm-rank="bronze"] .desination { background: #F6E5DC; color: #B4532F; }
+.income-tiers-box-wrapper[data-mm-rank="silver"] .desination { background: #F3EDE4; color: #1C211E; }
+.income-tiers-box-wrapper[data-mm-rank="gold"] .desination { background: #FBF0DA; color: #5c4310; }
+.income-tiers-box-wrapper[data-mm-rank="platinum"] .desination { background: #E2EDF5; color: #2F6283; }
+.income-tiers-box-wrapper[data-mm-rank="emerald"] .desination { background: #E7EEE8; color: #1F3B2D; box-shadow: inset 0 0 0 1px #1F3B2D; }
+.income-tiers-box-wrapper[data-mm-rank="ruby"] .desination { background: #F9E3E0; color: #7a1f1f; }
+.income-tiers-box-wrapper[data-mm-rank="sapphire"] .desination { background: #E2EDF5; color: #16291F; box-shadow: inset 0 0 0 1px #2F6283; }
+.income-tiers-box-wrapper[data-mm-rank="diamond"] .desination { background: #FBF8F3; color: #1F3B2D; box-shadow: inset 0 0 0 1px #1F3B2D; }
+.income-tiers-box-wrapper .reson[hidden] { display: none !important; }
+
+html body :where(input, textarea, select) {
+  text-shadow: none !important;
 }
