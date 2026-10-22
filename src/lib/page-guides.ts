@@ -107,13 +107,13 @@ export const PAGE_GUIDES: { [K in PortalTab]: PageGuide } = {
   calendar: {
     id: "calendar",
     who: "Everyone signed in. You see dates for the creators you are allowed to see.",
-    purpose: "Draft due dates and post dates, with a reminder 3 days ahead.",
-    principle: "A reminder lands in the portal or in the approval queue. Nothing is emailed on its own.",
+    purpose: "The week and month, with draft and post dates next to Google Calendar.",
+    principle: "A reminder lands in the portal or in the approval queue. Nothing is emailed on its own. Google is read-only.",
     steps: [
-      "Scan the table for what is due and when the reminder fires.",
-      "Open the deal if you need the brief behind a date.",
-      "Add or change a date when a deadline moves.",
-      "Connect a calendar only if you want those dates on your own calendar too.",
+      "Switch between week and month. Portal dates stay even if Google Calendar is quiet.",
+      "Connect calendar only reads the calendar. It does not change events.",
+      "Disconnect calendar revokes the connection and deletes the saved token.",
+      "The owner picks a creator to see her schedule. The bot only receives busy blocks.",
     ],
   },
   kit: {
