@@ -1,0 +1,20 @@
+-- July.bio roster snapshot captured 2026-10-18, 11:57 PM ET.
+-- Instagram uses Past 30d. Other platforms showed follower counts only.
+-- A metric July did not display is omitted. Abby's Instagram saves were shown as -1 and are stored as NULL.
+-- This does not change the 2026-10-19 rows or any deal row.
+
+INSERT INTO analytics_snapshots (
+  id, creator_id, platform, captured_on, source, period_key, period, handle, benchmark, updated_label, channel_name,
+  total_audience, largest_platform, location, metrics_json, audience_json, clips_json, revenue_cents, created_at, updated_at
+) VALUES
+  ('snap-mariclare-instagram-2026-10-18-past30d', 'mariclare', 'Instagram', '2026-10-18', 'July', 'Past 30d', 'Past 30d', NULL, NULL, NULL, NULL, '2,643,506', 'TikTok', 'North Carolina, USA', '{"engagement":"3.57%","followers":"326K","views":"3M","reach":"1.1M","totalInteractions":"108K","avgStoryViews":"8,533"}', '{"gender":["Female 79%"],"age":["18-24 40.5%","25-34 31.0%"],"country":["USA 52.4%","India 10.2%","UK 5.0%"]}', NULL, NULL, '2026-10-19T03:57:00.000Z', '2026-10-19T03:57:00.000Z'),
+  ('snap-mariclare-tiktok-2026-10-18', 'mariclare', 'TikTok', '2026-10-18', 'July', '', NULL, NULL, NULL, NULL, NULL, '2,643,506', 'TikTok', 'North Carolina, USA', '{"followers":"2.3M"}', NULL, NULL, NULL, '2026-10-19T03:57:00.000Z', '2026-10-19T03:57:00.000Z'),
+  ('snap-mariclare-youtube-2026-10-18', 'mariclare', 'YouTube', '2026-10-18', 'July', '', NULL, NULL, NULL, NULL, NULL, '2,643,506', 'TikTok', 'North Carolina, USA', '{"subscribers":"9,630"}', NULL, NULL, NULL, '2026-10-19T03:57:00.000Z', '2026-10-19T03:57:00.000Z'),
+  ('snap-mariclare-twitch-2026-10-18', 'mariclare', 'Twitch', '2026-10-18', 'July', '', NULL, NULL, NULL, NULL, NULL, '2,643,506', 'TikTok', 'North Carolina, USA', '{"followers":"462"}', NULL, NULL, NULL, '2026-10-19T03:57:00.000Z', '2026-10-19T03:57:00.000Z'),
+  ('snap-authentickam-instagram-2026-10-18-past30d', 'authentickam', 'Instagram', '2026-10-18', 'July', 'Past 30d', 'Past 30d', NULL, NULL, NULL, NULL, '193,965', 'TikTok', 'North Carolina, USA', '{"followers":"15.8K","engagement":"1.61%","views":"21.5K","reach":"6,174","avgStoryViews":"731"}', '{"gender":["Female 85%"],"age":["18-24 47.7%","25-34 29.3%"],"country":["USA 75%"]}', NULL, NULL, '2026-10-19T03:57:00.000Z', '2026-10-19T03:57:00.000Z'),
+  ('snap-authentickam-tiktok-2026-10-18', 'authentickam', 'TikTok', '2026-10-18', 'July', '', NULL, NULL, NULL, NULL, NULL, '193,965', 'TikTok', 'North Carolina, USA', '{"followers":"178K"}', NULL, NULL, NULL, '2026-10-19T03:57:00.000Z', '2026-10-19T03:57:00.000Z'),
+  ('snap-authentickam-youtube-2026-10-18', 'authentickam', 'YouTube', '2026-10-18', 'July', '', NULL, NULL, NULL, NULL, NULL, '193,965', 'TikTok', 'North Carolina, USA', '{"subscribers":"653"}', NULL, NULL, NULL, '2026-10-19T03:57:00.000Z', '2026-10-19T03:57:00.000Z'),
+  ('snap-authentickam-facebook-2026-10-18', 'authentickam', 'Facebook', '2026-10-18', 'July', '', NULL, NULL, NULL, NULL, NULL, '193,965', 'TikTok', 'North Carolina, USA', '{"followers":"2"}', NULL, NULL, NULL, '2026-10-19T03:57:00.000Z', '2026-10-19T03:57:00.000Z'),
+  ('snap-abby-instagram-2026-10-18-past30d', 'abby', 'Instagram', '2026-10-18', 'July', 'Past 30d', 'Past 30d', NULL, NULL, NULL, NULL, '110,375', 'TikTok', NULL, '{"followers":"1,728","engagement":"1.55%","views":"3,427","reach":"408","saves":null}', '{"gender":["Female 76%"],"age":["25-34 38.2%","18-24 32.4%"],"country":["USA 78.4%"]}', NULL, NULL, '2026-10-19T03:57:00.000Z', '2026-10-19T03:57:00.000Z'),
+  ('snap-abby-tiktok-2026-10-18', 'abby', 'TikTok', '2026-10-18', 'July', '', NULL, NULL, NULL, NULL, NULL, '110,375', 'TikTok', NULL, '{"followers":"78.8K"}', NULL, NULL, NULL, '2026-10-19T03:57:00.000Z', '2026-10-19T03:57:00.000Z'),
+  ('snap-abby-facebook-2026-10-18', 'abby', 'Facebook', '2026-10-18', 'July', '', NULL, NULL, NULL, NULL, NULL, '110,375', 'TikTok', NULL, '{"followers":"29.8K"}', NULL, NULL, NULL, '2026-10-19T03:57:00.000Z', '2026-10-19T03:57:00.000Z');

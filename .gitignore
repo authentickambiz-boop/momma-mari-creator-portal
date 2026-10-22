@@ -38,6 +38,7 @@ yarn-error.log*
 /data/*
 /data/.*
 !/data/analytics-snapshots.json
+!/data/analytics-snapshots-2026-10-18.json
 .wrangler/
 .dev.vars
 

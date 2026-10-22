@@ -263,14 +263,16 @@ test("creator split stays pending until a contract sets it", () => {
   assert.equal(nextPayoutLabel(new Date("2026-10-17T18:00:00.000Z"), "America/Chicago"), "Mon, Oct 19");
 });
 
-test("example analytics are labeled and sum to the mockup headlines", async () => {
+test("example analytics are withheld instead of shown as real numbers", async () => {
   const summary = summarizeAnalytics(await listDailyMetrics(db, "mariclare"), await listPostMetrics(db, "mariclare"));
-  assert.equal(summary.exampleMode, true);
-  assert.equal(summary.followers, 1240000);
-  assert.equal(summary.newFollowers, 3180);
-  assert.equal(summary.averageViews, 412000);
-  assert.equal(summary.engagementRate, 6.8);
-  assert.equal(summary.posts.length, 3);
+  assert.equal(summary.daily.length, 0);
+  assert.equal(summary.posts.length, 0);
+  assert.equal(summary.followers, null);
+  assert.equal(summary.newFollowers, null);
+  assert.equal(summary.averageViews, null);
+  assert.equal(summary.engagementRate, null);
+  assert.equal(JSON.stringify(summary).includes("1240000"), false);
+  assert.equal(JSON.stringify(summary).includes("Example post"), false);
 });
 
 test("uploads are refused across creators and on deals that are not ready", () => {
@@ -390,9 +392,9 @@ test("the bot can post feedback, update status, set a split, and write real anal
   });
   assert.equal(analytics.status, 200);
   const summary = summarizeAnalytics(await listDailyMetrics(db, "mariclare"), await listPostMetrics(db, "mariclare"));
-  assert.equal(summary.exampleMode, false);
   assert.equal(summary.daily.length, 1);
   assert.equal(summary.daily[0]?.views, 1000);
+  assert.equal(summary.newFollowers, 12);
 });
 
 test("replacing a placeholder email updates the allowlist", async () => {
@@ -4821,7 +4823,10 @@ test("July snapshots fill analytics, stay off other creators, and feed rank scor
   assert.equal(mari?.platforms.find((row) => row.platform === "Instagram")?.period, "Past 30d");
   assert.equal(mari?.platforms.find((row) => row.platform === "Instagram")?.metrics.followers, "326k");
   assert.equal(mari?.platforms.find((row) => row.platform === "TikTok")?.period, null);
-  assert.equal(mari?.platforms.find((row) => row.platform === "TikTok")?.change, null);
+  const tiktokChange = mari?.platforms.find((row) => row.platform === "TikTok")?.change;
+  assert.equal(tiktokChange?.previousOn, "2026-10-18");
+  assert.equal(tiktokChange?.followers, "unchanged");
+  assert.equal(tiktokChange?.engagement, null);
   const abbyCard = owner.creators.find((creator) => creator.creatorId === "abby");
   assert.equal(abbyCard?.platforms.find((row) => row.platform === "Instagram")?.metrics.saves, null);
   assert.equal(JSON.stringify(abbyCard?.platforms.find((row) => row.platform === "Instagram")?.metrics).includes('"-1"'), false);
@@ -4929,7 +4934,7 @@ test("a later Monday snapshot keeps earlier weeks and shows up on the public kit
   assert.equal(added.status, 200);
   const still = (await db.select().from(analyticsSnapshots)).find((row) => row.id === "snap-mariclare-instagram-2026-10-19-past30d");
   assert.match(still?.metricsJson ?? "", /326k/);
-  assert.equal((await db.select().from(analyticsSnapshots)).filter((row) => row.creatorId === "mariclare" && row.platform === "Instagram").length, 2);
+  assert.equal((await db.select().from(analyticsSnapshots)).filter((row) => row.creatorId === "mariclare" && row.platform === "Instagram").length, 3);
 
   const edited = await saveOwnerSnapshot(db, admin, {
     creatorId: "mariclare",
@@ -4951,8 +4956,9 @@ test("a later Monday snapshot keeps earlier weeks and shows up on the public kit
   const board = await analyticsBoard(db, mariclare);
   const instagram = board.creators[0].platforms.find((row) => row.platform === "Instagram");
   assert.equal(instagram?.metrics.followers, "331k");
-  assert.equal(instagram?.trend.length, 2);
-  assert.equal(instagram?.trend[0].followers, "326k");
+  assert.equal(instagram?.trend.length, 3);
+  assert.equal(instagram?.trend[0].followers, "326K");
+  assert.equal(instagram?.trend[1].followers, "326k");
   assert.notEqual(instagram?.change, null);
 
   const weeks = await publicWeeklySnapshots(db, "mariclare");
@@ -4960,7 +4966,7 @@ test("a later Monday snapshot keeps earlier weeks and shows up on the public kit
   assert.equal(publicIg?.followers, "331k");
   assert.equal(publicIg?.saves, "5,800");
   assert.deepEqual(publicIg?.audience?.location, ["USA 53%"]);
-  assert.equal(publicIg?.trend.length, 2);
+  assert.equal(publicIg?.trend.length, 3);
   const packed = JSON.stringify(await publicMediaKit(db, "mariclare"));
   assert.equal(packed.includes("@"), false);
   assert.equal(packed.includes("$"), false);

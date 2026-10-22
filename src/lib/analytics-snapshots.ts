@@ -391,15 +391,21 @@ function changeBetween(latest: StoredSnapshot, previous: StoredSnapshot | undefi
   let followers: string | null = null;
   if (nextFollowers != null && prevFollowers != null) {
     const delta = nextFollowers - prevFollowers;
-    const percent = prevFollowers > 0 ? roundTenth((delta / prevFollowers) * 100) : null;
-    const sign = delta > 0 ? "+" : "";
-    followers = percent == null ? `${sign}${delta.toLocaleString("en-US")}` : `${sign}${delta.toLocaleString("en-US")} (${sign}${percent}%)`;
+    if (delta === 0) followers = "unchanged";
+    else {
+      const percent = prevFollowers > 0 ? roundTenth((delta / prevFollowers) * 100) : null;
+      const sign = delta > 0 ? "+" : "";
+      followers = percent == null ? `${sign}${delta.toLocaleString("en-US")}` : `${sign}${delta.toLocaleString("en-US")} (${sign}${percent}%)`;
+    }
   }
   let engagement: string | null = null;
   if (nextEngagement != null && prevEngagement != null) {
     const delta = roundTenth(nextEngagement - prevEngagement);
-    const sign = delta > 0 ? "+" : "";
-    engagement = `${sign}${delta} pts`;
+    if (delta === 0) engagement = "unchanged";
+    else {
+      const sign = delta > 0 ? "+" : "";
+      engagement = `${sign}${delta} pts`;
+    }
   }
   return { previousOn: previous.capturedOn, followers, engagement };
 }
@@ -452,13 +458,13 @@ export async function analyticsBoard(db: PortalDb, viewer: Viewer) {
         return platformRow;
       });
       latestRows.sort((a, b) => a.platform.localeCompare(b.platform));
-      const sample = mine[0];
+      const roster = mine.slice().sort((a, b) => a.capturedOn.localeCompare(b.capturedOn) || a.id.localeCompare(b.id)).at(-1);
       return {
         creatorId: person.id,
         name: person.name,
-        location: sample?.location ?? null,
-        totalAudience: sample?.totalAudience ?? null,
-        largestPlatform: sample?.largestPlatform ?? null,
+        location: roster?.location ?? null,
+        totalAudience: roster?.totalAudience ?? null,
+        largestPlatform: roster?.largestPlatform ?? null,
         platforms: latestRows,
       };
     })
@@ -520,7 +526,8 @@ export async function rankFieldsFromSnapshots(db: PortalDb, creatorId: string): 
     const previous = history.length > 1 ? history[history.length - 2] : undefined;
     const nowFollowers = current ? followerCount(current.metrics) : null;
     const thenFollowers = previous ? followerCount(previous.metrics) : null;
-    if (nowFollowers != null && thenFollowers != null && thenFollowers > 0) {
+    // Equal labels such as 2.3M and 2.3m are rounded, so they are not a measured 0% change.
+    if (nowFollowers != null && thenFollowers != null && thenFollowers > 0 && nowFollowers !== thenFollowers) {
       growth.push(((nowFollowers - thenFollowers) / thenFollowers) * 100);
     }
   }
@@ -544,6 +551,65 @@ export async function rankFieldsFromSnapshots(db: PortalDb, creatorId: string): 
   const revenue = latest.map((row) => row.revenueCents).filter((value): value is number => value != null);
   if (revenue.length) fields.revenue = revenue.reduce((sum, value) => sum + value, 0) / 100;
   return fields;
+}
+
+/** Cards the old example strip asked for that July never displayed. */
+export const JULY_HEADLINE_HIDDEN = [
+  "New followers, last 7 days",
+  "Daily views, last 14 days",
+  "Top posts",
+] as const;
+
+export type JulyHeadlineCard = {
+  id: "followers" | "engagement" | "averageViews" | "newFollowers";
+  value: string;
+  label: string;
+};
+
+function metricText(metrics: SnapshotMetrics, key: string) {
+  const value = metrics[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+/**
+ * Headline numbers for one creator, taken from the latest July snapshot of her largest platform.
+ * A figure July did not show is left out. Labels keep July's own wording and do not add a window July did not display.
+ */
+export function julyHeadline(card: Pick<CreatorSnapshotCard, "largestPlatform" | "platforms">): { cards: JulyHeadlineCard[]; hidden: readonly string[] } {
+  const platform = card.platforms.find((row) => row.platform === card.largestPlatform)
+    ?? card.platforms.find((row) => metricText(row.metrics, "followers") || metricText(row.metrics, "subscribers"))
+    ?? null;
+  const cards: JulyHeadlineCard[] = [];
+  if (platform) {
+    const followers = metricText(platform.metrics, "followers");
+    const subscribers = metricText(platform.metrics, "subscribers");
+    const count = followers ?? subscribers;
+    if (count) {
+      const who = platform.handle ?? platform.channelName;
+      cards.push({
+        id: "followers",
+        value: count,
+        label: `${platform.platform} ${followers ? "followers" : "subscribers"}${who ? ` · ${who}` : ""}`,
+      });
+    }
+    const engagement = metricText(platform.metrics, "engagement");
+    if (engagement) {
+      cards.push({
+        id: "engagement",
+        value: engagement,
+        label: `Engagement rate · ${platform.platform}${platform.period ? ` · ${platform.period}` : ""}`,
+      });
+    }
+    const averageViews = metricText(platform.metrics, "avgViews");
+    if (averageViews) {
+      cards.push({
+        id: "averageViews",
+        value: averageViews,
+        label: `Average views per video · ${platform.platform}${platform.period ? ` · ${platform.period}` : ""}`,
+      });
+    }
+  }
+  return { cards, hidden: JULY_HEADLINE_HIDDEN };
 }
 
 export function capturedLabel(iso: string) {
