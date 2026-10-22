@@ -666,6 +666,16 @@ function ProductAndPosts({
               <option value="instagram">Instagram</option>
               <option value="facebook">Facebook</option>
               <option value="youtube">YouTube</option>
+              <option value="youtube_live">YouTube Live</option>
+              <option value="twitch">Twitch</option>
+              <option value="kick">Kick</option>
+            </select>
+          </label>
+          <label>
+            Live stream proof
+            <select name="proofKind" aria-label="Live stream proof" defaultValue="vod">
+              <option value="vod">VOD link</option>
+              <option value="screenshot">Screenshot link</option>
             </select>
           </label>
           <label>

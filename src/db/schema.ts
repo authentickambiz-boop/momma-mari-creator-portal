@@ -398,6 +398,7 @@ export const livePosts = sqliteTable("live_posts", {
   confirmedBy: text("confirmed_by"),
   postedOn: text("posted_on"),
   deliverableLabel: text("deliverable_label"),
+  proofKind: text("proof_kind"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -571,6 +572,12 @@ export const creatorProfiles = sqliteTable("creator_profiles", {
   weekendOn: integer("weekend_on", { mode: "boolean" }).notNull().default(false),
   safetyKinds: text("safety_kinds"),
   photoHold: integer("photo_hold", { mode: "boolean" }).notNull().default(false),
+  nicheOther: text("niche_other"),
+  avgViewers: integer("avg_viewers"),
+  hoursPerWeek: integer("hours_per_week"),
+  streamCategories: text("stream_categories"),
+  analyticsProof: text("analytics_proof"),
+  meetsBar: integer("meets_bar", { mode: "boolean" }).notNull().default(false),
   updatedAt: text("updated_at").notNull(),
 });
 

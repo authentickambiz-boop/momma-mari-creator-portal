@@ -10,6 +10,16 @@ export const PROFILE_ERROR_TEXT = {
   pin: "Use a JPEG under 40 KB for a pinned post.",
   link: "Pinned posts use an http or https link.",
   pinTitle: "Add a title for each pinned post.",
+  niches: "Pick at least one niche.",
+  nicheMax: "Pick up to 5.",
+  nicheList: "Pick a niche from the list.",
+  nicheOther: "Other can be 40 characters.",
+  viewers: "Average viewers has to be a whole number.",
+  hours: "Hours per week has to be a whole number.",
+  followers: "Enter a follower count as a whole number.",
+  platformUrl: "Profile links start with http:// or https://.",
+  handles: "Add a handle for each platform you fill in.",
+  proof: "Analytics proof uses an http or https link.",
 } as const;
 
 export const PROFILE_NOTES: Record<string, string> = {

@@ -22,7 +22,7 @@ export const GIFT_GUIDE_OFFER = {
   pagePath: "/gift-guide",
   title: "Holiday Gift Guide 2026",
   sponsoredLine: "Sponsored gift guide. Brands paid to be included.",
-  lede: "Parent creators share gifts they'd actually give, in short roundup videos and on a shoppable page.",
+  lede: "Creators share gifts they'd actually give, in short roundup videos and on a shoppable page.",
   liveLabel: "Content is live Nov 20 to Dec 12, 2026, through Black Friday and Cyber Monday.",
   pageLabel: "The gift-guide page stays up through Dec 31.",
   emptyState: "Guide launches Nov 20.",

@@ -4,7 +4,7 @@ import { PrivacyNotice } from "@/components/privacy-notice";
 import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
 import { ensureProfileIntakeTask } from "@/lib/creator-tasks";
-import { PLATFORM_OPTIONS } from "@/lib/niche-catalog";
+import { PLATFORM_OPTIONS, platformLabel } from "@/lib/niche-catalog";
 import { loadProfileIntake } from "@/lib/profile-intake";
 import { profileIntakeErrorNote } from "@/lib/profile-intake-notes";
 import { US_STATES } from "@/lib/profile-shared";
@@ -70,7 +70,7 @@ export default async function ProfileIntakePage({ searchParams }: { searchParams
               <label>Platform
                 <select name={`platform-${index}`} defaultValue={row?.platform ?? ""}>
                   <option value="">None</option>
-                  {PLATFORM_OPTIONS.map((platform) => <option key={platform}>{platform}</option>)}
+                  {PLATFORM_OPTIONS.map((platform) => <option key={platform} value={platform}>{platformLabel(platform)}</option>)}
                 </select>
               </label>
               <label>Handle

@@ -20,6 +20,7 @@ import { listCommissionCampaignsForOwner } from "@/lib/commission-campaigns";
 import { listGiftGuideReservations } from "@/lib/gift-guide";
 import { listOwnerDealReviews } from "@/lib/creator-deal-review";
 import { listOwnerTasks } from "@/lib/creator-tasks";
+import { CREATOR_NICHES, listAdminRoster, nicheIdFromInput, rosterMatchesNiche } from "@/lib/creator-niches";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
 import { growthErrorNote } from "@/lib/growth-notes";
@@ -147,7 +148,7 @@ const TODO_NOTES: Record<string, string> = {
   "1": "That to-do was not saved.",
 };
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ creator?: string; growthError?: string; saved?: string; invite?: string; apply?: string; applyError?: string; signed?: string; todo?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ creator?: string; growthError?: string; saved?: string; invite?: string; apply?: string; applyError?: string; signed?: string; todo?: string; niche?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
   const inviteNote = inviteErrorNote(params.invite);
@@ -240,6 +241,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </PortalFrame>
     );
   }
+  const nicheFilter = nicheIdFromInput(params.niche ?? "");
+  const roster = await listAdminRoster(portal.db);
+  const rosterRows = nicheFilter ? roster.filter((row) => rosterMatchesNiche(row, nicheFilter)) : roster;
+  const openDeals = new Map(dash.utilization.map((row) => [row.creatorId, row]));
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -307,12 +312,30 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </div>
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec-title">Roster</div>
+        <form method="get" className="stack">
+          <label>
+            Niche
+            <select name="niche" defaultValue={nicheFilter ?? ""}>
+              <option value="">All niches</option>
+              {CREATOR_NICHES.map((niche) => <option key={niche.id} value={niche.id}>{niche.label}</option>)}
+            </select>
+          </label>
+          <button className="btn" type="submit">Filter</button>
+        </form>
         <table>
-          <thead><tr><th>Creator</th><th>Open deals</th></tr></thead>
+          <thead><tr><th>Creator</th><th>Niches</th><th>Open deals</th><th>Meets bar</th></tr></thead>
           <tbody>
-            {dash.utilization.map((row) => (
-              <tr key={row.creatorId}><td>{row.name}</td><td>{row.openDeals} open of {row.maxDeals} a month</td></tr>
-            ))}
+            {rosterRows.map((row) => {
+              const open = openDeals.get(row.creatorId);
+              return (
+                <tr key={row.creatorId}>
+                  <td>{row.name}</td>
+                  <td>{row.niches.join(", ") || "—"}</td>
+                  <td>{open ? `${open.openDeals} open of ${open.maxDeals} a month` : "—"}</td>
+                  <td>{row.meetsBar ? "Meets bar" : ""}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         <p>Outside creators: {dash.converted} of {dash.prospects} prospects on the roster, {dash.outsideOffers} offers queued.</p>

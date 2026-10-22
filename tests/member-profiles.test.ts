@@ -34,7 +34,7 @@ const base = {
   avatarOn: true,
   bio: "Stories from our kitchen table.",
   bioOn: true,
-  niches: ["food"],
+  niches: ["lifestyle"],
   nichesOn: true,
   handles: "@secret",
   handlesOn: false,

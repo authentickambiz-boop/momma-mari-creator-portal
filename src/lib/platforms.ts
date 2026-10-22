@@ -2,7 +2,9 @@ export const SERVICE_PLATFORMS = [
   "TikTok",
   "Instagram",
   "YouTube",
+  "YouTube Live",
   "Twitch",
+  "Kick",
   "Podcast",
   "LinkedIn",
   "X",
@@ -14,6 +16,8 @@ export const SERVICE_PLATFORMS = [
 ] as const;
 
 export const PLATFORM_METRICS = [
+  { platform: "Kick", metric: "Average concurrent viewers" },
+  { platform: "YouTube Live", metric: "Average concurrent viewers" },
   { platform: "Twitch", metric: "Average concurrent viewers" },
   { platform: "Twitch", metric: "Hours streamed" },
   { platform: "YouTube", metric: "Average views" },

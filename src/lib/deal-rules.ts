@@ -15,6 +15,9 @@ export const DELIVERABLES = [
   { id: "live", label: "LIVE" },
   { id: "bundle", label: "Bundle" },
   { id: "stream", label: "Stream segment" },
+  { id: "kick", label: "Kick live" },
+  { id: "twitch", label: "Twitch live" },
+  { id: "youtube_live", label: "YouTube Live" },
   { id: "viewer_hour", label: "Viewer-hour" },
   { id: "youtube_integration", label: "YouTube integration" },
   { id: "youtube_dedicated", label: "Dedicated YouTube video" },
@@ -122,6 +125,9 @@ export function deliverableKind(text: string): DeliverableId | null {
   const value = text.toLowerCase();
   if (value.includes("bundle")) return "bundle";
   if (value.includes("viewer-hour") || value.includes("viewer hour")) return "viewer_hour";
+  if (value.includes("youtube live")) return "youtube_live";
+  if (/(^|[^a-z])kick([^a-z]|$)/i.test(value)) return "kick";
+  if (value.includes("twitch")) return "twitch";
   if (value.includes("stream")) return "stream";
   if (value.includes("pre-roll") || value.includes("preroll")) return "podcast_pre";
   if (value.includes("mid-roll") || value.includes("midroll")) return "podcast_mid";

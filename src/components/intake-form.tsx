@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PrivacyNotice } from "@/components/privacy-notice";
 import { TagPicker } from "@/components/tag-picker";
 import { INTAKE_GOALS, INTAKE_STEPS, type IntakeStep, type IntakeSubmission } from "@/lib/intake-form";
-import { NICHE_CATALOG, PLATFORM_OPTIONS } from "@/lib/niche-catalog";
+import { NICHE_CATALOG, PLATFORM_OPTIONS, platformLabel } from "@/lib/niche-catalog";
 import { AGE_RANGES, US_STATES } from "@/lib/profile-shared";
 import { saveIntakeAction } from "@/app/intake-actions";
 
@@ -111,7 +111,7 @@ export function IntakeForm({
                 <label>Platform
                   <select name={`platform-${index}`} defaultValue={row?.platform ?? ""}>
                     <option value="">None</option>
-                    {PLATFORM_OPTIONS.map((platform) => <option key={platform}>{platform}</option>)}
+                    {PLATFORM_OPTIONS.map((platform) => <option key={platform} value={platform}>{platformLabel(platform)}</option>)}
                   </select>
                 </label>
                 <label>Handle

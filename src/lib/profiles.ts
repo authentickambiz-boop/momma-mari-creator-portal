@@ -19,7 +19,18 @@ import {
   type StoredPin,
 } from "./member-profile";
 import { PROFILE_ERROR_TEXT } from "./profile-notes";
-import { AGE_RANGES, AUDIENCE_RANGES, PROFILE_FIELDS, US_STATES, type ProfileField } from "./profile-shared";
+import {
+  cleanAnalyticsProof,
+  isStreamer,
+  meetsViewerBar,
+  nicheIdFromInput,
+  nicheLabel,
+  nichesFromStored,
+  parseAvgViewers,
+  parseHoursPerWeek,
+  validateCreatorNiches,
+} from "./creator-niches";
+import { AGE_RANGES, AUDIENCE_RANGES, MEMBER_PLATFORMS, PROFILE_FIELDS, US_STATES, type ProfileField } from "./profile-shared";
 import { findSafetyKinds, type SafetyKind } from "./safety-shared";
 import { cleanTag } from "./tag-picker";
 
@@ -33,7 +44,7 @@ export type ProfileActor = {
 };
 
 export type MemberPin = { url: string; title: string; thumb?: string };
-export type MemberPlatform = { platform: string; handle: string };
+export type MemberPlatform = { platform: string; handle: string; url?: string; followers?: number };
 
 export type PublicProfile = {
   creatorId: string;
@@ -59,6 +70,7 @@ export type PublicProfile = {
   weekend?: string;
   rankScore: number;
   rankLabel: string;
+  meetsBar?: boolean;
   safetyKinds?: SafetyKind[];
   photoHeld?: boolean;
   profileHidden?: boolean;
@@ -100,6 +112,11 @@ export type ProfileSaveInput = {
   bioOn: boolean;
   niches: string[];
   nichesOn: boolean;
+  nicheOther?: string;
+  avgViewers?: string;
+  hoursPerWeek?: string;
+  streamCategories?: string;
+  analyticsProof?: string;
   handles: string;
   handlesOn: boolean;
   audience: string;
@@ -124,7 +141,7 @@ export type ProfileSaveInput = {
   coverBytes?: Uint8Array | null;
   coverFilename?: string;
   coverOn?: boolean;
-  platforms?: { platform: string; handle: string }[];
+  platforms?: { platform: string; handle: string; url?: string; followers?: string }[];
   platformsOn?: boolean;
   pins?: PinDraft[];
   pinsOn?: boolean;
@@ -151,6 +168,28 @@ function monthYear(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
   return date.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+function validatePlatformDrafts(rows: { platform: string; handle: string; url?: string; followers?: string }[]) {
+  const drafts: { platform: string; handle: string; url?: string; followers?: number | null }[] = [];
+  for (const row of rows) {
+    const handle = row.handle.trim();
+    const url = row.url?.trim() ?? "";
+    const followersRaw = row.followers?.trim() ?? "";
+    if (!handle && !url && !followersRaw) continue;
+    if (!(MEMBER_PLATFORMS as readonly string[]).includes(row.platform)) continue;
+    if (!handle) return { ok: false as const, status: 400, error: PROFILE_ERROR_TEXT.handles };
+    if (url && !/^https?:\/\//i.test(url)) return { ok: false as const, status: 400, error: PROFILE_ERROR_TEXT.platformUrl };
+    if (followersRaw && !/^\d+$/.test(followersRaw.replace(/,/g, ""))) {
+      return { ok: false as const, status: 400, error: PROFILE_ERROR_TEXT.followers };
+    }
+    const followers = followersRaw ? Number(followersRaw.replace(/,/g, "")) : null;
+    if (followers != null && !Number.isSafeInteger(followers)) {
+      return { ok: false as const, status: 400, error: PROFILE_ERROR_TEXT.followers };
+    }
+    drafts.push({ platform: row.platform, handle, url, followers });
+  }
+  return { ok: true as const, platforms: cleanMemberPlatforms(drafts) };
 }
 
 function cleanTags(values: string[]) {
@@ -233,7 +272,20 @@ export function toPublicProfile(
     const bio = scrubMemberText(row.bio);
     if (bio) card.bio = bio;
   }
-  if (reveal("niches", row.nichesOn)) card.niches = parseList(row.niches).map((item) => scrubMemberText(item)).filter(Boolean);
+  if (reveal("niches", row.nichesOn)) {
+    const ids = nichesFromStored(row.niches);
+    const labels = ids.map((id) => nicheLabel(id));
+    if (ids.includes("other") && row.nicheOther) {
+      const extra = scrubMemberText(row.nicheOther);
+      const index = labels.indexOf("Other");
+      if (extra && index >= 0) labels[index] = extra;
+    }
+    const extras = parseList(row.niches)
+      .map((item) => scrubMemberText(item))
+      .filter((item) => item && !nicheIdFromInput(item) && !labels.includes(item));
+    const shown = [...labels, ...extras].filter(Boolean);
+    if (shown.length) card.niches = shown;
+  }
   if (reveal("handles", row.handlesOn) && row.handles) {
     const handles = scrubMemberText(row.handles);
     if (handles) card.handles = handles;
@@ -276,6 +328,7 @@ export function toPublicProfile(
     card.photoHeld = row.photoHold;
     card.profileHidden = !row.profileOn;
     card.hiddenFields = hidden;
+    if (row.meetsBar || meetsViewerBar(row.avgViewers)) card.meetsBar = true;
   }
   return card;
 }
@@ -352,7 +405,21 @@ export async function saveMyProfile(db: PortalDb, actor: ProfileActor, input: Pr
   if (!loving.ok) return loving;
   const weekend = aboutLine(input.weekend, previous?.weekend);
   if (!weekend.ok) return weekend;
-  const niches = cleanTags(input.niches);
+  const checkedNiches = validateCreatorNiches(input.niches, input.nicheOther ?? "", { required: true });
+  if (!checkedNiches.ok) return { ok: false, status: 400, error: checkedNiches.error };
+  const niches = checkedNiches.niches;
+  const platformDrafts = input.platforms
+    ? validatePlatformDrafts(input.platforms)
+    : { ok: true as const, platforms: parseStoredPlatforms(previous?.platformsJson) };
+  if (!platformDrafts.ok) return platformDrafts;
+  const streamer = isStreamer(niches, platformDrafts.platforms.map((item) => item.platform));
+  const viewers = parseAvgViewers(input.avgViewers ?? (previous?.avgViewers == null ? "" : String(previous.avgViewers)), streamer && input.avgViewers !== undefined ? true : streamer && previous?.avgViewers == null);
+  if (!viewers.ok) return { ok: false, status: 400, error: viewers.error };
+  const hours = parseHoursPerWeek(input.hoursPerWeek ?? (previous?.hoursPerWeek == null ? "" : String(previous.hoursPerWeek)));
+  if (!hours.ok) return { ok: false, status: 400, error: hours.error };
+  const proof = cleanAnalyticsProof(input.analyticsProof ?? previous?.analyticsProof ?? "");
+  if (!proof.ok) return { ok: false, status: 400, error: proof.error };
+  const categories = (input.streamCategories ?? previous?.streamCategories ?? "").trim().slice(0, 120);
   const formats = cleanTags(input.formats);
   const audience = (AUDIENCE_RANGES as readonly string[]).includes(input.audience) ? input.audience : "";
   const state = (US_STATES as readonly string[]).includes(input.state) ? input.state : "";
@@ -409,7 +476,7 @@ export async function saveMyProfile(db: PortalDb, actor: ProfileActor, input: Pr
     pinsJson = JSON.stringify(cleaned.pins);
   }
 
-  const platforms = input.platforms ? cleanMemberPlatforms(input.platforms) : parseStoredPlatforms(previous?.platformsJson);
+  const platforms = platformDrafts.platforms;
   const brands = cleanBrands(input.brands);
   const bio = textOrNull(input.bio);
   const handles = textOrNull(input.handles);
@@ -445,6 +512,12 @@ export async function saveMyProfile(db: PortalDb, actor: ProfileActor, input: Pr
     bioOn: input.bioOn,
     niches: JSON.stringify(niches),
     nichesOn: input.nichesOn,
+    nicheOther: checkedNiches.nicheOther || null,
+    avgViewers: viewers.value,
+    hoursPerWeek: hours.value,
+    streamCategories: categories || null,
+    analyticsProof: proof.value,
+    meetsBar: meetsViewerBar(viewers.value),
     handles,
     handlesOn: input.handlesOn,
     audience: audience || null,

@@ -5,10 +5,12 @@ import { PrivacyNotice } from "@/components/privacy-notice";
 import { PortalFrame } from "@/components/portal-frame";
 import { ProfileCrop } from "@/components/profile-crop";
 import { RankBadge } from "@/components/rank-badge";
+import { ProfileNichePlatforms } from "@/components/niche-multi-select";
 import { TagPicker } from "@/components/tag-picker";
+import { legacyNicheFor, nichesFromStored } from "@/lib/creator-niches";
 import { loadPortal } from "@/lib/current-user";
 import { memberImageSrc, parseStoredPins, parseStoredPlatforms, storedSafetyKinds } from "@/lib/member-profile";
-import { BRAND_OPTIONS, FORMAT_OPTIONS, NICHE_CATALOG } from "@/lib/niche-catalog";
+import { BRAND_OPTIONS, FORMAT_OPTIONS } from "@/lib/niche-catalog";
 import { AGE_RANGES, AUDIENCE_RANGES, MEMBER_PLATFORMS, US_STATES } from "@/lib/profile-shared";
 import { myProfile } from "@/lib/profiles";
 import { profileErrorNote } from "@/lib/profile-notes";
@@ -39,7 +41,8 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const mine = await myProfile(portal.db, portal.viewer);
   const profile = mine?.profile;
   const preview = mine?.preview;
-  const savedNiches = savedList(profile?.niches);
+  const legacyNiche = await legacyNicheFor(portal.db, portal.viewer.creatorId);
+  const savedNiches = nichesFromStored(profile?.niches, legacyNiche);
   const savedFormats = savedList(profile?.formats);
   const savedBrands = savedList(profile?.brands);
   const platforms = parseStoredPlatforms(profile?.platformsJson);
@@ -75,16 +78,25 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         <label><input type="checkbox" name="displayNameOn" value="1" defaultChecked={profile?.displayNameOn} /> Show display name</label>
         <label>Bio<textarea name="bio" maxLength={160} defaultValue={profile?.bio ?? ""} /></label>
         <label><input type="checkbox" name="bioOn" value="1" defaultChecked={profile?.bioOn} /> Show bio</label>
-        <TagPicker name="niches" label="Niches" options={NICHE_CATALOG} selected={savedNiches} placeholder="Search niches" />
+        <ProfileNichePlatforms
+          niches={savedNiches}
+          nicheOther={profile?.nicheOther ?? ""}
+          platforms={MEMBER_PLATFORMS}
+          rows={MEMBER_PLATFORMS.map((platform) => {
+            const saved = platforms.find((item) => item.platform === platform);
+            return {
+              platform,
+              handle: saved?.handle ?? handleFor(platform),
+              url: saved?.url ?? "",
+              followers: saved?.followers == null ? "" : String(saved.followers),
+            };
+          })}
+          avgViewers={profile?.avgViewers == null ? "" : String(profile.avgViewers)}
+          hoursPerWeek={profile?.hoursPerWeek == null ? "" : String(profile.hoursPerWeek)}
+          streamCategories={profile?.streamCategories ?? ""}
+          analyticsProof={profile?.analyticsProof ?? ""}
+        />
         <label><input type="checkbox" name="nichesOn" value="1" defaultChecked={profile?.nichesOn} /> Show niches</label>
-        <fieldset className="member-fields">
-          <legend>Platforms</legend>
-          {MEMBER_PLATFORMS.map((platform) => (
-            <label key={platform}>{platform}
-              <input name={`platform-${platform}`} defaultValue={handleFor(platform)} placeholder="@handle" />
-            </label>
-          ))}
-        </fieldset>
         <label><input type="checkbox" name="platformsOn" value="1" defaultChecked={profile?.platformsOn} /> Show platforms</label>
         <label>Handles<input name="handles" defaultValue={profile?.handles ?? ""} placeholder="@name" /></label>
         <label><input type="checkbox" name="handlesOn" value="1" defaultChecked={profile?.handlesOn} /> Show handles</label>

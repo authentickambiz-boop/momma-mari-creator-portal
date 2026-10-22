@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { saveQuestionnaireAction } from "@/app/question-actions";
+import { NicheMultiSelect, PlatformFields } from "@/components/niche-multi-select";
 import { TagPicker } from "@/components/tag-picker";
-import { BRAND_OPTIONS, FORMAT_OPTIONS, LANGUAGE_OPTIONS, LOCATION_OPTIONS, NICHE_CATALOG, PLATFORM_OPTIONS } from "@/lib/niche-catalog";
+import { BRAND_OPTIONS, FORMAT_OPTIONS, LANGUAGE_OPTIONS, LOCATION_OPTIONS, NICHE_CATALOG, PLATFORM_OPTIONS, platformLabel } from "@/lib/niche-catalog";
 import { AGE_RANGES, AUDIENCE_RANGES } from "@/lib/profile-shared";
 import {
   AUDIENCE_AGE_OPTIONS,
@@ -41,17 +42,24 @@ export function QuestionStep({
       </div>
       <h2>{step.title}</h2>
       {error ? <p className="private-note" role="alert">{error}</p> : null}
-      {stepId === "niches" ? <TagPicker name="niches" label="Niches" options={NICHE_CATALOG} selected={answers.niches} placeholder="Search niches" /> : null}
+      {stepId === "niches" ? <NicheMultiSelect selected={answers.niches} nicheOther={answers.nicheOther ?? ""} /> : null}
       {stepId === "platforms" ? (
-        <>
-          <TagPicker name="platforms" label="Platforms" options={PLATFORM_OPTIONS} selected={answers.platforms} />
-          {PLATFORM_OPTIONS.map((platform) => (
-            <label key={platform}>
-              {platform} handle
-              <input name={`handle${platform}`} defaultValue={answers.handles[platform] ?? ""} placeholder="@name" />
-            </label>
-          ))}
-        </>
+        <PlatformFields
+          options={PLATFORM_OPTIONS}
+          labels={Object.fromEntries(PLATFORM_OPTIONS.map((platform) => [platform, platformLabel(platform)]))}
+          selected={answers.platforms}
+          rows={PLATFORM_OPTIONS.map((platform) => ({
+            platform,
+            handle: answers.handles[platform] ?? "",
+            url: answers.platformUrls?.[platform] ?? "",
+            followers: answers.platformFollowers?.[platform] ?? "",
+          }))}
+          niches={answers.niches}
+          avgViewers={answers.avgViewers ?? ""}
+          hoursPerWeek={answers.hoursPerWeek ?? ""}
+          streamCategories={answers.streamCategories ?? ""}
+          analyticsProof={answers.analyticsProof ?? ""}
+        />
       ) : null}
       {stepId === "audience" ? (
         <>
