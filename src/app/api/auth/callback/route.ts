@@ -28,7 +28,7 @@ import {
   verifyGmailOAuthState,
   verifyOAuthState,
 } from "@/lib/google-oauth";
-import { readPrimaryCalendarId, saveCalendarConnection } from "@/lib/google-calendar";
+import { calendarOwnerId, readPrimaryCalendarId, saveCalendarConnection } from "@/lib/google-calendar";
 import { saveDriveConnection } from "@/lib/account-connections";
 import { AGENCY_MAILBOX_ID, saveAgencyMailbox } from "@/lib/agency-mailbox";
 import { saveGmailConnection } from "@/lib/onboarding";
@@ -173,12 +173,13 @@ async function finishCalendarConnect(code: string | null, state: string | null) 
   };
   if (!valid || !code) return fail("oauth");
   const viewer = await currentViewer();
-  if (!viewer || viewer.role !== "creator" || !viewer.creatorId) return fail("own");
+  const ownerId = viewer ? calendarOwnerId(viewer) : null;
+  if (!ownerId) return fail("own");
   const calendar = await exchangeCalendarCode(code);
   if (!calendar) return fail("refresh");
   const calendarEmail = await readPrimaryCalendarId(calendar.accessToken);
   const db = await getDb();
-  const saved = await saveCalendarConnection(db, viewer.creatorId, {
+  const saved = await saveCalendarConnection(db, ownerId, {
     refreshToken: calendar.refreshToken,
     calendarEmail,
   });

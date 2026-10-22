@@ -1032,6 +1032,7 @@ p.note.empty, .empty-state {
   .public-grid { gap: 16px; }
 }
 
+.calendar-connect { margin: 0 0 16px; }
 .calendar-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .calendar-views { display: flex; gap: 8px; }
 .calendar-views a { min-height: 44px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink); font-weight: 700; }
