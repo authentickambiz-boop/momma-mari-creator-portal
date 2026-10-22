@@ -63,6 +63,7 @@ export function CommunityPanel() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [hidden, setHidden] = useState(false);
   const [state, setState] = useState<"open" | "collapsed" | "sheet">("open");
+  const skipPlaceholderSave = useRef(true);
   const [channelId, setChannelId] = useState("everyone");
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState("");
@@ -91,7 +92,10 @@ export function CommunityPanel() {
     }
     const open = state === "open" || state === "sheet";
     document.body.dataset.community = state === "open" ? "open" : state === "collapsed" ? "collapsed" : "sheet";
-    if (state !== "sheet") window.localStorage.setItem("mm-community-panel", open ? "open" : "collapsed");
+    // The first paint is open, before the width check. Saving that would make
+    // the next mount on a phone open the full-screen sheet.
+    if (skipPlaceholderSave.current) skipPlaceholderSave.current = false;
+    else if (state !== "sheet") window.localStorage.setItem("mm-community-panel", open ? "open" : "collapsed");
     if (open && snapshot) {
       const newest = snapshot.messages.reduce((max, message) => (message.createdAt > max ? message.createdAt : max), "");
       if (newest) window.localStorage.setItem("mm-community-read", newest);
