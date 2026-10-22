@@ -23,6 +23,7 @@ import { inviteErrorNote } from "@/lib/invite-notes";
 import { noticeErrorNote } from "@/lib/notice-notes";
 import { listPlatformInvites } from "@/lib/platform-invites";
 import { SeasonalGreeting } from "@/components/seasonal-greeting";
+import { promoViewsForDeals } from "@/lib/promo-visuals";
 
 const TODO_NOTES: Record<string, string> = {
   done: "Marked done.",
@@ -36,6 +37,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
   const deals = await listDealsForViewer(portal.db, portal.viewer, portal.viewedId);
+  const visuals = await promoViewsForDeals(portal.db, deals);
   const fallback = deals.find((deal) => deal.id === "vev")?.id ?? deals[0]?.id;
   const selected = fallback ? await getDealForViewer(portal.db, portal.viewer, fallback) : null;
   const staff = portal.viewer.role === "admin" || portal.viewer.role === "manager";
@@ -212,6 +214,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         listNote={portal.viewed?.listNote ?? null}
         creatorQuery={creatorQuery}
         emptyCopy={creatorHome ? CREATOR_REVIEW_EMPTY : null}
+        visuals={visuals}
         {...dealPowers(portal.viewer)}
       />
       </div>

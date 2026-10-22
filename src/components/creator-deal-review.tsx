@@ -1,7 +1,19 @@
 import { decideDealReviewAction } from "@/app/deal-review-actions";
 import { CREATOR_REVIEW_EMPTY, creatorReviewNeedsAction, dealReviewLabel, offerReviewStatus, reviewChoices, type CreatorDealReview } from "@/lib/creator-deal-review";
+import type { PromoView } from "@/lib/promo-visuals";
+import { PromoVisual } from "./promo-visual";
 
-export function CreatorDealReviewCard({ offers, note, title = "Needs your answer" }: { offers: CreatorDealReview[]; note?: string | null; title?: string }) {
+export function CreatorDealReviewCard({
+  offers,
+  note,
+  title = "Needs your answer",
+  visuals = {},
+}: {
+  offers: CreatorDealReview[];
+  note?: string | null;
+  title?: string;
+  visuals?: Record<string, PromoView>;
+}) {
   const actionable = offers.filter(creatorReviewNeedsAction);
   if (!actionable.length && !note) return null;
   return (
@@ -15,6 +27,7 @@ export function CreatorDealReviewCard({ offers, note, title = "Needs your answer
         const closed = status === "passed" || status === "declined";
         return (
           <article key={offer.id} className="stack">
+            <PromoVisual visual={visuals[offer.id]?.choice ?? null} brand={offer.brand} />
             <h2>{offer.brand}</h2>
             <p><b>{offer.offerLabel}</b></p>
             <p>{offer.summary}</p>

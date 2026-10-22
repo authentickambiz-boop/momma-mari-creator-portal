@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
 import { createBrandOffer, offerBudgetsFromRaw, respondToOffer } from "@/lib/brand-offers";
+import { publicImagePageUrl } from "@/lib/promo-image";
+import { promoErrorCode } from "@/lib/promo-notes";
+import { savePromoVisual } from "@/lib/promo-visuals";
 import { counterSharedOffer, passSharedOffer } from "@/lib/creator-interest";
 import { offerErrorCode } from "@/lib/offer-notes";
 
@@ -17,6 +20,10 @@ export async function createBrandOfferAction(formData: FormData) {
     raw: String(formData.get(`budget-${creatorId}`) ?? ""),
   })));
   if (!parsed.ok) redirect(`/offers?offerError=${offerErrorCode(parsed.error)}`);
+  const productPageUrl = String(formData.get("productPageUrl") ?? "");
+  const ownerImageUrl = String(formData.get("ownerImageUrl") ?? "");
+  if (productPageUrl.trim() && !publicImagePageUrl(productPageUrl)) redirect("/offers?promoError=link");
+  if (ownerImageUrl.trim() && !publicImagePageUrl(ownerImageUrl)) redirect("/offers?promoError=link");
   const budgets = parsed.budgets;
   const result = await createBrandOffer(db, viewer, {
     brand: String(formData.get("brand") ?? ""),
@@ -30,6 +37,17 @@ export async function createBrandOfferAction(formData: FormData) {
     budgets,
   });
   if (!result.ok) redirect(`/offers?offerError=${offerErrorCode(result.error)}`);
+  const productName = String(formData.get("productName") ?? "");
+  if (productName.trim() || productPageUrl.trim() || ownerImageUrl.trim()) {
+    const saved = await savePromoVisual(db, viewer, {
+      subjectType: "offer",
+      subjectId: result.id,
+      productName,
+      productPageUrl,
+      ownerImageUrl,
+    });
+    if (!saved.ok) redirect(`/offers?promoError=${promoErrorCode(saved.error)}`);
+  }
   redirect("/offers?saved=1");
 }
 

@@ -15,6 +15,10 @@ import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
 import { listGiftedBoard, listGiftedOverdue } from "@/lib/gifted";
 import { giftErrorNote } from "@/lib/gift-notes";
+import { promoErrorNote } from "@/lib/promo-notes";
+import { promoViewsForGifts } from "@/lib/promo-visuals";
+import { PromoVisual } from "@/components/promo-visual";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +26,7 @@ function TermsNote() {
   return <GiftedTermsNotice />;
 }
 
-export default async function GiftsPage({ searchParams }: { searchParams: Promise<{ saved?: string; giftsError?: string }> }) {
+export default async function GiftsPage({ searchParams }: { searchParams: Promise<{ saved?: string; giftsError?: string; promo?: string; promoError?: string }> }) {
   const params = await searchParams;
   const giftsError = giftErrorNote(params.giftsError);
   const portal = await loadPortal(null);
@@ -34,6 +38,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
     );
   }
   const board = await listGiftedBoard(portal.db, portal.viewer);
+  const visuals = await promoViewsForGifts(portal.db, board);
   const overdue = portal.viewer.role === "admin" ? await listGiftedOverdue(portal.db, portal.viewer) : [];
   const creatorView = portal.viewer.role === "creator";
   return (
@@ -52,6 +57,8 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
       }
     >
       {giftsError ? <p className="private-note">{giftsError}</p> : null}
+      {params.promo === "saved" ? <p className="note">Product image saved. Nothing was emailed.</p> : null}
+      {promoErrorNote(params.promoError) ? <p className="private-note">{promoErrorNote(params.promoError)}</p> : null}
       {params.saved === "posted" ? <p className="note">Posted. The brand is tagged as a future paid prospect. Nothing was emailed.</p> : null}
       {params.saved === "applied" ? <p className="note">Applied. Momma Mari will review your request.</p> : null}
       {params.saved === "approved" ? <p className="note">Approved. Nothing was charged or emailed.</p> : null}
@@ -92,6 +99,8 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
           <label>Brand<input name="brand" required placeholder="Glow Soap" /></label>
           <label>Product<input name="product" required placeholder="Glow bar" /></label>
           <label>Photos, one link per line<textarea name="photos" required placeholder="https://example.com/glow.jpg" /></label>
+          <label>Product page<input name="productPageUrl" placeholder="https://brand.com/products/glow-bar" /></label>
+          <p className="note">A photo from the brand email is used first, then the product page, then these links. Nothing is emailed.</p>
           <label>Required video<input name="deliverable" required placeholder="1 TikTok" /></label>
           <label>Due date<input name="dueOn" required placeholder="2026-11-20" /></label>
           <p className="note">Use a date like 2026-11-20.</p>
@@ -105,14 +114,11 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
         {board.length === 0 ? <p className="note empty">No free products yet. Nothing is charged.</p> : null}
         {board.map((offer) => (
           <article key={offer.id} className="card stack" id={`gift-${offer.id}`}>
+            <PromoVisual visual={visuals[offer.id]?.choice ?? null} brand={offer.brand} alt={offer.product} showCheck={portal.viewer.role === "admin"} />
             <b>{offer.product}</b>
+            <p className="note"><Link href={`/gifts/${offer.id}`}>Product detail</Link></p>
             <p className="note">{offer.brand} · {offer.deliverable} · due {offer.dueOn}</p>
             <p>Retail value {formatMoney(offer.retailValueCents)}</p>
-            <div className="stage-form">
-              {offer.photos.map((photo) => (
-                <img key={photo} src={photo} alt={offer.product} style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 12 }} />
-              ))}
-            </div>
             {creatorView && !offer.mine ? (
               <form action={applyGiftedOfferAction} className="stack">
                 <input type="hidden" name="offerId" value={offer.id} />
