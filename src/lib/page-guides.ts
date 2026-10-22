@@ -449,8 +449,8 @@ export const PAGE_GUIDES: { [K in PortalTab]: PageGuide } = {
     steps: [
       "Read the gross, then the fees, then what is left.",
       "Check that the brand payment is marked before you expect a creator payout.",
-      "Creators: a missing row means the brand is not marked paid, or the deal is not yours.",
-      "The owner records what is true. This page does not transfer funds.",
+      "Download a blank W-9, or the W-9 stored for you. Only you and the owner can open a stored copy.",
+      "The owner uploads a filed 1099-NEC. Download yearly summary for paid lines. It is not a tax form.",
     ],
   },
   team: {

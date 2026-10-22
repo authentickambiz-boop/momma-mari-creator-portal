@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
-import { dollarsToCents, markBrandPaid, markCreatorPaid, recordPayoutLine, storeCreatorW9 } from "@/lib/payout-ledger";
+import { dollarsToCents, markBrandPaid, markCreatorPaid, recordPayoutLine, storeCreatorW9, storeFiled1099 } from "@/lib/payout-ledger";
 
 function fail(code: string): never {
   redirect(`/payouts?error=${code}`);
@@ -65,4 +65,22 @@ export async function uploadW9Action(formData: FormData) {
   });
   if (!result.ok) fail(result.code);
   redirect("/payouts?saved=w9");
+}
+
+export async function uploadFiled1099Action(formData: FormData) {
+  const viewer = await currentViewer();
+  if (!viewer) redirect("/login");
+  const file = formData.get("form1099");
+  if (!(file instanceof File)) fail("pdf");
+  const year = Number(String(formData.get("year") ?? ""));
+  const db = await getDb();
+  const result = await storeFiled1099(db, viewer, {
+    creatorId: String(formData.get("creatorId") ?? ""),
+    year,
+    filename: file.name,
+    mimeType: file.type || "application/pdf",
+    bytes: new Uint8Array(await file.arrayBuffer()),
+  });
+  if (!result.ok) fail(result.code);
+  redirect(`/payouts?saved=1099&year=${year}`);
 }
