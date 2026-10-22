@@ -60,7 +60,13 @@ export function senderDisplayName(from: string) {
 
 /** GitHub and other bots sign the display name this way: cursor[bot]. */
 export function isBotSenderName(from: string) {
-  return /\[bot\]\s*$/i.test(senderDisplayName(from));
+  const name = senderDisplayName(from);
+  return /\[bot\]/i.test(name) || /\[bot\]/i.test(from);
+}
+
+/** github.com and any subdomain, including notifications@ and reply.github.com. */
+export function isGithubSender(from: string) {
+  return /@(?:[a-z0-9.-]+\.)?github\.com(?=$|[\s>,;])/i.test(from);
 }
 
 export type MailHeaders = Record<string, string>;
@@ -76,9 +82,9 @@ export function isBulkHeader(headers: MailHeaders | null | undefined) {
   return Boolean(auto) && auto !== "no";
 }
 
-/** no-reply, notifications@, noreply domains, [bot] names, and bulk headers. Never a deal. */
+/** no-reply, notifications@, noreply domains, [bot] names, GitHub, and bulk headers. Never a deal. */
 export function isAutomatedSender(from: string, headers?: MailHeaders | null) {
-  if (isBotSenderName(from) || isBulkHeader(headers)) return true;
+  if (isBotSenderName(from) || isGithubSender(from) || isBulkHeader(headers)) return true;
   if (AUTOMATED_ADDRESS.test(from) || NOREPLY_DOMAIN.test(from)) return true;
   const local = addressIn(from).split("@")[0] ?? "";
   if (!local) return false;
@@ -105,6 +111,29 @@ export function gmailDraftAllowed(body: string, subject = "") {
   if (hasUnfilledPlaceholder(reply) || hasUnfilledPlaceholder(subject)) return false;
   if (isSintraDraft(reply)) return false;
   return true;
+}
+
+/** Last check before drafts.create. A [CONFIRM] body or an automated recipient never leaves the portal. */
+export function gmailDraftCreateAllowed(input: { to: string; subject?: string; body: string }) {
+  if (!gmailDraftAllowed(input.body, input.subject ?? "")) return false;
+  return !isAutomatedSender(input.to);
+}
+
+/** The HTTP body of drafts.create. Refuses the request when the raw message still has [CONFIRM] or an automated To. */
+export function gmailDraftRequestAllowed(path: string, body: unknown) {
+  if (!/^\/drafts(?:\?|$)/.test(path)) return true;
+  if (!body || typeof body !== "object") return false;
+  const raw = (body as { message?: { raw?: unknown } }).message?.raw;
+  if (typeof raw !== "string" || raw.length === 0) return false;
+  let text = "";
+  try {
+    text = Buffer.from(raw, "base64url").toString("utf8");
+  } catch {
+    return false;
+  }
+  if (hasUnfilledPlaceholder(text)) return false;
+  const to = text.match(/^To:\s*(.*)$/im)?.[1] ?? "";
+  return !isAutomatedSender(to);
 }
 
 /** Prices and calendar dates in the portal starter stay blank until a person confirms them. */
@@ -159,6 +188,8 @@ export async function prepareReplyAndLabels(
     dealId: string | null;
     brand: string;
     replyTo: string;
+    from?: string;
+    headers?: MailHeaders | null;
   },
 ) {
   const draftMessage = input.message.labelIds.includes("DRAFT");
@@ -167,9 +198,12 @@ export async function prepareReplyAndLabels(
   }
   let drafted = false;
   let skippedDraft: "sintra" | "existing" | "kept" | "placeholder" | "none" = "none";
-  const canDraft = input.sort === "needs_reply" && input.dealId && input.replyTo.includes("@") && !isAutomatedSender(input.replyTo);
-  if (canDraft) {
-    const portal = await saveConfirmPortalDraft(db, input.dealId, confirmDraftBody({
+  const dealId = input.dealId;
+  const from = input.from ?? input.replyTo;
+  const automated = isAutomatedSender(from, input.headers) || isAutomatedSender(input.replyTo);
+  const canDraft = input.sort === "needs_reply" && Boolean(dealId) && input.replyTo.includes("@") && !automated;
+  if (canDraft && dealId) {
+    const portal = await saveConfirmPortalDraft(db, dealId, confirmDraftBody({
       creatorLabel: input.creatorLabel,
       brand: input.brand,
     }));
@@ -227,13 +261,16 @@ async function createGmailDraftIfEmpty(
     message: { id: string; threadId: string; subject: string };
     brand: string;
     replyTo: string;
+    from?: string;
+    headers?: MailHeaders | null;
     dealId: string | null;
   },
 ) {
   if (!client.listThreadDrafts || !client.createDraft || !input.dealId) return "none" as const;
-  if (isAutomatedSender(input.replyTo)) return "none" as const;
+  const from = input.from ?? input.replyTo;
+  if (isAutomatedSender(from, input.headers) || isAutomatedSender(input.replyTo)) return "none" as const;
   const body = await composedReply(db, input.dealId);
-  if (!body || !gmailDraftAllowed(body, input.message.subject)) return "placeholder" as const;
+  if (!body || !gmailDraftCreateAllowed({ to: input.replyTo, subject: input.message.subject, body })) return "placeholder" as const;
   const drafts = await client.listThreadDrafts(input.message.threadId);
   if (drafts.some((draft) => isSintraDraft(draft.snippet) || isSintraDraft(draft.id))) return "sintra" as const;
   if (drafts.length > 0) return "existing" as const;

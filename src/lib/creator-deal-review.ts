@@ -229,7 +229,7 @@ async function placeAcceptedReview(
   db: PortalDb,
   offer: { id: string; brand: string; contactEmail: string; offerLabel: string; summary: string },
   creatorId: string,
-): Promise<Result<Record<string, never>>> {
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   const id = `accepted-${offer.id}`;
   const existing = await db.select().from(deals).where(eq(deals.id, id));
   if (existing[0]) return { ok: true };
