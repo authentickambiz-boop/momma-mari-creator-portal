@@ -6,7 +6,9 @@ import { currentViewer } from "@/lib/current-user";
 import { gmailSyncEnabled } from "@/lib/gmail-sync-flag";
 import { mailboxForCreator, renewGmailWatches, renewMailboxWatch } from "@/lib/gmail-push";
 import {
+  calendarStateCookieName,
   driveStateCookieName,
+  exchangeCalendarCode,
   exchangeCode,
   exchangeDriveCode,
   exchangeGmailCode,
@@ -14,16 +16,19 @@ import {
   gmailBridgeStateCookieName,
   gmailStateCookieName,
   gmailWatchCreatorCookieName,
+  isCalendarOAuthState,
   isDriveOAuthState,
   isGmailBridgeState,
   isGmailOAuthState,
   oauthStateCookieName,
   readWatchCreatorCookie,
+  verifyCalendarOAuthState,
   verifyDriveOAuthState,
   verifyGmailBridgeOAuthState,
   verifyGmailOAuthState,
   verifyOAuthState,
 } from "@/lib/google-oauth";
+import { readPrimaryCalendarId, saveCalendarConnection } from "@/lib/google-calendar";
 import { saveDriveConnection } from "@/lib/account-connections";
 import { AGENCY_MAILBOX_ID, saveAgencyMailbox } from "@/lib/agency-mailbox";
 import { saveGmailConnection } from "@/lib/onboarding";
@@ -43,6 +48,9 @@ export async function GET(request: Request) {
   }
   if (isGmailOAuthState(state)) {
     return finishGmailConnect(code, state);
+  }
+  if (isCalendarOAuthState(state)) {
+    return finishCalendarConnect(code, state);
   }
   const cookie = request.headers.get("cookie") ?? "";
   const stateCookie = cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${oauthStateCookieName()}=`))?.split("=").slice(1).join("=");
@@ -152,5 +160,30 @@ async function finishDriveConnect(code: string | null, state: string | null) {
   if (!saved.ok) return fail(saved.status === 503 ? "not_configured" : "oauth");
   const response = NextResponse.redirect(`${appBaseUrl()}/connect?drive=connected`);
   response.cookies.set(driveStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+  return response;
+}
+
+async function finishCalendarConnect(code: string | null, state: string | null) {
+  const jar = await cookies();
+  const valid = await verifyCalendarOAuthState(jar.get(calendarStateCookieName())?.value, state);
+  const fail = (reason: string) => {
+    const response = NextResponse.redirect(`${appBaseUrl()}/calendar?calendarError=${reason}`);
+    response.cookies.set(calendarStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+    return response;
+  };
+  if (!valid || !code) return fail("oauth");
+  const viewer = await currentViewer();
+  if (!viewer || viewer.role !== "creator" || !viewer.creatorId) return fail("own");
+  const calendar = await exchangeCalendarCode(code);
+  if (!calendar) return fail("refresh");
+  const calendarEmail = await readPrimaryCalendarId(calendar.accessToken);
+  const db = await getDb();
+  const saved = await saveCalendarConnection(db, viewer.creatorId, {
+    refreshToken: calendar.refreshToken,
+    calendarEmail,
+  });
+  if (!saved.ok) return fail(saved.status === 503 ? "setup" : "oauth");
+  const response = NextResponse.redirect(`${appBaseUrl()}/calendar?saved=1`);
+  response.cookies.set(calendarStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
   return response;
 }

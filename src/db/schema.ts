@@ -606,6 +606,9 @@ export const deliverableNudges = sqliteTable("deliverable_nudges", {
 export const creatorCalendars = sqliteTable("creator_calendars", {
   creatorId: text("creator_id").primaryKey(),
   connected: integer("connected", { mode: "boolean" }).notNull().default(false),
+  refreshToken: text("refresh_token"),
+  calendarEmail: text("calendar_email"),
+  status: text("status").notNull().default("off"),
   updatedAt: text("updated_at").notNull(),
 });
 
