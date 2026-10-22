@@ -491,21 +491,17 @@ export async function listPostMetrics(db: PortalDb, creatorId: string) {
 }
 
 export function summarizeAnalytics(daily: DailyMetric[], posts: PostMetric[]) {
-  const realDaily = daily.filter((row) => !row.isExample);
-  const realPosts = posts.filter((row) => !row.isExample);
-  const exampleMode = realDaily.length === 0;
-  const shown = (exampleMode ? daily : realDaily).slice().sort((a, b) => a.metricDate.localeCompare(b.metricDate));
-  const shownPosts = exampleMode ? posts : realPosts;
+  const shown = daily.filter((row) => !row.isExample).slice().sort((a, b) => a.metricDate.localeCompare(b.metricDate));
+  const shownPosts = posts.filter((row) => !row.isExample);
   const withFollowers = shown.filter((row) => row.followers != null);
   const withEngagement = shown.filter((row) => row.engagementRate != null);
   const viewRows = shown.filter((row) => row.views != null);
-  const lastSeven = shown.slice(-7);
+  const counted = shown.slice(-7).filter((row) => row.newFollowers != null);
   return {
-    exampleMode,
     daily: shown,
     posts: shownPosts,
     followers: withFollowers.at(-1)?.followers ?? null,
-    newFollowers: lastSeven.reduce((sum, row) => sum + (row.newFollowers ?? 0), 0),
+    newFollowers: counted.length ? counted.reduce((sum, row) => sum + (row.newFollowers ?? 0), 0) : null,
     averageViews: viewRows.length
       ? Math.round(viewRows.reduce((sum, row) => sum + (row.views ?? 0), 0) / viewRows.length)
       : null,

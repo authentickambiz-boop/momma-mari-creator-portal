@@ -1,0 +1,114 @@
+{
+  "capturedOn": "2026-10-18",
+  "source": "July",
+  "note": "July.bio roster snapshot captured 2026-10-18 11:57 PM ET. Instagram uses Past 30d. Other platforms showed follower counts only. A metric July did not display is omitted. Abby's Instagram saves were shown as -1 and are stored as null.",
+  "creators": [
+    {
+      "creatorId": "mariclare",
+      "name": "MariClare MacLamroc",
+      "location": "North Carolina, USA",
+      "totalAudience": "2,643,506",
+      "largestPlatform": "TikTok",
+      "snapshots": [
+        {
+          "platform": "Instagram",
+          "period": "Past 30d",
+          "metrics": {
+            "engagement": "3.57%",
+            "followers": "326K",
+            "views": "3M",
+            "reach": "1.1M",
+            "totalInteractions": "108K",
+            "avgStoryViews": "8,533"
+          },
+          "audience": {
+            "gender": ["Female 79%"],
+            "age": ["18-24 40.5%", "25-34 31.0%"],
+            "country": ["USA 52.4%", "India 10.2%", "UK 5.0%"]
+          }
+        },
+        {
+          "platform": "TikTok",
+          "metrics": { "followers": "2.3M" }
+        },
+        {
+          "platform": "YouTube",
+          "metrics": { "subscribers": "9,630" }
+        },
+        {
+          "platform": "Twitch",
+          "metrics": { "followers": "462" }
+        }
+      ]
+    },
+    {
+      "creatorId": "authentickam",
+      "name": "Authentickam",
+      "location": "North Carolina, USA",
+      "totalAudience": "193,965",
+      "largestPlatform": "TikTok",
+      "snapshots": [
+        {
+          "platform": "Instagram",
+          "period": "Past 30d",
+          "metrics": {
+            "followers": "15.8K",
+            "engagement": "1.61%",
+            "views": "21.5K",
+            "reach": "6,174",
+            "avgStoryViews": "731"
+          },
+          "audience": {
+            "gender": ["Female 85%"],
+            "age": ["18-24 47.7%", "25-34 29.3%"],
+            "country": ["USA 75%"]
+          }
+        },
+        {
+          "platform": "TikTok",
+          "metrics": { "followers": "178K" }
+        },
+        {
+          "platform": "YouTube",
+          "metrics": { "subscribers": "653" }
+        },
+        {
+          "platform": "Facebook",
+          "metrics": { "followers": "2" }
+        }
+      ]
+    },
+    {
+      "creatorId": "abby",
+      "name": "Abby Theriot",
+      "totalAudience": "110,375",
+      "largestPlatform": "TikTok",
+      "snapshots": [
+        {
+          "platform": "Instagram",
+          "period": "Past 30d",
+          "metrics": {
+            "followers": "1,728",
+            "engagement": "1.55%",
+            "views": "3,427",
+            "reach": "408",
+            "saves": null
+          },
+          "audience": {
+            "gender": ["Female 76%"],
+            "age": ["25-34 38.2%", "18-24 32.4%"],
+            "country": ["USA 78.4%"]
+          }
+        },
+        {
+          "platform": "TikTok",
+          "metrics": { "followers": "78.8K" }
+        },
+        {
+          "platform": "Facebook",
+          "metrics": { "followers": "29.8K" }
+        }
+      ]
+    }
+  ]
+}

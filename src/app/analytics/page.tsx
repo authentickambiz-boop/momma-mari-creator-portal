@@ -3,7 +3,7 @@ import { savePublicShowcaseAction } from "@/app/showcase-actions";
 import { AnalyticsPanel } from "@/components/analytics-panel";
 import { SnapshotBoard } from "@/components/analytics-snapshots";
 import { PortalFrame } from "@/components/portal-frame";
-import { analyticsBoard } from "@/lib/analytics-snapshots";
+import { analyticsBoard, julyHeadline } from "@/lib/analytics-snapshots";
 import { ownerShowcase } from "@/lib/public-creators";
 import { showcaseErrorNote } from "@/lib/showcase-notes";
 import { snapshotErrorNote } from "@/lib/snapshot-notes";
@@ -17,6 +17,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const showcase = portal.viewer.role === "admin" && portal.viewed ? await ownerShowcase(portal.db, portal.viewer, portal.viewed.id) : null;
   const board = await analyticsBoard(portal.db, portal.viewer);
   const shown = portal.viewed ? board.creators.filter((creator) => creator.creatorId === portal.viewed?.id) : board.creators;
+  const byCreator = new Map(board.creators.map((creator) => [creator.creatorId, creator]));
   const creators = portal.viewed ? [portal.viewed] : portal.creators;
   const panels = await Promise.all(creators.map(async (creator) => ({
     creator,
@@ -83,7 +84,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         {panels.map((panel) => (
           <section key={panel.creator.id}>
             {!portal.viewed ? <h2 style={{ marginBottom: 8 }}>{panel.creator.name}</h2> : null}
-            <AnalyticsPanel creator={panel.creator} daily={panel.daily} posts={panel.posts} />
+            <AnalyticsPanel
+              daily={panel.daily}
+              posts={panel.posts}
+              july={julyHeadline(byCreator.get(panel.creator.id) ?? { largestPlatform: null, platforms: [] })}
+            />
           </section>
         ))}
       </div>
