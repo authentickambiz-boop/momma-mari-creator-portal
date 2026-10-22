@@ -503,3 +503,69 @@ html.mm-seasonal[data-mm-theme="back-to-school"] [data-mm-glass] { background: r
 @media print {
   .mm-scene { display: none; }
 }
+
+/* Homepage creator cards. Webflow sizes .image-30 at 30% of a shrink-wrapped
+   link, so the three photos collapse into slivers. The brands page uses
+   a.card-image-wrapper and keeps those 30% tiles, so only the div wrapper
+   on the homepage is widened. Faces stay centered in the frame. */
+@media (min-width: 992px) {
+  div.card-image-wrapper {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: stretch;
+    gap: 22px;
+    width: 100%;
+  }
+  div.card-image-wrapper > a {
+    flex: 1 1 0;
+    min-width: 0;
+    display: block;
+  }
+  div.card-image-wrapper > a > .image-30 {
+    width: 100%;
+    height: 480px;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 991px) {
+  div.card-image-wrapper {
+    display: flex;
+    flex-flow: column nowrap;
+    align-items: stretch;
+    gap: 22px;
+    width: 100%;
+  }
+  div.card-image-wrapper > a {
+    display: block;
+    width: 100%;
+  }
+  div.card-image-wrapper > a > .image-30 {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 4;
+  }
+}
+
+div.card-image-wrapper .image-30 img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+}
+
+div.card-image-wrapper :is(.course-details-text, .niche, .followin-coun) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* A soft dark edge so type stays readable over the illustrated scenes.
+   Only while a seasonal theme is on. The scene itself stays at z-index -1. */
+html.mm-seasonal :where(h1, h2, h3, h4, h5, h6, p, li, a, span, label, dt, dd, figcaption, blockquote, button) {
+  text-shadow:
+    0 1px 1px rgba(16, 8, 28, 0.72),
+    0 0 2px rgba(16, 8, 28, 0.65),
+    -1px 0 0 rgba(16, 8, 28, 0.4),
+    1px 0 0 rgba(16, 8, 28, 0.4);
+}

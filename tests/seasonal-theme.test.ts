@@ -142,6 +142,7 @@ describe("seasonal themes", { concurrency: 1 }, () => {
     assert.match(css, /rgba\(32, 14, 58, 0\.68\)/);
     assert.match(css, /rgba\(32, 14, 58, 0\.84\)/);
     assert.match(css, /backdrop-filter/);
+    assert.match(css, /html\[data-seasonal\] :where\([\s\S]*text-shadow:/);
     assert.doesNotMatch(css, /clip-path:\s*inset\(64px/);
     assert.match(sparkle, /seasonalEffects/);
     assert.match(sparkle, /decorationsOn: true/);

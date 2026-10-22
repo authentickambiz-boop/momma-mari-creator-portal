@@ -93,6 +93,11 @@ describe("webflow seasonal embed", () => {
     assert.match(css, /data-mm-theme="thanksgiving"\] \.mm-scene[\s\S]*100dvh/);
     assert.match(css, /data-mm-theme="christmas"\] body \{ backdrop-filter: none !important; \}/);
     assert.match(css, /data-mm-theme="christmas"\] \.mm-scene[\s\S]*100dvh/);
+    assert.match(css, /\.mm-scene\s*\{[^}]*z-index:\s*-1/);
+    assert.match(css, /div\.card-image-wrapper > a > \.image-30/);
+    assert.match(css, /object-position:\s*center center/);
+    assert.match(css, /html\.mm-seasonal :where\([\s\S]*text-shadow:/);
+    assert.doesNotMatch(css, /\.mm-scene\s*\{[^}]*z-index:\s*(?!-1)\d/);
     assert.match(js, /mm-harvest/);
     assert.match(js, /scene\.id === "thanksgiving"/);
     assert.match(js, /mm-bulb/);
