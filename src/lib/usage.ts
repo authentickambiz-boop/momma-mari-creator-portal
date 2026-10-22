@@ -161,6 +161,12 @@ export function usageFlag(endsOn: string | null, today: string) {
   return null;
 }
 
+/** Calendar days from today until the end date. Negative means the window has ended. */
+export function usageDaysLeft(endsOn: string | null, today: string) {
+  if (!endsOn || !isIsoDate(endsOn) || !isIsoDate(today)) return null;
+  return dayNumber(endsOn) - dayNumber(today);
+}
+
 export type UsageCard = {
   dealId: string;
   brand: string;

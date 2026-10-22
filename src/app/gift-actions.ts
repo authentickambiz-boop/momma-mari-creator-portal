@@ -6,6 +6,8 @@ import { getDb } from "@/db/getDb";
 import { dollarsToCents } from "@/lib/deal-rules";
 import { currentViewer } from "@/lib/current-user";
 import { giftErrorCode } from "@/lib/gift-notes";
+import { publicImagePageUrl } from "@/lib/promo-image";
+import { savePromoVisual } from "@/lib/promo-visuals";
 import {
   applyForGiftedOffer,
   applyForGiftedOfferByEmail,
@@ -29,6 +31,8 @@ export async function createGiftedOfferAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer) redirect("/login");
   const db = await getDb();
+  const productPageUrl = String(formData.get("productPageUrl") ?? "");
+  if (productPageUrl.trim() && !publicImagePageUrl(productPageUrl)) redirect(back("/gifts", "Photo links have to start with http:// or https://."));
   const result = await createGiftedOffer(db, {
     actorRole: viewer.role,
     actorName: viewer.name,
@@ -40,6 +44,15 @@ export async function createGiftedOfferAction(formData: FormData) {
     retailValueCents: dollarsToCents(String(formData.get("retail") ?? "")),
   });
   if (!result.ok) redirect(back("/gifts", result.error));
+  if (productPageUrl.trim()) {
+    await savePromoVisual(db, viewer, {
+      subjectType: "gift",
+      subjectId: result.id,
+      productName: String(formData.get("product") ?? ""),
+      productPageUrl,
+      ownerImageUrl: null,
+    });
+  }
   redirect(back("/gifts", undefined, "posted"));
 }
 

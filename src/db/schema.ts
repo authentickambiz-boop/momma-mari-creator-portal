@@ -1590,6 +1590,28 @@ export const commissionCampaignInterest = sqliteTable("commission_campaign_inter
   createdAt: text("created_at").notNull(),
 }, (table) => [uniqueIndex("commission_interest_once").on(table.campaignId, table.creatorId)]);
 
+export const promoVisuals = sqliteTable(
+  "promo_visuals",
+  {
+    id: text("id").primaryKey(),
+    subjectType: text("subject_type").notNull(),
+    subjectId: text("subject_id").notNull(),
+    productName: text("product_name"),
+    productPageUrl: text("product_page_url"),
+    ownerImageUrl: text("owner_image_url"),
+    websiteImageUrl: text("website_image_url"),
+    websiteCheckedAt: text("website_checked_at"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("promo_visuals_subject").on(table.subjectType, table.subjectId)],
+);
+
+export const promoImageFiles = sqliteTable("promo_image_files", {
+  visualId: text("visual_id").primaryKey(),
+  mimeType: text("mime_type").notNull(),
+  bytesBase64: text("bytes_base64").notNull(),
+});
+
 export const skillLessons = sqliteTable("skill_lessons", {
   id: text("id").primaryKey(),
   topic: text("topic").notNull(),

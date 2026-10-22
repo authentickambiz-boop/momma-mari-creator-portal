@@ -14,8 +14,11 @@ import { safetyErrorNote } from "@/lib/safety-notes";
 import { safetyLabel } from "@/lib/safety-shared";
 import { signerErrorNote } from "@/lib/signer-notes";
 import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trackStages } from "@/lib/stages";
+import { PromoSourceForm } from "./promo-source-form";
+import { PromoVisual } from "./promo-visual";
 import { Chips, MaybeTbd } from "./portal-frame";
 import { UploadBox } from "./upload-box";
+import type { PromoView } from "@/lib/promo-visuals";
 import type { DealDetail, DealSummary } from "@/lib/types";
 
 const STEPS = [
@@ -58,6 +61,7 @@ export function DealBoard({
   safetyError = null,
   signerError = null,
   emptyCopy = null,
+  visuals = {},
 }: {
   deals: DealSummary[];
   selected: DealDetail | null;
@@ -81,6 +85,7 @@ export function DealBoard({
   safetyError?: string | null;
   signerError?: string | null;
   emptyCopy?: string | null;
+  visuals?: Record<string, PromoView>;
 }) {
   return (
     <div className={showDetail ? "grid showdetail" : "grid"} id="dealGrid">
@@ -99,6 +104,7 @@ export function DealBoard({
         ) : (
           deals.map((deal) => (
             <Link key={deal.id} href={`/deals/${deal.id}${creatorQuery}`} className={selected?.id === deal.id ? "deal on" : "deal"} data-deal-id={deal.id}>
+              <PromoVisual visual={visuals[deal.id]?.choice ?? null} brand={deal.brand} compact showCheck={isOwner} linkSource={false} />
               <div className="top">
                 <span className="name">{deal.brand}</span>
                 <span className="amt">{deal.amountDisplay}</span>
@@ -147,6 +153,7 @@ export function DealBoard({
             paymentError={paymentError}
             safetyError={safetyError}
             signerError={signerError}
+            visual={visuals[selected.id] ?? null}
           />
         ) : (
           <p className="note empty">Pick a deal to see the brief, the feedback, and where to upload.</p>
@@ -177,6 +184,7 @@ function DealDetailView({
   paymentError,
   safetyError,
   signerError,
+  visual,
 }: {
   deal: DealDetail;
   backHref: string;
@@ -198,6 +206,7 @@ function DealDetailView({
   paymentError: string | null;
   safetyError: string | null;
   signerError: string | null;
+  visual: PromoView | null;
 }) {
   const creatorId = creatorQuery.startsWith("?creator=") ? creatorQuery.slice("?creator=".length) : "";
   const current = deal.workflowStage;
@@ -210,6 +219,17 @@ function DealDetailView({
   return (
     <>
       <Link href={backHref} className="btn ghost back">← All deals</Link>
+      <PromoVisual visual={visual?.choice ?? null} brand={deal.brand} showCheck={isOwner} />
+      {isOwner ? (
+        <PromoSourceForm
+          subjectType="deal"
+          subjectId={deal.id}
+          productName={visual?.productName ?? deal.subtitle}
+          productPageUrl={visual?.productPageUrl ?? null}
+          ownerImageUrl={visual?.ownerImageUrl ?? null}
+          returnTo={`/deals/${deal.id}${creatorQuery}`}
+        />
+      ) : null}
       <h2>{deal.brand}</h2>
       <div className="sub">{deal.subtitle}{showOwner ? ` · ${deal.creatorName}` : ""}</div>
       <p className="note" data-live-updated>{lastUpdatedLabel(deal.updatedAt)}</p>

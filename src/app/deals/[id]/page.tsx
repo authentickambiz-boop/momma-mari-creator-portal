@@ -10,13 +10,15 @@ import { categoryOverrideFor, screeningForDeal } from "@/lib/deal-rules";
 import { rulesErrorNote } from "@/lib/rules-notes";
 import { listUnreadCreatorNotices } from "@/lib/video-review";
 import { dealNoticeNote, dealNoticeSpecific } from "@/lib/deal-notice-notes";
+import { promoErrorNote } from "@/lib/promo-notes";
+import { promoViewsForDeals } from "@/lib/promo-visuals";
 
 export default async function DealPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string; productError?: string; postError?: string; paymentError?: string; safetyError?: string; signerError?: string; reply?: string; replyError?: string; rate?: string; rateError?: string; dates?: string; datesError?: string; saved?: string; rulesError?: string }>;
+  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string; productError?: string; postError?: string; paymentError?: string; safetyError?: string; signerError?: string; reply?: string; replyError?: string; rate?: string; rateError?: string; dates?: string; datesError?: string; saved?: string; rulesError?: string; promo?: string; promoError?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const portal = await loadPortal(query.creator ?? null);
@@ -24,6 +26,7 @@ export default async function DealPage({
     ? await listUnreadCreatorNotices(portal.db, portal.viewer.creatorId)
     : [];
   const deals = await listDealsForViewer(portal.db, portal.viewer, portal.viewedId);
+  const visuals = await promoViewsForDeals(portal.db, deals);
   const selected = await getDealForViewer(portal.db, portal.viewer, id);
   const staff = portal.viewer.role === "admin" || portal.viewer.role === "manager";
   const creatorQuery = staff ? `?creator=${portal.viewedId}` : "";
@@ -67,6 +70,8 @@ export default async function DealPage({
         </div>
       ))}
       {query.saved === "1" ? <p className="note">Saved. Nothing was emailed.</p> : null}
+      {query.promo === "saved" ? <p className="note">Product image saved. Nothing was emailed.</p> : null}
+      {promoErrorNote(query.promoError) ? <p className="private-note">{promoErrorNote(query.promoError)}</p> : null}
       {rulesErrorNote(query.rulesError) ? <p className="private-note">{rulesErrorNote(query.rulesError)}</p> : null}
       {query.signed === "1" ? (
         <div className="callout">
@@ -129,6 +134,7 @@ export default async function DealPage({
         paymentError={query.paymentError ?? null}
         safetyError={query.safetyError ?? null}
         signerError={query.signerError ?? null}
+        visuals={visuals}
       />
     </PortalFrame>
   );

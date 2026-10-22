@@ -8,6 +8,8 @@ import { getDb } from "@/db/getDb";
 import { formatMoney } from "@/lib/format";
 import { listGiftedBoard } from "@/lib/gifted";
 import { giftErrorNote } from "@/lib/gift-notes";
+import { promoViewsForGifts } from "@/lib/promo-visuals";
+import { PromoVisual } from "@/components/promo-visual";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,7 @@ export default async function GiftedBenchApplyPage({ searchParams }: { searchPar
   const giftsError = giftErrorNote(params.giftsError);
   const db = await getDb();
   const board = await listGiftedBoard(db, guest);
+  const visuals = await promoViewsForGifts(db, board);
   return (
     <main className="wrap">
       <h1>Free products</h1>
@@ -36,6 +39,7 @@ export default async function GiftedBenchApplyPage({ searchParams }: { searchPar
           <form key={offer.id} action={applyGiftedByEmailAction} className="card stack">
             <input type="hidden" name="offerId" value={offer.id} />
             <input type="hidden" name="termsVersion" value={GIFTED_TERMS_VERSION} />
+            <PromoVisual visual={visuals[offer.id]?.choice ?? null} brand={offer.brand} />
             <b>{offer.product}</b>
             <p className="note">{offer.brand} · {offer.deliverable} · due {offer.dueOn}</p>
             <p>Retail value {formatMoney(offer.retailValueCents)}</p>
