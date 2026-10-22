@@ -1563,3 +1563,15 @@ export const commissionCampaignInterest = sqliteTable("commission_campaign_inter
   creatorId: text("creator_id").notNull(),
   createdAt: text("created_at").notNull(),
 }, (table) => [uniqueIndex("commission_interest_once").on(table.campaignId, table.creatorId)]);
+
+export const skillLessons = sqliteTable("skill_lessons", {
+  id: text("id").primaryKey(),
+  topic: text("topic").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  creatorId: text("creator_id"),
+  createdBy: text("created_by").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
