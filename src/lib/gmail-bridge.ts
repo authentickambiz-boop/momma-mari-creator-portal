@@ -388,6 +388,21 @@ async function loadThreads(db: PortalDb) {
   }));
 }
 
+/** Visible brand threads for one creator. Does not write an audit row. */
+export async function countDealInbox(db: PortalDb, viewer: Viewer, creatorId: string) {
+  if (viewer.role === "creator" && viewer.creatorId !== creatorId) return 0;
+  const allowed = await managerIds(db, viewer);
+  const rows = await db
+    .select({
+      creatorId: gmailBridgeThreads.creatorId,
+      classification: gmailBridgeThreads.classification,
+      private: gmailBridgeThreads.private,
+    })
+    .from(gmailBridgeThreads)
+    .where(eq(gmailBridgeThreads.creatorId, creatorId));
+  return rows.filter((thread) => canSee(viewer, thread, allowed)).length;
+}
+
 export async function listDealInbox(db: PortalDb, viewer: Viewer, creatorFilter?: string | null) {
   const allowed = await managerIds(db, viewer);
   const threads = (await loadThreads(db)).filter((thread) => {

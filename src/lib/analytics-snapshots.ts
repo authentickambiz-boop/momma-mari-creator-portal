@@ -612,6 +612,19 @@ export function julyHeadline(card: Pick<CreatorSnapshotCard, "largestPlatform" |
   return { cards, hidden: JULY_HEADLINE_HIDDEN };
 }
 
+/** July, WithJuly, and the WithJuly / platform label. Other sources stay off the creator home. */
+export function isWithJulySource(source: string) {
+  const text = source.trim().toLowerCase().replace(/[\s/_-]+/g, "");
+  return text === "july" || text === "withjuly" || text === "withjulyplatform";
+}
+
+/** Headline numbers from WithJuly snapshots only. A platform saved from another source is left out. */
+export function withJulyHeadline(card: Pick<CreatorSnapshotCard, "largestPlatform" | "platforms">) {
+  const platforms = card.platforms.filter((row) => isWithJulySource(row.source));
+  const largest = platforms.some((row) => row.platform === card.largestPlatform) ? card.largestPlatform : null;
+  return julyHeadline({ largestPlatform: largest, platforms });
+}
+
 export function capturedLabel(iso: string) {
   const [year, month, day] = iso.split("-").map(Number);
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

@@ -42,31 +42,65 @@ export function accountMenuItems(role: Viewer["role"]) {
   ];
 }
 
-export function creatorHomeCards(input: { offersWaiting: number; payoutsPending: number; accountsConnected: boolean }) {
+const UNRECORDED = /\b(example|placeholder|sample|fake|lorem|tbd|xxx|demo)\b/i;
+
+export type CreatorHomeStat = { value: string; label: string };
+
+/** A figure with a real label. Example copy, blanks, and stand-in words stay off the home page. */
+export function isRecordedHomeStat(stat: CreatorHomeStat) {
+  const value = stat.value.trim();
+  const label = stat.label.trim();
+  if (!value || !label) return false;
+  if (UNRECORDED.test(value) || UNRECORDED.test(label)) return false;
+  return true;
+}
+
+/**
+ * Creator home cards. Each card needs a recorded figure.
+ * Stats are WithJuly labels. A deal, inbox, or payout card with nothing waiting is left off.
+ */
+export function creatorHomeCards(input: { offersWaiting: number; payoutsPending: number; stats?: CreatorHomeStat[]; inboxThreads?: number }) {
+  const cards: { href: string; title: string; status: string }[] = [];
+  const seen = new Set<string>();
+  const push = (card: { href: string; title: string; status: string }) => {
+    const title = card.title.trim();
+    const status = card.status.trim();
+    if (!title || !status) return;
+    if (UNRECORDED.test(title) || UNRECORDED.test(status)) return;
+    const key = `${card.href}|${title}|${status}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    cards.push({ href: card.href, title, status });
+  };
+  for (const stat of input.stats ?? []) {
+    if (!isRecordedHomeStat(stat)) continue;
+    push({ href: "/analytics", title: stat.value, status: stat.label });
+  }
   const offers = input.offersWaiting;
-  const payouts = input.payoutsPending;
-  return [
-    {
-      href: "/analytics",
-      title: "Analytics",
-      status: input.accountsConnected ? "Accounts connected" : "Example numbers until accounts are connected",
-    },
-    {
+  if (offers > 0) {
+    push({
       href: "/#deals",
       title: "Brand deals",
-      status: offers === 0 ? "Nothing needs you right now" : offers === 1 ? "1 deal needs you" : `${offers} deals need you`,
-    },
-    {
+      status: offers === 1 ? "1 deal needs you" : `${offers} deals need you`,
+    });
+  }
+  const threads = input.inboxThreads ?? 0;
+  if (threads > 0) {
+    push({
       href: "/inbox",
       title: "Deal inbox",
-      status: "Brand threads from your connected Gmail",
-    },
-    {
+      status: threads === 1 ? "1 brand thread" : `${threads} brand threads`,
+    });
+  }
+  const payouts = input.payoutsPending;
+  if (payouts > 0) {
+    push({
       href: "/earnings",
       title: "Earnings & payouts",
-      status: payouts === 0 ? "No payout waiting" : payouts === 1 ? "1 payout pending" : `${payouts} payouts pending`,
-    },
-  ];
+      status: payouts === 1 ? "1 payout pending" : `${payouts} payouts pending`,
+    });
+  }
+  return cards;
 }
 
 /** Stages where the creator still has something to do on a deal she already accepted. */

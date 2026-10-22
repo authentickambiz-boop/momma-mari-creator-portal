@@ -4695,10 +4695,27 @@ test("the creator menu, home cards, and billing stay on her own sign-in", async 
   assert.equal(isMenuTab("profile"), true);
   assert.equal(isMenuTab("referrals"), true);
   assert.equal(isMenuTab("deals"), false);
-  const cards = creatorHomeCards({ offersWaiting: 2, payoutsPending: 1, accountsConnected: false });
+  const cards = creatorHomeCards({
+    offersWaiting: 2,
+    payoutsPending: 1,
+    inboxThreads: 0,
+    stats: [
+      { value: "2.3m", label: "TikTok followers · @_mariclaremaclamroc_" },
+      { value: "Example 10", label: "Views" },
+      { value: "1,240,000", label: "Example followers" },
+      { value: "", label: "Engagement rate" },
+      { value: "245k", label: "Average views per video · TikTok" },
+    ],
+  });
   assert.equal(cards.find((card) => card.title === "Brand deals")?.status, "2 deals need you");
   assert.equal(cards.find((card) => card.title === "Earnings & payouts")?.status, "1 payout pending");
-  assert.equal(cards.find((card) => card.title === "Analytics")?.status, "Example numbers until accounts are connected");
+  assert.equal(cards.find((card) => card.title === "Deal inbox"), undefined);
+  assert.equal(cards.find((card) => card.title === "Analytics"), undefined);
+  assert.deepEqual(cards.filter((card) => card.href === "/analytics").map((card) => card.title), ["2.3m", "245k"]);
+  assert.equal(JSON.stringify(cards).includes("Example"), false);
+  assert.equal(JSON.stringify(cards).includes("1,240,000"), false);
+  const quiet = creatorHomeCards({ offersWaiting: 0, payoutsPending: 0, inboxThreads: 1, stats: [] });
+  assert.deepEqual(quiet, [{ href: "/inbox", title: "Deal inbox", status: "1 brand thread" }]);
   assert.equal(billingUsage({ tier: "Basic", used: 120 }).warning, "80");
   assert.equal(billingUsage({ tier: "Basic", used: 120 }).cap, 150);
   assert.equal(billingUsage({ tier: "Basic", used: 150 }).warning, "100");

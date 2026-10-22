@@ -9,8 +9,11 @@ import {
   JULY_HEADLINE_HIDDEN,
   analyticsBoard,
   importAnalyticsSnapshots,
+  isWithJulySource,
   julyHeadline,
+  withJulyHeadline,
 } from "../src/lib/analytics-snapshots";
+import { creatorHomeCards } from "../src/lib/creator-home";
 import { scoringInputs } from "../src/lib/creator-rank";
 import { listDailyMetrics, listPostMetrics, summarizeAnalytics } from "../src/lib/queries";
 import { admin, mariclare, openTestDb } from "./harness";
@@ -63,6 +66,27 @@ describe("July analytics replace example cards", { concurrency: 1 }, () => {
     assert.equal(panel.includes("Example post"), false);
     assert.equal(page.includes("EXAMPLE"), false);
     assert.match(page, /julyHeadline/);
+
+    const home = source("src/app/page.tsx");
+    const homeCards = source("src/lib/creator-home.ts");
+    assert.match(home, /withJulyHeadline/);
+    assert.equal(home.includes("Example numbers"), false);
+    assert.equal(home.includes("accountsConnected"), false);
+    assert.equal(homeCards.includes("Example numbers"), false);
+    assert.equal(isWithJulySource("July"), true);
+    assert.equal(isWithJulySource("WithJuly / platform"), true);
+    assert.equal(isWithJulySource("notebook"), false);
+    const real = withJulyHeadline(mari);
+    assert.deepEqual(real.cards.map((card) => card.value), ["2.3m", "6.76%", "245k"]);
+    const otherSource = withJulyHeadline({
+      largestPlatform: mari.largestPlatform,
+      platforms: mari.platforms.map((row) => ({ ...row, source: "notebook" })),
+    });
+    assert.deepEqual(otherSource.cards, []);
+    const shown = creatorHomeCards({ offersWaiting: 0, payoutsPending: 0, inboxThreads: 0, stats: real.cards });
+    assert.deepEqual(shown.map((card) => card.title), ["2.3m", "6.76%", "245k"]);
+    assert.equal(JSON.stringify(shown).includes("Example"), false);
+    assert.equal(JSON.stringify(shown).includes("1,240,000"), false);
   });
 
   test("the Oct 18 snapshot stays behind the Oct 19 figures and does not invent a saves count", async () => {
