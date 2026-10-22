@@ -1575,3 +1575,15 @@ export const skillLessons = sqliteTable("skill_lessons", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const creatorFiled1099s = sqliteTable("creator_filed_1099s", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  taxYear: integer("tax_year").notNull(),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  ciphertext: text("ciphertext").notNull(),
+  byteLength: integer("byte_length").notNull(),
+  uploadedBy: text("uploaded_by").notNull(),
+  createdAt: text("created_at").notNull(),
+});

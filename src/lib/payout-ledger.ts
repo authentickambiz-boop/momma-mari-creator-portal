@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { creatorW9s, creators, payoutLedger } from "@/db/schema";
+import { creatorFiled1099s, creatorW9s, creators, payoutLedger } from "@/db/schema";
 import { isOwner } from "./authz";
 import { formatMoney, nowIso } from "./format";
 import { payoutTransfersEnabled } from "./payout-flag";
@@ -401,4 +401,138 @@ export async function readCreatorW9(db: PortalDb, viewer: Viewer, id: string): P
 
 export function moneyLabel(cents: number) {
   return formatMoney(cents);
+}
+
+const MAX_1099_BYTES = 2_000_000;
+
+function isPdf(bytes: Uint8Array) {
+  return bytes.byteLength >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function base64ToBytes(value: string) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+function validTaxYear(year: number) {
+  return Number.isInteger(year) && year >= 2000 && year <= 2100;
+}
+
+/** Stores a filed 1099-NEC the owner already has. This does not fill out or generate a form. */
+export async function storeFiled1099(
+  db: PortalDb,
+  viewer: Viewer,
+  input: { creatorId: string; year: number; filename: string; mimeType: string; bytes: Uint8Array },
+): Promise<{ ok: true; id: string } | Fail> {
+  if (!isOwner(viewer)) return { ok: false, status: 403, error: "Only the owner can store a filed 1099.", code: "forbidden" };
+  if (!validTaxYear(input.year)) return { ok: false, status: 400, error: "Pick a four-digit year.", code: "year" };
+  const people = await db.select().from(creators).where(eq(creators.id, input.creatorId));
+  if (!people[0]) return { ok: false, status: 404, error: "Creator not found.", code: "missing" };
+  if (input.mimeType !== "application/pdf" || !isPdf(input.bytes)) {
+    return { ok: false, status: 400, error: "Upload the filed 1099-NEC as a PDF.", code: "pdf" };
+  }
+  if (input.bytes.byteLength === 0 || input.bytes.byteLength > MAX_1099_BYTES) {
+    return { ok: false, status: 400, error: "That PDF is empty or too large.", code: "pdf" };
+  }
+  const filename = safeFilename(input.filename);
+  if (!filename) return { ok: false, status: 400, error: "That file needs a name.", code: "pdf" };
+  if (!tokenEncryptionConfigured()) return { ok: false, status: 503, error: "File storage is not ready.", code: "key" };
+  const ciphertext = await encryptToken(bytesToBase64(input.bytes));
+  const id = crypto.randomUUID();
+  await db.insert(creatorFiled1099s).values({
+    id,
+    creatorId: input.creatorId,
+    taxYear: input.year,
+    filename,
+    mimeType: "application/pdf",
+    ciphertext,
+    byteLength: input.bytes.byteLength,
+    uploadedBy: viewer.email,
+    createdAt: nowIso(),
+  });
+  return { ok: true, id };
+}
+
+export async function listFiled1099s(db: PortalDb, viewer: Viewer, year?: number | null) {
+  if (viewer.role === "manager") return { ok: false as const, status: 403, error: "A filed 1099 stays with that creator and the owner.", code: "forbidden" };
+  if (year != null && !validTaxYear(year)) return { ok: false as const, status: 400, error: "Pick a four-digit year.", code: "year" };
+  const names = await nameMap(db);
+  const rows = await db.select().from(creatorFiled1099s);
+  const files = rows
+    .filter((row) => canSeeCreator(viewer, row.creatorId))
+    .filter((row) => year == null || row.taxYear === year)
+    .map((row) => ({
+      id: row.id,
+      creatorId: row.creatorId,
+      creatorName: names.get(row.creatorId) ?? "Creator",
+      year: row.taxYear,
+      filename: row.filename,
+      byteLength: row.byteLength,
+      createdAt: row.createdAt,
+    }))
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt) || left.creatorName.localeCompare(right.creatorName));
+  return { ok: true as const, files };
+}
+
+export async function readFiled1099(db: PortalDb, viewer: Viewer, id: string): Promise<
+  { ok: true; filename: string; mimeType: string; bytes: Uint8Array } | Fail
+> {
+  const rows = await db.select().from(creatorFiled1099s).where(eq(creatorFiled1099s.id, id));
+  const row = rows[0];
+  if (!row) return { ok: false, status: 404, error: "That 1099 was not found.", code: "missing" };
+  if (!canSeeCreator(viewer, row.creatorId) || viewer.role === "manager") {
+    return { ok: false, status: 403, error: "A filed 1099 stays with that creator and the owner.", code: "forbidden" };
+  }
+  try {
+    const bytes = base64ToBytes(await decryptToken(row.ciphertext));
+    return { ok: true, filename: row.filename, mimeType: row.mimeType, bytes };
+  } catch {
+    return { ok: false, status: 500, error: "That file could not be opened.", code: "key" };
+  }
+}
+
+/** Paid lines for a year. A bookkeeping summary, not a tax form. */
+export async function yearlySummaryCsv(db: PortalDb, viewer: Viewer, year: number): Promise<{ ok: true; csv: string; filename: string } | Fail> {
+  if (!validTaxYear(year)) return { ok: false, status: 400, error: "Pick a four-digit year.", code: "year" };
+  if (viewer.role !== "admin" && viewer.role !== "creator") {
+    return { ok: false, status: 403, error: "A yearly summary stays with the owner and each creator.", code: "forbidden" };
+  }
+  if (viewer.role === "creator" && !viewer.creatorId) {
+    return { ok: false, status: 403, error: "A yearly summary stays with the owner and each creator.", code: "forbidden" };
+  }
+  const names = await nameMap(db);
+  const emails = new Map((await db.select().from(creators)).map((creator) => [creator.id, creator.email]));
+  const rows = await db.select().from(payoutLedger);
+  const header = ["Creator", "Email", "Year", "Brand", "Gross", "Fees", "Expenses", "Net", "Creator share", "Agency share", "Brand paid", "Creator paid", "Week", "Notice"];
+  const lines = ["Not a tax form. This is a summary of paid lines.", header.join(",")];
+  const paid = rows
+    .filter((row) => canSeeCreator(viewer, row.creatorId) && row.payoutOn?.startsWith(String(year)))
+    .sort((left, right) => (left.payoutOn ?? "").localeCompare(right.payoutOn ?? ""));
+  for (const row of paid) {
+    lines.push([
+      names.get(row.creatorId) ?? "Creator",
+      emails.get(row.creatorId) ?? "",
+      year,
+      row.brand,
+      dollars(row.grossCents),
+      dollars(row.feeCents),
+      dollars(row.expenseCents),
+      dollars(row.creatorCents + row.agencyCents),
+      dollars(row.creatorCents),
+      dollars(row.agencyCents),
+      row.brandPaidOn,
+      row.payoutOn,
+      row.weekOf,
+      "Not a tax form",
+    ].map(csvCell).join(","));
+  }
+  return { ok: true, csv: `${lines.join("\n")}\n`, filename: `momma-mari-yearly-summary-${year}.csv` };
 }
