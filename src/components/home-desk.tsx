@@ -17,7 +17,12 @@ export function HomeDesk({
 }) {
   const summary = homeSummary(deals);
   const rows = deals.filter((deal) => deal.visibleToCreator).slice(0, 6);
-  const payout = payoutPending === 0 ? summary.payoutLabel : payoutPending === 1 ? "1 payout pending" : `${payoutPending} payouts pending`;
+  const kpis = [
+    summary.activeCount > 0 ? { caption: "Active deals", value: String(summary.activeCount), detail: "In progress" } : null,
+    summary.nextPost?.when ? { caption: "Next post", value: summary.nextPost.when, detail: summary.nextPost.brand } : null,
+    summary.draftCount > 0 ? { caption: "Drafts in review", value: String(summary.draftCount), detail: "With the team or the brand" } : null,
+    payoutPending > 0 ? { caption: "Next payout", value: String(payoutPending), detail: payoutPending === 1 ? "1 payout pending" : `${payoutPending} payouts pending` } : null,
+  ].filter((card): card is { caption: string; value: string; detail: string } => card != null && card.value.trim() !== "" && card.detail.trim() !== "");
   return (
     <div className="home-desk">
       <div className="desk-head">
@@ -43,35 +48,25 @@ export function HomeDesk({
           })}
         </div>
       ) : null}
-      <div className="kpi-row">
-        <article className="kpi">
-          <p className="caption">Active deals</p>
-          <b>{summary.activeCount}</b>
-          <p className="caption">In progress</p>
-        </article>
-        <article className="kpi">
-          <p className="caption">Next post</p>
-          <b>{summary.nextPost?.when || "None"}</b>
-          <p className="caption">{summary.nextPost?.brand || "No date on the list"}</p>
-        </article>
-        <article className="kpi">
-          <p className="caption">Drafts in review</p>
-          <b>{summary.draftCount}</b>
-          <p className="caption">{summary.draftCount === 1 ? "With the team or the brand" : "With the team or the brand"}</p>
-        </article>
-        <article className="kpi">
-          <p className="caption">Next payout</p>
-          <b>{payoutPending > 0 ? payoutPending : "None"}</b>
-          <p className="caption">{payout}</p>
-        </article>
-      </div>
+      {kpis.length > 0 ? (
+        <div className="kpi-row">
+          {kpis.map((card) => (
+            <article key={card.caption} className="kpi">
+              <p className="caption">{card.caption}</p>
+              <b>{card.value}</b>
+              <p className="caption">{card.detail}</p>
+            </article>
+          ))}
+        </div>
+      ) : null}
       <div className="desk-split">
+        {rows.length > 0 ? (
         <section className="panel">
           <div className="panel-h">
             <h2>Your brand deals</h2>
             <a href="#deals">View all</a>
           </div>
-          {rows.length === 0 ? <p className="note empty">No deals on this list yet.</p> : rows.map((deal) => {
+          {rows.map((deal) => {
             const marks = progressMarks(deal.workflowStage);
             return (
               <Link key={deal.id} href={`/deals/${deal.id}`} className="progress-row">
@@ -89,6 +84,7 @@ export function HomeDesk({
             );
           })}
         </section>
+        ) : null}
         <aside className="desk-side">
           {rows[0] ? (
             <section className="panel">

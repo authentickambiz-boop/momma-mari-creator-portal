@@ -9,6 +9,7 @@ import { PortalFrame } from "@/components/portal-frame";
 import { dealPowers } from "@/lib/authz";
 import { longDate } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
+import { analyticsBoard, withJulyHeadline } from "@/lib/analytics-snapshots";
 import { countOwnPayouts, creatorBrandDealNeedsAction, creatorHomeCards, creatorNeedsYou, firstName } from "@/lib/creator-home";
 import { listManagerNotices, needsYou } from "@/lib/managers";
 import { listUnreadNotices } from "@/lib/onboarding";
@@ -21,6 +22,7 @@ import { listCreatorOpenTasks } from "@/lib/creator-tasks";
 import { questionnaireFor } from "@/lib/questionnaire";
 import { inviteErrorNote } from "@/lib/invite-notes";
 import { noticeErrorNote } from "@/lib/notice-notes";
+import { countDealInbox } from "@/lib/gmail-bridge";
 import { listPlatformInvites } from "@/lib/platform-invites";
 import { SeasonalGreeting } from "@/components/seasonal-greeting";
 import { promoViewsForDeals } from "@/lib/promo-visuals";
@@ -53,9 +55,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const creatorHome = portal.viewer.role === "creator" && Boolean(portal.viewed);
   const creatorNeed = creatorHome ? creatorNeedsYou(deals) : [];
   const payoutsPending = creatorHome && portal.viewer.creatorId ? await countOwnPayouts(portal.db, portal.viewer.creatorId) : 0;
-  const accountsConnected = Boolean(portal.viewed && Object.values(portal.viewed.accounts).some((account) => account.status === "connected"));
+  const homeStats = creatorHome
+    ? withJulyHeadline(
+        (await analyticsBoard(portal.db, portal.viewer)).creators.find((row) => row.creatorId === portal.viewed?.id)
+        ?? { largestPlatform: null, platforms: [] },
+      ).cards
+    : [];
+  const inboxThreads = creatorHome && portal.viewer.creatorId
+    ? await countDealInbox(portal.db, portal.viewer, portal.viewer.creatorId)
+    : 0;
   const cards = creatorHome
-    ? creatorHomeCards({ offersWaiting: creatorNeed.length, payoutsPending, accountsConnected })
+    ? creatorHomeCards({ offersWaiting: creatorNeed.length, payoutsPending, stats: homeStats, inboxThreads })
     : [];
   const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", hourCycle: "h23" }).format(new Date()));
   const dayHello = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -144,7 +154,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       {cards.length > 0 ? (
         <div className="home-cards">
           {cards.map((card) => (
-            <Link key={card.title} href={card.href} className="home-card">
+            <Link key={`${card.href}|${card.title}|${card.status}`} href={card.href} className="home-card">
               <strong>{card.title}</strong>
               <span>{card.status}</span>
             </Link>
