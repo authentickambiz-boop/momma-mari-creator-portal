@@ -2853,7 +2853,7 @@ test("the member directory hides private fields and other creators cannot edit a
     avatarOn: false,
     bio: "Stories from our kitchen table.",
     bioOn: true,
-    niches: ["food"],
+    niches: ["lifestyle"],
     nichesOn: false,
     handles: "@secret",
     handlesOn: false,
@@ -3981,11 +3981,11 @@ test("the questionnaire resumes, prefills her own profile, and scores a brand of
   assert.equal(skipped.ok, false);
   const emptyNiche = await saveQuestionnaireStep(db, guest, { step: "niches", skip: false, pause: false, patch: { niches: [] } });
   assert.equal(emptyNiche.ok, false);
-  const saved = await saveQuestionnaireStep(db, guest, { step: "niches", skip: false, pause: false, patch: { niches: ["toddler mom", "food"] } });
+  const saved = await saveQuestionnaireStep(db, guest, { step: "niches", skip: false, pause: false, patch: { niches: ["parenting", "gaming"] } });
   assert.equal(saved.ok, true);
   if (saved.ok) assert.equal(saved.next, "platforms");
   const resumed = await questionnaireFor(db, "quiz-guest");
-  assert.deepEqual(resumed.answers.niches, ["toddler mom", "food"]);
+  assert.deepEqual(resumed.answers.niches, ["parenting", "gaming"]);
   assert.equal(resumed.step, "platforms");
 
   const kids = await saveQuestionnaireStep(db, guest, { step: "kids", skip: false, pause: false, patch: { kidAges: ["6–8"], kidsConfirm: false } });
@@ -3994,12 +3994,12 @@ test("the questionnaire resumes, prefills her own profile, and scores a brand of
   const skipKids = await saveQuestionnaireStep(db, guest, { step: "kids", skip: true, pause: false, patch: { kidAges: ["6–8"] } });
   assert.equal(skipKids.ok, true);
   const afterSkip = await questionnaireFor(db, "quiz-guest");
-  assert.deepEqual(afterSkip.answers.niches, ["toddler mom", "food"]);
+  assert.deepEqual(afterSkip.answers.niches, ["parenting", "gaming"]);
   assert.equal(afterSkip.answers.kidAges.length, 0);
 
   const profile = await db.select().from(creatorProfiles).where(eq(creatorProfiles.creatorId, "quiz-guest"));
   assert.equal(profile[0]?.nichesOn, false);
-  assert.match(profile[0]?.niches ?? "", /toddler mom/);
+  assert.match(profile[0]?.niches ?? "", /parenting/);
   assert.equal(profile[0]?.formatsOn, false);
   assert.equal(profile[0]?.brandsOn, false);
 
@@ -4011,7 +4011,7 @@ test("the questionnaire resumes, prefills her own profile, and scores a brand of
     avatarOn: false,
     bio: "",
     bioOn: false,
-    niches: ["toddler mom"],
+    niches: ["parenting"],
     nichesOn: false,
     handles: "",
     handlesOn: false,
@@ -4035,7 +4035,7 @@ test("the questionnaire resumes, prefills her own profile, and scores a brand of
   });
   assert.equal(custom.ok, true);
   const customRow = await db.select().from(creatorProfiles).where(eq(creatorProfiles.creatorId, "quiz-guest"));
-  assert.match(customRow[0]?.niches ?? "", /toddler mom/);
+  assert.match(customRow[0]?.niches ?? "", /parenting/);
   assert.match(customRow[0]?.formats ?? "", /Photo diary/);
 
   const staff = await saveQuestionnaireStep(db, admin, { step: "niches", skip: false, pause: false, patch: { niches: ["food"] } });

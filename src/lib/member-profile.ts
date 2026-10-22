@@ -12,7 +12,7 @@ const PHONE = /(?:\+?1[\s.-]*)?(?:\([2-9]\d{2}\)|[2-9]\d{2})[\s.-]*[2-9]\d{2}[\s
 const MINIMUM = /\b(?:rate[\s-]*)?minimums?\b(?:\s*(?:of|is|:)?\s*\$?\s*\d[\d,]*(?:\.\d{1,2})?)?|\b\d[\d,]*(?:\.\d{1,2})?\s*(?:dollars?\s*)?minimums?\b/gi;
 const MONEY = /\$\s?\d[\d,]*(?:\.\d{1,2})?|\b\d[\d,]*(?:\.\d{1,2})?\s*(?:dollars|usd)\b/gi;
 
-export type StoredPlatform = { platform: string; handle: string };
+export type StoredPlatform = { platform: string; handle: string; url?: string; followers?: number };
 export type StoredPin = { url: string; title: string; thumb: string | null; thumbFilename: string };
 
 export type PinDraft = {
@@ -69,7 +69,24 @@ export function cleanHandle(value: string) {
   return trimmed;
 }
 
-export function cleanMemberPlatforms(rows: { platform: string; handle: string }[]): StoredPlatform[] {
+function cleanPlatformUrl(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "";
+  if (!/^https?:\/\//i.test(trimmed) || trimmed.length > 300) return "";
+  if (scrubMemberText(trimmed) !== trimmed) return "";
+  return trimmed;
+}
+
+function cleanFollowerCount(value: unknown) {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0) return value;
+  if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+    const count = Number(value.trim());
+    if (Number.isSafeInteger(count)) return count;
+  }
+  return null;
+}
+
+export function cleanMemberPlatforms(rows: { platform: string; handle: string; url?: string | null; followers?: number | string | null }[]): StoredPlatform[] {
   const seen = new Set<string>();
   const out: StoredPlatform[] = [];
   for (const row of rows) {
@@ -78,7 +95,12 @@ export function cleanMemberPlatforms(rows: { platform: string; handle: string }[
     const handle = cleanHandle(scrubMemberText(row.handle));
     if (!handle) continue;
     seen.add(row.platform);
-    out.push({ platform: row.platform, handle });
+    const url = cleanPlatformUrl(row.url);
+    const followers = cleanFollowerCount(row.followers);
+    const stored: StoredPlatform = { platform: row.platform, handle };
+    if (url) stored.url = url;
+    if (followers != null) stored.followers = followers;
+    out.push(stored);
   }
   return out;
 }
@@ -90,10 +112,12 @@ export function parseStoredPlatforms(value: string | null | undefined): StoredPl
     if (!Array.isArray(parsed)) return [];
     return cleanMemberPlatforms(parsed.map((item) => {
       if (!item || typeof item !== "object") return { platform: "", handle: "" };
-      const row = item as { platform?: unknown; handle?: unknown };
+      const row = item as { platform?: unknown; handle?: unknown; url?: unknown; followers?: unknown };
       return {
         platform: typeof row.platform === "string" ? row.platform : "",
         handle: typeof row.handle === "string" ? row.handle : "",
+        url: typeof row.url === "string" ? row.url : "",
+        followers: typeof row.followers === "number" || typeof row.followers === "string" ? row.followers : null,
       };
     }));
   } catch {

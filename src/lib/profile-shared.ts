@@ -8,7 +8,9 @@ export const US_STATES = [
   "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY",
 ] as const;
 
-export const MEMBER_PLATFORMS = ["TikTok", "Instagram", "YouTube", "Pinterest", "Facebook"] as const;
+export const MEMBER_PLATFORMS = [
+  "TikTok", "Instagram", "YouTube", "YouTube Live", "Twitch", "Kick", "Pinterest", "Facebook", "X", "Snapchat",
+] as const;
 
 export const PROFILE_FIELDS = [
   "displayName",

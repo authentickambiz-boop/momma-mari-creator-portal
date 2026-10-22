@@ -25,7 +25,7 @@ describe("post link notes", { concurrency: 1 }, () => {
     const approvalsBefore = (await db.select().from(approvalEmails)).length;
 
     assert.equal(postErrorCode("Each post link has to start with http:// or https://."), "url");
-    assert.equal(postErrorCode("Platform must be TikTok, Instagram, Facebook, or YouTube."), "platform");
+    assert.equal(postErrorCode("Platform must be TikTok, Instagram, Facebook, YouTube, YouTube Live, Twitch, or Kick."), "platform");
     assert.equal(postErrorCode("Add at least one live post link."), "link");
     assert.equal(postErrorCode("This video isn't approved for posting yet. Nothing was changed."), "early");
     assert.equal(postErrorCode("Add the brand email before the post links can be queued."), "email");
@@ -49,7 +49,7 @@ describe("post link notes", { concurrency: 1 }, () => {
 
     const badPlatform = await submitLivePosts(db, {
       dealId: "kosbling",
-      links: [{ platform: "twitch", url: "https://example.test/post" }],
+      links: [{ platform: "vine", url: "https://example.test/post" }],
       actorEmail: mariclare.email,
       actorRole: mariclare.role,
       creatorId: mariclare.creatorId,

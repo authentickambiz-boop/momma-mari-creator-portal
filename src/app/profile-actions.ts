@@ -11,6 +11,17 @@ function list(formData: FormData, name: string) {
   return formData.getAll(name).map((value) => String(value));
 }
 
+function proofValue(formData: FormData) {
+  const link = String(formData.get("analyticsProof") ?? "").trim();
+  if (link) return link;
+  const file = formData.get("analyticsProofFile");
+  if (file instanceof File && file.size > 0) {
+    const name = file.name.replace(/[^\w.\- ]+/g, "").slice(0, 80);
+    if (name) return `upload:${name}`;
+  }
+  return "";
+}
+
 async function imageField(formData: FormData, name: string, removeName: string) {
   const file = formData.get(name);
   const named = String(formData.get(`${name}Name`) ?? "");
@@ -58,6 +69,11 @@ export async function saveProfileAction(formData: FormData) {
     bioOn: formData.get("bioOn") === "1",
     niches: list(formData, "niches"),
     nichesOn: formData.get("nichesOn") === "1",
+    nicheOther: String(formData.get("nicheOther") ?? ""),
+    avgViewers: String(formData.get("avgViewers") ?? ""),
+    hoursPerWeek: String(formData.get("hoursPerWeek") ?? ""),
+    streamCategories: String(formData.get("streamCategories") ?? ""),
+    analyticsProof: proofValue(formData),
     handles: String(formData.get("handles") ?? ""),
     handlesOn: formData.get("handlesOn") === "1",
     audience: String(formData.get("audience") ?? ""),
@@ -83,6 +99,8 @@ export async function saveProfileAction(formData: FormData) {
     platforms: MEMBER_PLATFORMS.map((platform) => ({
       platform,
       handle: String(formData.get(`platform-${platform}`) ?? ""),
+      url: String(formData.get(`platform-url-${platform}`) ?? ""),
+      followers: String(formData.get(`platform-followers-${platform}`) ?? ""),
     })),
     platformsOn: formData.get("platformsOn") === "1",
     pins,

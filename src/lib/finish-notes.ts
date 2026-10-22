@@ -2,6 +2,10 @@ const FINISH_ERROR_TEXT = {
   connect: "Choose how brand email should work, then connect it.",
   host: "Enter the address you want Momma Mari to host.",
   profile: "Name your bot, and add a niche, content style, rates, and at least one platform.",
+  niches: "Pick at least one niche.",
+  nicheMax: "Pick up to 5.",
+  nicheList: "Pick a niche from the list.",
+  nicheOther: "Other can be 40 characters.",
 } as const;
 
 /** A short code for the finish-profile form. Unknown wording stays the fixed fallback. */

@@ -16,6 +16,13 @@ export async function saveQuestionnaireAction(formData: FormData) {
     (name) => String(formData.get(name) ?? ""),
     (name) => formData.getAll(name).map((value) => String(value)),
   );
+  if (step === "platforms" && !patch.analyticsProof?.trim()) {
+    const file = formData.get("analyticsProofFile");
+    if (file instanceof File && file.size > 0) {
+      const name = file.name.replace(/[^\w.\- ]+/g, "").slice(0, 80);
+      if (name) patch.analyticsProof = `upload:${name}`;
+    }
+  }
   const result = await saveQuestionnaireStep(db, viewer, {
     step,
     skip: formData.get("skip") === "1",

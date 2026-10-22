@@ -28,6 +28,7 @@ import { productErrorCode } from "@/lib/product-notes";
 import { isEmailSetup } from "@/lib/email-setup";
 import { emailSetupErrorCode } from "@/lib/email-setup-notes";
 import { dismissNotification, finishOnboarding, saveEmailSetup } from "@/lib/onboarding";
+import { validateCreatorNiches } from "@/lib/creator-niches";
 import { finishErrorCode } from "@/lib/finish-notes";
 import { noticeErrorCode } from "@/lib/notice-notes";
 import { onboardingPlatformId } from "@/lib/onboarding-fields";
@@ -427,7 +428,10 @@ export async function finishOnboardingAction(formData: FormData) {
   const viewer = await currentViewer();
   if (!viewer || viewer.role !== "creator" || !viewer.creatorId) redirect("/login");
   const db = await getDb();
-  const niche = formData.getAll("niche").map((value) => String(value)).filter(Boolean).join(", ");
+  const pickedNiches = formData.getAll("niche").map((value) => String(value)).filter(Boolean);
+  const checkedNiches = validateCreatorNiches(pickedNiches, String(formData.get("nicheOther") ?? ""), { required: true });
+  if (!checkedNiches.ok) redirect(`/onboarding?step=bot&error=${finishErrorCode(checkedNiches.error)}`);
+  const niche = checkedNiches.niches.join(", ");
   const brands = formData.getAll("favoriteBrands").map((value) => String(value)).filter(Boolean).join(", ");
   const result = await finishOnboarding(db, viewer.creatorId, {
     botName: String(formData.get("botName") ?? ""),
@@ -588,7 +592,11 @@ export async function submitLivePostsAction(formData: FormData) {
   const db = await getDb();
   const result = await submitLivePosts(db, {
     dealId: String(formData.get("dealId") ?? ""),
-    links: [{ platform: String(formData.get("platform") ?? ""), url: String(formData.get("url") ?? "") }],
+    links: [{
+      platform: String(formData.get("platform") ?? ""),
+      url: String(formData.get("url") ?? ""),
+      proofKind: String(formData.get("proofKind") ?? ""),
+    }],
     actorEmail: viewer.email,
     actorRole: viewer.role,
     creatorId: viewer.creatorId,

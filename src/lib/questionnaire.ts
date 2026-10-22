@@ -1,6 +1,15 @@
 import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { creatorProfiles, creatorQuestionnaires, creators, mediaKits } from "@/db/schema";
+import {
+  cleanAnalyticsProof,
+  isStreamer,
+  meetsViewerBar,
+  parseAvgViewers,
+  parseHoursPerWeek,
+  CREATOR_NICHES,
+  validateCreatorNiches,
+} from "./creator-niches";
 import { FORMAT_OPTIONS, LANGUAGE_OPTIONS, LOCATION_OPTIONS, NICHE_CATALOG, PLATFORM_OPTIONS } from "./niche-catalog";
 import { nowIso, parseJson } from "./format";
 import { listCreatorDealReviews } from "./creator-deal-review";
@@ -29,8 +38,15 @@ export type QuestionStepId = (typeof QUESTION_STEPS)[number]["id"];
 
 export type QuestionnaireAnswers = {
   niches: string[];
+  nicheOther?: string;
   platforms: string[];
   handles: Record<string, string>;
+  platformUrls?: Record<string, string>;
+  platformFollowers?: Record<string, string>;
+  avgViewers?: string;
+  hoursPerWeek?: string;
+  streamCategories?: string;
+  analyticsProof?: string;
   audienceSize: string;
   audienceAge: string;
   genderSplit: string;
@@ -166,6 +182,12 @@ export async function saveQuestionnaireStep(
   if (!input.skip) {
     const problem = stepProblem(step.id, answers);
     if (problem) return { ok: false as const, error: problem };
+    if (step.id === "niches") {
+      const checked = validateCreatorNiches(answers.niches, answers.nicheOther ?? "", { required: true });
+      if (!checked.ok) return { ok: false as const, error: checked.error };
+      answers.niches = checked.niches;
+      answers.nicheOther = checked.nicheOther;
+    }
   }
   const following = nextStep(step.id);
   await writeState(db, viewer.creatorId, following === "done" ? "bot" : following, answers, { finished: following === "done" });
@@ -188,6 +210,7 @@ async function prefillFromAnswers(db: PortalDb, creatorId: string, answers: Ques
   const handles = Object.entries(answers.handles).filter(([, value]) => value.trim()).map(([platform, value]) => `${platform} ${value.trim()}`).join(", ");
   const profile = {
     niches: answers.niches.length ? JSON.stringify(answers.niches) : (existing[0]?.niches ?? "[]"),
+    nicheOther: answers.nicheOther ?? existing[0]?.nicheOther ?? null,
     formats: answers.formats.length ? JSON.stringify(answers.formats) : (existing[0]?.formats ?? "[]"),
     brands: answers.brands.length ? JSON.stringify(answers.brands) : (existing[0]?.brands ?? "[]"),
     handles: handles || existing[0]?.handles || null,
@@ -195,6 +218,25 @@ async function prefillFromAnswers(db: PortalDb, creatorId: string, answers: Ques
     childAge: answers.kidAges[0] || existing[0]?.childAge || null,
     updatedAt: nowIso(),
   };
+  const streamer = isStreamer(answers.niches, answers.platforms);
+  if (answers.avgViewers !== undefined || streamer) {
+    const viewers = parseAvgViewers(answers.avgViewers ?? "", streamer);
+    if (viewers.ok) {
+      Object.assign(profile, {
+        avgViewers: viewers.value,
+        meetsBar: meetsViewerBar(viewers.value),
+      });
+    }
+  }
+  if (answers.hoursPerWeek !== undefined) {
+    const hours = parseHoursPerWeek(answers.hoursPerWeek);
+    if (hours.ok) Object.assign(profile, { hoursPerWeek: hours.value });
+  }
+  if (answers.streamCategories !== undefined) Object.assign(profile, { streamCategories: answers.streamCategories.trim().slice(0, 120) || null });
+  if (answers.analyticsProof !== undefined) {
+    const proof = cleanAnalyticsProof(answers.analyticsProof);
+    if (proof.ok) Object.assign(profile, { analyticsProof: proof.value });
+  }
   if (existing[0]) {
     await db.update(creatorProfiles).set(profile).where(eq(creatorProfiles.creatorId, creatorId));
   } else {
@@ -310,10 +352,19 @@ export function questionnaireFieldPatch(
   values: (name: string) => string[],
 ): Partial<QuestionnaireAnswers> {
   const patch: Partial<QuestionnaireAnswers> = {};
-  if (step === "niches") patch.niches = values("niches");
+  if (step === "niches") {
+    patch.niches = values("niches");
+    patch.nicheOther = value("nicheOther");
+  }
   if (step === "platforms") {
     patch.platforms = values("platforms");
     patch.handles = Object.fromEntries(PLATFORM_OPTIONS.map((platform) => [platform, value(`handle${platform}`)]));
+    patch.platformUrls = Object.fromEntries(PLATFORM_OPTIONS.map((platform) => [platform, value(`url${platform}`)]));
+    patch.platformFollowers = Object.fromEntries(PLATFORM_OPTIONS.map((platform) => [platform, value(`followers${platform}`)]));
+    patch.avgViewers = value("avgViewers");
+    patch.hoursPerWeek = value("hoursPerWeek");
+    patch.streamCategories = value("streamCategories");
+    patch.analyticsProof = value("analyticsProof");
   }
   if (step === "audience") {
     patch.audienceSize = value("audienceSize");
@@ -352,8 +403,15 @@ export function questionnaireFieldPatch(
 }
 
 export function stepProblem(step: QuestionStepId, answers: QuestionnaireAnswers) {
-  if (step === "niches" && answers.niches.length === 0) return "Pick at least one niche.";
+  if (step === "niches") {
+    const checked = validateCreatorNiches(answers.niches, answers.nicheOther ?? "", { required: true });
+    if (!checked.ok) return checked.error;
+  }
   if (step === "platforms" && answers.platforms.length === 0) return "Pick at least one platform.";
+  if (step === "platforms") {
+    const stream = streamerProblem(answers);
+    if (stream) return stream;
+  }
   if (step === "audience" && !answers.audienceSize.trim()) return "Choose an audience size.";
   if (step === "formats" && answers.formats.length === 0) return "Pick at least one format.";
   if (step === "frequency" && !answers.frequency.trim()) return "Choose how often you post.";
@@ -367,6 +425,35 @@ export function stepProblem(step: QuestionStepId, answers: QuestionnaireAnswers)
   return null;
 }
 
+function streamerProblem(answers: QuestionnaireAnswers) {
+  if (!isStreamer(answers.niches, answers.platforms)) {
+    if (answers.hoursPerWeek?.trim()) {
+      const hours = parseHoursPerWeek(answers.hoursPerWeek);
+      if (!hours.ok) return hours.error;
+    }
+    if (answers.avgViewers?.trim()) {
+      const viewers = parseAvgViewers(answers.avgViewers, false);
+      if (!viewers.ok) return viewers.error;
+    }
+    if (answers.analyticsProof?.trim()) {
+      const proof = cleanAnalyticsProof(answers.analyticsProof);
+      if (!proof.ok) return proof.error;
+    }
+    return null;
+  }
+  const viewers = parseAvgViewers(answers.avgViewers ?? "", true);
+  if (!viewers.ok) return viewers.error;
+  const hours = parseHoursPerWeek(answers.hoursPerWeek ?? "");
+  if (!hours.ok) return hours.error;
+  const proof = cleanAnalyticsProof(answers.analyticsProof ?? "");
+  if (!proof.ok) return proof.error;
+  for (const count of Object.values(answers.platformFollowers ?? {})) {
+    if (!count.trim()) continue;
+    if (!/^\d+$/.test(count.trim().replace(/,/g, ""))) return "Enter a follower count as a whole number.";
+  }
+  return null;
+}
+
 function applyPatch(current: QuestionnaireAnswers, patch: Partial<QuestionnaireAnswers>) {
   const answers: QuestionnaireAnswers = {
     ...current,
@@ -374,7 +461,13 @@ function applyPatch(current: QuestionnaireAnswers, patch: Partial<QuestionnaireA
     handles: { ...current.handles },
     rates: { ...current.rates },
   };
-  if (patch.niches) answers.niches = tags(patch.niches);
+  if (patch.niches) {
+    const checked = validateCreatorNiches(patch.niches, patch.nicheOther ?? current.nicheOther ?? "", { required: false });
+    answers.niches = checked.ok ? checked.niches : patch.niches.map((item) => item.trim()).filter(Boolean);
+    answers.nicheOther = checked.ok ? checked.nicheOther : (patch.nicheOther ?? "").trim();
+  } else if (patch.nicheOther !== undefined) {
+    answers.nicheOther = patch.nicheOther.trim();
+  }
   if (patch.platforms) answers.platforms = tags(patch.platforms);
   if (patch.formats) answers.formats = tags(patch.formats);
   if (patch.brands) answers.brands = tags(patch.brands);
@@ -385,6 +478,18 @@ function applyPatch(current: QuestionnaireAnswers, patch: Partial<QuestionnaireA
   if (patch.handles) {
     for (const [key, value] of Object.entries(patch.handles)) answers.handles[key] = value.trim();
   }
+  if (patch.platformUrls) {
+    answers.platformUrls = { ...(current.platformUrls ?? {}) };
+    for (const [key, value] of Object.entries(patch.platformUrls)) answers.platformUrls[key] = value.trim();
+  }
+  if (patch.platformFollowers) {
+    answers.platformFollowers = { ...(current.platformFollowers ?? {}) };
+    for (const [key, value] of Object.entries(patch.platformFollowers)) answers.platformFollowers[key] = value.trim();
+  }
+  if (patch.avgViewers !== undefined) answers.avgViewers = patch.avgViewers.trim();
+  if (patch.hoursPerWeek !== undefined) answers.hoursPerWeek = patch.hoursPerWeek.trim();
+  if (patch.streamCategories !== undefined) answers.streamCategories = patch.streamCategories.trim();
+  if (patch.analyticsProof !== undefined) answers.analyticsProof = patch.analyticsProof.trim();
   if (patch.rates) {
     for (const [key, value] of Object.entries(patch.rates)) answers.rates[key] = value.trim();
   }
@@ -420,7 +525,7 @@ export async function creatorStartPath(db: PortalDb, viewer: Viewer) {
 }
 
 export const pickerOptions = {
-  niches: NICHE_CATALOG,
+  niches: CREATOR_NICHES.map((niche) => niche.id),
   formats: FORMAT_OPTIONS,
   platforms: PLATFORM_OPTIONS,
   languages: LANGUAGE_OPTIONS,

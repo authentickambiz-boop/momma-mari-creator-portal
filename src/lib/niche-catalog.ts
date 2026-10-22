@@ -54,8 +54,14 @@ export const NICHE_CATALOG: readonly string[] = [...new Set([...GROUPS.flat(), .
 
 export const FORMAT_OPTIONS = ["TikTok", "Reels", "Stories", "YouTube", "Photo", "Blog", "UGC", "Live", "Stream", "Podcast", "Newsletter", "LinkedIn"] as const;
 export const PLATFORM_OPTIONS = [
-  "TikTok", "Instagram", "YouTube", "Twitch", "Podcast", "LinkedIn", "X", "Facebook", "Pinterest", "Snapchat", "Newsletter", "Blog",
+  "TikTok", "Instagram", "YouTube", "YouTube Live", "Twitch", "Kick", "Podcast", "LinkedIn", "X", "Facebook", "Pinterest", "Snapchat", "Newsletter", "Blog",
 ] as const;
+
+/** Display label. The stored value stays "X" so older rows still match. */
+export function platformLabel(platform: string) {
+  if (platform === "X" || platform.toLowerCase() === "x") return "X (Twitter)";
+  return platform;
+}
 export const LANGUAGE_OPTIONS = ["English", "Spanish", "French", "Portuguese", "Mandarin", "Korean", "Arabic", "Hindi", "ASL"] as const;
 export const LOCATION_OPTIONS = [
   "United States", "California", "Texas", "Florida", "New York", "North Carolina", "Georgia", "Ohio", "Illinois", "Pennsylvania",

@@ -11,8 +11,10 @@ import { getDealStage } from "./stages";
 
 type Result<T> = { ok: true } & T | { ok: false; status: number; error: string };
 
-export const POST_PLATFORMS = ["tiktok", "instagram", "facebook", "youtube"] as const;
+export const POST_PLATFORMS = ["tiktok", "instagram", "facebook", "youtube", "youtube_live", "twitch", "kick"] as const;
 export type PostPlatform = (typeof POST_PLATFORMS)[number];
+export const STREAM_PROOF_PLATFORMS = ["kick", "twitch", "youtube_live"] as const;
+export const PROOF_KINDS = ["vod", "screenshot"] as const;
 
 export const PAYMENT_STATUSES = ["brand_invoiced", "brand_paid", "creator_payout_pending", "creator_paid"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
@@ -44,7 +46,7 @@ export function paymentErrorCode(error: string) {
 
 const POST_ERROR_TEXT = {
   link: "Add at least one live post link.",
-  platform: "Platform must be TikTok, Instagram, Facebook, or YouTube.",
+  platform: "Platform must be TikTok, Instagram, Facebook, YouTube, YouTube Live, Twitch, or Kick.",
   url: "Each post link has to start with http:// or https://.",
   early: "This video isn't approved for posting yet. Nothing was changed.",
   email: "Add the brand email before the post links can be queued.",
@@ -312,18 +314,31 @@ export async function submitLivePosts(
   db: PortalDb,
   input: {
     dealId: string;
-    links: { platform: string; url: string }[];
+    links: { platform: string; url: string; proofKind?: string | null }[];
     actorEmail: string;
     actorRole: string;
     creatorId?: string | null;
   },
 ): Promise<Result<{ workflowStage: string | null }>> {
   const links = input.links
-    .map((link) => ({ platform: link.platform.trim().toLowerCase(), url: link.url.trim() }))
+    .map((link) => ({
+      platform: link.platform.trim().toLowerCase(),
+      url: link.url.trim(),
+      proofKind: link.proofKind?.trim().toLowerCase() || "",
+    }))
     .filter((link) => link.platform || link.url);
   if (links.length === 0) return { ok: false, status: 400, error: "Add at least one live post link." };
   for (const link of links) {
-    if (!isPostPlatform(link.platform)) return { ok: false, status: 400, error: "Platform must be TikTok, Instagram, Facebook, or YouTube." };
+    if (!isPostPlatform(link.platform)) return { ok: false, status: 400, error: POST_ERROR_TEXT.platform };
+    if ((STREAM_PROOF_PLATFORMS as readonly string[]).includes(link.platform)) {
+      const proof = link.proofKind?.trim().toLowerCase() || "vod";
+      if (!(PROOF_KINDS as readonly string[]).includes(proof)) {
+        return { ok: false, status: 400, error: "Live stream proof is a VOD link or a screenshot." };
+      }
+      link.proofKind = proof;
+    } else {
+      link.proofKind = "";
+    }
     if (!validUrl(link.url)) return { ok: false, status: 400, error: "Each post link has to start with http:// or https://." };
   }
   const dealRows = await db.select().from(deals).where(eq(deals.id, input.dealId));
@@ -347,6 +362,7 @@ export async function submitLivePosts(
       const same = current.url === link.url;
       await db.update(livePosts).set({
         url: link.url,
+        proofKind: link.proofKind || current.proofKind,
         meetsBrief: same ? current.meetsBrief : null,
         confirmedAt: same ? current.confirmedAt : null,
         confirmedBy: same ? current.confirmedBy : null,
@@ -358,6 +374,7 @@ export async function submitLivePosts(
         dealId: deal.id,
         platform: link.platform,
         url: link.url,
+        proofKind: link.proofKind || null,
         meetsBrief: null,
         confirmedAt: null,
         confirmedBy: null,
