@@ -396,6 +396,8 @@ export const livePosts = sqliteTable("live_posts", {
   meetsBrief: integer("meets_brief", { mode: "boolean" }),
   confirmedAt: text("confirmed_at"),
   confirmedBy: text("confirmed_by"),
+  postedOn: text("posted_on"),
+  deliverableLabel: text("deliverable_label"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -678,10 +680,29 @@ export const brandRecapDrafts = sqliteTable(
     goLiveOn: text("go_live_on").notNull(),
     approvalId: text("approval_id").notNull(),
     token: text("token").notNull().unique(),
+    nextCampaignNote: text("next_campaign_note"),
     createdAt: text("created_at").notNull(),
   },
   (table) => [uniqueIndex("brand_recap_drafts_deal_milestone").on(table.dealId, table.milestone)],
 );
+
+export const brandRecapGoals = sqliteTable("brand_recap_goals", {
+  dealId: text("deal_id").primaryKey(),
+  goalType: text("goal_type").notNull(),
+  targetValue: text("target_value").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const brandRecapSnapshots = sqliteTable("brand_recap_snapshots", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull(),
+  postId: text("post_id"),
+  window: text("window").notNull(),
+  metric: text("metric").notNull(),
+  value: text("value").notNull(),
+  source: text("source").notNull(),
+  createdAt: text("created_at").notNull(),
+});
 
 export const mediaKits = sqliteTable("media_kits", {
   creatorId: text("creator_id").primaryKey(),
@@ -795,6 +816,8 @@ export const campaigns = sqliteTable("campaigns", {
   offerFlag: text("offer_flag"),
   nextFollowUp: text("next_follow_up"),
   kind: text("kind").notNull().default("campaign"),
+  goalType: text("goal_type"),
+  goalTarget: text("goal_target"),
 });
 
 export const campaignAllocations = sqliteTable("campaign_allocations", {

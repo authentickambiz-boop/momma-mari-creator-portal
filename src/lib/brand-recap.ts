@@ -5,6 +5,8 @@ import {
   brandCampaignReports,
   brandCrmEntries,
   brandRecapDrafts,
+  brandRecapGoals,
+  brandRecapSnapshots,
   campaignAllocations,
   campaigns,
   creatorProfiles,
@@ -14,6 +16,18 @@ import {
   mediaKits,
   usageRights,
 } from "@/db/schema";
+import {
+  buildDeliverableLog,
+  isPrivateRecapText,
+  isRealReportedValue,
+  orderedSnapshots,
+  platformLabel,
+  recapGoalView,
+  toSnapshotView,
+  type RecapDeliverableLog,
+  type RecapGoalView,
+  type RecapSnapshotView,
+} from "./brand-recap-report";
 import { createApprovalEmail } from "./approvals";
 import { brandKey } from "./brand-crm";
 import { isOwner } from "./authz";
@@ -28,7 +42,6 @@ export const NOT_REPORTED = "not reported yet";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const NOTE_PREFIX = "Brand recap ";
-const PRIVATE_LINE = /\$|\bminimum\b|\bfloor\b|fee split|agency fee|\b80\s*\/\s*20\b|\bsplit\b|deal rule/i;
 
 export type RecapMetrics = {
   views: string | null;
@@ -47,6 +60,11 @@ export type BrandRecapCopy = {
   contentLinks: string[];
   metrics: { label: string; value: string }[];
   usageEndsOn: string | null;
+  goal: RecapGoalView | null;
+  deliverableLog: RecapDeliverableLog[];
+  snapshots: RecapSnapshotView[];
+  nextCampaignNote: string | null;
+  csvHref: string;
   rebookHref: string;
   shareHref: string;
   subject: string;
@@ -111,13 +129,13 @@ export function recapInquirePath(brand: string) {
 
 export function publicRecapLine(value: string) {
   const text = value.trim();
-  if (!text || PRIVATE_LINE.test(text)) return null;
+  if (!text || isPrivateRecapText(text)) return null;
   return text;
 }
 
 function cleanMetric(value: string | null | undefined) {
   const text = value?.trim() ?? "";
-  if (!text || PRIVATE_LINE.test(text)) return null;
+  if (!isRealReportedValue(text)) return null;
   return text;
 }
 
@@ -167,6 +185,10 @@ export function composeBrandRecap(input: {
   contentLinks: string[];
   metrics: RecapMetrics;
   usageEndsOn: string | null;
+  goal?: RecapGoalView | null;
+  deliverableLog?: RecapDeliverableLog[];
+  snapshots?: RecapSnapshotView[];
+  nextCampaignNote?: string | null;
   inquireUrl: string;
   shareUrl: string;
 }): BrandRecapCopy {
@@ -175,6 +197,33 @@ export function composeBrandRecap(input: {
   const creatorSentence = creatorName.endsWith(".") ? creatorName : `${creatorName}.`;
   const label = recapMilestoneLabel(input.milestone);
   const deliverables = input.deliverables.map((line) => publicRecapLine(line)).filter((line): line is string => Boolean(line));
+  const deliverableLog: RecapDeliverableLog[] = [];
+  for (const row of input.deliverableLog ?? []) {
+    const label = publicRecapLine(row.label);
+    if (!label) continue;
+    const url = row.status === "posted" && publicRecapLine(row.url ?? "") && /^https?:\/\/\S+$/i.test(row.url ?? "") ? row.url : null;
+    if (!url) {
+      deliverableLog.push({ label, status: "pending", url: null, platform: null, platformLabel: null, postedOn: null });
+      continue;
+    }
+    deliverableLog.push({
+      label,
+      status: "posted",
+      url,
+      platform: row.platform,
+      platformLabel: publicRecapLine(row.platformLabel ?? ""),
+      postedOn: row.postedOn && isCalendarDay(row.postedOn) ? row.postedOn : null,
+    });
+  }
+  const snapshots = orderedSnapshots((input.snapshots ?? []).flatMap((snapshot) => {
+    const view = toSnapshotView(snapshot);
+    return view ? [view] : [];
+  }));
+  const goal = input.goal && input.goal.resultStatus === "reported" && input.goal.result && !isRealReportedValue(input.goal.result)
+    ? { ...input.goal, result: null, resultWindow: null, resultSource: null, resultStatus: "pending" as const }
+    : input.goal ?? null;
+  const nextCampaignNote = publicRecapLine(input.nextCampaignNote ?? "");
+  const safeGoal = goal && publicRecapLine(goal.label) && publicRecapLine(goal.target) ? goal : null;
   const contentLinks = input.contentLinks.flatMap((line) => {
     const safe = publicRecapLine(line);
     return safe && /^https?:\/\//i.test(safe) ? [safe] : [];
@@ -187,10 +236,31 @@ export function composeBrandRecap(input: {
   ];
   const usageEndsOn = input.usageEndsOn && isCalendarDay(input.usageEndsOn) ? input.usageEndsOn : null;
   const usageLine = `Usage rights end date: ${usageEndsOn ?? NOT_REPORTED}`;
-  const deliverableBlock = deliverables.length ? deliverables.map((line) => `- ${line}`) : [`Deliverables: ${NOT_REPORTED}`];
+  const deliverableBlock = deliverableLog.length
+    ? deliverableLog.map((row) => {
+      if (row.status === "pending") return `- ${row.label} · Pending`;
+      const when = row.postedOn ?? "Posted date pending";
+      const where = row.platformLabel ?? "Post";
+      return `- ${row.label} · ${where} · ${when} · ${row.url}`;
+    })
+    : deliverables.length ? deliverables.map((line) => `- ${line}`) : [`Deliverables: ${NOT_REPORTED}`];
   const linkBlock = contentLinks.length ? contentLinks.map((line) => `- ${line}`) : [`Content links: ${NOT_REPORTED}`];
   const subject = `${label} for ${brand}`;
   const rebookHref = withBasePath(recapInquirePath(brand));
+  const goalLines = safeGoal ? [
+    "",
+    "Goal",
+    `${safeGoal.label} target: ${safeGoal.target}`,
+    safeGoal.resultStatus === "reported" && safeGoal.result
+      ? `Result: ${safeGoal.result}${safeGoal.resultWindow ? ` · ${safeGoal.resultWindow}` : ""}${safeGoal.resultSource ? ` · ${safeGoal.resultSource}` : ""}`
+      : "Result: Pending",
+  ] : [];
+  const snapshotLines = snapshots.length ? [
+    "",
+    "Snapshots",
+    ...snapshots.map((snapshot) => `${snapshot.metricLabel} at ${snapshot.windowLabel}: ${snapshot.value} · ${snapshot.sourceLabel}${snapshot.postLabel ? ` · ${snapshot.postLabel}` : ""}`),
+  ] : [];
+  const noteLines = nextCampaignNote ? ["", "Next campaign", nextCampaignNote] : [];
   const body = [
     "Hi,",
     "",
@@ -208,6 +278,9 @@ export function composeBrandRecap(input: {
     ...metrics.map((metric) => `${metric.label}: ${metric.value}`),
     "",
     usageLine,
+    ...goalLines,
+    ...snapshotLines,
+    ...noteLines,
     "",
     `Rebook or extend usage: ${input.inquireUrl}`,
     `Full recap: ${input.shareUrl}`,
@@ -226,6 +299,11 @@ export function composeBrandRecap(input: {
     contentLinks,
     metrics,
     usageEndsOn,
+    goal: safeGoal,
+    deliverableLog,
+    snapshots,
+    nextCampaignNote,
+    csvHref: `${input.shareUrl.replace(/\/$/, "")}/csv`,
     rebookHref,
     shareHref: input.shareUrl,
     subject,
@@ -235,13 +313,13 @@ export function composeBrandRecap(input: {
 
 export function recapCopyLeaks(subject: string, body: string) {
   const text = `${subject}\n${body}`;
-  return PRIVATE_LINE.test(text);
+  return isPrivateRecapText(text);
 }
 
 type DealRow = typeof deals.$inferSelect;
 type ReportRow = typeof brandCampaignReports.$inferSelect;
 
-function goLiveFor(
+export function recapGoLive(
   deal: DealRow,
   allocations: Map<string, typeof campaignAllocations.$inferSelect>,
   campaignRows: Map<string, typeof campaigns.$inferSelect>,
@@ -293,6 +371,8 @@ async function loadRecapTables(db: PortalDb) {
     allocationRows,
     campaignRows,
     crmRows,
+    goalRows,
+    snapshotRows,
   ] = await Promise.all([
     db.select().from(deals),
     db.select().from(creators),
@@ -306,6 +386,8 @@ async function loadRecapTables(db: PortalDb) {
     db.select().from(campaignAllocations),
     db.select().from(campaigns),
     db.select().from(brandCrmEntries),
+    db.select().from(brandRecapGoals),
+    db.select().from(brandRecapSnapshots),
   ]);
   return {
     dealRows,
@@ -325,6 +407,13 @@ async function loadRecapTables(db: PortalDb) {
     allocations: new Map(allocationRows.map((row) => [row.id, row])),
     campaigns: new Map(campaignRows.map((row) => [row.id, row])),
     crmRows,
+    goalsByDeal: new Map(goalRows.map((row) => [row.dealId, row])),
+    snapshotsByDeal: snapshotRows.reduce((map, row) => {
+      const list = map.get(row.dealId) ?? [];
+      list.push(row);
+      map.set(row.dealId, list);
+      return map;
+    }, new Map<string, typeof snapshotRows>()),
   };
 }
 
@@ -367,16 +456,41 @@ function factsFor(deal: DealRow, goLiveOn: string, milestone: RecapMilestone, lo
   const campaign = allocation ? loaded.campaigns.get(allocation.campaignId) : undefined;
   const ownDeliverables = parseStringList(deal.deliverablesJson);
   const deliverables = ownDeliverables.length ? ownDeliverables : parseStringList(campaign?.deliverablesJson);
+  const safeDeliverables = deliverables.map((line) => publicRecapLine(line)).filter((line): line is string => Boolean(line));
   const report = loaded.reportsByDeal.get(deal.id);
   const right = loaded.rightsByDeal.get(deal.id);
   const ends = right?.endsOn?.trim() ?? "";
+  const posts = loaded.postsByDeal.get(deal.id) ?? [];
+  const snapshots = (loaded.snapshotsByDeal.get(deal.id) ?? []).flatMap((row) => {
+    const post = row.postId ? posts.find((item) => item.id === row.postId) : undefined;
+    const view = toSnapshotView({
+      window: row.window,
+      metric: row.metric,
+      value: row.value,
+      source: row.source,
+      postId: row.postId,
+      postLabel: post ? platformLabel(post.platform) : null,
+    });
+    return view ? [view] : [];
+  });
+  const storedGoal = loaded.goalsByDeal.get(deal.id);
+  const goalType = storedGoal?.goalType ?? campaign?.goalType ?? null;
+  const goalTarget = storedGoal?.targetValue ?? campaign?.goalTarget ?? null;
   return {
     brand: deal.brand,
     creatorName: creatorFacingName(creator, loaded.profilesById.get(deal.creatorId), loaded.kitsById.get(deal.creatorId)),
     milestone,
     goLiveOn,
     deliverables,
-    contentLinks: linksFor(loaded.postsByDeal.get(deal.id) ?? [], report),
+    deliverableLog: buildDeliverableLog(safeDeliverables, posts.map((post) => ({
+      url: post.url,
+      platform: post.platform,
+      postedOn: post.postedOn,
+      deliverableLabel: publicRecapLine(post.deliverableLabel ?? ""),
+    }))),
+    snapshots,
+    goal: recapGoalView(goalType, goalTarget, snapshots),
+    contentLinks: linksFor(posts, report),
     metrics: metricsFor(report),
     usageEndsOn: isCalendarDay(ends) ? ends : null,
   };
@@ -394,7 +508,7 @@ export async function queueBrandRecapDrafts(db: PortalDb, today: string) {
   let created = 0;
   let skipped = 0;
   for (const deal of loaded.dealRows) {
-    const goLiveOn = goLiveFor(deal, loaded.allocations, loaded.campaigns);
+    const goLiveOn = recapGoLive(deal, loaded.allocations, loaded.campaigns);
     if (!goLiveOn) {
       skipped += 1;
       continue;
@@ -475,7 +589,7 @@ export async function listDueBrandRecaps(db: PortalDb, viewer: Viewer, today: st
   const approvalsById = new Map(loaded.approvalRows.map((row) => [row.id, row]));
   const rows: DueBrandRecap[] = [];
   for (const deal of loaded.dealRows) {
-    const goLiveOn = goLiveFor(deal, loaded.allocations, loaded.campaigns);
+    const goLiveOn = recapGoLive(deal, loaded.allocations, loaded.campaigns);
     if (!goLiveOn) continue;
     for (const milestone of RECAP_MILESTONES) {
       if (!isRecapDue(goLiveOn, today, milestone)) continue;
@@ -516,7 +630,7 @@ export async function publicBrandRecap(db: PortalDb, token: string): Promise<Bra
   const facts = factsFor(deal, draft.goLiveOn, milestone, loaded);
   const inquireUrl = publicAbsoluteUrl(recapInquirePath(facts.brand));
   const shareUrl = publicAbsoluteUrl(`/brand-recap/${draft.token}`);
-  const copy = composeBrandRecap({ ...facts, inquireUrl, shareUrl });
+  const copy = composeBrandRecap({ ...facts, nextCampaignNote: draft.nextCampaignNote, inquireUrl, shareUrl });
   if (recapCopyLeaks(copy.subject, copy.body)) return null;
   return copy;
 }
