@@ -10,7 +10,7 @@ import {
   type GoogleCalendarItem,
   type ScheduleEntry,
 } from "./calendar-view";
-import { agencyTimeZone, nowIso } from "./format";
+import { agencyTimeZone, normalizeEmail, nowIso } from "./format";
 import { revokeGoogleToken, type GoogleTokenRevoker } from "./google-oauth";
 import { decryptToken, encryptToken } from "./token-crypto";
 import type { Viewer } from "./types";
@@ -33,6 +33,20 @@ export function classifyCalendarFailure(status: number, body: unknown): "needs_r
       : "";
   if (reason === "invalid_grant" || status === 401) return "needs_reconnect";
   return "unavailable";
+}
+
+/** Staff calendars are stored beside creator rows. The id is not a roster creator. */
+export const SELF_CALENDAR_PREFIX = "self:";
+
+export function calendarOwnerId(actor: { role: string; creatorId?: string | null; email?: string | null }) {
+  if (actor.role === "creator" && actor.creatorId) return actor.creatorId;
+  const email = actor.email ? normalizeEmail(actor.email) : "";
+  if (!email.includes("@")) return null;
+  return `${SELF_CALENDAR_PREFIX}${email}`;
+}
+
+function isSelfCalendarId(id: string) {
+  return id.startsWith(SELF_CALENDAR_PREFIX) && id.slice(SELF_CALENDAR_PREFIX.length).includes("@");
 }
 
 function canView(viewer: Viewer, creatorId: string) {
@@ -65,8 +79,10 @@ export async function saveCalendarConnection(
 ) {
   const token = input.refreshToken.trim();
   if (!token) return { ok: false as const, status: 400, error: "Google didn't return a calendar connection. Try again." };
-  const creator = await db.select({ id: creators.id }).from(creators).where(eq(creators.id, creatorId));
-  if (!creator[0]) return { ok: false as const, status: 404, error: "Creator not found." };
+  if (!isSelfCalendarId(creatorId)) {
+    const creator = await db.select({ id: creators.id }).from(creators).where(eq(creators.id, creatorId));
+    if (!creator[0]) return { ok: false as const, status: 404, error: "Creator not found." };
+  }
   let cipher: string;
   try {
     cipher = await encryptToken(token);
@@ -91,12 +107,12 @@ export async function saveCalendarConnection(
 
 export async function disconnectCalendar(
   db: PortalDb,
-  actor: { role: string; creatorId?: string | null },
+  actor: { role: string; creatorId?: string | null; email?: string | null },
   creatorId: string,
   options?: { revoke?: GoogleTokenRevoker },
 ) {
-  const self = actor.role === "creator" && actor.creatorId === creatorId;
-  if (actor.role !== "admin" && !self) {
+  const owns = calendarOwnerId(actor) === creatorId;
+  if (actor.role !== "admin" && !owns) {
     return { ok: false as const, status: 403, error: "You can only connect your own calendar." };
   }
   const rows = await db.select().from(creatorCalendars).where(eq(creatorCalendars.creatorId, creatorId));

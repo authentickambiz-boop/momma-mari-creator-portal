@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { appBaseUrl } from "@/lib/format";
 import { currentViewer } from "@/lib/current-user";
+import { calendarOwnerId } from "@/lib/google-calendar";
 import {
   calendarStateCookieName,
   createCalendarOAuthState,
@@ -12,11 +13,11 @@ import { tokenEncryptionConfigured } from "@/lib/token-crypto";
 
 export const dynamic = "force-dynamic";
 
-/** Start read-only Calendar consent for the signed-in creator. This does not replace the portal session. */
+/** Start read-only Calendar consent for the signed-in user. This does not replace the portal session. */
 export async function GET() {
   const viewer = await currentViewer();
   if (!viewer) return NextResponse.redirect(`${appBaseUrl()}/login`);
-  if (viewer.role !== "creator" || !viewer.creatorId) {
+  if (!calendarOwnerId(viewer)) {
     return NextResponse.redirect(`${appBaseUrl()}/calendar?calendarError=own`);
   }
   if (!googleConfigured() || !tokenEncryptionConfigured()) {

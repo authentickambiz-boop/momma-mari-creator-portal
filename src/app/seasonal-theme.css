@@ -997,3 +997,15 @@ html[data-seasonal] .page-guide-who {
   background: rgba(232, 135, 58, 0.28);
   color: #FFF6EA;
 }
+
+/* Portal cards are a solid panel above the seasonal scene, so ghosts and pumpkins stay decoration. */
+html[data-seasonal] .portal-main {
+  position: relative;
+  z-index: 1;
+}
+html[data-seasonal] .portal-main :is(.card, .hello, .page-guide, .admin-banner, .note.empty, .empty-state) {
+  position: relative;
+  z-index: 2;
+  background: #1C1030;
+  backdrop-filter: none;
+}

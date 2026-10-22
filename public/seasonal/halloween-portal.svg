@@ -64,7 +64,7 @@
     <path d="M930 668h44v72h-44z"/>
     <path d="M926 668c0-20 52-20 52 0"/>
   </g>
-  <g id="sitting-ghost" transform="translate(560 640)">
+  <g id="sitting-ghost" transform="translate(320 810)">
     <path d="M4 70c0-34 20-56 44-56s44 22 44 56v34l-14-10-15 10-15-10-15 10-15-10-14 10V70z" fill="#FFF8F1" stroke="#1C1A1F" stroke-width="3" stroke-linejoin="round"/>
     <circle cx="32" cy="58" r="3.4" fill="#1C1A1F"/>
     <circle cx="58" cy="58" r="3.4" fill="#1C1A1F"/>
@@ -93,7 +93,7 @@
     <ellipse cx="1088" cy="668" rx="22" ry="18" fill="url(#portal-pumpkin)" stroke="#1C1A1F" stroke-width="3"/>
     <path d="M1088 650c2-10 6-10 5-16" stroke="#2F6A36" stroke-width="3" stroke-linecap="round"/>
   </g>
-  <g id="center-cast" transform="translate(760, 240)">
+  <g id="center-cast" transform="translate(1040, 690) scale(0.55)">
     <path d="M20 180c0-78 40-130 90-130s90 52 90 130v64l-30-22-30 22-30-22-30 22-30-22-30 22v-64z" fill="#FFF8F1" stroke="#1C1A1F" stroke-width="4"/>
     <circle cx="78" cy="160" r="7" fill="#1C1A1F"/>
     <circle cx="128" cy="160" r="7" fill="#1C1A1F"/>

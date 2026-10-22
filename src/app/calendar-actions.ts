@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { saveDeliverableDate, setCalendarConnected } from "@/lib/calendar";
-import { disconnectCalendar } from "@/lib/google-calendar";
+import { calendarOwnerId, disconnectCalendar } from "@/lib/google-calendar";
 import { calendarErrorCode } from "@/lib/calendar-notes";
 import { currentViewer } from "@/lib/current-user";
 
@@ -34,9 +34,10 @@ export async function connectCalendarAction(formData: FormData) {
 export async function disconnectCalendarAction() {
   const viewer = await currentViewer();
   if (!viewer) redirect("/login");
-  if (!viewer.creatorId) redirect("/calendar?calendarError=own");
+  const ownerId = calendarOwnerId(viewer);
+  if (!ownerId) redirect("/calendar?calendarError=own");
   const db = await getDb();
-  const result = await disconnectCalendar(db, viewer, viewer.creatorId);
+  const result = await disconnectCalendar(db, viewer, ownerId);
   if (!result.ok) redirect(`/calendar?calendarError=${calendarErrorCode(result.error)}`);
   redirect("/calendar?saved=1");
 }
