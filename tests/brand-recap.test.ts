@@ -409,7 +409,7 @@ describe("brand recap drafts", { concurrency: 1 }, () => {
       assert.match(packedMail, /Rebook or extend usage: https:\/\/www\.mommamari\.com\/portal\/inquire\?brand=Northstar/);
       assert.match(packedMail, /\/portal\/brand-recap\//);
       assert.equal(leaksPrivate(packedMail), false);
-      assert.equal(packedMail.includes("45"), false);
+      assert.equal(/\b45\b/.test(packedMail), false);
       assert.equal(packedMail.toLowerCase().includes("split"), false);
       const draft = (await db.select().from(brandRecapDrafts).where(eq(brandRecapDrafts.dealId, "recap-floor")))[0];
       const report = await publicBrandRecap(db, draft?.token ?? "");

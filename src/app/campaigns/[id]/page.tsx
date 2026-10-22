@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { allocateCampaignAction, markOutsideAction, queueOutsideOfferAction } from "@/app/campaign-actions";
+import { allocateCampaignAction, markOutsideAction, queueOutsideOfferAction, saveCampaignGoalAction } from "@/app/campaign-actions";
 import { PortalFrame } from "@/components/portal-frame";
 import {
   allocationsFor,
@@ -13,6 +13,7 @@ import {
   rankRoster,
   rosterHasAFit,
 } from "@/lib/campaigns";
+import { formatGoalTarget, goalTypeLabel, RECAP_GOAL_TYPES } from "@/lib/brand-recap-report";
 import { campaignErrorNote } from "@/lib/campaign-notes";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
@@ -52,6 +53,22 @@ export default async function CampaignPage({ params, searchParams }: { params: P
         <p>{campaign.slots} creator slots · {campaign.status}{campaign.openOutside ? " · Open to outside creators" : ""}</p>
         {priced ? <p>Budget {formatMoney(campaign.budgetCents)}</p> : <p className="note">The budget stays with the owner unless your pricing toggle is on.</p>}
         {campaign.startsOn || campaign.endsOn ? <p>{campaign.startsOn || "Start TBD"} to {campaign.endsOn || "End TBD"}</p> : null}
+        {goalTypeLabel(campaign.goalType ?? "") && campaign.goalTarget ? (
+          <p>Kickoff goal: {formatGoalTarget(campaign.goalTarget)} {goalTypeLabel(campaign.goalType ?? "")?.toLowerCase()}</p>
+        ) : <p className="note">No kickoff goal yet.</p>}
+        {portal.viewer.role === "admin" ? (
+          <form action={saveCampaignGoalAction} className="stage-form">
+            <input type="hidden" name="campaignId" value={campaign.id} />
+            <label>Kickoff goal
+              <select name="goalType" defaultValue={campaign.goalType ?? ""}>
+                <option value="">No goal yet</option>
+                {RECAP_GOAL_TYPES.map((goal) => <option key={goal.id} value={goal.id}>{goal.label}</option>)}
+              </select>
+            </label>
+            <label>Target number<input name="goalTarget" inputMode="numeric" defaultValue={campaign.goalTarget ?? ""} placeholder="100000" /></label>
+            <button className="btn" type="submit">Save kickoff goal</button>
+          </form>
+        ) : null}
       </div>
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec-title">Roster match</div>

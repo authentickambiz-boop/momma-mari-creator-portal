@@ -1,4 +1,5 @@
 import { openBrandReportAction } from "@/app/brand-report-actions";
+import { openRecapEditorAction } from "@/app/brand-recap-actions";
 import { dealReviewLabel } from "@/lib/creator-deal-review";
 import { withBasePath } from "@/lib/format";
 import type { ExpiryAlert, UsageEndingRow } from "@/lib/usage";
@@ -117,9 +118,19 @@ export function OwnerSignals({
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec-title">Brand recaps</div>
         <p className="note">A 7-day recap and a 30-day recap are drafted after a campaign goes live. Each one waits in Approvals. Nothing is sent until you approve it.</p>
+        {deals.length > 0 ? (
+          <form action={openRecapEditorAction} className="stage-form">
+            <label>Deal
+              <select name="dealId" defaultValue={deals[0]?.id ?? ""}>
+                {deals.map((deal) => <option key={deal.id} value={deal.id}>{deal.brand}</option>)}
+              </select>
+            </label>
+            <button className="btn" type="submit">Edit recap</button>
+          </form>
+        ) : null}
         {recaps.length === 0 ? <p className="note empty">No recap is due.</p> : (
           <table>
-            <thead><tr><th>Brand</th><th>Creator</th><th>Recap</th><th>Due</th><th>Status</th></tr></thead>
+            <thead><tr><th>Brand</th><th>Creator</th><th>Recap</th><th>Due</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {recaps.map((recap) => (
                 <tr key={`${recap.dealId}-${recap.milestone}`}>
@@ -128,6 +139,10 @@ export function OwnerSignals({
                   <td>{recap.href ? <a href={recap.href}>{recap.milestoneLabel}</a> : recap.milestoneLabel}</td>
                   <td>{recap.dueOn}</td>
                   <td>{recap.statusLabel}</td>
+                  <td>
+                    <a href={withBasePath(`/brand-recaps/${recap.dealId}`)}>Edit</a>
+                    {recap.href ? <> · <a href={`${recap.href}/csv`}>CSV</a></> : null}
+                  </td>
                 </tr>
               ))}
             </tbody>

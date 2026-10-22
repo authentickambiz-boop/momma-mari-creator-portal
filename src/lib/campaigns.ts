@@ -13,6 +13,7 @@ import {
 import { BRAND_EMAIL_SENDER } from "./approvals";
 import { latestRanks } from "./creator-rank";
 import { rulesFor, screenOffer, type Screening } from "./deal-rules";
+import { parseKickoffGoal } from "./brand-recap-report";
 import { agencyTimeZone, feeAndPayout, nowIso } from "./format";
 import { questionnaireFor } from "./questionnaire";
 import { getDealStage } from "./stages";
@@ -45,6 +46,8 @@ export type CampaignInput = {
   startsOn?: string | null;
   endsOn?: string | null;
   status?: string;
+  goalType?: string | null;
+  goalTarget?: string | null;
 };
 
 export type CampaignRecord = {
@@ -63,6 +66,8 @@ export type CampaignRecord = {
   updatedAt: string;
   kind: string;
   offerFlag: string | null;
+  goalType: string | null;
+  goalTarget: string | null;
 };
 
 export type RankedCreator = {
@@ -110,6 +115,8 @@ function toCampaign(row: typeof campaigns.$inferSelect): CampaignRecord {
     updatedAt: row.updatedAt,
     kind: row.kind || "campaign",
     offerFlag: row.offerFlag,
+    goalType: row.goalType,
+    goalTarget: row.goalTarget,
   };
 }
 
@@ -149,6 +156,8 @@ export async function saveCampaign(db: PortalDb, viewer: Viewer, input: Campaign
   if (!starts.ok) return starts;
   const ends = optionalCalendarDay(input.endsOn);
   if (!ends.ok) return ends;
+  const goal = parseKickoffGoal(input.goalType, input.goalTarget);
+  if (!goal.ok) return { ok: false as const, error: goal.error };
   const status = input.status && CAMPAIGN_STATUSES.includes(input.status as CampaignStatus) ? input.status : "open";
   const timestamp = nowIso();
   const values = {
@@ -164,15 +173,36 @@ export async function saveCampaign(db: PortalDb, viewer: Viewer, input: Campaign
     status,
     updatedAt: timestamp,
   };
+  const goalFields = goal.set ? { goalType: goal.goalType, goalTarget: goal.goalTarget } : {};
   if (id) {
     const existing = await campaignById(db, id);
     if (!existing) return { ok: false as const, error: "That campaign is not on the board." };
-    await db.update(campaigns).set(values).where(eq(campaigns.id, id));
+    await db.update(campaigns).set({ ...values, ...goalFields }).where(eq(campaigns.id, id));
     return { ok: true as const, id };
   }
   const created = crypto.randomUUID();
-  await db.insert(campaigns).values({ id: created, openOutside: false, ...values });
+  await db.insert(campaigns).values({
+    id: created,
+    openOutside: false,
+    ...values,
+    goalType: goal.goalType,
+    goalTarget: goal.goalTarget,
+  });
   return { ok: true as const, id: created };
+}
+
+export async function saveCampaignGoal(db: PortalDb, viewer: Viewer, campaignId: string, goalType: string, goalTarget: string) {
+  if (viewer.role !== "admin") return { ok: false as const, error: "Only an owner can add a campaign." };
+  const existing = await campaignById(db, campaignId);
+  if (!existing) return { ok: false as const, error: "That campaign is not on the board." };
+  const goal = parseKickoffGoal(goalType, goalTarget);
+  if (!goal.ok) return { ok: false as const, error: goal.error };
+  await db.update(campaigns).set({
+    goalType: goal.goalType,
+    goalTarget: goal.goalTarget,
+    updatedAt: nowIso(),
+  }).where(eq(campaigns.id, campaignId));
+  return { ok: true as const, id: campaignId };
 }
 
 async function acceptedDeals(db: PortalDb, creatorId: string) {

@@ -18,6 +18,8 @@ const CAMPAIGN_ERROR_TEXT = {
   amount: "Enter the offer amount.",
   prospect: "That prospect is not on the list.",
   date: "Use a date like 2026-11-01.",
+  goal: "Add both the goal and the target number.",
+  target: "Enter the target as a number, like 100000.",
 } as const;
 
 export const CAMPAIGN_NOTES: Record<string, string> = {
