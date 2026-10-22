@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { AccountMenu } from "@/components/account-menu";
 import { BrandMark } from "@/components/brand-mark";
+import { PageGuide } from "@/components/page-guide";
 import { TabRow } from "@/components/tab-row";
 import { accountMenuItems } from "@/lib/creator-home";
+import { pageGuideFor } from "@/lib/page-guides";
 import { visiblePortalTabs, type PortalTab } from "@/lib/portal-tabs";
 import type { CreatorProfile, Viewer } from "@/lib/types";
 
@@ -54,8 +56,9 @@ export function PortalFrame({
           <AccountMenu initials={viewer.initials || viewer.name.slice(0, 1)} items={menu} />
         </div>
       </aside>
-      <main id="main" className="portal-main wrap">
+      <main id="main" className="portal-main wrap" data-tab={tab}>
         {hello}
+        <PageGuide guide={pageGuideFor(tab)} />
         {staff ? (
           <div className="switcher" role="navigation" aria-label="Creators">
             {creators.map((creator) => (
