@@ -21,7 +21,7 @@ describe("profile error codes", { concurrency: 1 }, () => {
     const kosblingEvents = kosblingBefore?.stageEvents?.length ?? 0;
 
     assert.equal(profileErrorCode("You can only edit your own profile."), "own");
-    assert.equal(profileErrorCode("Bio can be 280 characters."), "bio");
+    assert.equal(profileErrorCode("Bio can be 160 characters."), "bio");
     assert.equal(profileErrorCode("Confirm the family details before saving them."), "family");
     assert.equal(profileErrorCode("anything else"), "1");
     assert.equal(profileErrorNote("name"), "Add a display name before showing your profile.");

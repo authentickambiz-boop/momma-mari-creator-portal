@@ -1,9 +1,15 @@
-const PROFILE_ERROR_TEXT = {
+export const PROFILE_ERROR_TEXT = {
   own: "You can only edit your own profile.",
   hidden: "That profile is hidden because this creator left the roster.",
   name: "Add a display name before showing your profile.",
-  bio: "Bio can be 280 characters.",
+  bio: "Bio can be 160 characters.",
   family: "Confirm the family details before saving them.",
+  about: "About me lines can be 40 characters.",
+  picture: "Use a JPEG under 150 KB for the profile picture.",
+  banner: "Use a JPEG under 220 KB for the cover.",
+  pin: "Use a JPEG under 40 KB for a pinned post.",
+  link: "Pinned posts use an http or https link.",
+  pinTitle: "Add a title for each pinned post.",
 } as const;
 
 export const PROFILE_NOTES: Record<string, string> = {
