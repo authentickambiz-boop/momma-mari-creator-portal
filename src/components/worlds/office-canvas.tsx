@@ -11,6 +11,7 @@ import { isSeated, type OfficeSimStore } from "@/lib/worlds/office-sim";
 import { boardStations, type OfficeKey } from "@/lib/worlds/office-state";
 import { formatWalletMoney, vaultPilePlan } from "@/lib/worlds/office-wallets";
 import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/worlds/office-weather";
+import { BOT_CAPSULE_CENTER, BOT_CAPSULE_LENGTH, BOT_CAPSULE_RADIUS, pickBotCapsule, rayFromClient, type BotHitPose } from "@/lib/worlds/bot-hit";
 import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, type Stick } from "@/lib/worlds/office-move";
 import { OfficeSite } from "./office-grounds";
 
@@ -1012,6 +1013,7 @@ function Robot({
   status,
   accent,
   selected,
+  hot,
   line,
   onSelect,
   layout,
@@ -1023,6 +1025,7 @@ function Robot({
   status: BotStatus;
   accent: string;
   selected: boolean;
+  hot: boolean;
   line: string;
   onSelect: (id: string) => void;
   layout: OfficeLayout;
@@ -1076,7 +1079,18 @@ function Robot({
       {...pointerCursor}
       onClick={(event) => { event.stopPropagation(); if (canOpen()) onSelect(id); }}
     >
-      <HitPad args={[1.4, 2.5, 2.2]} position={[0, 1.25, 0.45]} />
+      <mesh name="bot-capsule" position={BOT_CAPSULE_CENTER}>
+        <capsuleGeometry args={[BOT_CAPSULE_RADIUS, BOT_CAPSULE_LENGTH, 4, 8]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh name="bot-hover" position={BOT_CAPSULE_CENTER} visible={hot}>
+        <capsuleGeometry args={[BOT_CAPSULE_RADIUS, BOT_CAPSULE_LENGTH, 5, 10]} />
+        <meshBasicMaterial color="#f2c14e" transparent opacity={0.22} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh name="bot-hover-ring" visible={hot} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.07, 0]}>
+        <ringGeometry args={[BOT_CAPSULE_RADIUS * 0.72, BOT_CAPSULE_RADIUS * 0.9, 40]} />
+        <meshBasicMaterial color="#f2c14e" depthTest={false} />
+      </mesh>
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
         <ringGeometry args={[0.42, 0.52, 28]} />
         <meshBasicMaterial color="#1f3b2d" />
@@ -1257,6 +1271,98 @@ function StudioEnv({ enabled }: { enabled: boolean }) {
 }
 
 type MapGesture = { x: number; y: number; dragged: boolean; active: boolean };
+
+/** Capsules first. A hit opens that bot and does not fall through to the building. */
+function BotPicker({
+  sim,
+  gesture,
+  canOpen,
+  enabled,
+  onSelect,
+  onHover,
+}: {
+  sim: OfficeSimStore;
+  gesture: React.MutableRefObject<MapGesture>;
+  canOpen: () => boolean;
+  enabled: boolean;
+  onSelect: (id: string) => void;
+  onHover: (id: string | null) => void;
+}) {
+  const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
+  const selectRef = useRef(onSelect);
+  const hoverRef = useRef(onHover);
+  const canOpenRef = useRef(canOpen);
+  const enabledRef = useRef(enabled);
+  useEffect(() => {
+    selectRef.current = onSelect;
+    hoverRef.current = onHover;
+    canOpenRef.current = canOpen;
+    enabledRef.current = enabled;
+  });
+  useEffect(() => {
+    const el = gl.domElement;
+    let hovered: string | null = null;
+
+    function poses(): BotHitPose[] {
+      return Object.values(sim.state.bots).map((bot) => ({
+        id: bot.id,
+        x: bot.x,
+        y: 0,
+        z: bot.z,
+        yaw: bot.yaw,
+      }));
+    }
+
+    function pick(event: { clientX: number; clientY: number }) {
+      if (!enabledRef.current) return null;
+      const ray = rayFromClient(camera, event.clientX, event.clientY, el.getBoundingClientRect());
+      if (!ray) return null;
+      return pickBotCapsule(ray, poses());
+    }
+
+    function paint(id: string | null, event: Event) {
+      if (id === hovered) return;
+      hovered = id;
+      hoverRef.current(id);
+      if (event.target instanceof HTMLCanvasElement) {
+        event.target.style.cursor = id ? "pointer" : "";
+      }
+    }
+
+    function onMove(event: PointerEvent) {
+      if (gesture.current.dragged) {
+        paint(null, event);
+        return;
+      }
+      paint(pick(event), event);
+    }
+
+    function onClick(event: MouseEvent) {
+      if (gesture.current.dragged || !canOpenRef.current()) return;
+      const id = pick(event);
+      if (!id) return;
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      selectRef.current(id);
+    }
+
+    function onLeave(event: PointerEvent) {
+      paint(null, event);
+    }
+
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerleave", onLeave);
+    el.addEventListener("click", onClick, true);
+    return () => {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerleave", onLeave);
+      el.removeEventListener("click", onClick, true);
+      if (hovered) hoverRef.current(null);
+    };
+  }, [camera, gl, sim, gesture]);
+  return null;
+}
 
 /** Left-drag pans and right-drag orbits. The move that passes 10px is applied, not skipped. */
 function MapGestures({
@@ -1499,6 +1605,7 @@ function Scene({
 }) {
   const mats = useOfficeMaterials(layout);
   const controls = useRef<OrbitControlsType>(null);
+  const [hotId, setHotId] = useState<string | null>(null);
   const sky = skyColor(weather);
   const fog = fogDistances(weather);
   const home = useMemo(() => mapHome(layout), [layout]);
@@ -1549,6 +1656,7 @@ function Scene({
           status={bot.status}
           accent={ACCENTS[index % ACCENTS.length] ?? "#2f6d4f"}
           selected={selected === bot.id}
+          hot={hotId === bot.id}
           line={speech[bot.id] ?? ""}
           onSelect={onSelect}
           layout={layout}
@@ -1558,6 +1666,14 @@ function Scene({
       </MatsContext.Provider>
       </TapContext.Provider>
       </group>
+      <BotPicker
+        sim={sim}
+        gesture={gesture}
+        canOpen={canOpen}
+        enabled={layers.offices}
+        onSelect={onSelect}
+        onHover={setHotId}
+      />
       <MapGestures controls={controls} layout={layout} gesture={gesture} />
       <StickMover stickRef={stickRef} controls={controls} layout={layout} />
       <CameraGuard controls={controls} layout={layout} />
