@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { describe, test } from "node:test";
+import { compareVersions, desktopDownloadUrl, newestWorldsRelease, rewriteUpdaterManifest, safeAssetName, worldsReleaseVersion } from "../src/lib/desktop-update";
 import { worldsReturnCookie, worldsReturnPath } from "../src/lib/worlds/office-return";
 
 function source(file: string) {
@@ -32,10 +33,18 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(main, /Toggle Fullscreen/);
     assert.match(main, /F11/);
     assert.match(main, /Momma Mari Worlds/);
+    assert.match(main, /Updating…/);
+    assert.match(main, /install_update/);
+    assert.match(main, /tauri_plugin_updater/);
     assert.match(config, /"version": "0\.1\.1"/);
     assert.match(source("desktop/package.json"), /"version": "0\.1\.1"/);
     assert.match(source("desktop/src-tauri/Cargo.toml"), /version = "0\.1\.1"/);
     assert.match(config, /"productName": "Momma Mari Worlds"/);
+    assert.match(config, /createUpdaterArtifacts": true/);
+    assert.match(config, /https:\/\/www\.mommamari\.com\/portal\/api\/desktop\/latest\.json/);
+    assert.match(config, /"installMode": "quiet"/);
+    assert.match(config, /dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6/);
+    assert.equal(config.includes("minisign secret key"), false);
     assert.match(config, /"identifier": "com\.mommamari\.worlds"/);
     assert.match(config, /nsis/);
     assert.match(config, /dmg/);
@@ -52,6 +61,13 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(workflow, /--bundles nsis/);
     assert.match(workflow, /--bundles dmg/);
     assert.match(workflow, /action-gh-release/);
+    assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY/);
+    assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY_PASSWORD/);
+    assert.match(workflow, /worlds-v__VERSION__/);
+    assert.match(workflow, /updaterJsonPreferNsis: true/);
+    assert.match(workflow, /updater-unsigned\.json/);
+    assert.match(source("desktop/updater-unsigned.json"), /"createUpdaterArtifacts": false/);
+    assert.equal(workflow.includes("minisign secret key"), false);
 
     assert.match(readme, /www\.mommamari\.com\/portal\/worlds/);
     assert.match(readme, /Pin to taskbar/);
@@ -59,6 +75,12 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(readme, /momma-mari-worlds-windows-latest/);
     assert.match(readme, /momma-mari-worlds-macos-latest/);
     assert.match(readme, /grokbot:\/\//);
+    assert.match(readme, /Updating…/);
+    assert.match(readme, /portal\/api\/desktop\/latest\.json/);
+    assert.match(source("src/app/api/desktop/latest/route.ts"), /loadUpdaterManifest/);
+    assert.match(source("src/app/api/desktop/download/[name]/route.ts"), /fetchReleaseAsset/);
+    assert.match(source("next.config.ts"), /\/api\/desktop\/latest\.json/);
+    assert.equal(source("desktop/src-tauri/capabilities/default.json").includes("updater:default"), false);
   });
 
   test("sign-in can return only to the office", () => {
@@ -79,5 +101,45 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(source("src/app/api/auth/callback/route.ts"), /creatorStartPath/);
     assert.match(source("src/app/api/auth/google/route.ts"), /WORLDS_RETURN_COOKIE/);
     assert.match(source("src/app/actions.ts"), /worldsReturnPath/);
+  });
+
+  test("the public updater manifest only republishes a worlds release", () => {
+    assert.equal(worldsReleaseVersion("worlds-v0.1.1"), "0.1.1");
+    assert.equal(worldsReleaseVersion("worlds-v0.1.1-beta"), null);
+    assert.equal(worldsReleaseVersion("v0.1.1"), null);
+    assert.equal(compareVersions("0.1.2", "0.1.1") > 0, true);
+    assert.equal(compareVersions("0.1.10", "0.1.9") > 0, true);
+    const chosen = newestWorldsRelease([
+      { tag_name: "worlds-v0.1.1", assets: [] },
+      { tag_name: "v9.0.0", assets: [] },
+      { tag_name: "worlds-v0.1.2", draft: true, assets: [] },
+      { tag_name: "worlds-v0.2.0", prerelease: true, assets: [] },
+    ]);
+    assert.equal(chosen?.tag_name, "worlds-v0.1.1");
+    assert.equal(safeAssetName("../secret"), null);
+    assert.equal(safeAssetName("Momma.Mari.Worlds_0.1.1_x64-setup.exe"), "Momma.Mari.Worlds_0.1.1_x64-setup.exe");
+    const githubUrl = "https://github.com/authentickambiz-boop/momma-mari-creator-portal/releases/download/worlds-v0.1.2/Momma.Mari.Worlds_0.1.2_x64-setup.exe";
+    const manifest = rewriteUpdaterManifest({
+      version: "0.1.2",
+      notes: "Office fix",
+      pub_date: "2026-10-23T00:00:00Z",
+      platforms: {
+        "windows-x86_64": { signature: "sig", url: githubUrl },
+        "darwin-aarch64": { signature: "sig2", url: "https://evil.example/not-a-release.exe" },
+      },
+    });
+    assert.equal(manifest?.platforms["windows-x86_64"].url, githubUrl);
+    assert.equal(manifest?.platforms["darwin-aarch64"].url, desktopDownloadUrl("not-a-release.exe"));
+    assert.equal(manifest?.platforms["windows-x86_64"].signature, "sig");
+    const hidden = rewriteUpdaterManifest({
+      version: "0.1.2",
+      platforms: { "windows-x86_64": { signature: "sig", url: githubUrl } },
+    }, { anonymous: false });
+    assert.equal(hidden?.platforms["windows-x86_64"].url, desktopDownloadUrl("Momma.Mari.Worlds_0.1.2_x64-setup.exe"));
+    assert.equal(rewriteUpdaterManifest({ version: "latest", platforms: {} }), null);
+    assert.equal(rewriteUpdaterManifest({
+      version: "0.1.2",
+      platforms: { "windows-x86_64": { signature: "sig", url: "http://example.com/setup.exe" } },
+    }), null);
   });
 });

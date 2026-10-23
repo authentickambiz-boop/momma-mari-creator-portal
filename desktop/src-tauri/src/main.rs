@@ -9,6 +9,7 @@ use std::sync::OnceLock;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_updater::UpdaterExt;
 use tauri_plugin_window_state::{Builder as WindowStateBuilder, StateFlags};
 
 const WORLDS_URL: &str = "https://www.mommamari.com/portal/worlds";
@@ -163,6 +164,41 @@ fn send_back_to_worlds() {
     });
 }
 
+const UPDATING_NOTICE: &str = r#"
+(() => {
+  if (document.getElementById("mm-worlds-updating")) return;
+  const bar = document.createElement("div");
+  bar.id = "mm-worlds-updating";
+  bar.textContent = "Updating…";
+  bar.setAttribute("role", "status");
+  bar.style.cssText = "position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;background:#1f3b2d;color:#f7f4ee;font:600 14px/1.2 sans-serif;padding:10px 16px;border-radius:999px;";
+  (document.body || document.documentElement).appendChild(bar);
+})();
+"#;
+
+fn show_updating(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else { return };
+    let _ = window.eval(UPDATING_NOTICE);
+    let _ = window.set_title("Updating…");
+}
+
+fn check_for_update(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) = install_update(&app).await {
+            eprintln!("Worlds updater skipped: {error}");
+        }
+    });
+}
+
+async fn install_update(app: &AppHandle) -> tauri_plugin_updater::Result<()> {
+    let Some(update) = app.updater()?.check().await? else {
+        return Ok(());
+    };
+    show_updating(app);
+    update.download_and_install(|_chunk, _total| {}, || {}).await?;
+    app.restart();
+}
+
 fn desktop_user_agent() -> &'static str {
     if cfg!(target_os = "macos") {
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
@@ -179,6 +215,7 @@ fn main() {
         | StateFlags::VISIBLE;
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             WindowStateBuilder::new()
                 .with_state_flags(remembered)
@@ -245,6 +282,7 @@ fn main() {
                 let _ = window.show();
                 let _ = window.set_focus();
             }
+            check_for_update(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

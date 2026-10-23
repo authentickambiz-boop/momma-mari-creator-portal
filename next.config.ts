@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
       { source: "/admin/world", destination: "/worlds", permanent: false },
     ];
   },
+  async rewrites() {
+    return [
+      { source: "/api/desktop/latest.json", destination: "/api/desktop/latest" },
+    ];
+  },
   serverExternalPackages: ["node:sqlite"],
   experimental: {
     // Next 16 turns this on by default. In dev it waits on the HMR debug
