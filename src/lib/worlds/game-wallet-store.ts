@@ -7,10 +7,12 @@ import type { Viewer } from "@/lib/types";
 import { characterSubjectForViewer, type CharacterSubject } from "./character";
 import {
   BRAND_PAID_STATUSES,
+  COMMISSION_CREDIT_COMING_SOON,
   DEFAULT_EARN_CENTS,
   EARN_TYPES,
   GAME_CATALOG,
   GAME_CURRENCY,
+  creatorCommissionCreditEnabled,
   findShopItem,
   ledgerSum,
   walletAccess,
@@ -35,6 +37,8 @@ export type PublicWallet = {
   balance: number;
   currency: typeof GAME_CURRENCY;
   history: PublicLedgerEntry[];
+  /** Set while WORLDS_CREATOR_COMMISSION_CREDIT is off. */
+  historyNote: string | null;
 };
 
 function walletId(subject: CharacterSubject) {
@@ -191,6 +195,7 @@ export async function noteAccountConnected(db: PortalDb, creatorId: string, plat
  * with the existing 20% fee. Does not update payments, deals, or payouts.
  */
 export async function creditPaidBrandCommissions(db: PortalDb) {
+  if (!creatorCommissionCreditEnabled()) return 0;
   const paid = await db.select({
     id: payments.id,
     dealId: payments.dealId,
@@ -242,6 +247,7 @@ async function publicWallet(db: PortalDb, subject: CharacterSubject): Promise<Pu
     balance: units(ledgerSum(rows)),
     currency: GAME_CURRENCY,
     history,
+    historyNote: creatorCommissionCreditEnabled() ? null : COMMISSION_CREDIT_COMING_SOON,
   };
 }
 

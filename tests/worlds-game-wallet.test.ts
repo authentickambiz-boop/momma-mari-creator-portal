@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, test } from "node:test";
 import { eq } from "drizzle-orm";
+import type { PortalDb } from "../src/db";
 import { creatorTasks, creators, deals, gameLedger, payments } from "../src/db/schema";
 import { markCreatorTaskDone } from "../src/lib/creator-tasks";
 import { feeAndPayout, nowIso } from "../src/lib/format";
@@ -10,6 +11,8 @@ import { saveGmailConnection } from "../src/lib/onboarding";
 import type { Viewer } from "../src/lib/types";
 import { characterFigure, defaultCharacter, parseCharacter } from "../src/lib/worlds/character";
 import {
+  COMMISSION_CREDIT_COMING_SOON,
+  creatorCommissionCreditEnabled,
   ledgerSum,
   parseEarnRates,
   refuseCurrencyPurchase,
@@ -77,7 +80,35 @@ async function deal(db: ReturnType<typeof openTestDb>, id: string, creatorId: st
   });
 }
 
-describe("Worlds game wallet", () => {
+function watchPaymentReads(db: PortalDb) {
+  let paymentReads = 0;
+  const guarded = new Proxy(db, {
+    get(target, key) {
+      const value = Reflect.get(target, key, target);
+      if (key !== "select" || typeof value !== "function") {
+        return typeof value === "function" ? value.bind(target) : value;
+      }
+      return (...args: unknown[]) => {
+        const query = value.apply(target, args) as object;
+        return new Proxy(query, {
+          get(builder, builderKey) {
+            const method = Reflect.get(builder, builderKey, builder);
+            if (builderKey === "from" && typeof method === "function") {
+              return (table: unknown, ...rest: unknown[]) => {
+                if (table === payments) paymentReads += 1;
+                return method.call(builder, table, ...rest);
+              };
+            }
+            return typeof method === "function" ? method.bind(builder) : method;
+          },
+        });
+      };
+    },
+  });
+  return { db: guarded as PortalDb, reads: () => paymentReads };
+}
+
+describe("Worlds game wallet", { concurrency: false }, () => {
   test("the ledger is append-only and the balance is the sum", async () => {
     const db = openTestDb();
     const migration = source("drizzle/0064_game_wallets.sql").toLowerCase();
@@ -168,7 +199,10 @@ describe("Worlds game wallet", () => {
   });
 
   test("a paid brand payment credits the 20% cut once and does not change the payment", async () => {
+    const previous = process.env.WORLDS_CREATOR_COMMISSION_CREDIT;
+    process.env.WORLDS_CREATOR_COMMISSION_CREDIT = "on";
     const db = openTestDb();
+    try {
     await creator(db, "mariclare", "MariClare", mariclare.email);
     await deal(db, "deal-north", "mariclare", "Northwind");
     await deal(db, "deal-wait", "mariclare", "Waiting Co");
@@ -209,6 +243,7 @@ describe("Worlds game wallet", () => {
     assert.equal(view.body.wallet.currency, "currency-dollars");
     assert.equal(view.body.wallet.history[0]?.reason, "commission");
     assert.equal(view.body.wallet.history[0]?.source, "Northwind");
+    assert.equal(view.body.wallet.historyNote, null);
     const packed = JSON.stringify(view.body);
     assert.equal(packed.includes(mariclare.email), false);
     assert.equal(packed.includes("100000"), false);
@@ -220,6 +255,51 @@ describe("Worlds game wallet", () => {
     assert.equal(JSON.stringify(owner.body).includes(mariclare.email), false);
     const other = await readGameWallet(db, abby, { kind: "user", id: "mariclare" });
     assert.equal(other.ok, false);
+    } finally {
+      if (previous === undefined) delete process.env.WORLDS_CREATOR_COMMISSION_CREDIT;
+      else process.env.WORLDS_CREATOR_COMMISSION_CREDIT = previous;
+    }
+  });
+
+  test("commission credit stays off, skips payments, and says coming soon", async () => {
+    const previous = process.env.WORLDS_CREATOR_COMMISSION_CREDIT;
+    delete process.env.WORLDS_CREATOR_COMMISSION_CREDIT;
+    try {
+      assert.equal(creatorCommissionCreditEnabled(), false);
+      const store = source("src/lib/worlds/game-wallet-store.ts");
+      const fn = store.slice(store.indexOf("async function creditPaidBrandCommissions"));
+      assert.ok(fn.indexOf("creatorCommissionCreditEnabled") >= 0);
+      assert.ok(fn.indexOf("creatorCommissionCreditEnabled") < fn.indexOf(".from(payments)"));
+      const db = openTestDb();
+      await creator(db, "mariclare", "MariClare", mariclare.email);
+      await deal(db, "deal-quiet", "mariclare", "Quiet Co");
+      await db.insert(payments).values({
+        id: "pay-quiet",
+        dealId: "deal-quiet",
+        landedAmountCents: 100_000,
+        amountOwedCents: 100_000,
+        paymentStatus: "brand_paid",
+        isSeed: false,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      });
+      const watched = watchPaymentReads(db);
+      assert.equal(await creditPaidBrandCommissions(watched.db), 0);
+      const view = await readGameWallet(watched.db, mariclare);
+      assert.equal(watched.reads(), 0);
+      assert.equal(await walletBalanceCents(db, { kind: "user", id: "mariclare" }), 0);
+      const credits = await db.select().from(gameLedger);
+      assert.equal(credits.some((row) => row.reason === "commission"), false);
+      assert.equal(view.ok, true);
+      if (!view.ok) return;
+      assert.equal(view.body.wallet.historyNote, COMMISSION_CREDIT_COMING_SOON);
+      assert.equal(view.body.wallet.history.some((entry) => entry.reason === "commission"), false);
+      assert.match(source("src/components/worlds/office-app.tsx"), /historyNote/);
+      assert.match(source(".env.example"), /WORLDS_CREATOR_COMMISSION_CREDIT=/);
+    } finally {
+      if (previous === undefined) delete process.env.WORLDS_CREATOR_COMMISSION_CREDIT;
+      else process.env.WORLDS_CREATOR_COMMISSION_CREDIT = previous;
+    }
   });
 
   test("the shop debits currency, unlocks clothes, and refuses real-money purchases", async () => {

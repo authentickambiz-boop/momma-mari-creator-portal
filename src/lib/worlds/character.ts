@@ -11,6 +11,8 @@ import { findOfficeBot, OFFICE_BOTS } from "./office-catalog";
 export const CHARACTER_VERSION = 1;
 export const CHARACTER_PATH = "/api/worlds/characters";
 export const CHARACTER_PAGE = "/worlds/create";
+/** Bot looks refresh faster than the rest of the office, and each fetch is cache-busted. */
+export const LOOKS_POLL_MS = 8_000;
 
 export const BODY_SHAPES = ["round", "tall", "wide", "compact"] as const;
 export const BODY_SIZES = ["small", "medium", "large"] as const;
@@ -222,6 +224,7 @@ export function applyPalette(config: CharacterConfig): CharacterConfig {
     ...config,
     slots: {
       ...config.slots,
+      hair: { ...config.slots.hair, color: config.palette.accent },
       top: { ...config.slots.top, color: config.palette.primary },
       bottom: { ...config.slots.bottom, color: config.palette.secondary },
       shoes: { ...config.slots.shoes, color: config.palette.accent },
@@ -335,227 +338,395 @@ function sizeScale(size: BodySize) {
   return 1;
 }
 
-function eyeRadius(style: EyeStyle) {
-  if (style === "wide") return 0.07;
-  if (style === "sleepy") return 0.055;
-  if (style === "star") return 0.05;
-  return 0.042;
+function mixColor(hex: string, toward: string, amount: number) {
+  const read = (value: string) => [1, 3, 5].map((index) => Number.parseInt(value.slice(index, index + 2), 16));
+  const from = read(hex);
+  const to = read(toward);
+  const mixed = from.map((channel, index) => Math.round(channel + ((to[index] ?? channel) - channel) * amount));
+  return `#${mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
 }
 
-function addHair(parts: CharacterPart[], style: string, color: string, headY: number) {
-  if (style === "none") return;
-  if (style === "cap" || style === "bob" || style === "long" || style === "waves") {
-    parts.push(part({
-      id: "hair-cap",
+function shadeColor(hex: string) {
+  return mixColor(hex, "#1a1614", 0.38);
+}
+
+function highlightColor(hex: string) {
+  return mixColor(hex, "#ffffff", 0.62);
+}
+
+type ChibiLayout = {
+  headR: number;
+  headY: number;
+  body: [number, number, number];
+  bodyY: number;
+  armX: number;
+  legX: number;
+  legY: number;
+};
+
+/** Oversized head, about half the figure height, on a small body. */
+function chibiLayout(shape: BodyShape): ChibiLayout {
+  if (shape === "tall") {
+    return { headR: 0.4, headY: 1.18, body: [0.4, 0.52, 0.3], bodyY: 0.66, armX: 0.3, legX: 0.11, legY: 0.36 };
+  }
+  if (shape === "compact") {
+    return { headR: 0.34, headY: 0.96, body: [0.42, 0.32, 0.3], bodyY: 0.48, armX: 0.28, legX: 0.11, legY: 0.32 };
+  }
+  if (shape === "wide") {
+    return { headR: 0.4, headY: 1.12, body: [0.64, 0.4, 0.36], bodyY: 0.56, armX: 0.42, legX: 0.16, legY: 0.36 };
+  }
+  return { headR: 0.4, headY: 1.12, body: [0.46, 0.44, 0.32], bodyY: 0.58, armX: 0.32, legX: 0.12, legY: 0.36 };
+}
+
+function eyeRadius(style: EyeStyle, headR: number) {
+  if (style === "wide") return headR * 0.28;
+  if (style === "sleepy") return headR * 0.24;
+  if (style === "star") return headR * 0.22;
+  return headR * 0.2;
+}
+
+function hairPieces(style: string, color: string, headR: number, headY: number) {
+  const back: CharacterPart[] = [];
+  const front: CharacterPart[] = [];
+  if (style === "none") return { back, front };
+  if (style === "spikes") {
+    back.push(part({
+      id: "hair-back",
       slot: "hair",
       shape: "sphere",
-      args: [0.3, 12, 10],
-      position: [0, headY + 0.08, -0.02],
-      scale: style === "bob" || style === "long" ? [1.12, 0.72, 1.08] : [1.02, 0.5, 1.02],
+      args: [headR * 0.55, 6, 5],
+      position: [0, headY + headR * 0.2, -headR * 0.75],
+      scale: [1.15, 0.7, 0.8],
       color,
     }));
-  }
-  if (style === "bob" || style === "long" || style === "waves") {
-    parts.push(part({ id: "hair-l", slot: "hair", shape: "box", args: [0.08, style === "long" ? 0.42 : 0.22, 0.16], position: [-0.24, headY - 0.08, 0], color }));
-    parts.push(part({ id: "hair-r", slot: "hair", shape: "box", args: [0.08, style === "long" ? 0.42 : 0.22, 0.16], position: [0.24, headY - 0.08, 0], color }));
-  }
-  if (style === "spikes") {
     for (let i = 0; i < 4; i += 1) {
-      const x = -0.12 + (i % 2) * 0.24;
-      const z = i < 2 ? 0.02 : -0.08;
-      parts.push(part({
-        id: `hair-spike-${i}`,
+      const x = -headR * 0.42 + (i % 2) * headR * 0.84;
+      const z = i < 2 ? headR * 0.2 : -headR * 0.05;
+      front.push(part({
+        id: `hair-front-${i}`,
         slot: "hair",
         shape: "cone",
-        args: [0.06, 0.16, 5],
-        position: [x, headY + 0.28, z],
+        args: [headR * 0.16, headR * 0.55, 5],
+        position: [x, headY + headR * 0.9, z],
         color,
       }));
     }
+    return { back, front };
   }
   if (style === "bun") {
-    parts.push(part({ id: "hair-bun", slot: "hair", shape: "sphere", args: [0.11, 10, 8], position: [0, headY + 0.32, -0.04], color }));
+    back.push(part({ id: "hair-back", slot: "hair", shape: "sphere", args: [headR * 0.36, 8, 6], position: [0, headY + headR * 0.98, -headR * 0.15], color }));
+  } else if (style === "long") {
+    back.push(part({ id: "hair-back", slot: "hair", shape: "box", args: [headR * 1.85, headR * 1.65, headR * 0.34], position: [0, headY - headR * 0.25, -headR * 0.7], color }));
+  } else if (style === "bob" || style === "waves") {
+    back.push(part({
+      id: "hair-back",
+      slot: "hair",
+      shape: "sphere",
+      args: [headR * 1.06, 8, 6],
+      position: [0, headY + headR * 0.04, -headR * 0.32],
+      scale: [1.06, 0.9, 0.7],
+      color,
+    }));
+  } else {
+    back.push(part({
+      id: "hair-back",
+      slot: "hair",
+      shape: "sphere",
+      args: [headR * 1.02, 8, 6],
+      position: [0, headY + headR * 0.22, -headR * 0.16],
+      scale: [1.02, 0.52, 0.92],
+      color,
+    }));
+  }
+  front.push(part({
+    id: "hair-front",
+    slot: "hair",
+    shape: "box",
+    args: [headR * (style === "long" || style === "bob" || style === "waves" ? 1.4 : 1.05), headR * 0.26, headR * 0.2],
+    position: [0, headY + headR * 0.32, headR * 0.78],
+    color,
+  }));
+  if (style === "bob" || style === "long" || style === "waves") {
+    const drop = style === "long" || style === "waves" ? headR * 0.95 : headR * 0.55;
+    front.push(part({ id: "hair-front-l", slot: "hair", shape: "box", args: [headR * 0.28, drop, headR * 0.36], position: [-headR * 0.86, headY - drop * 0.15, headR * 0.05], color }));
+    front.push(part({ id: "hair-front-r", slot: "hair", shape: "box", args: [headR * 0.28, drop, headR * 0.36], position: [headR * 0.86, headY - drop * 0.15, headR * 0.05], color }));
   }
   if (style === "waves") {
-    parts.push(part({ id: "hair-wave", slot: "hair", shape: "torus", args: [0.16, 0.04, 6, 10], position: [0, headY - 0.02, 0.08], rotation: [Math.PI / 2, 0, 0], color }));
+    front.push(part({
+      id: "hair-wave",
+      slot: "hair",
+      shape: "torus",
+      args: [headR * 0.55, headR * 0.08, 6, 12],
+      position: [0, headY - headR * 0.05, headR * 0.72],
+      rotation: [Math.PI / 2, 0, 0],
+      color,
+    }));
   }
+  return { back, front };
 }
 
-function addHeadwear(parts: CharacterPart[], style: string, color: string, headY: number) {
+function addHeadwear(parts: CharacterPart[], style: string, color: string, headR: number, headY: number) {
   if (style === "none") return;
   if (style === "cap") {
-    parts.push(part({ id: "hat-crown", slot: "headwear", shape: "cylinder", args: [0.2, 0.2, 0.12, 10], position: [0, headY + 0.22, 0.02], color }));
-    parts.push(part({ id: "hat-brim", slot: "headwear", shape: "box", args: [0.34, 0.03, 0.22], position: [0, headY + 0.16, 0.12], color }));
+    parts.push(part({ id: "hat-crown", slot: "headwear", shape: "cylinder", args: [headR * 0.72, headR * 0.72, headR * 0.36, 8], position: [0, headY + headR * 0.78, headR * 0.06], color }));
+    parts.push(part({ id: "hat-brim", slot: "headwear", shape: "box", args: [headR * 1.4, headR * 0.08, headR * 0.95], position: [0, headY + headR * 0.58, headR * 0.46], color }));
   } else if (style === "beanie") {
-    parts.push(part({ id: "beanie", slot: "headwear", shape: "sphere", args: [0.3, 12, 10], position: [0, headY + 0.16, 0], scale: [1, 0.7, 1], color }));
+    parts.push(part({ id: "beanie", slot: "headwear", shape: "sphere", args: [headR * 1.05, 8, 6], position: [0, headY + headR * 0.28, 0], scale: [1.02, 0.62, 1], color }));
   } else if (style === "bow") {
-    parts.push(part({ id: "bow-l", slot: "headwear", shape: "sphere", args: [0.08, 8, 6], position: [-0.1, headY + 0.26, 0.08], scale: [1.4, 0.7, 0.5], color }));
-    parts.push(part({ id: "bow-r", slot: "headwear", shape: "sphere", args: [0.08, 8, 6], position: [0.1, headY + 0.26, 0.08], scale: [1.4, 0.7, 0.5], color }));
-    parts.push(part({ id: "bow-knot", slot: "headwear", shape: "box", args: [0.06, 0.06, 0.06], position: [0, headY + 0.26, 0.1], color }));
+    parts.push(part({ id: "bow-l", slot: "headwear", shape: "sphere", args: [headR * 0.22, 8, 6], position: [-headR * 0.28, headY + headR * 0.72, headR * 0.35], scale: [1.4, 0.7, 0.5], color }));
+    parts.push(part({ id: "bow-r", slot: "headwear", shape: "sphere", args: [headR * 0.22, 8, 6], position: [headR * 0.28, headY + headR * 0.72, headR * 0.35], scale: [1.4, 0.7, 0.5], color }));
+    parts.push(part({ id: "bow-knot", slot: "headwear", shape: "box", args: [headR * 0.16, headR * 0.16, headR * 0.16], position: [0, headY + headR * 0.72, headR * 0.42], color }));
   } else if (style === "crown") {
-    parts.push(part({ id: "crown", slot: "headwear", shape: "cylinder", args: [0.16, 0.16, 0.08, 6], position: [0, headY + 0.28, 0], color }));
-    parts.push(part({ id: "crown-tip", slot: "headwear", shape: "cone", args: [0.05, 0.1, 4], position: [0, headY + 0.38, 0], color }));
+    parts.push(part({ id: "crown", slot: "headwear", shape: "cylinder", args: [headR * 0.72, headR * 0.72, headR * 0.18, 6], position: [0, headY + headR * 0.98, 0], color }));
+    parts.push(part({ id: "crown-tip", slot: "headwear", shape: "cone", args: [headR * 0.12, headR * 0.28, 4], position: [0, headY + headR * 1.18, 0], color }));
   } else if (style === "headphones") {
-    parts.push(part({ id: "phones-band", slot: "headwear", shape: "torus", args: [0.24, 0.03, 8, 12], position: [0, headY + 0.08, 0], rotation: [Math.PI / 2, 0, 0], color }));
-    parts.push(part({ id: "phones-l", slot: "headwear", shape: "sphere", args: [0.08, 8, 8], position: [-0.26, headY, 0], color }));
-    parts.push(part({ id: "phones-r", slot: "headwear", shape: "sphere", args: [0.08, 8, 8], position: [0.26, headY, 0], color }));
+    parts.push(part({ id: "phones-band", slot: "headwear", shape: "torus", args: [headR * 0.92, headR * 0.08, 8, 14], position: [0, headY + headR * 0.15, 0], rotation: [Math.PI / 2, 0, 0], color }));
+    parts.push(part({ id: "phones-l", slot: "headwear", shape: "sphere", args: [headR * 0.22, 8, 6], position: [-headR * 0.98, headY, 0], color }));
+    parts.push(part({ id: "phones-r", slot: "headwear", shape: "sphere", args: [headR * 0.22, 8, 6], position: [headR * 0.98, headY, 0], color }));
   }
 }
 
-function addClothes(parts: CharacterPart[], config: CharacterConfig, bodyY: number) {
-  const top = config.slots.top;
-  const bottom = config.slots.bottom;
-  const shoes = config.slots.shoes;
-  const extra = config.slots.accessory;
-  if (top.item === "tee" || top.item === "vest") {
-    parts.push(part({ id: "top", slot: "top", shape: "box", args: top.item === "vest" ? [0.34, 0.22, 0.22] : [0.4, 0.28, 0.26], position: [0, bodyY + 0.02, 0.02], color: top.color }));
-  } else if (top.item === "hoodie") {
-    parts.push(part({ id: "top", slot: "top", shape: "box", args: [0.46, 0.34, 0.3], position: [0, bodyY, 0], color: top.color }));
-    parts.push(part({ id: "hood", slot: "top", shape: "sphere", args: [0.22, 10, 8], position: [0, bodyY + 0.28, -0.08], scale: [1.1, 0.7, 0.8], color: top.color }));
-  } else if (top.item === "jacket") {
-    parts.push(part({ id: "jacket", slot: "top", shape: "box", args: [0.48, 0.36, 0.32], position: [0, bodyY, 0], color: top.color }));
-  } else if (top.item === "collar") {
-    parts.push(part({ id: "collar", slot: "top", shape: "torus", args: [0.12, 0.03, 6, 10], position: [0, bodyY + 0.22, 0], rotation: [Math.PI / 2, 0, 0], color: top.color }));
-  }
-  if (bottom.item === "shorts") {
-    parts.push(part({ id: "bottom", slot: "bottom", shape: "box", args: [0.34, 0.14, 0.2], position: [0, 0.4, 0], color: bottom.color }));
-  } else if (bottom.item === "pants") {
-    parts.push(part({ id: "pants-l", slot: "bottom", shape: "box", args: [0.12, 0.28, 0.12], position: [-0.09, 0.32, 0], color: bottom.color }));
-    parts.push(part({ id: "pants-r", slot: "bottom", shape: "box", args: [0.12, 0.28, 0.12], position: [0.09, 0.32, 0], color: bottom.color }));
-  } else if (bottom.item === "overalls") {
-    parts.push(part({ id: "overalls-l", slot: "bottom", shape: "box", args: [0.12, 0.28, 0.12], position: [-0.09, 0.32, 0], color: bottom.color }));
-    parts.push(part({ id: "overalls-r", slot: "bottom", shape: "box", args: [0.12, 0.28, 0.12], position: [0.09, 0.32, 0], color: bottom.color }));
-    parts.push(part({ id: "overalls-strap", slot: "bottom", shape: "box", args: [0.22, 0.04, 0.04], position: [0, bodyY + 0.16, 0.1], color: bottom.color }));
-  } else if (bottom.item === "skirt") {
-    parts.push(part({ id: "skirt", slot: "bottom", shape: "cone", args: [0.26, 0.18, 8], position: [0, 0.36, 0], color: bottom.color }));
-  }
-  if (shoes.item !== "none") {
-    const height = shoes.item === "boots" ? 0.12 : shoes.item === "heels" ? 0.14 : shoes.item === "sandals" ? 0.04 : 0.07;
-    const width = shoes.item === "heels" ? 0.08 : 0.12;
-    parts.push(part({ id: "shoe-l", slot: "shoes", shape: "box", args: [width, height, 0.18], position: [-0.09, height / 2, 0.03], color: shoes.color }));
-    parts.push(part({ id: "shoe-r", slot: "shoes", shape: "box", args: [width, height, 0.18], position: [0.09, height / 2, 0.03], color: shoes.color }));
-  }
-  if (extra.item === "glasses") {
-    parts.push(part({ id: "glass-l", slot: "accessory", shape: "torus", args: [0.06, 0.012, 6, 10], position: [-0.09, 0, 0.02], color: extra.color }));
-    parts.push(part({ id: "glass-r", slot: "accessory", shape: "torus", args: [0.06, 0.012, 6, 10], position: [0.09, 0, 0.02], color: extra.color }));
-  } else if (extra.item === "scarf") {
-    parts.push(part({ id: "scarf", slot: "accessory", shape: "torus", args: [0.16, 0.04, 6, 10], position: [0, bodyY + 0.2, 0], rotation: [Math.PI / 2, 0, 0], color: extra.color }));
-  } else if (extra.item === "bag") {
-    parts.push(part({ id: "bag", slot: "accessory", shape: "box", args: [0.12, 0.16, 0.06], position: [0.32, bodyY - 0.04, 0], color: extra.color }));
-  } else if (extra.item === "watch") {
-    parts.push(part({ id: "watch", slot: "accessory", shape: "torus", args: [0.05, 0.015, 6, 8], position: [0.3, bodyY + 0.02, 0.04], rotation: [0, Math.PI / 2, 0], color: extra.color }));
-  } else if (extra.item === "badge") {
-    parts.push(part({ id: "badge", slot: "accessory", shape: "box", args: [0.1, 0.1, 0.02], position: [0.1, bodyY + 0.06, 0.16], color: extra.color }));
+function addTop(parts: CharacterPart[], item: string, color: string, layout: ChibiLayout) {
+  if (item === "none") return;
+  const [bodyW, bodyH, bodyD] = layout.body;
+  const wrap = (id: string, sx: number, sy: number, sz: number, zPush: number) => {
+    parts.push(part({
+      id,
+      slot: "top",
+      shape: "box",
+      args: [bodyW * sx, bodyH * sy, bodyD * sz],
+      position: [0, layout.bodyY, zPush],
+      color,
+    }));
+  };
+  if (item === "tee") wrap("top", 1.22, 0.88, 1.34, 0.05);
+  else if (item === "vest") wrap("top", 1.14, 0.66, 1.26, 0.05);
+  else if (item === "hoodie") {
+    wrap("top", 1.28, 0.8, 1.36, 0.04);
+    parts.push(part({
+      id: "hood",
+      slot: "top",
+      shape: "sphere",
+      args: [layout.headR * 1.08, 8, 6],
+      position: [0, layout.headY + layout.headR * 0.08, -layout.headR * 0.55],
+      scale: [1.12, 0.9, 0.62],
+      color,
+    }));
+  } else if (item === "jacket") {
+    wrap("jacket", 1.32, 0.94, 1.4, 0.05);
+  } else if (item === "collar") {
+    parts.push(part({
+      id: "top",
+      slot: "top",
+      shape: "torus",
+      args: [Math.max(bodyW, bodyD) * 0.42, 0.05, 8, 12],
+      position: [0, layout.bodyY + bodyH * 0.42, bodyD * 0.42],
+      rotation: [Math.PI / 2, 0, 0],
+      color,
+    }));
   }
 }
 
+function addBottom(parts: CharacterPart[], item: string, color: string, layout: ChibiLayout) {
+  if (item === "none") return;
+  const [bodyW, bodyH, bodyD] = layout.body;
+  const hipY = layout.bodyY - bodyH * 0.36;
+  if (item === "shorts") {
+    parts.push(part({ id: "bottom", slot: "bottom", shape: "box", args: [bodyW * 1.2, 0.18, bodyD * 1.28], position: [0, hipY, 0.04], color }));
+    return;
+  }
+  if (item === "skirt") {
+    parts.push(part({ id: "skirt", slot: "bottom", shape: "cone", args: [bodyW * 0.72, 0.24, 8], position: [0, hipY - 0.04, 0.03], color }));
+    return;
+  }
+  if (item === "overalls") {
+    parts.push(part({ id: "overalls", slot: "bottom", shape: "box", args: [bodyW * 1.22, 0.2, bodyD * 1.3], position: [0, hipY, 0.04], color }));
+    const legH = 0.36;
+    const legY = hipY - 0.02 - legH / 2;
+    parts.push(part({ id: "overalls-l", slot: "bottom", shape: "box", args: [0.16, legH, 0.18], position: [-layout.legX, legY, 0.03], color }));
+    parts.push(part({ id: "overalls-r", slot: "bottom", shape: "box", args: [0.16, legH, 0.18], position: [layout.legX, legY, 0.03], color }));
+    parts.push(part({ id: "overalls-strap", slot: "bottom", shape: "box", args: [bodyW * 0.62, 0.05, 0.04], position: [0, layout.bodyY + bodyH * 0.22, bodyD * 0.72], color }));
+    return;
+  }
+  parts.push(part({ id: "bottom", slot: "bottom", shape: "box", args: [bodyW * 1.18, 0.16, bodyD * 1.26], position: [0, hipY, 0.04], color }));
+  const legH = 0.34;
+  const legY = hipY - 0.04 - legH / 2;
+  parts.push(part({ id: "pants-l", slot: "bottom", shape: "box", args: [0.16, legH, 0.18], position: [-layout.legX, legY, 0.03], color }));
+  parts.push(part({ id: "pants-r", slot: "bottom", shape: "box", args: [0.16, legH, 0.18], position: [layout.legX, legY, 0.03], color }));
+}
+
+function addShoes(parts: CharacterPart[], item: string, color: string, layout: ChibiLayout) {
+  if (item === "none") return;
+  const height = item === "boots" ? 0.16 : item === "heels" ? 0.18 : item === "sandals" ? 0.045 : 0.09;
+  const depth = item === "boots" ? 0.22 : 0.26;
+  const width = item === "heels" ? 0.14 : 0.18;
+  parts.push(part({ id: "shoe-l", slot: "shoes", shape: "box", args: [width, height, depth], position: [-layout.legX, height / 2, 0.07], color }));
+  parts.push(part({ id: "shoe-r", slot: "shoes", shape: "box", args: [width, height, depth], position: [layout.legX, height / 2, 0.07], color }));
+}
+
+function addAccessory(
+  parts: CharacterPart[],
+  item: string,
+  color: string,
+  layout: ChibiLayout,
+  eye: { x: number; y: number; z: number; radius: number },
+) {
+  if (item === "none") return;
+  const [bodyW, bodyH, bodyD] = layout.body;
+  if (item === "glasses") {
+    const ring = eye.radius * 1.15;
+    parts.push(part({ id: "glass-l", slot: "accessory", shape: "torus", args: [ring, 0.015, 8, 12], position: [-eye.x, eye.y, eye.z + 0.03], color }));
+    parts.push(part({ id: "glass-r", slot: "accessory", shape: "torus", args: [ring, 0.015, 8, 12], position: [eye.x, eye.y, eye.z + 0.03], color }));
+    parts.push(part({ id: "glass-bridge", slot: "accessory", shape: "box", args: [eye.x * 0.7, 0.015, 0.015], position: [0, eye.y, eye.z + 0.03], color }));
+  } else if (item === "scarf") {
+    parts.push(part({
+      id: "scarf",
+      slot: "accessory",
+      shape: "torus",
+      args: [Math.max(bodyW, bodyD) * 0.46, 0.055, 8, 12],
+      position: [0, layout.bodyY + bodyH * 0.46, bodyD * 0.2],
+      rotation: [Math.PI / 2, 0, 0],
+      color,
+    }));
+  } else if (item === "bag") {
+    parts.push(part({ id: "bag", slot: "accessory", shape: "box", args: [0.14, 0.2, 0.08], position: [bodyW / 2 + 0.1, layout.bodyY - 0.02, 0.02], color }));
+  } else if (item === "watch") {
+    parts.push(part({
+      id: "watch",
+      slot: "accessory",
+      shape: "torus",
+      args: [0.055, 0.016, 6, 8],
+      position: [layout.armX, layout.bodyY, 0.06],
+      rotation: [0, Math.PI / 2, 0],
+      color,
+    }));
+  } else if (item === "badge") {
+    parts.push(part({ id: "badge", slot: "accessory", shape: "box", args: [0.12, 0.12, 0.03], position: [bodyW * 0.22, layout.bodyY + bodyH * 0.08, bodyD * 0.85], color }));
+  }
+}
+
+/**
+ * Low-poly chibi. Parts are ordered skin, face, hair back, hair front,
+ * headwear, top, bottom, shoes, accessories, then a simple highlight and shade.
+ * Clothes are shells larger than the body so a recolor reads at office zoom.
+ */
 export function characterFigure(config: CharacterConfig): { scale: number; parts: CharacterPart[] } {
-  const shape = config.body.shape;
-  const headY = shape === "tall" ? 1.42 : shape === "compact" ? 1.08 : 1.24;
-  const bodyY = shape === "tall" ? 0.82 : shape === "compact" ? 0.62 : 0.72;
-  const bodyScale: [number, number, number] = shape === "wide"
-    ? [1.28, 0.9, 1.12]
-    : shape === "tall"
-      ? [0.88, 1.25, 0.88]
-      : shape === "compact"
-        ? [0.82, 0.78, 0.82]
-        : [1.05, 0.95, 1.02];
+  const layout = chibiLayout(config.body.shape);
+  const { headR, headY, body, bodyY, armX, legX, legY } = layout;
+  const [bodyW, bodyH, bodyD] = body;
   const skin = config.body.color;
-  const parts: CharacterPart[] = [
-    part({
-      id: "body",
-      slot: "body",
-      shape: shape === "tall" ? "capsule" : "sphere",
-      args: shape === "tall" ? [0.22, 0.42, 4, 8] : [0.34, 14, 12],
-      position: [0, bodyY, 0],
-      scale: bodyScale,
-      color: skin,
-    }),
-    part({ id: "head", slot: "body", shape: "sphere", args: [0.28, 14, 12], position: [0, headY, 0], color: skin }),
-    part({
-      id: "arm-l",
-      slot: "body",
-      shape: "capsule",
-      args: [0.045, 0.2, 4, 6],
-      position: [-0.3, bodyY + 0.08, 0],
-      color: skin,
-      animate: "arm-l",
-    }),
-    part({
-      id: "arm-r",
-      slot: "body",
-      shape: "capsule",
-      args: [0.045, 0.2, 4, 6],
-      position: [0.3, bodyY + 0.08, 0],
-      color: skin,
-      animate: "arm-r",
-    }),
-    part({
-      id: "leg-l",
-      slot: "body",
-      shape: "capsule",
-      args: [0.05, 0.16, 4, 6],
-      position: [-0.1, 0.4, 0],
-      color: skin,
-      animate: "leg-l",
-    }),
-    part({
-      id: "leg-r",
-      slot: "body",
-      shape: "capsule",
-      args: [0.05, 0.16, 4, 6],
-      position: [0.1, 0.4, 0],
-      color: skin,
-      animate: "leg-r",
-    }),
+  const skinParts: CharacterPart[] = [
+    part({ id: "body", slot: "body", shape: "box", args: [bodyW, bodyH, bodyD], position: [0, bodyY, 0], color: skin }),
+    part({ id: "head", slot: "body", shape: "sphere", args: [headR, 8, 6], position: [0, headY, 0], color: skin }),
+    part({ id: "arm-l", slot: "body", shape: "capsule", args: [0.05, 0.12, 4, 6], position: [-armX, bodyY + bodyH * 0.18, 0], color: skin, animate: "arm-l" }),
+    part({ id: "arm-r", slot: "body", shape: "capsule", args: [0.05, 0.12, 4, 6], position: [armX, bodyY + bodyH * 0.18, 0], color: skin, animate: "arm-r" }),
+    part({ id: "leg-l", slot: "body", shape: "capsule", args: [0.055, 0.14, 4, 6], position: [-legX, legY, 0], color: skin, animate: "leg-l" }),
+    part({ id: "leg-r", slot: "body", shape: "capsule", args: [0.055, 0.14, 4, 6], position: [legX, legY, 0], color: skin, animate: "leg-r" }),
   ];
-  const radius = eyeRadius(config.face.eyes);
-  const eyeY = headY + 0.04;
+  const radius = eyeRadius(config.face.eyes, headR);
+  const eyeY = headY + headR * 0.04;
+  const eyeZ = headR * 0.98;
+  const eyeX = headR * 0.34;
   const eyeShape = config.face.eyes === "star" ? "box" : "sphere";
-  const eyeArgs = config.face.eyes === "star" ? [0.07, 0.07, 0.03] : [radius, 8, 8];
-  const eyeScale: [number, number, number] = config.face.eyes === "sleepy" ? [1, 0.35, 1] : [1, 1, 1];
-  parts.push(part({ id: "eye-l", slot: "face", shape: eyeShape, args: eyeArgs, position: [-0.09, eyeY, 0.22], scale: eyeScale, rotation: config.face.eyes === "star" ? [0, 0, 0.75] : [0, 0, 0], color: "#1c211e" }));
-  parts.push(part({ id: "eye-r", slot: "face", shape: eyeShape, args: eyeArgs, position: [0.09, eyeY, 0.22], scale: [...eyeScale], rotation: config.face.eyes === "star" ? [0, 0, 0.75] : [0, 0, 0], color: "#1c211e" }));
+  const eyeArgs = config.face.eyes === "star" ? [radius * 1.7, radius * 1.7, headR * 0.08] : [radius, 8, 6];
+  const eyeScale: [number, number, number] = config.face.eyes === "sleepy" ? [1, 0.38, 1] : [1, 1, 1];
+  const starSpin: [number, number, number] = config.face.eyes === "star" ? [0, 0, 0.75] : [0, 0, 0];
+  const pupilR = radius * 0.58;
+  const face: CharacterPart[] = [
+    part({ id: "eye-l", slot: "face", shape: eyeShape, args: eyeArgs, position: [-eyeX, eyeY, eyeZ], scale: eyeScale, rotation: starSpin, color: "#f7f4ee" }),
+    part({ id: "eye-r", slot: "face", shape: eyeShape, args: eyeArgs, position: [eyeX, eyeY, eyeZ], scale: [...eyeScale], rotation: starSpin, color: "#f7f4ee" }),
+    part({ id: "pupil-l", slot: "face", shape: eyeShape, args: config.face.eyes === "star" ? [pupilR, pupilR, headR * 0.05] : [pupilR, 6, 5], position: [-eyeX, eyeY, eyeZ + 0.03], scale: [...eyeScale], rotation: starSpin, color: "#1c211e" }),
+    part({ id: "pupil-r", slot: "face", shape: eyeShape, args: config.face.eyes === "star" ? [pupilR, pupilR, headR * 0.05] : [pupilR, 6, 5], position: [eyeX, eyeY, eyeZ + 0.03], scale: [...eyeScale], rotation: starSpin, color: "#1c211e" }),
+    part({ id: "catch-l", slot: "face", shape: "sphere", args: [radius * 0.22, 6, 4], position: [-eyeX - radius * 0.28, eyeY + radius * 0.28, eyeZ + 0.05], color: "#ffffff" }),
+    part({ id: "catch-r", slot: "face", shape: "sphere", args: [radius * 0.22, 6, 4], position: [eyeX - radius * 0.28, eyeY + radius * 0.28, eyeZ + 0.05], color: "#ffffff" }),
+  ];
   const mouth = config.face.mouth;
-  parts.push(part({
+  face.push(part({
     id: "mouth",
     slot: "face",
     shape: mouth === "open" ? "sphere" : mouth === "smile" ? "torus" : "box",
-    args: mouth === "open" ? [0.045, 8, 8] : mouth === "smile" ? [0.07, 0.015, 6, 10] : mouth === "grin" ? [0.16, 0.04, 0.03] : [0.12, 0.02, 0.02],
-    position: [0, headY - 0.1, 0.24],
-    rotation: mouth === "smile" ? [0.5, 0, 0] : [0, 0, 0],
+    args: mouth === "open" ? [headR * 0.12, 8, 6] : mouth === "smile" ? [headR * 0.16, 0.02, 6, 10] : mouth === "grin" ? [headR * 0.42, headR * 0.1, 0.03] : [headR * 0.28, 0.02, 0.02],
+    position: [0, headY - headR * 0.34, headR * 0.92],
+    rotation: mouth === "smile" ? [0.4, 0, 0] : [0, 0, 0],
     color: "#8a3b24",
   }));
   const expression = config.face.expression;
   if (expression === "wink") {
-    const eye = parts.find((item) => item.id === "eye-r");
-    if (eye) eye.scale = [eye.scale[0], 0.2, eye.scale[2]];
+    for (const eye of face.filter((item) => item.id.endsWith("-r") && item.id !== "catch-r")) eye.scale = [eye.scale[0], 0.16, eye.scale[2]];
+    const catchR = face.find((item) => item.id === "catch-r");
+    if (catchR) catchR.scale = [1, 0.2, 1];
   } else if (expression === "surprised") {
-    for (const eye of parts.filter((item) => item.id.startsWith("eye-"))) eye.scale = [1.3, 1.3, 1];
-    const lips = parts.find((item) => item.id === "mouth");
+    for (const eye of face.filter((item) => item.id.startsWith("eye-") || item.id.startsWith("pupil-"))) eye.scale = [1.28, 1.28, 1];
+    const lips = face.find((item) => item.id === "mouth");
     if (lips) {
       lips.shape = "sphere";
-      lips.args = [0.055, 8, 8];
+      lips.args = [headR * 0.16, 8, 6];
     }
   } else if (expression === "calm") {
-    const lips = parts.find((item) => item.id === "mouth");
+    const lips = face.find((item) => item.id === "mouth");
     if (lips) {
       lips.shape = "box";
-      lips.args = [0.1, 0.018, 0.02];
+      lips.args = [headR * 0.26, 0.018, 0.02];
       lips.rotation = [0, 0, 0];
     }
   } else if (expression === "focused") {
-    for (const eye of parts.filter((item) => item.id.startsWith("eye-"))) eye.position = [eye.position[0], eye.position[1], eye.position[2] + 0.03];
-  }
-  addHair(parts, config.slots.hair.item, config.slots.hair.color, headY);
-  addHeadwear(parts, config.slots.headwear.item, config.slots.headwear.color, headY);
-  addClothes(parts, config, bodyY);
-  if (config.slots.accessory.item === "glasses") {
-    for (const glass of parts.filter((item) => item.id.startsWith("glass-"))) {
-      glass.position = [glass.position[0], eyeY, 0.26];
+    for (const eye of face.filter((item) => item.id.startsWith("eye-") || item.id.startsWith("pupil-"))) {
+      eye.position = [eye.position[0], eye.position[1], eye.position[2] + 0.03];
     }
   }
-  return { scale: sizeScale(config.body.size), parts };
+  const hair = hairPieces(config.slots.hair.item, config.slots.hair.color, headR, headY);
+  const hats: CharacterPart[] = [];
+  addHeadwear(hats, config.slots.headwear.item, config.slots.headwear.color, headR, headY);
+  const tops: CharacterPart[] = [];
+  addTop(tops, config.slots.top.item, config.slots.top.color, layout);
+  const bottoms: CharacterPart[] = [];
+  addBottom(bottoms, config.slots.bottom.item, config.slots.bottom.color, layout);
+  const footwear: CharacterPart[] = [];
+  addShoes(footwear, config.slots.shoes.item, config.slots.shoes.color, layout);
+  const extras: CharacterPart[] = [];
+  addAccessory(extras, config.slots.accessory.item, config.slots.accessory.color, layout, { x: eyeX, y: eyeY, z: eyeZ, radius });
+  const light: CharacterPart[] = [
+    part({
+      id: "highlight",
+      slot: "highlight",
+      shape: "sphere",
+      args: [headR * 0.16, 6, 4],
+      position: [-headR * 0.28, headY + headR * 0.48, headR * 0.82],
+      color: highlightColor(skin),
+    }),
+    part({
+      id: "shade",
+      slot: "shade",
+      shape: "sphere",
+      args: [headR * 0.14, 6, 4],
+      position: [headR * 0.42, headY - headR * 0.08, headR * 0.78],
+      color: shadeColor(skin),
+    }),
+  ];
+  const worn = tops[0];
+  if (worn && worn.shape === "box") {
+    const front = worn.position[2] + worn.args[2] / 2;
+    light.push(part({
+      id: "top-highlight",
+      slot: "highlight",
+      shape: "box",
+      args: [worn.args[0] * 0.22, worn.args[1] * 0.22, 0.03],
+      position: [-worn.args[0] * 0.18, worn.position[1] + worn.args[1] * 0.16, front + 0.02],
+      color: highlightColor(config.slots.top.color),
+    }));
+    light.push(part({
+      id: "top-shade",
+      slot: "shade",
+      shape: "box",
+      args: [worn.args[0] * 0.16, worn.args[1] * 0.45, 0.03],
+      position: [worn.args[0] * 0.28, worn.position[1] - worn.args[1] * 0.08, front + 0.02],
+      color: shadeColor(config.slots.top.color),
+    }));
+  }
+  return {
+    scale: sizeScale(config.body.size),
+    parts: [...skinParts, ...face, ...hair.back, ...hair.front, ...hats, ...tops, ...bottoms, ...footwear, ...extras, ...light],
+  };
 }
 
 export function limbRotation(animate: CharacterPart["animate"], pose: CharacterPose): [number, number, number] {

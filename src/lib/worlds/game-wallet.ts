@@ -32,6 +32,15 @@ export const DEFAULT_EARN_CENTS: Record<EarnType, number> = {
 
 export const BRAND_PAID_STATUSES = ["brand_paid", "creator_payout_pending", "creator_paid"] as const;
 
+/** Shown in wallet history while the creator commission credit is switched off. */
+export const COMMISSION_CREDIT_COMING_SOON = "Creator commission credit is coming soon.";
+
+/** Off unless the env value is on, true, or 1. While off, payments are not read. */
+export function creatorCommissionCreditEnabled() {
+  const raw = (process.env.WORLDS_CREATOR_COMMISSION_CREDIT ?? "").trim().toLowerCase();
+  return raw === "on" || raw === "true" || raw === "1";
+}
+
 export type ShopCategory = "clothing" | "decoration" | "real-estate";
 
 export type ShopItem = {
