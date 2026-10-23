@@ -51,6 +51,11 @@ jobs:
         working-directory: desktop
         run: npm ci
 
+      - name: Read the app version
+        id: version
+        shell: bash
+        run: echo "value=$(jq -r .version desktop/src-tauri/tauri.conf.json)" >> "$GITHUB_OUTPUT"
+
       - name: Updater signing key
         id: signing
         shell: bash
@@ -73,7 +78,7 @@ jobs:
         with:
           projectPath: desktop
           args: ${{ matrix.args }}${{ steps.signing.outputs.sign == 'true' && '' || ' --config updater-unsigned.json' }}
-          tagName: ${{ (steps.signing.outputs.sign == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request') && 'worlds-v__VERSION__' || '' }}
+          tagName: ${{ (steps.signing.outputs.sign == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && matrix.os == 'windows-latest') && 'worlds-v__VERSION__' || '' }}
           releaseName: Momma Mari Worlds v__VERSION__
           releaseBody: The app checks https://www.mommamari.com/portal/api/desktop/latest.json and installs a newer signed build on its own.
           releaseDraft: false
@@ -87,6 +92,15 @@ jobs:
           if-no-files-found: error
           path: |
             desktop/src-tauri/target/release/bundle/nsis/*.exe
+            desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/release/bundle/dmg/*.dmg
+
+      - name: Attach the Mac disk image to the Worlds release
+        if: steps.signing.outputs.sign == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && matrix.os == 'macos-latest'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: worlds-v${{ steps.version.outputs.value }}
+          files: |
             desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
             desktop/src-tauri/target/release/bundle/dmg/*.dmg
 

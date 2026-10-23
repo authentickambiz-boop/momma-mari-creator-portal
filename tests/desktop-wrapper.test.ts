@@ -36,9 +36,13 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(main, /Updating…/);
     assert.match(main, /install_update/);
     assert.match(main, /tauri_plugin_updater/);
-    assert.match(config, /"version": "0\.1\.1"/);
-    assert.match(source("desktop/package.json"), /"version": "0\.1\.1"/);
-    assert.match(source("desktop/src-tauri/Cargo.toml"), /version = "0\.1\.1"/);
+    assert.match(config, /"version": "0\.1\.2"/);
+    assert.match(source("desktop/package.json"), /"version": "0\.1\.2"/);
+    assert.match(source("desktop/src-tauri/Cargo.toml"), /version = "0\.1\.2"/);
+    assert.match(main, /accounts\.google\.com/);
+    assert.match(main, /host_is_google_auth/);
+    assert.equal(main.includes("host_is(host, \"google.com\")"), false);
+    assert.equal(main.includes("mail.google.com"), false);
     assert.match(config, /"productName": "Momma Mari Worlds"/);
     assert.match(config, /createUpdaterArtifacts": true/);
     assert.match(config, /https:\/\/www\.mommamari\.com\/portal\/api\/desktop\/latest\.json/);
@@ -63,7 +67,7 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(workflow, /action-gh-release/);
     assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY/);
     assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY_PASSWORD/);
-    assert.match(workflow, /worlds-v__VERSION__/);
+    assert.match(workflow, /matrix\.os == 'windows-latest'\) && 'worlds-v__VERSION__'/);
     assert.match(workflow, /updaterJsonPreferNsis: true/);
     assert.match(workflow, /updater-unsigned\.json/);
     assert.match(source("desktop/updater-unsigned.json"), /"createUpdaterArtifacts": false/);
@@ -77,6 +81,8 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(readme, /grokbot:\/\//);
     assert.match(readme, /Updating…/);
     assert.match(readme, /portal\/api\/desktop\/latest\.json/);
+    assert.match(readme, /0\.1\.2/);
+    assert.match(readme, /setup\.exe \/S/);
     assert.match(source("src/app/api/desktop/latest/route.ts"), /loadUpdaterManifest/);
     assert.match(source("src/app/api/desktop/download/[name]/route.ts"), /fetchReleaseAsset/);
     assert.match(source("next.config.ts"), /\/api\/desktop\/latest\.json/);
@@ -118,6 +124,8 @@ describe("Momma Mari Worlds desktop", () => {
     assert.equal(chosen?.tag_name, "worlds-v0.1.1");
     assert.equal(safeAssetName("../secret"), null);
     assert.equal(safeAssetName("Momma.Mari.Worlds_0.1.1_x64-setup.exe"), "Momma.Mari.Worlds_0.1.1_x64-setup.exe");
+    assert.equal(safeAssetName("Momma Mari Worlds_0.1.2_x64-setup.exe"), "Momma Mari Worlds_0.1.2_x64-setup.exe");
+    assert.equal(safeAssetName("Momma Mari Worlds_0.1.2_x64-setup.nsis.zip"), "Momma Mari Worlds_0.1.2_x64-setup.nsis.zip");
     const githubUrl = "https://github.com/authentickambiz-boop/momma-mari-creator-portal/releases/download/worlds-v0.1.2/Momma.Mari.Worlds_0.1.2_x64-setup.exe";
     const manifest = rewriteUpdaterManifest({
       version: "0.1.2",

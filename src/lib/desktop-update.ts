@@ -30,7 +30,7 @@ export type UpdaterManifest = {
   platforms: Record<string, UpdaterPlatform>;
 };
 
-const ASSET_NAME = /^[A-Za-z0-9._+-]+$/;
+const ASSET_NAME = /^[A-Za-z0-9._+ -]+$/;
 
 export function worldsReleaseVersion(tag: string) {
   if (!tag.startsWith(WORLDS_RELEASE_PREFIX)) return null;
