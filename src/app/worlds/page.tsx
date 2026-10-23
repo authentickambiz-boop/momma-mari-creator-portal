@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { OfficeApp } from "@/components/worlds/office-app";
 import { isOwner } from "@/lib/authz";
 import { requireViewer } from "@/lib/current-user";
+import { canOpenCharacterCreator } from "@/lib/worlds/character";
 
 export const dynamic = "force-dynamic";
 
@@ -14,5 +15,5 @@ export const metadata: Metadata = {
 export default async function WorldsPage() {
   const viewer = await requireViewer("/worlds");
   if (!isOwner(viewer)) notFound();
-  return <OfficeApp />;
+  return <OfficeApp charactersEnabled={canOpenCharacterCreator(viewer)} />;
 }

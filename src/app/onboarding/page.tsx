@@ -13,6 +13,7 @@ import { loadPortal } from "@/lib/current-user";
 import { onboardingPlatformId, onboardingPlatformLabel } from "@/lib/onboarding-fields";
 import { emailSetupFor, gmailConnectionState, onboardingForCreator } from "@/lib/onboarding";
 import { finishErrorNote } from "@/lib/finish-notes";
+import { canOpenCharacterCreator } from "@/lib/worlds/character";
 import { questionErrorNote } from "@/lib/question-notes";
 import { questionnaireFor, stepIndex, type QuestionStepId } from "@/lib/questionnaire";
 
@@ -148,6 +149,13 @@ export default async function OnboardingPage({
             <li>Platforms: {profile.platforms.map(onboardingPlatformLabel).join(", ")}</li>
           </ul>
           <p className="note">Finished. Kamron sees &quot;New creator ready for bot&quot;.</p>
+          {own && canOpenCharacterCreator(portal.viewer) ? (
+            <div>
+              <p>Design the bot other people will see in Worlds. You can skip this and change it later from Worlds Tools.</p>
+              <p><Link href="/worlds/create">Create your character</Link></p>
+              <p><Link href="/connect">Skip for now</Link></p>
+            </div>
+          ) : null}
           <Link href="/connect">Back to connected accounts</Link>
         </div>
       ) : null}

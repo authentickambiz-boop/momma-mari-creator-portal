@@ -11,6 +11,7 @@ export function worldsReturnPath(value: string | null | undefined) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (trimmed === "/worlds" || trimmed === "/portal/worlds") return WORLDS_RETURN_PATH;
+  if (trimmed === "/worlds/create" || trimmed === "/portal/worlds/create") return "/worlds/create";
   return null;
 }
 

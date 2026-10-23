@@ -12,6 +12,8 @@ import { boardStations, type OfficeKey } from "@/lib/worlds/office-state";
 import { formatWalletMoney, vaultPilePlan } from "@/lib/worlds/office-wallets";
 import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/worlds/office-weather";
 import { BOT_CAPSULE_CENTER, BOT_CAPSULE_LENGTH, BOT_CAPSULE_RADIUS, pickBotCapsule, rayFromClient, type BotHitPose } from "@/lib/worlds/bot-hit";
+import { defaultCharacter, nameTagFrame, type CharacterConfig, type CharacterPose } from "@/lib/worlds/character";
+import { CharacterFigure } from "./character-figure";
 import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, type Stick } from "@/lib/worlds/office-move";
 import { OfficeSite } from "./office-grounds";
 
@@ -973,17 +975,21 @@ function SpeechBubble({ text }: { text: string }) {
   );
 }
 
-function NameTag({ name, status }: { name: string; status: BotStatus }) {
+function NameTag({ name, status, look }: { name: string; status: BotStatus; look: CharacterConfig["nameTag"] }) {
+  const frame = nameTagFrame(look.style);
   const map = useMemo(() => {
+    const drawn = nameTagFrame(look.style);
     const canvas = document.createElement("canvas");
     canvas.width = 512;
     canvas.height = 128;
     const ctx = canvas.getContext("2d");
     if (ctx) {
-      ctx.fillStyle = "rgba(251,248,243,0.92)";
-      ctx.beginPath();
-      ctx.roundRect(8, 16, 496, 96, 18);
-      ctx.fill();
+      if (drawn.filled) {
+        ctx.fillStyle = look.color;
+        ctx.beginPath();
+        ctx.roundRect(8, 16, 496, 96, drawn.radius);
+        ctx.fill();
+      }
       ctx.fillStyle = STATUS_COLOR[status];
       ctx.beginPath();
       ctx.arc(48, 64, 12, 0, Math.PI * 2);
@@ -997,9 +1003,9 @@ function NameTag({ name, status }: { name: string; status: BotStatus }) {
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
-  }, [name, status]);
+  }, [name, status, look.color, look.style]);
   return (
-    <sprite position={[0, 1.78, 0]} scale={[1.45, 0.36, 1]}>
+    <sprite position={[0, 1.78, 0]} scale={[frame.width, frame.height, 1]}>
       <spriteMaterial map={map} transparent depthTest={false} />
     </sprite>
   );
@@ -1011,7 +1017,7 @@ function Robot({
   name,
   short,
   status,
-  accent,
+  look,
   selected,
   hot,
   line,
@@ -1023,7 +1029,7 @@ function Robot({
   name: string;
   short: string;
   status: BotStatus;
-  accent: string;
+  look: CharacterConfig;
   selected: boolean;
   hot: boolean;
   line: string;
@@ -1031,30 +1037,11 @@ function Robot({
   layout: OfficeLayout;
   sim: OfficeSimStore;
 }) {
-  const mats = useMats();
   const canOpen = useContext(TapContext);
   const root = useRef<THREE.Group>(null);
   const bob = useRef<THREE.Group>(null);
-  const armL = useRef<THREE.Group>(null);
-  const armR = useRef<THREE.Group>(null);
-  const legL = useRef<THREE.Group>(null);
-  const legR = useRef<THREE.Group>(null);
-  const shinL = useRef<THREE.Group>(null);
-  const shinR = useRef<THREE.Group>(null);
   const ring = useRef<THREE.Mesh>(null);
-  const chest = useMemo(() => new THREE.MeshStandardMaterial({
-    color: accent,
-    metalness: 0.35,
-    roughness: 0.4,
-    emissive: accent,
-    emissiveIntensity: 0.12,
-  }), [accent]);
-  const visor = useMemo(() => new THREE.MeshStandardMaterial({
-    color: STATUS_COLOR[status],
-    emissive: STATUS_COLOR[status],
-    emissiveIntensity: 0.7,
-    roughness: 0.25,
-  }), [status]);
+  const poseRef = useRef<CharacterPose | null>({ phase: 0, moving: false, seated: false });
   useFrame(() => {
     const bot = sim.state.bots[id];
     if (!bot || !root.current) return;
@@ -1062,14 +1049,8 @@ function Robot({
     root.current.rotation.y = bot.yaw;
     const seated = isSeated(bot, layout.homes[id]);
     const moving = bot.path.length > 0;
-    const swing = moving ? Math.sin(bot.phase) * 0.65 : 0;
+    poseRef.current = { phase: bot.phase, moving, seated };
     if (bob.current) bob.current.position.y = seated ? -0.32 : 0;
-    if (armL.current) armL.current.rotation.x = seated ? 0.4 : -swing;
-    if (armR.current) armR.current.rotation.x = seated ? 0.25 : swing;
-    if (legL.current) legL.current.rotation.x = seated ? -1.15 : swing;
-    if (legR.current) legR.current.rotation.x = seated ? -1.15 : -swing;
-    if (shinL.current) shinL.current.rotation.x = seated ? 1.2 : Math.max(0, -swing) * 0.55;
-    if (shinR.current) shinR.current.rotation.x = seated ? 1.2 : Math.max(0, swing) * 0.55;
     if (ring.current) ring.current.visible = selected;
   });
   return (
@@ -1096,67 +1077,14 @@ function Robot({
         <meshBasicMaterial color="#1f3b2d" />
       </mesh>
       <group ref={bob}>
-        <mesh position={[0, 0.86, 0]} castShadow material={mats.metal}>
-          <capsuleGeometry args={[0.16, 0.22, 4, 8]} />
-        </mesh>
-        <mesh position={[0, 0.9, 0.14]} material={chest}>
-          <boxGeometry args={[0.22, 0.16, 0.04]} />
-        </mesh>
-        <mesh position={[0, 1.28, 0]} castShadow material={mats.metal}>
-          <sphereGeometry args={[0.28, 16, 14]} />
-        </mesh>
-        <mesh position={[0, 1.3, 0.22]} material={visor}>
-          <boxGeometry args={[0.28, 0.07, 0.04]} />
-        </mesh>
-        <mesh position={[-0.08, 1.36, 0.24]} material={mats.joint}>
-          <sphereGeometry args={[0.035, 8, 8]} />
-        </mesh>
-        <mesh position={[0.08, 1.36, 0.24]} material={mats.joint}>
-          <sphereGeometry args={[0.035, 8, 8]} />
-        </mesh>
-        <group ref={armL} position={[-0.22, 0.98, 0]}>
-          <mesh position={[0, -0.22, 0]} castShadow material={mats.metal}>
-            <capsuleGeometry args={[0.045, 0.28, 4, 8]} />
-          </mesh>
-        </group>
-        <group ref={armR} position={[0.22, 0.98, 0]}>
-          <mesh position={[0, -0.22, 0]} castShadow material={mats.metal}>
-            <capsuleGeometry args={[0.045, 0.28, 4, 8]} />
-          </mesh>
-        </group>
-        <group ref={legL} position={[-0.08, 0.58, 0]}>
-          <mesh position={[0, -0.18, 0]} castShadow material={mats.joint}>
-            <capsuleGeometry args={[0.05, 0.22, 4, 8]} />
-          </mesh>
-          <group ref={shinL} position={[0, -0.36, 0]}>
-            <mesh position={[0, -0.16, 0]} castShadow material={mats.metal}>
-              <capsuleGeometry args={[0.045, 0.2, 4, 8]} />
-            </mesh>
-          </group>
-        </group>
-        <group ref={legR} position={[0.08, 0.58, 0]}>
-          <mesh position={[0, -0.18, 0]} castShadow material={mats.joint}>
-            <capsuleGeometry args={[0.05, 0.22, 4, 8]} />
-          </mesh>
-          <group ref={shinR} position={[0, -0.36, 0]}>
-            <mesh position={[0, -0.16, 0]} castShadow material={mats.metal}>
-              <capsuleGeometry args={[0.045, 0.2, 4, 8]} />
-            </mesh>
-          </group>
-        </group>
-        <NameTag name={`${name}`} status={status} />
+        <CharacterFigure config={look} poseRef={poseRef} />
+        <NameTag name={`${name}`} status={status} look={look.nameTag} />
         <SpeechBubble text={line} />
-        <mesh position={[0, 1.55, 0]} visible={false}>
-          <boxGeometry args={[0.5, 1.6, 0.4]} />
-        </mesh>
       </group>
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.22, 16]} />
         <meshBasicMaterial color="#1c211e" transparent opacity={0.22} />
       </mesh>
-      <sprite position={[0, 1.12, 0.2]} scale={[0.28, 0.14, 1]}>
-        <spriteMaterial color="#fbf8f3" />
-      </sprite>
     </group>
   );
 }
@@ -1562,6 +1490,7 @@ function Scene({
   layout,
   sections,
   bots,
+  looks,
   selected,
   onSelect,
   onOpenBoard,
@@ -1584,6 +1513,7 @@ function Scene({
   layout: OfficeLayout;
   sections: OfficeSection[];
   bots: BotCard[];
+  looks: Record<string, CharacterConfig>;
   selected: string;
   onSelect: (id: string) => void;
   onOpenBoard: (board: BoardOpen) => void;
@@ -1647,14 +1577,14 @@ function Scene({
       <VaultDoor layout={layout} total={vaultTotal} onOpen={onOpenVault} />
       {layers.offices ? <WingStations layout={layout} sections={sections} onOpen={onOpenBoard} /> : null}
       <SimDriver sim={sim} meetingRef={meetingRef} botsRef={botsRef} />
-      {layers.offices ? bots.map((bot, index) => (
+      {layers.offices ? bots.map((bot) => (
         <Robot
           key={bot.id}
           id={bot.id}
           name={bot.name}
           short={bot.short}
           status={bot.status}
-          accent={ACCENTS[index % ACCENTS.length] ?? "#2f6d4f"}
+          look={looks[bot.id] ?? defaultCharacter(bot.id)}
           selected={selected === bot.id}
           hot={hotId === bot.id}
           line={speech[bot.id] ?? ""}
@@ -1747,6 +1677,7 @@ export default function OfficeCanvas({
   layout,
   sections,
   bots,
+  looks,
   selected,
   onSelect,
   onOpenBoard,
@@ -1766,6 +1697,7 @@ export default function OfficeCanvas({
   layout: OfficeLayout;
   sections: OfficeSection[];
   bots: BotCard[];
+  looks: Record<string, CharacterConfig>;
   selected: string;
   onSelect: (id: string) => void;
   onOpenBoard: (board: BoardOpen) => void;
@@ -1909,6 +1841,7 @@ export default function OfficeCanvas({
         layout={layout}
         sections={sections}
         bots={bots}
+        looks={looks}
         selected={selected}
         onSelect={onSelect}
         onOpenBoard={onOpenBoard}

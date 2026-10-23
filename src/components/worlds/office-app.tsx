@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { withBasePath } from "@/lib/format";
 import { buildOfficeLayout } from "@/lib/worlds/office-layout";
@@ -15,6 +16,7 @@ import {
   type CommandStatus,
   type OfficeCommand,
 } from "@/lib/worlds/office-commands";
+import { CHARACTER_PATH, defaultCharacter, parseCharacter, type CharacterConfig } from "@/lib/worlds/character";
 import { assignBotRooms, createOfficeSimStore, placeBotsInRooms, simActivity } from "@/lib/worlds/office-sim";
 import {
   OFFICE_LABEL,
@@ -124,7 +126,7 @@ function dollars(amount: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
 }
 
-export function OfficeApp() {
+export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const cameraApiRef = useRef<OfficeCameraApi | null>(null);
   const stickRef = useRef<Stick>({ x: 0, y: 0 });
@@ -137,6 +139,7 @@ export function OfficeApp() {
   const [board, setBoard] = useState<BoardOpen | null>(null);
   const [checkedAt, setCheckedAt] = useState("");
   const [commands, setCommands] = useState<OfficeCommand[]>([]);
+  const [looks, setLooks] = useState<Record<string, CharacterConfig>>({});
   const [commandError, setCommandError] = useState("");
   const [saving, setSaving] = useState(false);
   const [assignText, setAssignText] = useState("");
@@ -257,6 +260,33 @@ export function OfficeApp() {
     }
     void loadWallets();
     const timer = window.setInterval(() => void loadWallets(), OFFICE_POLL_MS);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let stop = false;
+    async function loadLooks() {
+      try {
+        const response = await fetch(withBasePath(`${CHARACTER_PATH}?kind=bot`), { cache: "no-store", credentials: "same-origin" });
+        const body = await response.json().catch(() => null) as { characters?: { subjectId?: string; config?: unknown }[] } | null;
+        if (stop || !response.ok || !body || !Array.isArray(body.characters)) return;
+        const next: Record<string, CharacterConfig> = {};
+        for (const item of body.characters) {
+          if (!item || typeof item.subjectId !== "string") continue;
+          const parsed = parseCharacter(item.config);
+          if (parsed.ok) next[item.subjectId] = parsed.value;
+          else next[item.subjectId] = defaultCharacter(item.subjectId);
+        }
+        setLooks(next);
+      } catch {
+        // The office still draws each bot from its default look.
+      }
+    }
+    void loadLooks();
+    const timer = window.setInterval(() => void loadLooks(), OFFICE_POLL_MS);
     return () => {
       stop = true;
       window.clearInterval(timer);
@@ -476,6 +506,7 @@ export function OfficeApp() {
             layout={layout}
             sections={status.sections}
             bots={status.bots}
+            looks={looks}
             selected={selected}
             onSelect={openBot}
             layers={layers}
@@ -539,6 +570,7 @@ export function OfficeApp() {
               ))}
               <button type="button" aria-pressed={quality === "fine"} aria-label="Graphics quality" onClick={toggleQuality}>{quality === "fine" ? "Fine" : "Fast"}</button>
             </div>
+            {charactersEnabled ? <Link className="office-link" href="/worlds/create">Your character</Link> : null}
             <div className="office-nav">
               <button type="button" aria-label="Zoom in" onClick={() => cameraApiRef.current?.zoomBy(0.82)}>+</button>
               <button type="button" aria-label="Zoom out" onClick={() => cameraApiRef.current?.zoomBy(1.22)}>−</button>
@@ -668,6 +700,7 @@ export function OfficeApp() {
           </form>
           <p className="office-kicker">Commands that send, pay, or delete show needs your OK in Grok Bot.</p>
           {bot.chatHref ? <a className="office-link" href={bot.chatHref}>Open chat</a> : null}
+          {charactersEnabled ? <Link className="office-link" href={`/worlds/create?bot=${encodeURIComponent(bot.id)}`}>Customize</Link> : null}
         </section>
       ) : null}
 
