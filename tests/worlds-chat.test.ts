@@ -192,7 +192,10 @@ describe("Worlds object panels", () => {
     assert.match(css, /min-width: 801px/);
     assert.match(canvas, /setCanvasCursor\(event, "pointer"\)/);
     assert.match(canvas, /raycast=\{skipPointer\}/);
-    assert.match(canvas, /HitPad args=\{\[1\.2, 2\.2, 1\.2\]\}/);
+    assert.match(canvas, /HitPad args=\{\[1\.4, 2\.5, 2\.2\]\}/);
+    assert.match(canvas, /onSelect\(id\)/);
+    assert.match(canvas, /onPointerMissed/);
+    assert.equal(canvas.includes("onClick={(event) => { event.stopPropagation(); onClear(); }}"), false);
     assert.match(canvas, /panel: "calendar"/);
     assert.match(canvas, /panel: "todos"/);
     assert.match(canvas, /panel: "notes"/);
@@ -232,5 +235,130 @@ describe("Worlds object panels", () => {
     assert.equal(hits.some((hit) => hit.object === desk), false);
     assert.equal(roofBlocksClicks(1), false);
     assert.equal(roofBlocksClicks(0), true);
+
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 0.2), new THREE.MeshBasicMaterial());
+    glass.position.set(0, 1.2, 2);
+    const bot = new THREE.Group();
+    const botPad = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.5, 2.2), new THREE.MeshBasicMaterial());
+    botPad.position.set(0, 1.25, 0.45);
+    bot.add(botPad);
+    const building = new THREE.Group();
+    building.add(glass);
+    building.add(bot);
+    building.updateMatrixWorld(true);
+    const aimed = new THREE.Raycaster();
+    aimed.set(new THREE.Vector3(0, 1.3, 6), new THREE.Vector3(0, 0, -1));
+    assert.equal(aimed.intersectObject(building, true)[0]?.object, glass);
+    assert.equal(aimed.intersectObject(bot, true)[0]?.object, botPad);
+  });
+
+  test("queued commands wake the webhook while payments are off, and approval rows do not", async () => {
+    const previousPayments = process.env.WORLDS_PAYMENTS_ENABLED;
+    delete process.env.WORLDS_PAYMENTS_ENABLED;
+    const db = openTestDb();
+    const calls: { body: string; authorization?: string }[] = [];
+    const fetchImpl = async (_url: string, init: { headers: { authorization?: string }; body: string }) => {
+      calls.push({ body: init.body, authorization: init.headers.authorization });
+      return { ok: true, status: 204 };
+    };
+    const errors: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => {
+      errors.push(args.map((item) => String(item)).join(" "));
+    };
+    try {
+      const message = await enqueueOfficeCommand(db, {
+        kind: "message",
+        botId: "content",
+        text: "Office check.",
+      }, {
+        fetchImpl,
+        webhookUrl: "https://bots.example/wake?token=secret-value",
+        webhookSecret: "test-secret",
+      });
+      assert.equal(message.ok, true);
+      if (!message.ok) return;
+      assert.equal(message.body.command.status, "queued");
+      assert.equal(message.body.webhookSent, true);
+      assert.equal(calls[0]?.authorization, "Bearer test-secret");
+      const stored = JSON.parse(calls[0]?.body ?? "{}") as { kind: string; status: string; botIds: string[]; body: string };
+      assert.equal(stored.kind, "message");
+      assert.equal(stored.status, "queued");
+      assert.deepEqual(stored.botIds, ["content"]);
+      assert.equal(stored.body, "Office check.");
+
+      const meeting = await enqueueOfficeCommand(db, {
+        kind: "call_meeting",
+        botIds: ["content", "kash"],
+        topic: "Friday pass",
+      }, { fetchImpl, webhookUrl: "https://bots.example/wake" });
+      const event = await enqueueOfficeCommand(db, {
+        kind: "add_event",
+        office: "business",
+        title: "Sponsor check-in",
+        start: "2026-10-24T09:00:00-04:00",
+        end: "2026-10-24T09:30:00-04:00",
+      }, { fetchImpl, webhookUrl: "https://bots.example/wake" });
+      const todo = await enqueueOfficeCommand(db, {
+        kind: "add_todo",
+        office: "business",
+        text: "Read the sample brief.",
+        botId: "content",
+        due: "2026-10-24",
+        impactDollars: 0,
+      }, { fetchImpl, webhookUrl: "https://bots.example/wake" });
+      const note = await enqueueOfficeCommand(db, {
+        kind: "note_decision",
+        noteId: "note-business-new",
+        decision: "approve",
+      }, { fetchImpl, webhookUrl: "https://bots.example/wake" });
+      assert.equal(meeting.ok && event.ok && todo.ok && note.ok, true);
+      assert.deepEqual(calls.map((call) => JSON.parse(call.body).kind), [
+        "message",
+        "call_meeting",
+        "add_event",
+        "add_todo",
+        "note_decision",
+      ]);
+
+      const blocked = await enqueueOfficeCommand(db, {
+        kind: "message",
+        botId: "content",
+        text: "Please pay the sample vendor.",
+      }, { fetchImpl, webhookUrl: "https://bots.example/wake" });
+      assert.equal(blocked.ok, true);
+      if (!blocked.ok) return;
+      assert.equal(blocked.body.command.status, "needs_approval");
+      assert.equal(blocked.body.webhookSent, false);
+      assert.equal(calls.length, 5);
+
+      const failed = await enqueueOfficeCommand(db, {
+        kind: "message",
+        botId: "content",
+        text: "Second office check.",
+      }, {
+        webhookUrl: "https://bots.example/wake?token=secret-value",
+        fetchImpl: async () => ({ ok: false, status: 502 }),
+      });
+      assert.equal(failed.ok, true);
+      if (!failed.ok) return;
+      assert.equal(failed.body.webhookSent, false);
+      assert.match(errors.join("\n"), /HTTP 502/);
+      assert.equal(errors.some((line) => line.includes("secret-value")), false);
+
+      const missing = await enqueueOfficeCommand(db, {
+        kind: "message",
+        botId: "content",
+        text: "Third office check.",
+      }, { webhookUrl: "" });
+      assert.equal(missing.ok, true);
+      if (!missing.ok) return;
+      assert.equal(missing.body.webhookSent, false);
+      assert.match(errors.join("\n"), /WORLDS_COMMAND_WEBHOOK_URL is not set/);
+    } finally {
+      console.error = original;
+      if (previousPayments === undefined) delete process.env.WORLDS_PAYMENTS_ENABLED;
+      else process.env.WORLDS_PAYMENTS_ENABLED = previousPayments;
+    }
   });
 });

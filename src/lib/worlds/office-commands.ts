@@ -13,6 +13,8 @@
  * A reply walks queued → picked_up → in_progress → done with the bot token:
  * PATCH /api/worlds/commands `{ "id": "<command id>", "status": "done", "result": "<reply>" }`.
  * The owner chat reads that result from GET /api/worlds/commands.
+ * Every queued command is POSTed to the webhook. A needs_approval row is not.
+ * WORLDS_PAYMENTS_ENABLED does not decide that. A failed delivery is logged with the host and status.
  */
 
 import { containsPrivateOfficeDetail } from "./office-catalog";
@@ -360,20 +362,58 @@ export function isWebhookUrl(value: string) {
   }
 }
 
-export type CommandFetch = (url: string, init: { method: "POST"; headers: { "content-type": string }; body: string }) => Promise<unknown>;
+export type CommandFetch = (
+  url: string,
+  init: { method: "POST"; headers: { "content-type": string; authorization?: string }; body: string },
+) => Promise<unknown>;
 
-export async function notifyCommandWebhook(command: OfficeCommand, options?: { fetchImpl?: CommandFetch; url?: string | null }) {
-  const url = (options?.url ?? "").trim();
-  if (!url || !isWebhookUrl(url)) return false;
-  const fetchImpl = options?.fetchImpl ?? fetch;
+function webhookHost(url: string) {
   try {
-    await fetchImpl(url, {
+    return new URL(url).host;
+  } catch {
+    return "webhook";
+  }
+}
+
+function responseStatus(response: unknown) {
+  if (!response || typeof response !== "object") return null;
+  const record = response as { ok?: unknown; status?: unknown };
+  if (typeof record.status === "number") return record.status;
+  if (record.ok === true) return 200;
+  if (record.ok === false) return 0;
+  return null;
+}
+
+/** POST the stored command. Returns true only after a 2xx. Logs the host and status, never the URL or secret. */
+export async function notifyCommandWebhook(
+  command: OfficeCommand,
+  options?: { fetchImpl?: CommandFetch; url?: string | null; secret?: string | null },
+) {
+  const url = (options?.url ?? "").trim();
+  if (!url || !isWebhookUrl(url)) {
+    console.error(`Worlds command webhook skipped for ${command.kind} ${command.id}: WORLDS_COMMAND_WEBHOOK_URL is not set.`);
+    return false;
+  }
+  const fetchImpl = options?.fetchImpl ?? fetch;
+  const headers: { "content-type": string; authorization?: string } = { "content-type": "application/json" };
+  const secret = (options?.secret ?? "").trim();
+  if (secret) headers.authorization = `Bearer ${secret}`;
+  const host = webhookHost(url);
+  try {
+    const response = await fetchImpl(url, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify(command),
     });
+    const status = responseStatus(response);
+    if (status !== null && (status < 200 || status >= 300)) {
+      console.error(`Worlds command webhook failed for ${command.kind} ${command.id} (${host}): HTTP ${status}`);
+      return false;
+    }
     return true;
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "request failed";
+    console.error(`Worlds command webhook failed for ${command.kind} ${command.id} (${host}): ${message}`);
     return false;
   }
 }

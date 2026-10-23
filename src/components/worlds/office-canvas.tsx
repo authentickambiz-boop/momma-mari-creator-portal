@@ -1070,13 +1070,18 @@ function Robot({
     if (ring.current) ring.current.visible = selected;
   });
   return (
-    <group ref={root} userData={{ short }}>
+    <group
+      ref={root}
+      userData={{ short }}
+      {...pointerCursor}
+      onClick={(event) => { event.stopPropagation(); if (canOpen()) onSelect(id); }}
+    >
+      <HitPad args={[1.4, 2.5, 2.2]} position={[0, 1.25, 0.45]} />
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
         <ringGeometry args={[0.42, 0.52, 28]} />
         <meshBasicMaterial color="#1f3b2d" />
       </mesh>
-      <group ref={bob} {...pointerCursor} onClick={(event) => { event.stopPropagation(); if (canOpen()) onSelect(id); }}>
-        <HitPad args={[1.2, 2.2, 1.2]} position={[0, 1.05, 0]} />
+      <group ref={bob}>
         <mesh position={[0, 0.86, 0]} castShadow material={mats.metal}>
           <capsuleGeometry args={[0.16, 0.22, 4, 8]} />
         </mesh>
@@ -1463,7 +1468,6 @@ function Scene({
   vaultTotal,
   onOpenVault,
   onOpenMeet,
-  onClear,
   canOpen,
   layers,
   quality,
@@ -1486,7 +1490,6 @@ function Scene({
   vaultTotal: number;
   onOpenVault: () => void;
   onOpenMeet: () => void;
-  onClear: () => void;
   canOpen: () => boolean;
   layers: OfficeLayers;
   quality: OfficeQuality;
@@ -1528,7 +1531,7 @@ function Scene({
       {layers.weather ? <fog attach="fog" args={[sky, fog.near, fog.far]} /> : null}
       <StudioEnv enabled={detailed} />
       <Lights layout={layout} weather={weather} quality={quality} />
-      <group onClick={(event) => { event.stopPropagation(); onClear(); }}>
+      <group>
       <OfficeSite layout={layout} weather={weather} showGrounds={layers.outdoor} showRoof={layers.roof} showWeather={layers.weather} />
       <TapContext.Provider value={canOpen}>
       <MatsContext.Provider value={mats}>
@@ -1802,9 +1805,6 @@ export default function OfficeCanvas({
         vaultTotal={vaultTotal}
         onOpenVault={onOpenVault}
         onOpenMeet={onOpenMeet}
-        onClear={() => {
-          if (!gesture.current.dragged) onClear();
-        }}
         canOpen={canOpen}
         layers={layers}
         quality={quality}

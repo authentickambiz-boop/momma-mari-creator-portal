@@ -455,8 +455,8 @@ describe("bot office", () => {
     assert.equal(paid.body.command.result, APPROVAL_PHRASE);
     assert.equal(paid.charged, false);
     assert.equal(paid.body.charged, false);
-    assert.equal(paid.body.webhookSent, true);
-    assert.equal(paidCalls.length, 1);
+    assert.equal(paid.body.webhookSent, false);
+    assert.equal(paidCalls.length, 0);
     const stillBlocked = await updateOfficeCommand(db, { id: paid.body.command.id, status: "done" });
     assert.equal(stillBlocked.ok, false);
     if (!stillBlocked.ok) {
