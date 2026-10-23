@@ -240,6 +240,13 @@ describe("bot office", () => {
     assert.match(readme, /needs your OK in Grok Bot/);
     assert.match(readme, /\/api\/worlds\/wallets/);
     assert.match(app, /Add wallet/);
+    assert.match(app, /Panels/);
+    assert.match(app, /mm-worlds-panels/);
+    assert.match(app, /localStorage/);
+    assert.match(app, /onOpenMeet/);
+    assert.match(app, /onClear/);
+    assert.match(source("src/components/worlds/office.css"), /45vh/);
+    assert.match(source("src/components/worlds/office.css"), /office-sheet/);
     const walletsRoute = source("src/app/api/worlds/wallets/route.ts");
     assert.match(walletsRoute, /authorizeBot/);
     assert.match(walletsRoute, /isOwner/);
@@ -272,6 +279,7 @@ describe("bot office", () => {
     assert.match(canvas, /anisotropy/);
     assert.match(canvas, /OfficeSite/);
     assert.match(canvas, /VaultDoor/);
+    assert.match(canvas, /onOpenMeet/);
     const grounds = source("src/components/worlds/office-grounds.tsx");
     assert.match(grounds, /Momma Mari/);
     const weather = source("src/lib/worlds/office-weather.ts");

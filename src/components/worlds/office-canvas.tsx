@@ -508,6 +508,15 @@ function Shelf({ x, z, w, d }: { x: number; z: number; w: number; d: number }) {
   );
 }
 
+function HitPad({ args, position }: { args: [number, number, number]; position?: [number, number, number] }) {
+  return (
+    <mesh position={position}>
+      <boxGeometry args={args} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+  );
+}
+
 function WingStations({
   layout,
   sections,
@@ -538,6 +547,7 @@ function WingStations({
               <boxGeometry args={[0.6, 0.12, 0.01]} />
               <meshStandardMaterial color="#1f3b2d" />
             </mesh>
+            <HitPad args={[1.25, 1.35, 0.45]} position={[0, 0, 0.06]} />
           </group>
           <group
             position={[station.whiteboard.x, 1.4, station.whiteboard.z]}
@@ -550,6 +560,7 @@ function WingStations({
               <planeGeometry args={[1.02, 0.64]} />
               <meshStandardMaterial color="#f4f7f2" />
             </mesh>
+            <HitPad args={[1.6, 1.15, 0.45]} position={[0, 0, 0.06]} />
           </group>
           <group
             position={[station.inbox.x, 0, station.inbox.z]}
@@ -565,6 +576,7 @@ function WingStations({
               <boxGeometry args={[0.28, 0.02, 0.2]} />
               <meshStandardMaterial color="#f7f1e4" />
             </mesh>
+            <HitPad args={[1.15, 1.05, 0.8]} position={[0, 0.5, 0]} />
           </group>
         </group>
       ))}
@@ -723,7 +735,7 @@ function VaultDoor({ layout, total, onOpen }: { layout: OfficeLayout; total: num
   );
 }
 
-function Furniture({ layout }: { layout: OfficeLayout }) {
+function Furniture({ layout, onOpenMeet }: { layout: OfficeLayout; onOpenMeet: () => void }) {
   const mats = useMats();
   const rooms = Object.fromEntries(layout.rooms.map((room) => [room.id, room])) as Record<string, OfficeRoom>;
   const brk = rooms.break;
@@ -736,10 +748,11 @@ function Furniture({ layout }: { layout: OfficeLayout }) {
         <Desk key={id} x={home.x} z={home.z} accent={ACCENTS[index % ACCENTS.length] ?? "#2f6d4f"} />
       ))}
       {table ? (
-        <group>
+        <group onClick={(event) => { event.stopPropagation(); onOpenMeet(); }}>
           <mesh position={[table.x, 0.74, table.z]} castShadow receiveShadow material={mats.woodDark}>
             <boxGeometry args={[table.w, 0.08, table.d]} />
           </mesh>
+          <HitPad args={[Math.max(table.w, 1.8), 1.3, Math.max(table.d, 1.4)]} position={[table.x, 0.85, table.z]} />
           {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], index) => (
             <mesh key={index} position={[table.x + sx * (table.w / 2 - 0.4), 0.36, table.z + sz * (table.d / 2 - 0.35)]} castShadow material={mats.trim}>
               <boxGeometry args={[0.1, 0.7, 0.1]} />
@@ -958,6 +971,7 @@ function Robot({
         <meshBasicMaterial color="#1f3b2d" />
       </mesh>
       <group ref={bob} onClick={(event) => { event.stopPropagation(); onSelect(id); }}>
+        <HitPad args={[0.95, 1.9, 0.95]} position={[0, 1, 0]} />
         <mesh position={[0, 1.05, 0]} castShadow material={mats.metal}>
           <capsuleGeometry args={[0.2, 0.42, 6, 12]} />
         </mesh>
@@ -1145,6 +1159,8 @@ function Scene({
   speech,
   vaultTotal,
   onOpenVault,
+  onOpenMeet,
+  onClear,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1160,6 +1176,8 @@ function Scene({
   speech: Record<string, string>;
   vaultTotal: number;
   onOpenVault: () => void;
+  onOpenMeet: () => void;
+  onClear: () => void;
 }) {
   const mats = useOfficeMaterials(layout);
   const controls = useRef<OrbitControlsType>(null);
@@ -1203,10 +1221,11 @@ function Scene({
       <fog attach="fog" args={[sky, fog.near, fog.far]} />
       <StudioEnv />
       <Lights layout={layout} weather={weather} />
+      <group onClick={(event) => { event.stopPropagation(); onClear(); }}>
       <OfficeSite layout={layout} weather={weather} />
       <MatsContext.Provider value={mats}>
       <Shell layout={layout} />
-      <Furniture layout={layout} />
+      <Furniture layout={layout} onOpenMeet={onOpenMeet} />
       <VaultDoor layout={layout} total={vaultTotal} onOpen={onOpenVault} />
       <WingStations layout={layout} sections={sections} onOpen={onOpenBoard} />
       <SimDriver sim={sim} meetingRef={meetingRef} botsRef={botsRef} />
@@ -1226,6 +1245,7 @@ function Scene({
         />
       ))}
       </MatsContext.Provider>
+      </group>
       <OrbitControls
         ref={controls}
         makeDefault
@@ -1263,6 +1283,8 @@ export default function OfficeCanvas({
   speech,
   vaultTotal,
   onOpenVault,
+  onOpenMeet,
+  onClear,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1277,9 +1299,12 @@ export default function OfficeCanvas({
   speech: Record<string, string>;
   vaultTotal: number;
   onOpenVault: () => void;
+  onOpenMeet: () => void;
+  onClear: () => void;
 }) {
   const meetingRef = useRef(meeting);
   const botsRef = useRef(bots);
+  const gesture = useRef({ x: 0, y: 0, dragged: false });
   useEffect(() => {
     meetingRef.current = meeting;
     botsRef.current = bots;
@@ -1300,6 +1325,17 @@ export default function OfficeCanvas({
       camera={camera}
       dpr={[1, 1.75]}
       gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
+      onPointerDown={(event) => {
+        gesture.current = { x: event.clientX, y: event.clientY, dragged: false };
+      }}
+      onPointerMove={(event) => {
+        if (!event.buttons) return;
+        const moved = Math.hypot(event.clientX - gesture.current.x, event.clientY - gesture.current.y);
+        if (moved > 10) gesture.current.dragged = true;
+      }}
+      onPointerMissed={() => {
+        if (!gesture.current.dragged) onClear();
+      }}
       onCreated={({ gl }) => {
         gl.toneMappingExposure = 1.05;
         gl.setClearColor(skyColor(weather));
@@ -1320,6 +1356,10 @@ export default function OfficeCanvas({
         speech={speech}
         vaultTotal={vaultTotal}
         onOpenVault={onOpenVault}
+        onOpenMeet={onOpenMeet}
+        onClear={() => {
+          if (!gesture.current.dragged) onClear();
+        }}
       />
     </Canvas>
   );

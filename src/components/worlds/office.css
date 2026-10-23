@@ -43,9 +43,50 @@
   background: #fff;
   color: #1c211e;
   border-radius: 8px;
-  padding: 4px 8px;
+  min-height: 44px;
+  padding: 10px 14px;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.office-panel.office-sheet {
+  left: auto;
+  right: 12px;
+  top: 12px;
+  bottom: auto;
+  width: min(380px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  transform: none;
+}
+.office-panels-toggle {
+  position: absolute;
+  z-index: 6;
+  left: 12px;
+  top: 12px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #d6cec1;
+  border-radius: 999px;
+  background: rgba(251, 248, 243, 0.94);
+  color: #1c211e;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.office-panels-toggle[aria-pressed="true"] {
+  background: #1f3b2d;
+  color: #fbf8f3;
+  border-color: #1f3b2d;
+}
+.office-close {
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: #1c211e;
+  font-size: 28px;
+  line-height: 1;
   cursor: pointer;
 }
 .office-actions button[aria-pressed="true"], .office-chips button[aria-pressed="true"] {
@@ -95,8 +136,13 @@ body:has(.bot-office) .home-install,
 body:has(.bot-office) .home-bar { display: none; }
 
 @media (max-width: 800px) {
-  .office-detail { top: auto; bottom: 132px; left: 12px; right: 12px; width: auto; max-height: 32vh; }
-  .office-tools { max-height: 28vh; }
-  .office-board, .office-achievements, .office-vault { top: 12px; max-height: calc(100vh - 24px); }
-  .office-log { bottom: 12px; max-height: 24vh; }
+  .office-panel.office-sheet {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    max-height: 45vh;
+    border-radius: 16px 16px 0 0;
+  }
 }
