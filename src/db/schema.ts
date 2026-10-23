@@ -1724,3 +1724,15 @@ export const dealPaymentTiming = sqliteTable("deal_payment_timing", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+/** Versioned Worlds look for a user or a roster bot. No prices are stored. */
+export const officeCharacters = sqliteTable("office_characters", {
+  id: text("id").primaryKey(),
+  subjectKind: text("subject_kind").notNull(),
+  subjectId: text("subject_id").notNull(),
+  version: integer("version").notNull(),
+  document: text("document").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
