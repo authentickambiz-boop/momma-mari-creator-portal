@@ -662,7 +662,7 @@ curl -sS -X POST \
 
 ## Momma Mari Worlds desktop
 
-`desktop/` is a small Tauri window that opens [https://mommamari.com/worlds](https://mommamari.com/worlds). It is the same owner-only office. Sign in with Google in that window. The window remembers its size, its position, and which monitor it was on, and restores them the next time you open it. If that monitor is unplugged, the system picks a screen that is still connected. **View → Toggle Fullscreen** (F11) switches fullscreen. On a Mac, F11 is sometimes taken by Mission Control, so use the View menu.
+`desktop/` is a small Tauri window that opens [https://www.mommamari.com/portal/worlds](https://www.mommamari.com/portal/worlds). It is the same owner-only office. Sign in with Google in that window and it comes back to `/portal/worlds`. The window does not open the rest of the creator portal: other `/portal` pages are blocked, and the app menu is only **Quit** and **View → Toggle Fullscreen**. It remembers its size, its position, and which monitor it was on, and restores them the next time you open it. If that monitor is unplugged, the system picks a screen that is still connected. **View → Toggle Fullscreen** (F11) switches fullscreen. On a Mac, F11 is sometimes taken by Mission Control, so use the View menu.
 
 An **Open chat** link (`grokbot://`) is handed to the operating system. If the Grok Bot app is installed and registered for that link, it opens there instead of inside the office window.
 
