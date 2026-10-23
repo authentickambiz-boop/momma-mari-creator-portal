@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, type RefObject } from "react";
 import { useFrame } from "@react-three/fiber";
+import { BackSide, DataTexture, NearestFilter, NoColorSpace, RGBAFormat, type Texture } from "three";
 import type { Group } from "three";
 import {
   characterFigure,
@@ -10,6 +11,26 @@ import {
   type CharacterPart,
   type CharacterPose,
 } from "@/lib/worlds/character";
+
+const OUTLINE = "#1a1614";
+
+let sharedGradient: Texture | null = null;
+
+function toonGradient() {
+  if (sharedGradient) return sharedGradient;
+  const data = new Uint8Array([
+    70, 70, 70, 255,
+    150, 150, 150, 255,
+    255, 255, 255, 255,
+  ]);
+  const texture = new DataTexture(data, 3, 1, RGBAFormat);
+  texture.minFilter = NearestFilter;
+  texture.magFilter = NearestFilter;
+  texture.colorSpace = NoColorSpace;
+  texture.needsUpdate = true;
+  sharedGradient = texture;
+  return texture;
+}
 
 function Geometry({ part }: { part: CharacterPart }) {
   if (part.shape === "sphere") return <sphereGeometry args={part.args as [number, number, number]} />;
@@ -21,11 +42,18 @@ function Geometry({ part }: { part: CharacterPart }) {
 }
 
 function Solid({ part, position }: { part: CharacterPart; position: [number, number, number] }) {
+  const gradient = toonGradient();
   return (
-    <mesh position={position} rotation={part.rotation} scale={part.scale} castShadow>
-      <Geometry part={part} />
-      <meshStandardMaterial color={part.color} roughness={0.62} metalness={0.04} />
-    </mesh>
+    <group position={position} rotation={part.rotation} scale={part.scale}>
+      <mesh>
+        <Geometry part={part} />
+        <meshToonMaterial color={part.color} gradientMap={gradient} />
+      </mesh>
+      <mesh scale={1.12}>
+        <Geometry part={part} />
+        <meshBasicMaterial color={OUTLINE} side={BackSide} toneMapped={false} />
+      </mesh>
+    </group>
   );
 }
 
@@ -44,7 +72,7 @@ function Limb({ part, poseRef }: { part: CharacterPart; poseRef?: RefObject<Char
   );
 }
 
-/** Low-poly bot built from the saved look. Primitives only, no external files. */
+/** Chibi used by the creator preview and every office bot. */
 export function CharacterFigure({
   config,
   poseRef,

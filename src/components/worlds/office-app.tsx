@@ -16,7 +16,7 @@ import {
   type CommandStatus,
   type OfficeCommand,
 } from "@/lib/worlds/office-commands";
-import { CHARACTER_PATH, defaultCharacter, parseCharacter, type CharacterConfig } from "@/lib/worlds/character";
+import { CHARACTER_PATH, LOOKS_POLL_MS, defaultCharacter, parseCharacter, type CharacterConfig } from "@/lib/worlds/character";
 import { assignBotRooms, createOfficeSimStore, placeBotsInRooms, simActivity } from "@/lib/worlds/office-sim";
 import {
   OFFICE_LABEL,
@@ -270,7 +270,11 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
     let stop = false;
     async function loadLooks() {
       try {
-        const response = await fetch(withBasePath(`${CHARACTER_PATH}?kind=bot`), { cache: "no-store", credentials: "same-origin" });
+        const response = await fetch(withBasePath(`${CHARACTER_PATH}?kind=bot&fresh=${Date.now()}`), {
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: { "cache-control": "no-cache", pragma: "no-cache" },
+        });
         const body = await response.json().catch(() => null) as { characters?: { subjectId?: string; config?: unknown }[] } | null;
         if (stop || !response.ok || !body || !Array.isArray(body.characters)) return;
         const next: Record<string, CharacterConfig> = {};
@@ -282,14 +286,23 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
         }
         setLooks(next);
       } catch {
-        // The office still draws each bot from its default look.
+        // Keep the looks already on screen. A failed poll must not wipe a saved outfit.
       }
     }
+    function onVisible() {
+      if (document.visibilityState === "visible") void loadLooks();
+    }
     void loadLooks();
-    const timer = window.setInterval(() => void loadLooks(), OFFICE_POLL_MS);
+    const timer = window.setInterval(() => void loadLooks(), LOOKS_POLL_MS);
+    window.addEventListener("focus", loadLooks);
+    window.addEventListener("pageshow", loadLooks);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       stop = true;
       window.clearInterval(timer);
+      window.removeEventListener("focus", loadLooks);
+      window.removeEventListener("pageshow", loadLooks);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 
@@ -699,8 +712,10 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
             <button type="submit" disabled={saving}>Assign task</button>
           </form>
           <p className="office-kicker">Commands that send, pay, or delete show needs your OK in Grok Bot.</p>
-          {bot.chatHref ? <a className="office-link" href={bot.chatHref}>Open chat</a> : null}
-          {charactersEnabled ? <Link className="office-link" href={`/worlds/create?bot=${encodeURIComponent(bot.id)}`}>Customize</Link> : null}
+          <div className="office-card-links">
+            {bot.chatHref ? <a className="office-link" href={bot.chatHref}>Open chat</a> : null}
+            {charactersEnabled ? <Link className="office-link" href={`/worlds/create?bot=${encodeURIComponent(bot.id)}`}>Customize</Link> : null}
+          </div>
         </section>
       ) : null}
 
