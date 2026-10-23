@@ -203,3 +203,84 @@ export function parseRewardGrant(body: unknown): GameResult<{ subject: Character
 export function ledgerSum(rows: { direction: string; amountCents: number }[]) {
   return rows.reduce((sum, row) => sum + (row.direction === "debit" ? -row.amountCents : row.amountCents), 0);
 }
+
+/** Spendable wallet, protected bank, or earnings waiting at the bank. */
+export const GAME_BUCKETS = ["wallet", "bank", "uncollected"] as const;
+export type GameBucket = (typeof GAME_BUCKETS)[number];
+
+/** 1% a week, stored as basis points. */
+export const DEFAULT_WEEKLY_BPS = 100;
+/** 10% a week. The owner cannot set a higher rate. */
+export const MAX_WEEKLY_BPS = 1000;
+/** A quiet stretch accrues at most this many days on the next read. */
+export const MAX_INTEREST_CATCHUP_DAYS = 30;
+
+export const BANK_PERKS = [
+  { id: "later", name: "Bank perks", note: "Bank-only perks will show up here later." },
+] as const;
+
+export type BankPerk = (typeof BANK_PERKS)[number];
+
+const IDEMPOTENCY = /^[A-Za-z0-9:_-]{1,80}$/;
+
+export function bucketOf(value: string | null | undefined): GameBucket {
+  if (value === "bank" || value === "uncollected") return value;
+  return "wallet";
+}
+
+/** Simple daily slice of the weekly rate. Basis points stay in integer math. */
+export function dailyInterestCents(balanceCents: number, weeklyBps: number) {
+  if (!Number.isInteger(balanceCents) || balanceCents <= 0) return 0;
+  const bps = Math.min(MAX_WEEKLY_BPS, Math.max(0, Math.trunc(weeklyBps)));
+  if (bps === 0) return 0;
+  return Math.floor((balanceCents * bps) / (7 * 10_000));
+}
+
+export function utcDay(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+export function addUtcDays(day: string, count: number) {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, (date ?? 1) + count)).toISOString().slice(0, 10);
+}
+
+export function parseWeeklyInterest(value: unknown): GameResult<number> {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > MAX_WEEKLY_BPS / 100) {
+    return { ok: false, status: 400, error: "Interest is a weekly percent from 0 to 10." };
+  }
+  const bps = Math.round(value * 100);
+  if (Math.abs(value * 100 - bps) > 0.001) {
+    return { ok: false, status: 400, error: "Interest uses hundredths of a percent." };
+  }
+  return { ok: true, value: bps };
+}
+
+export function parseIdempotencyKey(value: unknown): GameResult<string> {
+  if (typeof value !== "string" || !IDEMPOTENCY.test(value)) {
+    return { ok: false, status: 400, error: "idempotencyKey is required." };
+  }
+  return { ok: true, value };
+}
+
+/** Empty means the whole source bucket. A number is currency-dollars. */
+export function parseMoveAmount(value: unknown, allowAll: boolean): GameResult<number | null> {
+  if (value === undefined || value === null || value === "") {
+    if (allowAll) return { ok: true, value: null };
+    return { ok: false, status: 400, error: "Amount must be more than zero." };
+  }
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || value > 1_000_000) {
+    return { ok: false, status: 400, error: "Amount must be more than zero." };
+  }
+  const cents = unitsToCents(value);
+  if (Math.abs(value * 100 - cents) > 0.001) return { ok: false, status: 400, error: "Amount uses cents at most." };
+  if (cents <= 0) return { ok: false, status: 400, error: "Amount must be more than zero." };
+  return { ok: true, value: cents };
+}
+
+export function parseCollectDestination(value: unknown): GameResult<"wallet" | "bank"> {
+  if (value !== "wallet" && value !== "bank") {
+    return { ok: false, status: 400, error: "Collect into the wallet or the bank." };
+  }
+  return { ok: true, value };
+}

@@ -4,13 +4,26 @@ import { currentViewer } from "@/lib/current-user";
 import { readBody } from "@/lib/http";
 import { parseCharacterSubject } from "@/lib/worlds/character";
 import {
+  parseCollectDestination,
   parseEarnRates,
+  parseIdempotencyKey,
+  parseMoveAmount,
   parseRewardGrant,
+  parseWeeklyInterest,
   refuseCurrencyPurchase,
   walletAccess,
   walletAccessStatus,
 } from "@/lib/worlds/game-wallet";
-import { buyShopItem, grantReward, readGameWallet, saveEarnRates } from "@/lib/worlds/game-wallet-store";
+import {
+  buyShopItem,
+  collectEarnings,
+  depositToBank,
+  grantReward,
+  readGameWallet,
+  saveEarnRates,
+  saveInterestRate,
+  withdrawFromBank,
+} from "@/lib/worlds/game-wallet-store";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +50,15 @@ export async function POST(request: Request) {
   if (!viewer) return noStore({ error: "Sign in to see your wallet." }, 401);
   const body = await readBody(request);
   if (!body || typeof body !== "object") return noStore({ error: "Expected JSON." }, 400);
-  const record = body as { action?: unknown; sku?: unknown; rates?: unknown };
+  const record = body as {
+    action?: unknown;
+    sku?: unknown;
+    rates?: unknown;
+    amount?: unknown;
+    destination?: unknown;
+    idempotencyKey?: unknown;
+    weeklyPercent?: unknown;
+  };
   if (record.action === "buy-currency") return noStore(refuseCurrencyPurchase(), refuseCurrencyPurchase().status);
   const db = await getDb();
   if (record.action === "buy") {
@@ -59,6 +80,32 @@ export async function POST(request: Request) {
     const granted = await grantReward(db, viewer, reward.value.subject, reward.value.source, reward.value.idempotencyKey);
     if (!granted.ok) return noStore({ error: granted.error }, granted.status);
     return noStore({ wallet: granted.wallet, duplicate: granted.duplicate });
+  }
+  if (record.action === "set-interest") {
+    const rate = parseWeeklyInterest(record.weeklyPercent);
+    if (!rate.ok) return noStore({ error: rate.error }, rate.status);
+    const saved = await saveInterestRate(db, viewer, rate.value);
+    if (!saved.ok) return noStore({ error: saved.error }, saved.status);
+    return noStore({ interestWeeklyPercent: saved.interestWeeklyPercent });
+  }
+  if (record.action === "collect" || record.action === "deposit" || record.action === "withdraw") {
+    const key = parseIdempotencyKey(record.idempotencyKey);
+    if (!key.ok) return noStore({ error: key.error }, key.status);
+    const amount = parseMoveAmount(record.amount, record.action === "collect");
+    if (!amount.ok) return noStore({ error: amount.error }, amount.status);
+    if (record.action === "collect") {
+      const destination = parseCollectDestination(record.destination);
+      if (!destination.ok) return noStore({ error: destination.error }, destination.status);
+      const collected = await collectEarnings(db, viewer, amount.value, destination.value, key.value);
+      if (!collected.ok) return noStore({ error: collected.error }, collected.status);
+      return noStore({ wallet: collected.wallet, duplicate: collected.duplicate });
+    }
+    if (amount.value == null) return noStore({ error: "Amount must be more than zero." }, 400);
+    const moved = record.action === "deposit"
+      ? await depositToBank(db, viewer, amount.value, key.value)
+      : await withdrawFromBank(db, viewer, amount.value, key.value);
+    if (!moved.ok) return noStore({ error: moved.error }, moved.status);
+    return noStore({ wallet: moved.wallet, duplicate: moved.duplicate });
   }
   return noStore({ error: "Unknown wallet action." }, 400);
 }

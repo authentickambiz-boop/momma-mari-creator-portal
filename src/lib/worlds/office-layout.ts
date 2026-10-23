@@ -299,7 +299,7 @@ export function buildOfficeLayout(options?: {
     { id: "conference", label: "CONFERENCE", kind: "conference" },
     { id: "library", label: "LIBRARY", kind: "library" },
     { id: "break", label: "BREAK ROOM", kind: "break" },
-    { id: "vault", label: "VAULT", kind: "vault" },
+    { id: "vault", label: "BANK", kind: "vault" },
   ];
   let bottomX = 0;
   const hallGapsBot: number[] = [];
