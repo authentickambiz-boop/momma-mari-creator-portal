@@ -1,5 +1,7 @@
 name: Desktop installers
 
+# Pushes to main and workflow_dispatch publish worlds-v<version> when TAURI_SIGNING_PRIVATE_KEY is set.
+
 on:
   workflow_dispatch:
   pull_request:
