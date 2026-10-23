@@ -33,6 +33,7 @@ import {
   type WalletType,
 } from "@/lib/worlds/office-wallets";
 import type { BoardOpen, OfficeCameraApi, OfficeLayers, OfficeQuality } from "./office-canvas";
+import { panelsEnabledFromStorage, panelsStorageValue } from "@/lib/worlds/office-chrome";
 import "./office.css";
 
 type LayoutHold = {
@@ -153,10 +154,12 @@ export function OfficeApp() {
   const [query, setQuery] = useState("");
   const [layers, setLayers] = useState<OfficeLayers>(DEFAULT_LAYERS);
   const [quality, setQuality] = useState<OfficeQuality>("fine");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [panelsEnabled, setPanelsEnabled] = useState(true);
 
   useEffect(() => {
     try {
-      if (window.localStorage.getItem(PANELS_KEY) === "show") setSheet("info");
+      setPanelsEnabled(panelsEnabledFromStorage(window.localStorage.getItem(PANELS_KEY)));
       const savedLayers = window.localStorage.getItem(LAYERS_KEY);
       if (savedLayers) {
         const parsed = JSON.parse(savedLayers) as Partial<OfficeLayers>;
@@ -173,6 +176,18 @@ export function OfficeApp() {
     } catch {
       // Private browsing can block storage. The view stays clear.
     }
+  }, []);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setMenuOpen(false);
+      setSheet(null);
+      setBoard(null);
+      setSelected("");
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   useEffect(() => {
@@ -304,9 +319,15 @@ export function OfficeApp() {
     return status.bots.filter((item) => `${item.name} ${item.short} ${item.role}`.toLowerCase().includes(needle)).slice(0, 6);
   }, [query, status]);
 
-  function rememberPanels(show: boolean) {
+  function persistPanels(enabled: boolean) {
+    setPanelsEnabled(enabled);
+    if (!enabled) {
+      setSheet(null);
+      setBoard(null);
+      setSelected("");
+    }
     try {
-      window.localStorage.setItem(PANELS_KEY, show ? "show" : "hide");
+      window.localStorage.setItem(PANELS_KEY, panelsStorageValue(enabled));
     } catch {
       // The button still works for this visit.
     }
@@ -316,13 +337,13 @@ export function OfficeApp() {
     setSheet(null);
     setBoard(null);
     setSelected("");
-    rememberPanels(false);
+    setMenuOpen(false);
   }
 
-  function togglePanels() {
-    const show = sheet !== "info";
-    rememberPanels(show);
-    setSheet(show ? "info" : null);
+  function openSheet(next: OfficeSheet) {
+    if (!panelsEnabled) return;
+    setMenuOpen(false);
+    setSheet(next);
   }
 
   function toggleLayer(key: keyof OfficeLayers) {
@@ -350,9 +371,11 @@ export function OfficeApp() {
   }
 
   function openBot(id: string) {
+    if (!panelsEnabled) return;
     setSelected(id);
-    setSheet("bot");
     setQuery("");
+    setMenuOpen(false);
+    setSheet("bot");
   }
 
   async function postCommand(payload: unknown) {
@@ -386,6 +409,8 @@ export function OfficeApp() {
   }
 
   function openVault(form: boolean) {
+    if (!panelsEnabled) return;
+    setMenuOpen(false);
     setSheet("vault");
     setAddingWallet(form);
     setWalletError("");
@@ -446,8 +471,14 @@ export function OfficeApp() {
             onSelect={openBot}
             layers={layers}
             quality={quality}
-            onOpenBoard={(next) => { setBoard(next); setNoteView(next.panel === "notes" ? "main" : noteView); setSheet("board"); }}
-            onOpenMeet={() => setSheet("meet")}
+            onOpenBoard={(next) => {
+              if (!panelsEnabled) return;
+              setBoard(next);
+              setNoteView(next.panel === "notes" ? "main" : noteView);
+              setMenuOpen(false);
+              setSheet("board");
+            }}
+            onOpenMeet={() => openSheet("meet")}
             onClear={dismiss}
             meeting={meeting}
             sim={sim}
@@ -462,53 +493,81 @@ export function OfficeApp() {
         )}
       </div>
 
-      <div className="office-hud">
-        <button type="button" className="office-panels-toggle" aria-pressed={sheet === "info"} onClick={togglePanels}>Panels</button>
-        <div className="office-search">
-          <input aria-label="Find a bot" placeholder="Find a bot" value={query} onChange={(event) => setQuery(event.target.value)} />
-          {query.trim() ? (
-            <ul className="office-search-list">
-              {botMatches.length ? botMatches.map((item) => (
-                <li key={item.id}><button type="button" onClick={() => openBot(item.id)}>{item.name}</button></li>
-              )) : <li className="office-kicker">No matching bots</li>}
-            </ul>
-          ) : null}
-        </div>
-        <div className="office-layers" role="group" aria-label="Map layers">
-          {(Object.keys(LAYER_LABEL) as (keyof OfficeLayers)[]).map((key) => (
-            <button key={key} type="button" aria-pressed={layers[key]} onClick={() => toggleLayer(key)}>{LAYER_LABEL[key]}</button>
-          ))}
-          <button type="button" aria-pressed={quality === "fine"} aria-label="Graphics quality" onClick={toggleQuality}>{quality === "fine" ? "Fine" : "Fast"}</button>
-        </div>
+      <div className="office-corner">
+        <button
+          type="button"
+          className="office-corner-button"
+          aria-label="Office tools"
+          aria-expanded={menuOpen}
+          onClick={() => {
+            setMenuOpen((open) => {
+              if (!open) {
+                setSheet(null);
+                setBoard(null);
+              }
+              return !open;
+            });
+          }}
+        >
+          Tools
+        </button>
+        {menuOpen ? (
+          <div className="office-menu" aria-label="Office tools">
+            <div className="office-search">
+              <input aria-label="Find a bot" placeholder="Find a bot" value={query} onChange={(event) => setQuery(event.target.value)} />
+              {query.trim() ? (
+                <ul className="office-search-list">
+                  {botMatches.length ? botMatches.map((item) => (
+                    <li key={item.id}><button type="button" onClick={() => openBot(item.id)}>{item.name}</button></li>
+                  )) : <li className="office-kicker">No matching bots</li>}
+                </ul>
+              ) : null}
+            </div>
+            <div className="office-layers" role="group" aria-label="Map layers">
+              {(Object.keys(LAYER_LABEL) as (keyof OfficeLayers)[]).map((key) => (
+                <button key={key} type="button" aria-pressed={layers[key]} onClick={() => toggleLayer(key)}>{LAYER_LABEL[key]}</button>
+              ))}
+              <button type="button" aria-pressed={quality === "fine"} aria-label="Graphics quality" onClick={toggleQuality}>{quality === "fine" ? "Fine" : "Fast"}</button>
+            </div>
+            <div className="office-nav">
+              <button type="button" aria-label="Zoom in" onClick={() => cameraApiRef.current?.zoomBy(0.82)}>+</button>
+              <button type="button" aria-label="Zoom out" onClick={() => cameraApiRef.current?.zoomBy(1.22)}>−</button>
+              <button type="button" onClick={() => cameraApiRef.current?.reset()}>Recenter</button>
+            </div>
+            {layout && sim && status ? (
+              <div className="office-minimap" aria-label="Office map">
+                <svg viewBox={`0 0 ${layout.width} ${layout.depth}`} aria-hidden="true">
+                  {layout.rooms.map((room) => (
+                    <rect key={room.id} x={room.x} y={room.z} width={room.w} height={room.d} />
+                  ))}
+                </svg>
+                {status.bots.map((item) => {
+                  const live = sim.state.bots[item.id];
+                  if (!live || version < 0) return null;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={selected === item.id ? "office-map-dot is-selected" : "office-map-dot"}
+                      style={{ left: `${(live.x / layout.width) * 100}%`, top: `${(live.z / layout.depth) * 100}%` }}
+                      aria-label={item.name}
+                      onClick={() => openBot(item.id)}
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
+            <div className="office-actions">
+              <button type="button" aria-pressed={panelsEnabled} onClick={() => persistPanels(!panelsEnabled)}>Panels</button>
+              <button type="button" disabled={!panelsEnabled} onClick={() => openSheet("info")}>Team</button>
+              <button type="button" disabled={!panelsEnabled} onClick={() => openSheet("achievements")}>Achievements</button>
+              <button type="button" disabled={!panelsEnabled} onClick={() => openSheet("log")}>Mission log</button>
+              <button type="button" disabled={!panelsEnabled} onClick={() => openVault(false)}>Vault {formatWalletMoney(wallets.total)}</button>
+              <button type="button" onClick={() => void toggleFullscreen()}>Fullscreen</button>
+            </div>
+          </div>
+        ) : null}
       </div>
-      <div className="office-nav">
-        <button type="button" aria-label="Zoom in" onClick={() => cameraApiRef.current?.zoomBy(0.82)}>+</button>
-        <button type="button" aria-label="Zoom out" onClick={() => cameraApiRef.current?.zoomBy(1.22)}>−</button>
-        <button type="button" onClick={() => cameraApiRef.current?.reset()}>Recenter</button>
-      </div>
-      {layout && sim && status ? (
-        <div className="office-minimap" aria-label="Office map">
-          <svg viewBox={`0 0 ${layout.width} ${layout.depth}`} aria-hidden="true">
-            {layout.rooms.map((room) => (
-              <rect key={room.id} x={room.x} y={room.z} width={room.w} height={room.d} />
-            ))}
-          </svg>
-          {status.bots.map((item) => {
-            const live = sim.state.bots[item.id];
-            if (!live || version < 0) return null;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={selected === item.id ? "office-map-dot is-selected" : "office-map-dot"}
-                style={{ left: `${(live.x / layout.width) * 100}%`, top: `${(live.z / layout.depth) * 100}%` }}
-                aria-label={item.name}
-                onClick={() => openBot(item.id)}
-              />
-            );
-          })}
-        </div>
-      ) : null}
 
       {sheet === "info" ? (
       <section className="office-panel office-sheet office-tools" aria-label="Office controls">

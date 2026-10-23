@@ -34,8 +34,20 @@ const DESKTOP_LOCK: &str = r#"
       || value === "/api/auth"
       || value.startsWith("/api/auth/");
   };
-  const named = (host, root) => host === root || host.endsWith("." + root);
-  const googleHost = (host) => named(host, "google.com") || named(host, "googleapis.com") || named(host, "gstatic.com") || named(host, "googleusercontent.com");
+  const googleAuthHosts = {
+    "accounts.google.com": 1,
+    "accounts.youtube.com": 1,
+    "myaccount.google.com": 1,
+    "www.google.com": 1,
+    "oauth2.googleapis.com": 1,
+    "www.googleapis.com": 1,
+    "apis.google.com": 1,
+    "ssl.gstatic.com": 1,
+    "www.gstatic.com": 1,
+    "fonts.gstatic.com": 1,
+    "lh3.googleusercontent.com": 1
+  };
+  const googleHost = (host) => Object.prototype.hasOwnProperty.call(googleAuthHosts, host);
   const mommaHost = (host) => host === "mommamari.com" || host === "www.mommamari.com";
   const allowed = (url) => {
     if (url.protocol === "grokbot:") return true;
@@ -109,15 +121,22 @@ fn host_name(url: &url::Url) -> String {
     url.host_str().unwrap_or("").trim_end_matches('.').to_ascii_lowercase()
 }
 
-fn host_is(host: &str, root: &str) -> bool {
-    host == root || host.ends_with(&format!(".{root}"))
-}
-
-fn host_is_google(host: &str) -> bool {
-    host_is(host, "google.com")
-        || host_is(host, "googleapis.com")
-        || host_is(host, "gstatic.com")
-        || host_is(host, "googleusercontent.com")
+/// Sign-in hosts only. Gmail, Drive, Docs, and Calendar are not in this list.
+fn host_is_google_auth(host: &str) -> bool {
+    matches!(
+        host,
+        "accounts.google.com"
+            | "accounts.youtube.com"
+            | "myaccount.google.com"
+            | "www.google.com"
+            | "oauth2.googleapis.com"
+            | "www.googleapis.com"
+            | "apis.google.com"
+            | "ssl.gstatic.com"
+            | "www.gstatic.com"
+            | "fonts.gstatic.com"
+            | "lh3.googleusercontent.com"
+    )
 }
 
 fn host_is_momma(host: &str) -> bool {
@@ -144,7 +163,7 @@ fn navigation_allowed(url: &url::Url) -> bool {
         return url.path() == "blank" || url.path() == "srcdoc";
     }
     let host = host_name(url);
-    if host_is_google(&host) {
+    if host_is_google_auth(&host) {
         return url.scheme() == "https";
     }
     if host_is_momma(&host) {

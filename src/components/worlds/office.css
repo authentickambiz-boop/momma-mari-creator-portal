@@ -58,6 +58,47 @@
   max-height: calc(100vh - 24px);
   transform: none;
 }
+.office-corner {
+  position: absolute;
+  z-index: 6;
+  top: 12px;
+  left: 12px;
+}
+.office-corner-button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #d6cec1;
+  border-radius: 999px;
+  background: rgba(251, 248, 243, 0.94);
+  color: #1c211e;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.office-menu {
+  width: min(320px, calc(100vw - 24px));
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+  max-height: min(70vh, 640px);
+  overflow: auto;
+  padding: 10px;
+  background: rgba(251, 248, 243, 0.96);
+  border: 1px solid #d6cec1;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(22, 41, 31, 0.18);
+}
+.office-menu .office-search { flex: none; min-width: 0; }
+.office-menu .office-nav,
+.office-menu .office-minimap {
+  position: relative;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+}
+.office-menu .office-minimap { width: 100%; height: 112px; }
 .office-hud {
   position: absolute;
   z-index: 6;

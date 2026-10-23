@@ -1,7 +1,7 @@
 {
   "name": "momma-mari-worlds",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Desktop window for Momma Mari Worlds",
   "scripts": {
     "tauri": "tauri",
