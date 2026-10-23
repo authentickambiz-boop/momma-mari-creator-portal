@@ -122,7 +122,7 @@ describe("site gap fixes", { concurrency: 1 }, () => {
     const page = source("src/app/inquire/page.tsx");
     const form = source("src/components/brand-brief-form.tsx");
     assert.match(page, /We have your brief/);
-    assert.match(page, /3 business days/);
+    assert.match(page, /REPLY_PROMISE/);
     assert.match(form, /Budget/);
     assert.match(form, /Deliverables/);
     assert.match(form, /Usage rights/);

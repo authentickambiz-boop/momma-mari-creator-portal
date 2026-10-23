@@ -42,6 +42,9 @@ export const BRAND_INQUIRY_HREF = "/inquire";
 export const BRAND_INQUIRY_LABEL = "Tell us about a brand";
 export const INQUIRY_SUBMIT_LABEL = "Send the brief";
 
+/** The only copy of the public reply promise. Pages interpolate this constant. */
+export const REPLY_PROMISE = "We reply within 3 business days.";
+
 /** A public count. It does not include pay, email, or ages. */
 export function rosterCountLabel(count: number) {
   if (count === 1) return "1 creator on the roster.";

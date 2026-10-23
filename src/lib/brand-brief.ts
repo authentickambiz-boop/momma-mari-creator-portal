@@ -3,6 +3,7 @@ import type { PortalDb } from "@/db";
 import { creators, gmailBridgeMessages, gmailBridgeThreads } from "@/db/schema";
 import { recordBriefNotice } from "./brief-notify";
 import { recordBrandInquiry } from "./brand-crm";
+import { inquiryBillingTerms, storeInquiryBillingTerms, type BillingTerms } from "./brand-deposits";
 import { nowIso } from "./format";
 
 type Result<T> = { ok: true } & T | { ok: false; status: number; error: string };
@@ -20,8 +21,6 @@ export const BUDGET_KINDS = ["Paid", "Gifted", "Affiliate"] as const;
 export const USAGE_CHOICES = ["Organic only", "Paid ads (Spark / whitelisting)"] as const;
 
 export const USAGE_DURATIONS = ["30 days", "90 days", "180 days", "360 days"] as const;
-
-export const PAYMENT_TERMS = ["Net 15", "Net 30", "Net 45"] as const;
 
 export const PAYMENT_METHODS = ["ACH", "Wire", "PayPal"] as const;
 
@@ -59,8 +58,10 @@ export type BrandBriefInput = {
   billingEmail?: string | null;
   legalEntity?: string | null;
   poNeeded?: string | null;
+  /** Ignored. Billing terms are set on the server. */
   paymentTerms?: string | null;
   paymentMethod?: string | null;
+  /** Ignored. The deposit rule is set on the server. */
   deposit?: string | null;
   productSample?: string | null;
   heardAbout?: string | null;
@@ -75,11 +76,12 @@ function line(label: string, value: string) {
   return value ? `${label}: ${value}` : null;
 }
 
-export function formatBrandBrief(input: BrandBriefInput) {
+export function formatBrandBrief(input: BrandBriefInput, billingTerms: BillingTerms) {
   const chosen = (input.creators ?? []).filter((id) => CREATOR_IDS.has(id));
   const creatorLabels = chosen.map((id) => BRIEF_CREATORS.find((creator) => creator.id === id)?.label ?? id);
   const usage = [clip(input.usage, 80), clip(input.usageDuration, 40), clip(input.exclusivity, 200)].filter(Boolean).join(". ");
-  const payment = [clip(input.paymentTerms, 40), clip(input.paymentMethod, 40), input.deposit?.trim() ? `Deposit: ${clip(input.deposit, 20)}` : ""].filter(Boolean).join(". ");
+  const termsLabel = billingTerms === "net_30" ? "Net 30" : "50% before filming and 50% when the content posts";
+  const payment = [termsLabel, clip(input.paymentMethod, 40)].filter(Boolean).join(". ");
   const billing = [clip(input.billingContact, 120), clip(input.billingEmail, 120), clip(input.legalEntity, 160), input.poNeeded?.trim() ? `PO: ${clip(input.poNeeded, 20)}` : ""].filter(Boolean).join(". ");
   const agency = input.agency?.trim().toLowerCase() === "yes"
     ? `Yes. Client: ${clip(input.clientBrand, 160) || "not named"}`
@@ -154,7 +156,9 @@ export async function saveBrandBrief(db: PortalDb, input: BrandBriefInput): Prom
     return { ok: false, status: 400, error: "Choose a creator, or ask us to recommend." };
   }
   if (!input.budget?.trim()) return { ok: false, status: 400, error: "Choose a budget range." };
-  const note = formatBrandBrief({ ...input, creators: creatorsChosen });
+  // Client paymentTerms and deposit are not copied into the brief. Terms come from brand billing.
+  const terms = await inquiryBillingTerms(db, input.brand);
+  const note = formatBrandBrief({ ...input, creators: creatorsChosen, paymentTerms: null, deposit: null }, terms);
   const saved = await recordBrandInquiry(db, {
     brand: input.brand,
     contactName: input.name,
@@ -162,6 +166,7 @@ export async function saveBrandBrief(db: PortalDb, input: BrandBriefInput): Prom
     note,
   });
   if (!saved.ok) return saved;
+  await storeInquiryBillingTerms(db, input.brand);
   await fileBriefInDealInbox(db, {
     id: saved.id,
     brand: input.brand,
