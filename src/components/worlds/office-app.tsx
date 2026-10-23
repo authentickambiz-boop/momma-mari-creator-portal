@@ -6,7 +6,10 @@ import { withBasePath } from "@/lib/format";
 import { buildOfficeLayout } from "@/lib/worlds/office-layout";
 import {
   APPROVAL_PHRASE,
+  CHAT_POLL_MS,
   COMMANDS_PATH,
+  chatForBot,
+  openCommands,
   speechForBots,
   type CommandStatus,
   type OfficeCommand,
@@ -17,6 +20,7 @@ import {
   OFFICE_POLL_MS,
   OFFICE_STATUS_PATH,
   notesForView,
+  upcomingEvents,
   type OfficeStatusResponse,
 } from "@/lib/worlds/office-state";
 import {
@@ -130,15 +134,13 @@ export function OfficeApp() {
   const [picked, setPicked] = useState<string[]>([]);
   const [sheet, setSheet] = useState<OfficeSheet | null>(null);
   const [board, setBoard] = useState<BoardOpen | null>(null);
-  const [noteView, setNoteView] = useState<"main" | "review">("main");
   const [checkedAt, setCheckedAt] = useState("");
   const [commands, setCommands] = useState<OfficeCommand[]>([]);
   const [commandError, setCommandError] = useState("");
   const [saving, setSaving] = useState(false);
   const [assignText, setAssignText] = useState("");
   const [assignDue, setAssignDue] = useState("2026-10-24");
-  const [askText, setAskText] = useState("");
-  const [requestText, setRequestText] = useState("");
+  const [chatText, setChatText] = useState("");
   const [eventTitle, setEventTitle] = useState("");
   const [eventStart, setEventStart] = useState("2026-10-24T09:00:00-04:00");
   const [eventEnd, setEventEnd] = useState("2026-10-24T09:30:00-04:00");
@@ -232,12 +234,13 @@ export function OfficeApp() {
       }
     }
     void loadCommands();
-    const timer = window.setInterval(() => void loadCommands(), OFFICE_POLL_MS);
+    const pace = sheet === "bot" || sheet === "board" || sheet === "meet" ? CHAT_POLL_MS : OFFICE_POLL_MS;
+    const timer = window.setInterval(() => void loadCommands(), pace);
     return () => {
       stop = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [sheet]);
 
   useEffect(() => {
     let stop = false;
@@ -316,6 +319,7 @@ export function OfficeApp() {
   const activity = liveBot && layout && version >= 0 ? simActivity(liveBot, layout) : null;
 
   const speech = useMemo(() => speechForBots(commands), [commands]);
+  const chatTurns = bot ? chatForBot(commands, bot.id) : [];
   const botMatches = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle || !status) return [];
@@ -346,6 +350,7 @@ export function OfficeApp() {
   function openSheet(next: OfficeSheet) {
     if (!panelsEnabled) return;
     setMenuOpen(false);
+    setBoard(null);
     setSheet(next);
   }
 
@@ -378,6 +383,7 @@ export function OfficeApp() {
     setSelected(id);
     setQuery("");
     setMenuOpen(false);
+    setBoard(null);
     setSheet("bot");
   }
 
@@ -460,7 +466,6 @@ export function OfficeApp() {
 
   const reviewCount = status ? notesForView(status.notes, "review").length : 0;
   const boardNotes = status && board ? status.notes.filter((note) => note.office === board.office) : [];
-  const shownNotes = notesForView(boardNotes, noteView);
 
   return (
     <div className="bot-office" ref={root} onContextMenu={(event) => event.preventDefault()}>
@@ -477,7 +482,7 @@ export function OfficeApp() {
             onOpenBoard={(next) => {
               if (!panelsEnabled) return;
               setBoard(next);
-              setNoteView(next.panel === "notes" ? "main" : noteView);
+              setSelected("");
               setMenuOpen(false);
               setSheet("board");
             }}
@@ -606,26 +611,38 @@ export function OfficeApp() {
             {status.sections.map((section) => (
               <p key={section.name}><b>{section.name}:</b> {section.members.map((id) => status.bots.find((item) => item.id === id)?.name ?? id).join(", ")}</p>
             ))}
-            <p><b>Managers HQ:</b> {status.bots.find((item) => item.id === status.hqBotId)?.name}. Click a wall calendar, whiteboard, or inbox tray.</p>
+            <p><b>Managers HQ:</b> {status.bots.find((item) => item.id === status.hqBotId)?.name}. Tap a bot, calendar, to-do board, box, or the conference table.</p>
           </div>
         ) : null}
       </section>
       ) : null}
 
       {sheet === "bot" && bot ? (
-        <section className="office-panel office-sheet office-detail" aria-label={`${bot.name} status`}>
+        <section className="office-panel office-sheet office-chat" aria-label={`${bot.name} chat`}>
           <CloseRow title={bot.name} onClose={dismiss} />
           {commandError ? <p className="office-error">{commandError}</p> : null}
-          <p>{bot.statusLabel}</p>
-          <p><b>Role:</b> {bot.role}</p>
-          <p><b>Current task:</b> {bot.task}</p>
-          <p><b>Latest update:</b> {bot.update}</p>
-          <p><b>Room from the last sync:</b> {bot.room}</p>
-          <p><b>XP:</b> {bot.xp} · Level {bot.level}</p>
-          <div className="office-bar" aria-hidden="true"><span style={{ width: `${(bot.intoLevel / (status?.botLevelSize || 1)) * 100}%` }} /></div>
-          <p><b>Badges:</b> {bot.badges.map((badge) => `${badge.icon} ${badge.title}`).join(", ") || "None yet"}</p>
-          <p><i>Now: {activity?.act || "At desk"} · {activity?.room || bot.room}</i></p>
-          {bot.chatHref ? <a className="office-link" href={bot.chatHref}>Open chat</a> : <p className="office-kicker">No chat link is on file for this bot.</p>}
+          <p className="office-kicker">{bot.role} · {activity?.act || "At desk"}</p>
+          <ul className="office-chat-log" aria-label="Messages">
+            {chatTurns.length === 0 ? <li>No messages yet.</li> : null}
+            {chatTurns.map((turn) => (
+              <li key={turn.id} data-from={turn.from}>
+                <b>{turn.from === "owner" ? "You" : bot.name}</b>
+                <div>{turn.text}</div>
+                {turn.from === "owner" ? (
+                  <div className="office-kicker">{turn.state === "needs_approval" ? APPROVAL_PHRASE : turn.state}</div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          <form className="office-form office-chat-form" onSubmit={(event) => {
+            event.preventDefault();
+            void postCommand({ kind: "message", botId: bot.id, text: chatText }).then((ok) => { if (ok) setChatText(""); });
+          }}>
+            <label className="office-field"><span className="office-kicker">Message</span>
+              <input aria-label={`Message ${bot.name}`} value={chatText} onChange={(event) => setChatText(event.target.value)} placeholder="Message this bot" />
+            </label>
+            <button type="submit" disabled={saving}>Send</button>
+          </form>
           <form className="office-form" onSubmit={(event) => {
             event.preventDefault();
             void postCommand({ kind: "assign_task", botId: bot.id, text: assignText, due: assignDue }).then((ok) => { if (ok) setAssignText(""); });
@@ -638,37 +655,21 @@ export function OfficeApp() {
             </label>
             <button type="submit" disabled={saving}>Assign task</button>
           </form>
-          <form className="office-form" onSubmit={(event) => {
-            event.preventDefault();
-            void postCommand({ kind: "ask", botId: bot.id, text: askText }).then((ok) => { if (ok) setAskText(""); });
-          }}>
-            <label className="office-field"><span className="office-kicker">Ask a question</span>
-              <input aria-label="Question" value={askText} onChange={(event) => setAskText(event.target.value)} placeholder="Ask this bot" />
-            </label>
-            <button type="submit" disabled={saving}>Ask</button>
-          </form>
-          <form className="office-form" onSubmit={(event) => {
-            event.preventDefault();
-            void postCommand({ kind: "request", botId: bot.id, text: requestText }).then((ok) => { if (ok) setRequestText(""); });
-          }}>
-            <label className="office-field"><span className="office-kicker">Request</span>
-              <input aria-label="Request" value={requestText} onChange={(event) => setRequestText(event.target.value)} placeholder="Anything else" />
-            </label>
-            <button type="submit" disabled={saving}>Send request</button>
-          </form>
           <p className="office-kicker">Commands that send, pay, or delete show needs your OK in Grok Bot.</p>
-          <div className="office-chips" aria-label="Bots">
-            {status?.bots.map((item) => (
-              <button key={item.id} type="button" aria-pressed={item.id === bot.id} onClick={() => setSelected(item.id)}>{item.short}</button>
-            ))}
-          </div>
+          {bot.chatHref ? <a className="office-link" href={bot.chatHref}>Open chat</a> : null}
         </section>
       ) : null}
 
       {sheet === "meet" ? (
-      <section className="office-panel office-sheet office-meet" aria-label="Conference room">
-        <CloseRow title={`Conference room${meeting.length ? ` (${meeting.length} called)` : ""}`} onClose={dismiss} />
+      <section className="office-panel office-sheet office-meet" aria-label="Meeting">
+        <CloseRow title="Start a meeting" onClose={dismiss} />
         {commandError ? <p className="office-error">{commandError}</p> : null}
+        <ul className="office-list">
+          {openCommands(commands, "call_meeting").length === 0 ? <li className="office-kicker">No meeting is queued.</li> : null}
+          {openCommands(commands, "call_meeting").map((command) => (
+            <li key={command.id}><b>Queued:</b> {command.topic || command.body}</li>
+          ))}
+        </ul>
         <div className="office-actions">
           <button type="button" onClick={() => call(status?.bots.map((item) => item.id) ?? [], "Everyone")}>Call everyone</button>
           {status ? Object.entries(status.topics).map(([topic, ids]) => (
@@ -689,26 +690,32 @@ export function OfficeApp() {
           ))}
           <button type="button" onClick={() => call(picked, "Selected bots")}>Call selected ({picked.length})</button>
         </div>
+        <p className="office-kicker">{meeting.length ? `${meeting.length} bots on the last call.` : "Pick bots, then call them. The call waits in Grok Bot."}</p>
       </section>
       ) : null}
 
       {sheet === "board" && board && status ? (
-        <section className="office-panel office-sheet office-board" aria-label={`${OFFICE_LABEL[board.office]} board`}>
-          <CloseRow title={OFFICE_LABEL[board.office]} onClose={dismiss} />
+        <section
+          className="office-panel office-sheet office-board"
+          aria-label={board.panel === "calendar" ? "Calendar" : board.panel === "todos" ? "To-dos" : "Box"}
+        >
+          <CloseRow
+            title={board.panel === "calendar" ? "Calendar" : board.panel === "todos" ? "To-dos" : "Box"}
+            onClose={dismiss}
+          />
           {commandError ? <p className="office-error">{commandError}</p> : null}
-          <div className="office-actions">
-            {(["calendar", "todos", "notes"] as const).map((panel) => (
-              <button key={panel} type="button" aria-pressed={board.panel === panel} onClick={() => setBoard({ office: board.office, panel })}>
-                {panel === "calendar" ? "Calendar" : panel === "todos" ? "To-dos" : "Notes"}
-              </button>
-            ))}
-          </div>
+          <p className="office-kicker">{OFFICE_LABEL[board.office]}</p>
           {board.panel === "calendar" ? (
             <>
               <ul className="office-list">
-                {status.calendar.filter((event) => event.office === board.office).map((event) => (
+                {upcomingEvents(status.calendar.filter((event) => event.office === board.office)).map((event) => (
                   <li key={event.id}><b>{event.title}</b><div className="office-kicker">{event.start} – {event.end}</div></li>
                 ))}
+                {openCommands(commands, "add_event", board.office).map((command) => (
+                  <li key={command.id}><b>Queued:</b> {command.body}<div className="office-kicker">{command.due} – {command.topic}</div></li>
+                ))}
+                {upcomingEvents(status.calendar.filter((event) => event.office === board.office)).length === 0
+                  && openCommands(commands, "add_event", board.office).length === 0 ? <li>No upcoming events.</li> : null}
               </ul>
               <form className="office-form" onSubmit={(event) => {
                 event.preventDefault();
@@ -734,9 +741,16 @@ export function OfficeApp() {
                   <li key={todo.id}>
                     <b>{todo.done ? "Done" : "Open"}:</b> {todo.task}
                     <div className="office-kicker">{status.bots.find((item) => item.id === todo.ownerBot)?.name ?? todo.ownerBot} · due {todo.due} · $ impact {dollars(todo.impactDollars)}</div>
-                    <button type="button" disabled={saving} onClick={() => void postCommand({ kind: "check_todo", todoId: todo.id })}>Check</button>
+                    <button type="button" disabled={saving || todo.done} onClick={() => void postCommand({ kind: "check_todo", todoId: todo.id })}>Check</button>
                   </li>
                 ))}
+                {openCommands(commands, "add_todo", board.office).map((command) => (
+                  <li key={command.id}><b>Queued:</b> {command.body}</li>
+                ))}
+                {openCommands(commands, "check_todo", board.office).map((command) => (
+                  <li key={command.id}><b>Queued:</b> {command.body}</li>
+                ))}
+                {status.todos.filter((todo) => todo.office === board.office).length === 0 ? <li>No to-dos yet.</li> : null}
               </ul>
               <form className="office-form" onSubmit={(event) => {
                 event.preventDefault();
@@ -770,26 +784,24 @@ export function OfficeApp() {
           ) : null}
           {board.panel === "notes" ? (
             <>
-              <div className="office-actions">
-                <button type="button" aria-pressed={noteView === "main"} onClick={() => setNoteView("main")}>For Kamron</button>
-                <button type="button" aria-pressed={noteView === "review"} onClick={() => setNoteView("review")}>Review ({notesForView(boardNotes, "review").length})</button>
-              </div>
-              <p className="office-kicker">{noteView === "main" ? "Only notes Kash marked approved to show." : "New, with Kash, and held notes, including ones that were turned down."}</p>
+              <p className="office-kicker">Notes waiting for a yes. Approve and hold queue a command for Grok Bot.</p>
               <ul className="office-list">
-                {shownNotes.map((note) => (
+                {notesForView(boardNotes, "review").length === 0 ? <li>Nothing in the box to approve.</li> : null}
+                {notesForView(boardNotes, "review").map((note) => (
                   <li key={note.id}>
                     <b>{NOTE_LABEL[note.status]}</b> · {note.date} · {status.bots.find((item) => item.id === note.bot)?.name ?? note.bot}
                     <div>{note.idea}</div>
                     <div className="office-kicker">Why now: {note.whyNow}</div>
                     <div className="office-actions">
-                      {note.status !== "approved_to_show" ? (
-                        <button type="button" disabled={saving} onClick={() => void postCommand({ kind: "note_decision", noteId: note.id, decision: "approve" })}>Approve</button>
-                      ) : null}
+                      <button type="button" disabled={saving} onClick={() => void postCommand({ kind: "note_decision", noteId: note.id, decision: "approve" })}>Approve</button>
                       {note.status !== "held" ? (
                         <button type="button" disabled={saving} onClick={() => void postCommand({ kind: "note_decision", noteId: note.id, decision: "hold" })}>Hold</button>
                       ) : null}
                     </div>
                   </li>
+                ))}
+                {openCommands(commands, "note_decision", board.office).map((command) => (
+                  <li key={command.id}><b>Queued:</b> {command.body}</li>
                 ))}
               </ul>
             </>

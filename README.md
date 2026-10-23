@@ -607,7 +607,7 @@ curl -sS -X PATCH \
 
 On the live site the host is `https://mommamari.com/portal` and the path is still `/api/worlds/status`.
 
-The office is also a control surface. Actions in the room queue a real command: assign a task, call a meeting, approve or hold a note, add a calendar event, add or check a to-do, ask a question, or send a generic request. `POST /api/worlds/commands` accepts the owner session only. `GET /api/worlds/commands` with the owner cookie returns the recent mission log. The same GET with `Authorization: Bearer $BOT_API_TOKEN` returns pending commands (`queued`, `picked_up`, `in_progress`). `PATCH /api/worlds/commands` accepts only the bot token.
+The office is also a control surface. Tapping a bot, a wall calendar, a to-do board, the inbox box, or the conference table opens one small panel. Actions in those panels queue a real command: message a bot, assign a task, call a meeting, approve or hold a note, add a calendar event, add or check a to-do, ask a question, or send a generic request. `POST /api/worlds/commands` accepts the owner session only. `GET /api/worlds/commands` with the owner cookie returns the recent mission log. The same GET with `Authorization: Bearer $BOT_API_TOKEN` returns pending commands (`queued`, `picked_up`, `in_progress`). `PATCH /api/worlds/commands` accepts only the bot token.
 
 Each command moves `queued` → `picked_up` → `in_progress` → `done`, `needs_approval`, or `declined`, and can carry a `result` string. The mission log lists them. The same line sits in a speech bubble over the bot. A command whose text touches sending, paying, or deleting is stored immediately as `needs_approval` with the result `needs your OK in Grok Bot`. Those rows stay out of the pending list, so a bot does not run them.
 
@@ -633,7 +633,31 @@ curl -sS -X PATCH \
   http://localhost:43123/api/worlds/commands
 ```
 
-`kind` is one of `assign_task`, `call_meeting`, `note_decision`, `add_event`, `add_todo`, `check_todo`, `ask`, or `request`.
+`kind` is one of `assign_task`, `call_meeting`, `note_decision`, `add_event`, `add_todo`, `check_todo`, `ask`, `request`, or `message`.
+
+A bot chat posts `{ "kind": "message", "botId": "<roster id>", "text": "<text>" }`. The webhook body is the stored command, not that raw post:
+
+```json
+{
+  "id": "<command id>",
+  "kind": "message",
+  "status": "queued",
+  "botIds": ["<roster id>"],
+  "office": null,
+  "noteId": null,
+  "todoId": null,
+  "decision": null,
+  "topic": null,
+  "body": "<text>",
+  "due": null,
+  "impactDollars": null,
+  "result": null,
+  "createdAt": "<iso>",
+  "updatedAt": "<iso>"
+}
+```
+
+A reply walks `queued` → `picked_up` → `in_progress` → `done`. The last PATCH is `{ "id": "<command id>", "status": "done", "result": "<reply>" }` with the bot token. The open chat reads `result` from the owner GET. Text that sends, pays, or deletes is stored as `needs_approval` and the webhook is skipped while payments are off. The panel does not send, pay, book, or delete anywhere else.
 
 | Kind | Body | Who it is for |
 | --- | --- | --- |
@@ -645,6 +669,7 @@ curl -sS -X PATCH \
 | `check_todo` | `todoId` | The to-do's owner |
 | `ask` | `botId`, `text` | That bot |
 | `request` | `text`, optional `botId` | That bot, or Kash Bot when `botId` is omitted |
+| `message` | `botId`, `text` | That bot. The chat panel shows `result` as the reply. |
 
 The grounds use Open-Meteo for Mooresville, NC (`latitude=35.58`, `longitude=-80.81`, no key). Rain, clouds, sun, wind, fog, and snow follow that feed. Day and night lighting follows `America/New_York`. Tree and shrub colors follow the season. The roof fades when the camera zooms inside the building.
 

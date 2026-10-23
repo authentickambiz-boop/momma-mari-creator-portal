@@ -1,6 +1,18 @@
 /**
  * Owner commands from the bot office. The queue lives in office_world_commands.
  * Sending, paying, and deleting stop at needs_approval until Kamron says OK in Grok Bot.
+ * Nothing in this queue sends mail, pays, books, or deletes outside the portal.
+ *
+ * Chat posts `{ "kind": "message", "botId": "<roster id>", "text": "<text>" }`
+ * to POST /api/worlds/commands (owner session). The game routine receives the
+ * stored command as JSON on WORLDS_COMMAND_WEBHOOK_URL:
+ * `{ "id", "kind": "message", "status": "queued", "botIds": ["<roster id>"],
+ *    "office": null, "noteId": null, "todoId": null, "decision": null,
+ *    "topic": null, "body": "<text>", "due": null, "impactDollars": null,
+ *    "result": null, "createdAt", "updatedAt" }`.
+ * A reply walks queued → picked_up → in_progress → done with the bot token:
+ * PATCH /api/worlds/commands `{ "id": "<command id>", "status": "done", "result": "<reply>" }`.
+ * The owner chat reads that result from GET /api/worlds/commands.
  */
 
 import { containsPrivateOfficeDetail } from "./office-catalog";
@@ -22,6 +34,7 @@ export const COMMAND_KINDS = [
   "check_todo",
   "ask",
   "request",
+  "message",
 ] as const;
 export type CommandKind = (typeof COMMAND_KINDS)[number];
 
@@ -39,6 +52,8 @@ export const PENDING_COMMAND_STATUSES: CommandStatus[] = ["queued", "picked_up",
 
 export const APPROVAL_PHRASE = "needs your OK in Grok Bot";
 export const COMMANDS_PATH = "/api/worlds/commands";
+/** How often an open chat, board, or meeting panel reloads the command queue. */
+export const CHAT_POLL_MS = 4000;
 
 const SENSITIVE = /\b(send|sending|pay|paying|payment|delete|deleting)\b/i;
 
@@ -124,7 +139,7 @@ export function parseOfficeCommand(body: unknown, record: OfficeRecord): OfficeR
   if (!isRecord(body)) return fail(400, "Expected a JSON object.");
   const kind = body.kind;
   if (typeof kind !== "string" || !COMMAND_KINDS.includes(kind as CommandKind)) {
-    return fail(400, "kind must be assign_task, call_meeting, note_decision, add_event, add_todo, check_todo, ask, or request.");
+    return fail(400, "kind must be assign_task, call_meeting, note_decision, add_event, add_todo, check_todo, ask, request, or message.");
   }
 
   if (kind === "assign_task") {
@@ -255,7 +270,7 @@ export function parseOfficeCommand(body: unknown, record: OfficeRecord): OfficeR
     };
   }
 
-  if (kind === "ask") {
+  if (kind === "ask" || kind === "message") {
     const botId = oneBot(record, body.botId, "botId");
     if (!botId.ok) return botId;
     const question = text(body.text, "text");
@@ -295,6 +310,45 @@ export function speechForBots(commands: OfficeCommand[]) {
     if (line) lines[id] = line;
   }
   return lines;
+}
+
+export type ChatTurn = {
+  id: string;
+  from: "owner" | "bot";
+  text: string;
+  state: "queued" | "sent" | "needs_approval" | "declined";
+};
+
+/** Owner lines and bot replies for one bot. Only kind "message" is chat. */
+export function chatForBot(commands: OfficeCommand[], botId: string, limit = 12): ChatTurn[] {
+  const mine = commands
+    .filter((command) => command.kind === "message" && command.botIds.includes(botId))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  const turns: ChatTurn[] = [];
+  for (const command of mine) {
+    const state = command.status === "queued"
+      ? "queued"
+      : command.status === "needs_approval"
+        ? "needs_approval"
+        : command.status === "declined"
+          ? "declined"
+          : "sent";
+    turns.push({ id: command.id, from: "owner", text: command.body, state });
+    const reply = command.result?.trim() ?? "";
+    if (reply && reply !== APPROVAL_PHRASE && command.status !== "needs_approval") {
+      turns.push({ id: `${command.id}:reply`, from: "bot", text: reply, state: "sent" });
+    }
+  }
+  return turns.slice(-limit);
+}
+
+/** Commands still waiting on a bot. Pass an office to keep one wing's board. */
+export function openCommands(commands: OfficeCommand[], kind: CommandKind, office?: OfficeKey) {
+  return commands.filter((command) => {
+    if (command.kind !== kind) return false;
+    if (office !== undefined && command.office !== office) return false;
+    return PENDING_COMMAND_STATUSES.includes(command.status);
+  });
 }
 
 export function isWebhookUrl(value: string) {
