@@ -211,6 +211,9 @@ export function buildCharacter(rng: () => number): CharacterConfig {
   };
 }
 
+/** Saved looks for the signed-in owner use subject id "owner", not the office actor id. */
+export const OWNER_LOOK_SEED = "owner";
+
 export function defaultCharacter(seed = "bot"): CharacterConfig {
   return buildCharacter(mix(seed));
 }

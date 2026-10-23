@@ -6,13 +6,13 @@ import { MapControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import type { BotStatus } from "@/lib/worlds/office-catalog";
-import type { OfficeLayout, OfficeRoom, OfficeSection } from "@/lib/worlds/office-layout";
-import { isSeated, type OfficeSimStore } from "@/lib/worlds/office-sim";
+import { OWNER_ACTOR_ID, type OfficeLayout, type OfficeRoom, type OfficeSection } from "@/lib/worlds/office-layout";
+import { deskFacing, isSeated, type OfficeSimStore } from "@/lib/worlds/office-sim";
 import { boardStations, type OfficeKey } from "@/lib/worlds/office-state";
 import { vaultPilePlan } from "@/lib/worlds/office-wallets";
 import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/worlds/office-weather";
 import { BOT_CAPSULE_CENTER, BOT_CAPSULE_LENGTH, BOT_CAPSULE_RADIUS, pickBotCapsule, rayFromClient, type BotHitPose } from "@/lib/worlds/bot-hit";
-import { defaultCharacter, nameTagFrame, type CharacterConfig, type CharacterPose } from "@/lib/worlds/character";
+import { OWNER_LOOK_SEED, defaultCharacter, nameTagFrame, type CharacterConfig, type CharacterPose } from "@/lib/worlds/character";
 import { CharacterFigure } from "./character-figure";
 import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, type Stick } from "@/lib/worlds/office-move";
 import { OfficeSite } from "./office-grounds";
@@ -485,7 +485,7 @@ function Shell({ layout }: { layout: OfficeLayout }) {
 
 function Desk({ x, z, accent }: { x: number; z: number; accent: string }) {
   const mats = useMats();
-  const deskZ = z - 0.82;
+  const facing = deskFacing(x, z);
   const screen = useMemo(() => new THREE.MeshStandardMaterial({
     color: accent,
     emissive: accent,
@@ -494,30 +494,30 @@ function Desk({ x, z, accent }: { x: number; z: number; accent: string }) {
   }), [accent]);
   return (
     <group>
-      <mesh position={[x, 0.74, deskZ]} castShadow receiveShadow material={mats.deskWhite}>
+      <mesh position={[facing.desk.x, 0.74, facing.desk.z]} castShadow receiveShadow material={mats.deskWhite}>
         <boxGeometry args={[1.28, 0.06, 0.66]} />
       </mesh>
       {[[-0.54, -0.24], [0.54, -0.24], [-0.54, 0.24], [0.54, 0.24]].map(([lx, lz]) => (
-        <mesh key={`${lx}-${lz}`} position={[x + lx, 0.36, deskZ + lz]} castShadow material={mats.metal}>
+        <mesh key={`${lx}-${lz}`} position={[facing.desk.x + lx, 0.36, facing.desk.z + lz]} castShadow material={mats.metal}>
           <boxGeometry args={[0.05, 0.7, 0.05]} />
         </mesh>
       ))}
-      <mesh position={[x, 0.46, z]} castShadow receiveShadow material={mats.chairGrey}>
+      <mesh position={[facing.seat.x, 0.46, facing.seat.z]} castShadow receiveShadow material={mats.chairGrey}>
         <boxGeometry args={[0.48, 0.07, 0.46]} />
       </mesh>
-      <mesh position={[x, 0.78, z + 0.2]} castShadow material={mats.chairGrey}>
+      <mesh position={[facing.chairBack.x, 0.78, facing.chairBack.z]} castShadow material={mats.chairGrey}>
         <boxGeometry args={[0.48, 0.5, 0.07]} />
       </mesh>
-      <mesh position={[x, 1.02, deskZ - 0.22]} castShadow material={mats.deskWhite}>
+      <mesh position={[facing.monitor.x, 1.02, facing.monitor.z]} castShadow material={mats.deskWhite}>
         <boxGeometry args={[0.62, 0.38, 0.045]} />
       </mesh>
-      <mesh position={[x, 1.02, deskZ - 0.195]} material={screen}>
+      <mesh position={[facing.screen.x, 1.02, facing.screen.z]} rotation={[0, facing.screenYaw, 0]} material={screen}>
         <planeGeometry args={[0.52, 0.28]} />
       </mesh>
-      <mesh position={[x - 0.05, 0.79, deskZ + 0.12]} material={mats.joint}>
+      <mesh position={[facing.keyboard.x, 0.79, facing.keyboard.z]} material={mats.joint}>
         <boxGeometry args={[0.32, 0.02, 0.12]} />
       </mesh>
-      <mesh position={[x + 0.42, 0.8, deskZ + 0.08]} material={mats.fabricAlt}>
+      <mesh position={[facing.mug.x, 0.8, facing.mug.z]} material={mats.fabricAlt}>
         <cylinderGeometry args={[0.05, 0.045, 0.08, 10]} />
       </mesh>
     </group>
@@ -1587,7 +1587,7 @@ function Scene({
           name={bot.name}
           short={bot.short}
           status={bot.status}
-          look={looks[bot.id] ?? defaultCharacter(bot.id)}
+          look={looks[bot.id] ?? defaultCharacter(bot.id === OWNER_ACTOR_ID ? OWNER_LOOK_SEED : bot.id)}
           selected={selected === bot.id}
           hot={hotId === bot.id}
           line={speech[bot.id] ?? ""}
