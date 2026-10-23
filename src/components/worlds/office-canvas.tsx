@@ -11,7 +11,7 @@ import { isSeated, type OfficeSimStore } from "@/lib/worlds/office-sim";
 import { boardStations, type OfficeKey } from "@/lib/worlds/office-state";
 import { formatWalletMoney, vaultPilePlan } from "@/lib/worlds/office-wallets";
 import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/worlds/office-weather";
-import { MAP_MAX_DISTANCE, MAP_MIN_DISTANCE, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, type Stick } from "@/lib/worlds/office-move";
+import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, type Stick } from "@/lib/worlds/office-move";
 import { OfficeSite } from "./office-grounds";
 
 export type BoardPanel = "calendar" | "todos" | "notes";
@@ -1194,9 +1194,10 @@ function SimDriver({
   return null;
 }
 
-function StudioEnv() {
+function StudioEnv({ enabled }: { enabled: boolean }) {
   const gl = useThree((state) => state.gl);
   const texture = useMemo(() => {
+    if (!enabled) return null;
     const pmrem = new THREE.PMREMGenerator(gl);
     const env = new THREE.Scene();
     const sky = new THREE.Mesh(
@@ -1217,15 +1218,16 @@ function StudioEnv() {
     ground.geometry.dispose();
     (ground.material as THREE.Material).dispose();
     return tex;
-  }, [gl]);
-  useEffect(() => () => texture.dispose(), [texture]);
+  }, [gl, enabled]);
+  useEffect(() => () => texture?.dispose(), [texture]);
+  if (!texture) return null;
   return <primitive object={texture} attach="environment" />;
 }
 
 type MapGesture = { x: number; y: number; dragged: boolean; active: boolean };
 
-/** Left-drag slides the ground point under the cursor. A short press still selects. */
-function GroundGrab({
+/** Left-drag pans and right-drag orbits. The move that passes 10px is applied, not skipped. */
+function MapGestures({
   controls,
   layout,
   gesture,
@@ -1240,11 +1242,16 @@ function GroundGrab({
     const el = gl.domElement;
     const raycaster = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
+    const offset = new THREE.Vector3();
+    const spherical = new THREE.Spherical();
     let pointerId = -1;
+    let button = -1;
     let startX = 0;
     let startY = 0;
+    let lastX = 0;
+    let lastY = 0;
     let anchor: { x: number; z: number } | null = null;
-    let panning = false;
+    let dragging = false;
 
     function groundAt(event: PointerEvent) {
       const orbit = controls.current;
@@ -1266,49 +1273,92 @@ function GroundGrab({
     function finish(event: PointerEvent) {
       if (event.pointerId !== pointerId) return;
       if (el.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
       pointerId = -1;
+      button = -1;
       anchor = null;
-      panning = false;
+      dragging = false;
     }
 
     function onDown(event: PointerEvent) {
-      if (event.pointerType === "touch" || event.button !== 0) return;
-      if ((event.buttons & 2) !== 0) return;
+      if (event.pointerType === "touch" || (event.button !== 0 && event.button !== 2)) return;
       pointerId = event.pointerId;
+      button = event.button;
       startX = event.clientX;
       startY = event.clientY;
-      anchor = null;
-      panning = false;
+      lastX = event.clientX;
+      lastY = event.clientY;
+      anchor = event.button === 0 ? groundAt(event) : null;
+      dragging = false;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", finish);
+      window.addEventListener("pointercancel", finish);
     }
 
     function onMove(event: PointerEvent) {
       if (event.pointerId !== pointerId || pointerId < 0) return;
-      if ((event.buttons & 1) === 0 || (event.buttons & 2) !== 0) return;
-      if (Math.hypot(event.clientX - startX, event.clientY - startY) <= PAN_DRAG_PX) return;
       const orbit = controls.current;
       if (!orbit) return;
-      gesture.current.dragged = true;
-      const hit = groundAt(event);
-      if (!hit) return;
-      if (!panning || !anchor) {
-        anchor = hit;
-        panning = true;
-        el.setPointerCapture(event.pointerId);
-        return;
+      const dx = event.clientX - lastX;
+      const dy = event.clientY - lastY;
+      if (!dragging) {
+        if (Math.hypot(event.clientX - startX, event.clientY - startY) <= PAN_DRAG_PX) return;
+        dragging = true;
+        gesture.current.dragged = true;
       }
-      nudgeTarget(orbit, grabPanDelta(anchor, hit), layout);
-      anchor = groundAt(event) ?? anchor;
+      if (button === 0) {
+        const hit = groundAt(event);
+        if (anchor && hit) {
+          nudgeTarget(orbit, grabPanDelta(anchor, hit), layout);
+          anchor = groundAt(event) ?? hit;
+        }
+      } else if (button === 2) {
+        const rect = el.getBoundingClientRect();
+        const turn = rotateOffset(dx, dy, rect.height || el.clientHeight || 1);
+        offset.copy(orbit.object.position).sub(orbit.target);
+        if (offset.lengthSq() > 1e-8) {
+          spherical.setFromVector3(offset);
+          spherical.theta += turn.theta;
+          spherical.phi = THREE.MathUtils.clamp(spherical.phi + turn.phi, MAP_MIN_POLAR, MAP_MAX_POLAR);
+          spherical.makeSafe();
+          spherical.radius = THREE.MathUtils.clamp(spherical.radius, MAP_MIN_DISTANCE, MAP_MAX_DISTANCE);
+          offset.setFromSpherical(spherical);
+          orbit.object.position.copy(orbit.target).add(offset);
+          orbit.update();
+        }
+      }
+      lastX = event.clientX;
+      lastY = event.clientY;
+    }
+
+    function onWheel(event: WheelEvent) {
+      const orbit = controls.current;
+      if (!orbit) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const factor = wheelZoomFactor(event.deltaY, event.deltaMode);
+      if (factor === 1) return;
+      offset.copy(orbit.object.position).sub(orbit.target);
+      const next = THREE.MathUtils.clamp(offset.length() * factor, MAP_MIN_DISTANCE, MAP_MAX_DISTANCE);
+      if (offset.lengthSq() < 1e-8) return;
+      offset.setLength(next);
+      orbit.object.position.copy(orbit.target).add(offset);
+      orbit.update();
     }
 
     el.addEventListener("pointerdown", onDown);
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerup", finish);
-    el.addEventListener("pointercancel", finish);
+    el.addEventListener("wheel", onWheel, { capture: true, passive: false });
     return () => {
       el.removeEventListener("pointerdown", onDown);
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerup", finish);
-      el.removeEventListener("pointercancel", finish);
+      el.removeEventListener("wheel", onWheel, { capture: true });
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
     };
   }, [camera, gl, controls, layout, gesture]);
   return null;
@@ -1392,6 +1442,7 @@ function Scene({
   quality,
   stickRef,
   gesture,
+  detailed,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1414,6 +1465,7 @@ function Scene({
   quality: OfficeQuality;
   stickRef: React.MutableRefObject<Stick>;
   gesture: React.MutableRefObject<MapGesture>;
+  detailed: boolean;
 }) {
   const mats = useOfficeMaterials(layout);
   const controls = useRef<OrbitControlsType>(null);
@@ -1447,7 +1499,7 @@ function Scene({
     <>
       <color attach="background" args={[sky]} />
       {layers.weather ? <fog attach="fog" args={[sky, fog.near, fog.far]} /> : null}
-      <StudioEnv />
+      <StudioEnv enabled={detailed} />
       <Lights layout={layout} weather={weather} quality={quality} />
       <group onClick={(event) => { event.stopPropagation(); onClear(); }}>
       <OfficeSite layout={layout} weather={weather} showGrounds={layers.outdoor} showRoof={layers.roof} showWeather={layers.weather} />
@@ -1476,7 +1528,7 @@ function Scene({
       </MatsContext.Provider>
       </TapContext.Provider>
       </group>
-      <GroundGrab controls={controls} layout={layout} gesture={gesture} />
+      <MapGestures controls={controls} layout={layout} gesture={gesture} />
       <StickMover stickRef={stickRef} controls={controls} layout={layout} />
       <CameraGuard controls={controls} layout={layout} />
       <MapControls
@@ -1485,19 +1537,20 @@ function Scene({
         enableDamping
         dampingFactor={0.12}
         screenSpacePanning={false}
-        zoomToCursor
+        zoomToCursor={false}
+        enableZoom
         zoomSpeed={0.9}
         panSpeed={1.05}
         rotateSpeed={0.55}
         target={home.target}
         minDistance={MAP_MIN_DISTANCE}
         maxDistance={MAP_MAX_DISTANCE}
-        minPolarAngle={0.42}
-        maxPolarAngle={Math.PI / 2.2}
+        minPolarAngle={MAP_MIN_POLAR}
+        maxPolarAngle={MAP_MAX_POLAR}
         mouseButtons={{
           LEFT: -1 as THREE.MOUSE,
           MIDDLE: THREE.MOUSE.DOLLY,
-          RIGHT: THREE.MOUSE.ROTATE,
+          RIGHT: -1 as THREE.MOUSE,
         }}
         touches={{
           ONE: THREE.TOUCH.PAN,
@@ -1588,19 +1641,44 @@ export default function OfficeCanvas({
   const gesture = useRef({ x: 0, y: 0, dragged: false, active: false });
   const canOpen = useRef(() => !gesture.current.dragged).current;
   const drawn = useRef(false);
+  const presentedRef = useRef(false);
+  const detailFrame = useRef(0);
   const [failure, setFailure] = useState("");
   const [attempt, setAttempt] = useState(0);
   const watchKey = `${quality}-${attempt}`;
-  useLayoutEffect(() => {
+  const [epoch, setEpoch] = useState(watchKey);
+  const [mountScene, setMountScene] = useState(false);
+  const [presented, setPresented] = useState(false);
+  const [detailed, setDetailed] = useState(false);
+  if (epoch !== watchKey) {
+    setEpoch(watchKey);
+    setMountScene(false);
+    setPresented(false);
+    setDetailed(false);
+  }
+  function reveal() {
+    if (presentedRef.current) return;
+    presentedRef.current = true;
+    drawn.current = true;
+    setPresented(true);
+    // Shadows and the environment map wait until the building has been drawn.
+    window.cancelAnimationFrame(detailFrame.current);
+    detailFrame.current = window.requestAnimationFrame(() => setDetailed(true));
+  }
+  useEffect(() => {
+    presentedRef.current = false;
+    drawn.current = false;
+    const id = window.requestAnimationFrame(() => setMountScene(true));
     return () => {
-      drawn.current = false;
+      window.cancelAnimationFrame(id);
+      window.cancelAnimationFrame(detailFrame.current);
     };
   }, [watchKey]);
   useEffect(() => {
     if (failure) return;
     const timer = window.setTimeout(() => {
-      if (!drawn.current) setFailure("The 3D view did not start. Graphics may be turned off.");
-    }, 4000);
+      if (!presentedRef.current) setFailure("The 3D view did not start. Graphics may be turned off.");
+    }, 20000);
     return () => window.clearTimeout(timer);
   }, [failure, watchKey]);
   useEffect(() => {
@@ -1622,6 +1700,9 @@ export default function OfficeCanvas({
         message={failure}
         onRetry={() => {
           drawn.current = false;
+          presentedRef.current = false;
+          setPresented(false);
+          setDetailed(false);
           setFailure("");
           setAttempt((value) => value + 1);
         }}
@@ -1630,11 +1711,13 @@ export default function OfficeCanvas({
   }
   return (
     <OfficeViewBoundary resetKey={attempt}>
+    {mountScene ? (
     <Canvas
       key={`${quality}-${attempt}`}
-      shadows={quality !== "fast"}
+      frameloop="always"
+      shadows={detailed && quality !== "fast"}
       camera={camera}
-      dpr={quality === "fast" ? [1, 1.15] : [1, 1.75]}
+      dpr={detailed ? (quality === "fast" ? [1, 1.15] : [1, 1.75]) : 1}
       gl={{
         alpha: false,
         antialias: quality !== "fast",
@@ -1657,16 +1740,25 @@ export default function OfficeCanvas({
       onPointerMissed={() => {
         if (!gesture.current.dragged) onClear();
       }}
-      onCreated={({ gl }) => {
-        drawn.current = true;
+      onCreated={({ gl, scene, camera: view, invalidate }) => {
         gl.toneMappingExposure = 1.05;
         gl.setClearColor(skyColor(weather), 1);
+        const width = gl.domElement.clientWidth;
+        const height = gl.domElement.clientHeight;
+        if (view instanceof THREE.PerspectiveCamera && width > 1 && height > 1) {
+          view.aspect = width / height;
+          view.updateProjectionMatrix();
+        }
+        gl.render(scene, view);
+        invalidate();
+        if (width > 1 && height > 1) reveal();
         gl.domElement.addEventListener("webglcontextlost", (event) => {
           event.preventDefault();
           setFailure("The 3D office lost its graphics context.");
         });
       }}
     >
+      <FirstPaint onPaint={reveal} />
       <Scene
         layout={layout}
         sections={sections}
@@ -1691,8 +1783,31 @@ export default function OfficeCanvas({
         quality={quality}
         stickRef={stickRef}
         gesture={gesture}
+        detailed={detailed}
       />
     </Canvas>
+    ) : null}
+    {presented ? null : <div className="office-loading" role="status">Opening the bot office…</div>}
     </OfficeViewBoundary>
   );
+}
+
+function FirstPaint({ onPaint }: { onPaint: () => void }) {
+  const done = useRef(false);
+  useFrame(({ gl, camera }) => {
+    if (done.current) return;
+    const width = gl.domElement.clientWidth;
+    const height = gl.domElement.clientHeight;
+    if (width < 2 || height < 2) return;
+    if (camera instanceof THREE.PerspectiveCamera) {
+      const aspect = width / height;
+      if (Math.abs(camera.aspect - aspect) > 0.001) {
+        camera.aspect = aspect;
+        camera.updateProjectionMatrix();
+      }
+    }
+    done.current = true;
+    onPaint();
+  });
+  return null;
 }

@@ -42,7 +42,8 @@ describe("Worlds office chrome", () => {
     assert.match(css, /office-corner/);
     assert.match(css, /max-height: 45vh/);
     assert.match(canvas, /grabPanDelta/);
-    assert.match(canvas, /THREE\.MOUSE\.ROTATE/);
+    assert.match(canvas, /RIGHT: -1 as THREE\.MOUSE/);
+    assert.match(canvas, /rotateOffset/);
     assert.match(canvas, /THREE\.TOUCH\.PAN/);
     assert.match(canvas, /THREE\.TOUCH\.DOLLY_ROTATE/);
     assert.match(canvas, /zoomBy/);

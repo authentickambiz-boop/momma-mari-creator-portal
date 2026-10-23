@@ -16,7 +16,11 @@ import {
   officeCameraHome,
   officeCameraPoseOk,
   rayGroundPoint,
+  roofBlocksClicks,
+  roofOpenAmount,
+  rotateOffset,
   stickFromDrag,
+  wheelZoomFactor,
 } from "../src/lib/worlds/office-move";
 
 function source(file: string) {
@@ -107,7 +111,10 @@ describe("Worlds camera move", () => {
     assert.match(canvas, /moveDelta/);
     assert.match(canvas, /PAN_DRAG_PX/);
     assert.match(canvas, /LEFT: -1 as THREE\.MOUSE/);
-    assert.match(canvas, /RIGHT: THREE\.MOUSE\.ROTATE/);
+    assert.match(canvas, /RIGHT: -1 as THREE\.MOUSE/);
+    assert.match(canvas, /rotateOffset/);
+    assert.match(canvas, /wheelZoomFactor/);
+    assert.match(canvas, /stopImmediatePropagation/);
     assert.match(canvas, /THREE\.TOUCH\.DOLLY_ROTATE/);
     assert.match(canvas, /THREE\.TOUCH\.PAN/);
     assert.match(canvas, /pointerType === "touch"/);
@@ -174,5 +181,48 @@ describe("Worlds camera move", () => {
       { x: layout.width + 80, y: 1.4, z: layout.depth / 2 },
       layout,
     ), false);
+  });
+
+  test("wheel zoom reaches the roof in about twelve notches and clicks pass through it", () => {
+    assert.equal(wheelZoomFactor(0), 1);
+    assert.equal(wheelZoomFactor(Number.NaN), 1);
+    assert.ok(Math.abs(wheelZoomFactor(-100) - 0.9) < 1e-9);
+    assert.ok(Math.abs(wheelZoomFactor(100) - (1 / 0.9)) < 1e-9);
+    assert.ok(wheelZoomFactor(-10) > 0.97);
+    assert.ok(Math.abs(wheelZoomFactor(-10000) - (0.9 ** 6)) < 1e-9);
+    let distance = 71;
+    for (let step = 0; step < 12; step += 1) distance *= wheelZoomFactor(-100);
+    assert.ok(distance > 18 && distance < 22, `distance ${distance}`);
+
+    const layout = buildOfficeLayout();
+    const home = officeCameraHome(layout.width, layout.depth);
+    const far = roofOpenAmount(home.position, layout);
+    assert.ok(far < 0.05, `overview ${far}`);
+    assert.equal(roofBlocksClicks(far), true);
+    const inside = roofOpenAmount({ x: layout.width / 2, y: 4, z: layout.depth / 2 }, layout);
+    assert.ok(inside > 0.9, `inside ${inside}`);
+    assert.equal(roofBlocksClicks(0.35), true);
+    assert.equal(roofBlocksClicks(inside), false);
+    const approaching = roofOpenAmount({ x: layout.width / 2, y: 18, z: layout.depth + 12 }, layout);
+    assert.ok(approaching > 0.05 && approaching < 0.95, `approach ${approaching}`);
+
+    const right = rotateOffset(80, 0, 800);
+    assert.ok(right.theta < 0);
+    assert.equal(right.phi, 0);
+    assert.ok(rotateOffset(0, 40, 800).phi < 0);
+    assert.equal(rotateOffset(0, 0, 800).theta, 0);
+
+    const grounds = source("src/components/worlds/office-grounds.tsx");
+    assert.match(grounds, /roofOpenAmount/);
+    assert.match(grounds, /roofBlocksClicks/);
+    assert.match(grounds, /skipRoofRaycast/);
+    const canvas = source("src/components/worlds/office-canvas.tsx");
+    assert.match(canvas, /frameloop="always"/);
+    assert.match(canvas, /role="status"/);
+    assert.match(canvas, /Opening the bot office/);
+    assert.match(canvas, /function FirstPaint/);
+    assert.match(canvas, /gl\.render\(scene, view\)/);
+    assert.match(source("src/app/layout.tsx"), /withBasePath\("\/icon-192\.png"\)/);
+    assert.match(source("src/components/worlds/office.css"), /\.office-loading \{[^}]*background: #1b1714/);
   });
 });

@@ -7,6 +7,7 @@ import { CommunityPanel } from "@/components/community-panel";
 import { HomeScreen } from "@/components/home-screen";
 import { SeasonalThemeFrame } from "@/components/seasonal-theme";
 import { SiteFooter } from "@/components/site-footer";
+import { withBasePath } from "@/lib/format";
 import { loadSeasonalPresentation } from "@/lib/seasonal-theme-request";
 import "./globals.css";
 import "./seasonal-theme.css";
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
   description: "Private deal desk for Momma Mari creators.",
   robots: { index: false, follow: false },
   appleWebApp: { capable: true, title: "Momma Mari", statusBarStyle: "default" },
-  icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
+  icons: { icon: withBasePath("/icon-192.png"), apple: withBasePath("/icon-192.png") },
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
