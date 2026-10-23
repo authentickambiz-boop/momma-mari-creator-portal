@@ -12,6 +12,7 @@ import {
   characterAccessStatus,
   characterFigure,
   characterPromptVisible,
+  LOOKS_POLL_MS,
   characterSubjectForViewer,
   defaultCharacter,
   limbRotation,
@@ -22,6 +23,7 @@ import {
 } from "../src/lib/worlds/character";
 import { listBotCharacters, readCharacter, writeCharacter } from "../src/lib/worlds/character-store";
 import { OFFICE_BOTS } from "../src/lib/worlds/office-catalog";
+import { OFFICE_POLL_MS } from "../src/lib/worlds/office-state";
 import { isBotOfficePath } from "../src/lib/worlds/office-path";
 import { worldsReturnPath } from "../src/lib/worlds/office-return";
 import { admin, mariclare, openTestDb } from "./harness";
@@ -73,6 +75,7 @@ describe("Worlds characters", () => {
       palette: { ...config.palette, primary: "#2f6d4f" },
     });
     assert.equal(characterFigure(dressed).parts.find((part) => part.id === "top")?.color, "#2f6d4f");
+    assert.equal(dressed.slots.hair.color, config.palette.accent);
     const large = characterFigure({ ...config, body: { ...config.body, size: "large" } }).scale;
     const small = characterFigure({ ...config, body: { ...config.body, size: "small" } }).scale;
     assert.ok(large > small);
@@ -80,6 +83,81 @@ describe("Worlds characters", () => {
     assert.equal(limbRotation("arm-r", { phase: 0, moving: true, seated: false })[0], 0);
     assert.equal(nameTagFrame("plain").filled, false);
     assert.ok(nameTagFrame("banner").width > nameTagFrame("pill").width);
+  });
+
+  test("the chibi wears clothes outside a head that is about half its height", () => {
+    const config = defaultCharacter("ops");
+    const hoodie = characterFigure({
+      ...config,
+      body: { shape: "round", size: "medium", color: "#e0b08a" },
+      face: { eyes: "wide", mouth: "smile", expression: "smile" },
+      slots: {
+        ...config.slots,
+        hair: { item: "bob", color: "#3d2314" },
+        top: { item: "hoodie", color: "#2f6283" },
+        bottom: { item: "pants", color: "#1c211e" },
+        shoes: { item: "sneakers", color: "#f7f1e4" },
+        accessory: { item: "glasses", color: "#1c211e" },
+      },
+    });
+    const body = hoodie.parts.find((part) => part.id === "body");
+    const top = hoodie.parts.find((part) => part.id === "top");
+    const head = hoodie.parts.find((part) => part.id === "head");
+    const eye = hoodie.parts.find((part) => part.id === "eye-l");
+    const pants = hoodie.parts.find((part) => part.id === "pants-l");
+    const leg = hoodie.parts.find((part) => part.id === "leg-l");
+    const shoe = hoodie.parts.find((part) => part.id === "shoe-l");
+    assert.ok(body && top && head && eye && pants && leg && shoe);
+    if (!body || !top || !head || !eye || !pants || !leg || !shoe) return;
+    const half = (part: typeof body, axis: 0 | 1 | 2) => ((part.args[axis] ?? 0) / 2) * part.scale[axis];
+    assert.equal(body.shape, "box");
+    assert.equal(top.shape, "box");
+    assert.ok(half(top, 0) > half(body, 0));
+    assert.ok(half(top, 2) > half(body, 2));
+    assert.ok(top.position[2] + half(top, 2) > body.position[2] + half(body, 2));
+    const headTop = head.position[1] + (head.args[0] ?? 0) * head.scale[1];
+    const headDiameter = (head.args[0] ?? 0) * 2 * head.scale[1];
+    assert.ok(headDiameter / headTop > 0.45);
+    assert.ok(headDiameter / headTop < 0.62);
+    assert.ok((eye.args[0] ?? 0) > 0.07);
+    assert.ok(hoodie.parts.some((part) => part.id === "hair-back"));
+    assert.ok(hoodie.parts.some((part) => part.id.startsWith("hair-front")));
+    assert.ok((pants.args[0] ?? 0) / 2 > (leg.args[0] ?? 0));
+    assert.ok(pants.position[1] - (pants.args[1] ?? 0) / 2 < body.position[1] - half(body, 1));
+    assert.ok((shoe.args[0] ?? 0) > (leg.args[0] ?? 0) * 2);
+    assert.ok(shoe.position[2] > body.position[2]);
+    assert.ok(hoodie.parts.some((part) => part.id === "highlight"));
+    assert.ok(hoodie.parts.some((part) => part.id === "shade"));
+    const ids = hoodie.parts.map((part) => part.id);
+    const at = (id: string) => ids.findIndex((item) => item === id);
+    assert.ok(at("body") < at("eye-l"));
+    assert.ok(at("eye-l") < at("hair-back"));
+    assert.ok(at("hair-back") < at("hair-front"));
+    assert.ok(at("hair-front") < at("top"));
+    assert.ok(at("top") < at("bottom"));
+    assert.ok(at("bottom") < at("shoe-l"));
+    assert.ok(at("shoe-l") < at("glass-l"));
+    assert.ok(at("glass-l") < at("highlight"));
+    const tee = characterFigure({
+      ...config,
+      slots: { ...config.slots, top: { item: "tee", color: "#2f6283" } },
+    });
+    const teeTop = tee.parts.find((part) => part.id === "top");
+    const teeBody = tee.parts.find((part) => part.id === "body");
+    assert.ok(teeTop && teeBody && teeTop.shape === "box" && teeBody.shape === "box");
+    if (!teeTop || !teeBody) return;
+    assert.ok(half(teeTop, 0) > half(teeBody, 0));
+    assert.ok(half(teeTop, 2) > half(teeBody, 2));
+    for (const shape of ["round", "tall", "wide", "compact"] as const) {
+      const shaped = characterFigure({ ...config, body: { ...config.body, shape } });
+      const shapedHead = shaped.parts.find((part) => part.id === "head");
+      assert.ok(shapedHead);
+      if (!shapedHead) return;
+      const topY = shapedHead.position[1] + (shapedHead.args[0] ?? 0) * shapedHead.scale[1];
+      const diameter = (shapedHead.args[0] ?? 0) * 2 * shapedHead.scale[1];
+      assert.ok(diameter / topY > 0.45, shape);
+      assert.ok(diameter / topY < 0.62, shape);
+    }
   });
 
   test("only the character owner can write, and any signed-in person can read", async () => {
@@ -158,6 +236,8 @@ describe("Worlds characters", () => {
     const route = source("src/app/api/worlds/characters/route.ts");
     const app = source("src/components/worlds/office-app.tsx");
     const canvas = source("src/components/worlds/office-canvas.tsx");
+    const creator = source("src/components/worlds/character-creator.tsx");
+    const figure = source("src/components/worlds/character-figure.tsx");
     const onboarding = source("src/app/onboarding/page.tsx");
     const migration = source("drizzle/0063_office_characters.sql").toLowerCase();
     assert.match(page, /requireViewer\("\/worlds\/create"\)/);
@@ -170,6 +250,19 @@ describe("Worlds characters", () => {
     assert.match(route, /export async function PUT/);
     assert.match(app, /Customize/);
     assert.match(app, /Your character/);
+    assert.match(app, /fresh=/);
+    assert.match(app, /pageshow/);
+    assert.match(app, /visibilitychange/);
+    assert.match(app, /LOOKS_POLL_MS/);
+    assert.match(app, /office-card-links/);
+    assert.ok(LOOKS_POLL_MS < OFFICE_POLL_MS);
+    assert.match(creator, /savingRef/);
+    assert.match(creator, /beforeunload/);
+    assert.match(creator, /preventDefault/);
+    assert.match(route, /CDN-Cache-Control/);
+    assert.match(route, /no-store/);
+    assert.match(figure, /BackSide/);
+    assert.match(figure, /#1a1614/);
     assert.match(app, /CharacterFigure|looks/);
     assert.match(canvas, /CharacterFigure/);
     assert.match(canvas, /characterFigure|defaultCharacter/);

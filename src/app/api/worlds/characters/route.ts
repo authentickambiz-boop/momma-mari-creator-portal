@@ -15,7 +15,14 @@ import { findOfficeBot } from "@/lib/worlds/office-catalog";
 export const dynamic = "force-dynamic";
 
 function noStore(body: unknown, status = 200) {
-  return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "private, no-store, max-age=0",
+      "CDN-Cache-Control": "no-store",
+      Pragma: "no-cache",
+    },
+  });
 }
 
 function denied(error: string) {

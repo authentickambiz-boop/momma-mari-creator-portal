@@ -969,7 +969,7 @@ function SpeechBubble({ text }: { text: string }) {
   }, [text]);
   if (!text) return null;
   return (
-    <sprite position={[0, 2.15, 0]} scale={[1.8, 0.46, 1]}>
+    <sprite position={[0, 2.55, 0]} scale={[1.8, 0.46, 1]}>
       <spriteMaterial map={map} transparent depthTest={false} />
     </sprite>
   );
@@ -1005,7 +1005,7 @@ function NameTag({ name, status, look }: { name: string; status: BotStatus; look
     return tex;
   }, [name, status, look.color, look.style]);
   return (
-    <sprite position={[0, 1.78, 0]} scale={[frame.width, frame.height, 1]}>
+    <sprite position={[0, 2.05, 0]} scale={[frame.width, frame.height, 1]}>
       <spriteMaterial map={map} transparent depthTest={false} />
     </sprite>
   );

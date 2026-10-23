@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import type { Group } from "three";
 import { withBasePath } from "@/lib/format";
@@ -180,11 +181,24 @@ export function CharacterCreator({
   backHref: string;
   backLabel: string;
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<TabId>("body");
   const [config, setConfig] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [failed, setFailed] = useState(false);
+  const savingRef = useRef(false);
+  const leaveRef = useRef(false);
+
+  useEffect(() => {
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      if (!savingRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
 
   function setSlot(name: CharacterSlotName, patch: Partial<CharacterConfig["slots"][CharacterSlotName]>) {
     setConfig((current) => ({
@@ -194,6 +208,7 @@ export function CharacterCreator({
   }
 
   async function save() {
+    savingRef.current = true;
     setSaving(true);
     setFailed(false);
     setMessage("");
@@ -206,17 +221,33 @@ export function CharacterCreator({
       });
       const body = await response.json().catch(() => null) as { error?: string } | null;
       if (!response.ok) {
+        leaveRef.current = false;
         setFailed(true);
         setMessage(body?.error || "The character did not save.");
         return;
       }
+      if (leaveRef.current) {
+        leaveRef.current = false;
+        router.push(backHref);
+        return;
+      }
       setMessage("Saved. Other signed-in people can see this look.");
     } catch {
+      leaveRef.current = false;
       setFailed(true);
       setMessage("The character did not save.");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
+  }
+
+  function onBack(event: MouseEvent<HTMLAnchorElement>) {
+    if (!savingRef.current) return;
+    event.preventDefault();
+    leaveRef.current = true;
+    setFailed(false);
+    setMessage("Saving… this page will leave when the save finishes.");
   }
 
   const slot = (CHARACTER_SLOTS as readonly string[]).includes(tab) ? tab as CharacterSlotName : null;
@@ -227,7 +258,7 @@ export function CharacterCreator({
       <section className="character-panel" aria-label="Character creator">
         <div className="character-bar">
           <h1>{title}</h1>
-          <Link href={backHref}>{backLabel}</Link>
+          <Link href={backHref} onClick={onBack} aria-disabled={saving}>{saving ? "Saving…" : backLabel}</Link>
         </div>
         <div className="character-tabs" role="tablist" aria-label="Look categories">
           {TABS.map((item) => (
@@ -261,7 +292,7 @@ export function CharacterCreator({
               <Swatches labelText="Secondary" selected={config.palette.secondary} onPick={(secondary) => setConfig((current) => ({ ...current, palette: { ...current.palette, secondary } }))} />
               <Swatches labelText="Accent" selected={config.palette.accent} onPick={(accent) => setConfig((current) => ({ ...current, palette: { ...current.palette, accent } }))} />
               <div className="character-actions">
-                <button type="button" className="ghost" onClick={() => setConfig((current) => applyPalette(current))}>Apply palette to the outfit</button>
+                <button type="button" className="ghost" onClick={() => setConfig((current) => applyPalette(current))}>Apply palette to hair and outfit</button>
               </div>
             </>
           ) : null}
