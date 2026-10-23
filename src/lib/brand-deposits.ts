@@ -194,6 +194,30 @@ async function storedTerms(db: PortalDb, key: string): Promise<BillingTerms> {
   return terms === "net_30" ? "net_30" : "deposit_first";
 }
 
+/** Terms a public inquiry will use. A missing row means deposit first. This does not write. */
+export async function inquiryBillingTerms(db: PortalDb, brand: string): Promise<BillingTerms> {
+  return storedTerms(db, brandKey(brand));
+}
+
+/**
+ * Stores deposit-first terms when the brand has no billing row yet.
+ * Deposit first means 50% before filming and 50% when the content posts.
+ * #192 does not mark a returning brand as Net 30 on its own. An owner-set row is left as stored.
+ */
+export async function storeInquiryBillingTerms(db: PortalDb, brand: string): Promise<BillingTerms> {
+  const key = brandKey(brand);
+  if (!key) return "deposit_first";
+  const rows = await db.select().from(brandBillingTerms).where(eq(brandBillingTerms.brandKey, key));
+  if (rows[0]) return rows[0].terms === "net_30" ? "net_30" : "deposit_first";
+  await db.insert(brandBillingTerms).values({
+    brandKey: key,
+    terms: "deposit_first",
+    updatedBy: "inquiry",
+    updatedAt: nowIso(),
+  });
+  return "deposit_first";
+}
+
 async function depositRow(db: PortalDb, dealId: string) {
   const rows = await db.select().from(dealDeposits).where(eq(dealDeposits.dealId, dealId));
   return rows[0] ?? null;

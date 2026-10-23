@@ -4,7 +4,7 @@
  * Do not fill them from a creator's private rate floor.
  */
 
-import { BRAND_INQUIRY_HREF, PUBLIC_ROBOTS } from "./public-site";
+import { BRAND_INQUIRY_HREF, PUBLIC_ROBOTS, REPLY_PROMISE } from "./public-site";
 
 export type BrandPackage = {
   id: string;
@@ -59,7 +59,7 @@ export function packagePublicView(approved: boolean) {
       : "Brand packages booked by budget. Request a quote.",
     lede: approved
       ? "Pick a package by your budget."
-      : "Pick a package by your budget. Request a quote and we reply within 3 business days.",
+      : `Pick a package by your budget. Request a quote. ${REPLY_PROMISE}`,
     robots: approved ? PUBLIC_ROBOTS : { index: false as const, follow: false as const },
     cards: BRAND_PACKAGES.map((item) => ({
       id: item.id,

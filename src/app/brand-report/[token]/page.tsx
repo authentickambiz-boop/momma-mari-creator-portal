@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PublicShell } from "@/components/public-shell";
 import { getDb } from "@/db/getDb";
 import { publicBrandReport } from "@/lib/brand-report";
+import { REPLY_PROMISE } from "@/lib/public-site";
 
 export const metadata = {
   title: "Campaign report · Momma Mari",
@@ -30,7 +31,7 @@ export default async function BrandReportPage({ params }: { params: Promise<{ to
       </section>
       {/* Priced packages and invoices stay behind PAYMENTS_ENABLED. This page only links to the brief. */}
       <p><Link className="btn" href={report.rebookHref}>Rebook</Link></p>
-      <p className="note">Tell us about the next campaign, or about extending usage. We reply within 3 business days.</p>
+      <p className="note">Tell us about the next campaign, or about extending usage. {REPLY_PROMISE}</p>
     </PublicShell>
   );
 }

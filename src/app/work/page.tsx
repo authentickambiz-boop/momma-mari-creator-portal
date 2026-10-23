@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PublicShell } from "@/components/public-shell";
 import { publicPageMeta } from "@/lib/public-meta";
 import { WORKED_WITH, visibleCaseStudies, visibleTestimonials } from "@/lib/proof";
-import { BRAND_INQUIRY_HREF, PUBLIC_ROBOTS } from "@/lib/public-site";
+import { BRAND_INQUIRY_HREF, PUBLIC_ROBOTS, REPLY_PROMISE } from "@/lib/public-site";
 
 export const metadata: Metadata = {
   ...publicPageMeta({
@@ -47,7 +47,7 @@ export default function WorkPage() {
           ))}
         </section>
       ) : null}
-      <p><Link href={BRAND_INQUIRY_HREF}>Start a brief</Link>. We reply within 3 business days.</p>
+      <p><Link href={BRAND_INQUIRY_HREF}>Start a brief</Link>. {REPLY_PROMISE}</p>
     </PublicShell>
   );
 }
