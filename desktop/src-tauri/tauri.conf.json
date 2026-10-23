@@ -13,8 +13,20 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDMzN0RDODQyQkNFMzFDMzgKUldRNEhPTzhRc2g5TS9aeXU5T1AvRHdtazl1UHZLN0hia0JSL2h5WW50dHBjTUNCU1pCWnZSU2wK",
+      "endpoints": [
+        "https://www.mommamari.com/portal/api/desktop/latest.json"
+      ],
+      "windows": {
+        "installMode": "quiet"
+      }
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": ["nsis", "dmg"],
     "publisher": "Momma Mari LLC",
     "copyright": "Momma Mari LLC",
