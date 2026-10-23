@@ -290,8 +290,18 @@ describe("bot office", () => {
     assert.match(app, /Recenter/);
     assert.match(app, /aria-label="Zoom in"/);
     assert.match(app, /aria-label="Zoom out"/);
+    assert.match(app, /Find a bot/);
+    assert.match(app, /office-minimap/);
+    assert.match(app, /Offices/);
+    assert.match(app, /mm-worlds-quality/);
+    assert.match(canvas, /#2a9d8f/);
+    assert.match(canvas, /#d63384/);
+    assert.match(canvas, /deskWhite/);
+    assert.match(canvas, /CC0 low-poly/);
+    assert.match(canvas, /Chibi bot/);
     const grounds = source("src/components/worlds/office-grounds.tsx");
     assert.match(grounds, /Momma Mari/);
+    assert.match(grounds, /showRoof/);
     const weather = source("src/lib/worlds/office-weather.ts");
     assert.match(weather, /35\.58/);
     assert.match(weather, /-80\.81/);

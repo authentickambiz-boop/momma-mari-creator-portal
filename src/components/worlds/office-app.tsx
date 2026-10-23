@@ -32,7 +32,7 @@ import {
   type WalletList,
   type WalletType,
 } from "@/lib/worlds/office-wallets";
-import type { BoardOpen, OfficeCameraApi } from "./office-canvas";
+import type { BoardOpen, OfficeCameraApi, OfficeLayers, OfficeQuality } from "./office-canvas";
 import "./office.css";
 
 type LayoutHold = {
@@ -59,6 +59,15 @@ const OfficeCanvas = dynamic(() => import("./office-canvas"), {
 });
 
 const PANELS_KEY = "mm-worlds-panels";
+const LAYERS_KEY = "mm-worlds-layers";
+const QUALITY_KEY = "mm-worlds-quality";
+const DEFAULT_LAYERS: OfficeLayers = { offices: true, outdoor: true, weather: true, roof: true };
+const LAYER_LABEL = {
+  offices: "Offices",
+  outdoor: "Outdoor",
+  weather: "Weather",
+  roof: "Roof",
+} as const;
 
 type OfficeSheet = "info" | "bot" | "board" | "meet" | "vault" | "log" | "achievements";
 
@@ -141,10 +150,26 @@ export function OfficeApp() {
   const [walletType, setWalletType] = useState<WalletType>("cash");
   const [walletError, setWalletError] = useState("");
   const [savingWallet, setSavingWallet] = useState(false);
+  const [query, setQuery] = useState("");
+  const [layers, setLayers] = useState<OfficeLayers>(DEFAULT_LAYERS);
+  const [quality, setQuality] = useState<OfficeQuality>("fine");
 
   useEffect(() => {
     try {
       if (window.localStorage.getItem(PANELS_KEY) === "show") setSheet("info");
+      const savedLayers = window.localStorage.getItem(LAYERS_KEY);
+      if (savedLayers) {
+        const parsed = JSON.parse(savedLayers) as Partial<OfficeLayers>;
+        setLayers({
+          offices: parsed.offices !== false,
+          outdoor: parsed.outdoor !== false,
+          weather: parsed.weather !== false,
+          roof: parsed.roof !== false,
+        });
+      }
+      const savedQuality = window.localStorage.getItem(QUALITY_KEY);
+      if (savedQuality === "fine" || savedQuality === "fast") setQuality(savedQuality);
+      else if (window.matchMedia("(pointer: coarse)").matches) setQuality("fast");
     } catch {
       // Private browsing can block storage. The view stays clear.
     }
@@ -273,6 +298,11 @@ export function OfficeApp() {
   const activity = liveBot && layout && version >= 0 ? simActivity(liveBot, layout) : null;
 
   const speech = useMemo(() => speechForBots(commands), [commands]);
+  const botMatches = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle || !status) return [];
+    return status.bots.filter((item) => `${item.name} ${item.short} ${item.role}`.toLowerCase().includes(needle)).slice(0, 6);
+  }, [query, status]);
 
   function rememberPanels(show: boolean) {
     try {
@@ -293,6 +323,36 @@ export function OfficeApp() {
     const show = sheet !== "info";
     rememberPanels(show);
     setSheet(show ? "info" : null);
+  }
+
+  function toggleLayer(key: keyof OfficeLayers) {
+    setLayers((current) => {
+      const next = { ...current, [key]: !current[key] };
+      try {
+        window.localStorage.setItem(LAYERS_KEY, JSON.stringify(next));
+      } catch {
+        // The chip still applies for this visit.
+      }
+      return next;
+    });
+  }
+
+  function toggleQuality() {
+    setQuality((current) => {
+      const next = current === "fine" ? "fast" : "fine";
+      try {
+        window.localStorage.setItem(QUALITY_KEY, next);
+      } catch {
+        // The toggle still applies for this visit.
+      }
+      return next;
+    });
+  }
+
+  function openBot(id: string) {
+    setSelected(id);
+    setSheet("bot");
+    setQuery("");
   }
 
   async function postCommand(payload: unknown) {
@@ -383,7 +443,9 @@ export function OfficeApp() {
             sections={status.sections}
             bots={status.bots}
             selected={selected}
-            onSelect={(id) => { setSelected(id); setSheet("bot"); }}
+            onSelect={openBot}
+            layers={layers}
+            quality={quality}
             onOpenBoard={(next) => { setBoard(next); setNoteView(next.panel === "notes" ? "main" : noteView); setSheet("board"); }}
             onOpenMeet={() => setSheet("meet")}
             onClear={dismiss}
@@ -400,12 +462,53 @@ export function OfficeApp() {
         )}
       </div>
 
-      <button type="button" className="office-panels-toggle" aria-pressed={sheet === "info"} onClick={togglePanels}>Panels</button>
+      <div className="office-hud">
+        <button type="button" className="office-panels-toggle" aria-pressed={sheet === "info"} onClick={togglePanels}>Panels</button>
+        <div className="office-search">
+          <input aria-label="Find a bot" placeholder="Find a bot" value={query} onChange={(event) => setQuery(event.target.value)} />
+          {query.trim() ? (
+            <ul className="office-search-list">
+              {botMatches.length ? botMatches.map((item) => (
+                <li key={item.id}><button type="button" onClick={() => openBot(item.id)}>{item.name}</button></li>
+              )) : <li className="office-kicker">No matching bots</li>}
+            </ul>
+          ) : null}
+        </div>
+        <div className="office-layers" role="group" aria-label="Map layers">
+          {(Object.keys(LAYER_LABEL) as (keyof OfficeLayers)[]).map((key) => (
+            <button key={key} type="button" aria-pressed={layers[key]} onClick={() => toggleLayer(key)}>{LAYER_LABEL[key]}</button>
+          ))}
+          <button type="button" aria-pressed={quality === "fine"} aria-label="Graphics quality" onClick={toggleQuality}>{quality === "fine" ? "Fine" : "Fast"}</button>
+        </div>
+      </div>
       <div className="office-nav">
         <button type="button" aria-label="Zoom in" onClick={() => cameraApiRef.current?.zoomBy(0.82)}>+</button>
         <button type="button" aria-label="Zoom out" onClick={() => cameraApiRef.current?.zoomBy(1.22)}>−</button>
         <button type="button" onClick={() => cameraApiRef.current?.reset()}>Recenter</button>
       </div>
+      {layout && sim && status ? (
+        <div className="office-minimap" aria-label="Office map">
+          <svg viewBox={`0 0 ${layout.width} ${layout.depth}`} aria-hidden="true">
+            {layout.rooms.map((room) => (
+              <rect key={room.id} x={room.x} y={room.z} width={room.w} height={room.d} />
+            ))}
+          </svg>
+          {status.bots.map((item) => {
+            const live = sim.state.bots[item.id];
+            if (!live || version < 0) return null;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={selected === item.id ? "office-map-dot is-selected" : "office-map-dot"}
+                style={{ left: `${(live.x / layout.width) * 100}%`, top: `${(live.z / layout.depth) * 100}%` }}
+                aria-label={item.name}
+                onClick={() => openBot(item.id)}
+              />
+            );
+          })}
+        </div>
+      ) : null}
 
       {sheet === "info" ? (
       <section className="office-panel office-sheet office-tools" aria-label="Office controls">

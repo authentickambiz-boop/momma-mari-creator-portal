@@ -337,7 +337,19 @@ function EntranceSign() {
   );
 }
 
-export function OfficeSite({ layout, weather }: { layout: OfficeLayout; weather: OfficeWeather }) {
+export function OfficeSite({
+  layout,
+  weather,
+  showGrounds = true,
+  showRoof = true,
+  showWeather = true,
+}: {
+  layout: OfficeLayout;
+  weather: OfficeWeather;
+  showGrounds?: boolean;
+  showRoof?: boolean;
+  showWeather?: boolean;
+}) {
   const mats = useSiteMaterials(layout);
   const pad = 2.15;
   const lotW = 22;
@@ -372,7 +384,8 @@ export function OfficeSite({ layout, weather }: { layout: OfficeLayout; weather:
     { x: lotX + 13.4, z: lotZ + lotD - 3.1, yaw: Math.PI, color: "#2c3f55" },
   ];
   return (
-    <group>
+    <>
+    <group visible={showGrounds}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[layout.width / 2, -0.02, layout.depth / 2]} receiveShadow material={mats.grass}>
         <planeGeometry args={[layout.width + 72, layout.depth + 78]} />
       </mesh>
@@ -445,9 +458,14 @@ export function OfficeSite({ layout, weather }: { layout: OfficeLayout; weather:
           <EntranceSign />
         </group>
       </group>
+    </group>
+    <group visible={showRoof}>
       <Roof layout={layout} />
+    </group>
+    <group visible={showWeather}>
       <Clouds layout={layout} weather={weather} />
       <Precipitation layout={layout} weather={weather} />
     </group>
+    </>
   );
 }
