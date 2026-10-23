@@ -79,7 +79,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: desktop
-          args: ${{ matrix.args }}${{ steps.signing.outputs.sign == 'true' && '' || ' --config updater-unsigned.json' }}
+          args: ${{ matrix.args }}${{ steps.signing.outputs.sign != 'true' && ' --config updater-unsigned.json' || '' }}
           tagName: ${{ (steps.signing.outputs.sign == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && matrix.os == 'windows-latest') && 'worlds-v__VERSION__' || '' }}
           releaseName: Momma Mari Worlds v__VERSION__
           releaseBody: The app checks https://www.mommamari.com/portal/api/desktop/latest.json and installs a newer signed build on its own.

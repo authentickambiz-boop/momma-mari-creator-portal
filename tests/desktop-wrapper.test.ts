@@ -69,7 +69,7 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY_PASSWORD/);
     assert.match(workflow, /matrix\.os == 'windows-latest'\) && 'worlds-v__VERSION__'/);
     assert.match(workflow, /updaterJsonPreferNsis: true/);
-    assert.match(workflow, /updater-unsigned\.json/);
+    assert.match(workflow, /sign != 'true' && ' --config updater-unsigned\.json'/);
     assert.match(source("desktop/updater-unsigned.json"), /"createUpdaterArtifacts": false/);
     assert.equal(workflow.includes("minisign secret key"), false);
 
