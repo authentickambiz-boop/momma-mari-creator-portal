@@ -29,6 +29,7 @@ import {
 } from "../src/lib/worlds/office-state";
 import { containsPrivateOfficeDetail as privateDetail } from "../src/lib/worlds/office-catalog";
 import { foliageForMonth, skyKindFromCode, sunElevation, weatherFromOpenMeteo, zonedParts } from "../src/lib/worlds/office-weather";
+import { worldsPaymentsEnabled } from "../src/lib/worlds/office-payments";
 import { formatWalletMoney, parseWalletWrite, vaultPilePlan } from "../src/lib/worlds/office-wallets";
 import { listOfficeWallets, saveOfficeWallet } from "../src/lib/worlds/office-wallet-store";
 import { openTestDb } from "./harness";
@@ -235,6 +236,7 @@ describe("bot office", () => {
     assert.match(readme, /45 seconds/);
     assert.match(readme, /POST \/api\/worlds\/commands/);
     assert.match(readme, /WORLDS_COMMAND_WEBHOOK_URL/);
+    assert.match(readme, /WORLDS_PAYMENTS_ENABLED/);
     assert.match(readme, /needs your OK in Grok Bot/);
     assert.match(readme, /\/api\/worlds\/wallets/);
     assert.match(app, /Add wallet/);
@@ -278,6 +280,11 @@ describe("bot office", () => {
     assert.match(weather, /America\/New_York/);
     assert.match(weather, /api\.open-meteo\.com/);
     assert.match(source(".env.example"), /WORLDS_COMMAND_WEBHOOK_URL/);
+    assert.match(source(".env.example"), /WORLDS_PAYMENTS_ENABLED/);
+    const layout = source("src/app/layout.tsx");
+    assert.match(layout, /x-bot-office/);
+    assert.match(layout, /SiteFooter/);
+    assert.match(source("src/proxy.ts"), /x-bot-office/);
 
     const files = [
       "src/app/worlds/page.tsx",
@@ -291,6 +298,7 @@ describe("bot office", () => {
       "src/lib/worlds/office-catalog.ts",
       "src/lib/worlds/office-commands.ts",
       "src/lib/worlds/office-command-queue.ts",
+      "src/lib/worlds/office-payments.ts",
       "src/app/api/worlds/wallets/route.ts",
       "src/lib/worlds/office-wallets.ts",
       "src/lib/worlds/office-wallet-store.ts",
@@ -305,12 +313,16 @@ describe("bot office", () => {
   });
 
   test("commands queue, wake a webhook, and stop send/pay/delete until Kamron says OK", async () => {
+    const previousPayments = process.env.WORLDS_PAYMENTS_ENABLED;
+    delete process.env.WORLDS_PAYMENTS_ENABLED;
     const db = openTestDb();
     const calls: { url: string; body: string }[] = [];
     const fetchImpl = async (url: string, init: { method: "POST"; headers: { "content-type": string }; body: string }) => {
       calls.push({ url, body: init.body });
       return { ok: true };
     };
+    try {
+    assert.equal(worldsPaymentsEnabled(), false);
     const queued = await enqueueOfficeCommand(db, {
       kind: "assign_task",
       botId: "money",
@@ -341,23 +353,36 @@ describe("bot office", () => {
     const illegal = nextCommandState("done", "picked_up", null);
     assert.equal(illegal.ok, false);
 
+    const callsBeforePay = calls.length;
     const blocked = await enqueueOfficeCommand(db, {
       kind: "ask",
       botId: "kash",
       text: "Please pay the sample vendor.",
     }, {
-      fetchImpl: async () => { throw new Error("webhook down"); },
+      fetchImpl,
       webhookUrl: "https://bots.example/wake",
     });
     assert.equal(blocked.ok, true);
     if (!blocked.ok) return;
     assert.equal(blocked.body.command.status, "needs_approval");
     assert.equal(blocked.body.command.result, APPROVAL_PHRASE);
+    assert.equal(blocked.charged, false);
+    assert.equal(blocked.body.charged, false);
     assert.equal(blocked.body.webhookSent, false);
+    assert.equal(calls.length, callsBeforePay);
     const stillThere = await listRecentCommands(db);
     assert.equal(stillThere.some((command) => command.id === blocked.body.command.id), true);
     const notPending = await listPendingCommands(db);
     assert.equal(notPending.some((command) => command.id === blocked.body.command.id), false);
+    const denied = await updateOfficeCommand(db, { id: blocked.body.command.id, status: "done" });
+    assert.equal(denied.ok, false);
+    if (!denied.ok) {
+      assert.equal(denied.status, 403);
+      assert.equal(denied.error, "Worlds payments are off. Nothing was charged.");
+      assert.equal(denied.charged, false);
+    }
+    const held = await listRecentCommands(db);
+    assert.equal(held.find((command) => command.id === blocked.body.command.id)?.status, "needs_approval");
 
     const meeting = await enqueueOfficeCommand(db, {
       kind: "call_meeting",
@@ -380,6 +405,41 @@ describe("bot office", () => {
 
     const sample: OfficeCommand = blocked.body.command;
     assert.equal(sample.result, "needs your OK in Grok Bot");
+
+    process.env.WORLDS_PAYMENTS_ENABLED = "true";
+    assert.equal(worldsPaymentsEnabled(), true);
+    const paidCalls: { url: string }[] = [];
+    const paid = await enqueueOfficeCommand(db, {
+      kind: "ask",
+      botId: "money",
+      text: "Please pay the sample vendor.",
+    }, {
+      fetchImpl: async (url) => {
+        paidCalls.push({ url });
+        return { ok: true };
+      },
+      webhookUrl: "https://bots.example/wake",
+    });
+    assert.equal(paid.ok, true);
+    if (!paid.ok) return;
+    assert.equal(paid.body.command.status, "needs_approval");
+    assert.equal(paid.body.command.result, APPROVAL_PHRASE);
+    assert.equal(paid.charged, false);
+    assert.equal(paid.body.charged, false);
+    assert.equal(paid.body.webhookSent, true);
+    assert.equal(paidCalls.length, 1);
+    const stillBlocked = await updateOfficeCommand(db, { id: paid.body.command.id, status: "done" });
+    assert.equal(stillBlocked.ok, false);
+    if (!stillBlocked.ok) {
+      assert.equal(stillBlocked.status, 403);
+      assert.match(stillBlocked.error, /does not move money/);
+    }
+    const paidRow = await listRecentCommands(db);
+    assert.equal(paidRow.find((command) => command.id === paid.body.command.id)?.status, "needs_approval");
+    } finally {
+      if (previousPayments === undefined) delete process.env.WORLDS_PAYMENTS_ENABLED;
+      else process.env.WORLDS_PAYMENTS_ENABLED = previousPayments;
+    }
   });
 
   test("the vault stores balances only and the piles grow with the USD total", async () => {

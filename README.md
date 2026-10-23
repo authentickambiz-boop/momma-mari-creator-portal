@@ -613,6 +613,8 @@ Each command moves `queued` → `picked_up` → `in_progress` → `done`, `needs
 
 If `WORLDS_COMMAND_WEBHOOK_URL` is an `http` or `https` URL, each new command is also POSTed there as JSON. A failed or empty webhook still leaves the command in the queue. Leave the variable empty to skip the wake-up call.
 
+The office never calls Stripe and never moves money. Pay commands are stored as `needs_approval`. `WORLDS_PAYMENTS_ENABLED` is on only when it is exactly the string `true`. Leave it empty. While the flag is off, the webhook is skipped for those commands. Turning the flag on still does not charge anyone. A pay command cannot be marked done.
+
 ```bash
 curl -sS -X POST \
   -H "Content-Type: application/json" \
