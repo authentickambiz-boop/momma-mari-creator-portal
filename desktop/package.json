@@ -1,0 +1,13 @@
+{
+  "name": "momma-mari-worlds",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Desktop window for Momma Mari Worlds",
+  "scripts": {
+    "tauri": "tauri",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.4"
+  }
+}

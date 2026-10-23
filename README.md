@@ -660,6 +660,30 @@ curl -sS -X POST \
   http://localhost:43123/api/worlds/wallets
 ```
 
+## Momma Mari Worlds desktop
+
+`desktop/` is a small Tauri window that opens [https://mommamari.com/worlds](https://mommamari.com/worlds). It is the same owner-only office. Sign in with Google in that window. The window remembers its size, its position, and which monitor it was on, and restores them the next time you open it. If that monitor is unplugged, the system picks a screen that is still connected. **View → Toggle Fullscreen** (F11) switches fullscreen. On a Mac, F11 is sometimes taken by Mission Control, so use the View menu.
+
+An **Open chat** link (`grokbot://`) is handed to the operating system. If the Grok Bot app is installed and registered for that link, it opens there instead of inside the office window.
+
+The app icon is the cream building with the round gold door. The name under it is Momma Mari Worlds.
+
+Installers are built by the Desktop installers workflow (`.github/workflows/desktop.yml`) on Windows and macOS. Each run uploads the NSIS setup (`.exe`) and the disk image (`.dmg`) as artifacts on that Actions run. Publishing a GitHub Release also attaches those files to the release. They are not code-signed, so Windows SmartScreen and macOS Gatekeeper ask an extra question the first time.
+
+### Windows
+
+1. Open the latest successful [Desktop installers](https://github.com/authentickambiz-boop/momma-mari-creator-portal/actions/workflows/desktop.yml) run and download the `momma-mari-worlds-windows-latest` artifact, or take the `.exe` from a GitHub Release.
+2. Run the setup. If SmartScreen says it prevented an unrecognized app from starting, choose **More info**, then **Run anyway**.
+3. The installer is per user, so it does not ask for an administrator password. Launch **Momma Mari Worlds** from the Start menu.
+4. Pin it to the taskbar: while the window is open, right-click its taskbar icon and choose **Pin to taskbar**. You can also open Start, right-click **Momma Mari Worlds**, and choose **Pin to taskbar**.
+
+### macOS
+
+1. Download the `momma-mari-worlds-macos-latest` artifact (or the `.dmg` on a GitHub Release). The disk image is a universal build for Apple silicon and Intel.
+2. Open the disk image and drag **Momma Mari Worlds** into Applications.
+3. The first launch is blocked because the app is unsigned. Right-click the app in Applications, choose **Open**, then **Open** again.
+4. Pin it to the Dock, which is the Mac taskbar: while the app is running, right-click its Dock icon, then **Options → Keep in Dock**.
+
 ## Google sign-in
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), create or pick a project. Configure the OAuth consent screen. Add the scopes `openid`, `email`, and `profile`. While the app is in testing, add every creator Gmail and `Kamron@mommamari.com` as test users.
