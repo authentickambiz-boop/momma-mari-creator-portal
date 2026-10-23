@@ -149,11 +149,11 @@ export default async function PayoutsPage({ searchParams }: { searchParams: Prom
   );
 }
 
-function LedgerTable({ lines, owner }: { lines: { id: string; creatorName: string; brand: string; grossCents: number; feeCents: number; expenseCents: number; creatorCents: number; agencyCents: number; brandPaidOn: string | null; payoutOn: string | null }[]; owner: boolean }) {
+function LedgerTable({ lines, owner }: { lines: { id: string; creatorName: string; brand: string; grossCents: number; feeCents: number; expenseCents: number; creatorCents: number; agencyCents: number; brandPaidOn: string | null; payoutOn: string | null; fundsCleared: boolean }[]; owner: boolean }) {
   return (
     <table>
       <thead>
-        <tr><th>Creator</th><th>Brand</th><th>Gross</th><th>Fees</th><th>Expenses</th><th>Creator 80%</th><th>Agency 20%</th><th>Brand paid</th><th>Creator paid</th></tr>
+        <tr><th>Creator</th><th>Brand</th><th>Gross</th><th>Fees</th><th>Expenses</th><th>Creator 80%</th><th>Agency 20%</th><th>Brand paid</th><th>Funds</th><th>Creator paid</th></tr>
       </thead>
       <tbody>
         {lines.map((line) => (
@@ -175,6 +175,7 @@ function LedgerTable({ lines, owner }: { lines: { id: string; creatorName: strin
                 </form>
               ) : null}
             </td>
+            <td>{line.fundsCleared ? "Cleared" : "Waiting on funds"}</td>
             <td>
               {line.payoutOn ?? "Not yet"}
               {owner && line.brandPaidOn && !line.payoutOn ? (

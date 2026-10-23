@@ -245,6 +245,16 @@ export type DealDetail = DealSummary & {
   agreedRateLabel: string | null;
   brandReplyDraft: string | null;
   reviewStatus: string | null;
+  deposit: {
+    status: "not_requested" | "invoiced" | "received" | "not_required";
+    statusLabel: string;
+    amountCents: number | null;
+    invoicedOn: string | null;
+    receivedOn: string | null;
+    filmingLocked: boolean;
+    lockMessage: string | null;
+    overrideReason: string | null;
+  };
 };
 
 export type InboxItem = {

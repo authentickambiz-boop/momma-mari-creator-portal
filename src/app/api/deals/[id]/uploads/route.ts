@@ -4,6 +4,7 @@ import { currentViewer } from "@/lib/current-user";
 import { driveConfigured, openResumableSession, prepareDriveFolder } from "@/lib/drive";
 import { findCreatorById, getDealAccessRow, insertDraft, nextDraftVersion } from "@/lib/queries";
 import { recordDraftSafety } from "@/lib/safety";
+import { creatorFilmingBlocked } from "@/lib/brand-deposits";
 import { allowedVideoType, assertCanUpload, chunkSizeBytes, maxUploadBytes, safeFilename } from "@/lib/uploads";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -15,6 +16,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!deal) return NextResponse.json({ error: "That deal isn't on your list." }, { status: 404 });
   const allowed = assertCanUpload(viewer, deal);
   if (!allowed.ok) return NextResponse.json({ error: allowed.error }, { status: allowed.status });
+  const filming = await creatorFilmingBlocked(db, deal.id, viewer.role);
+  if (filming) return NextResponse.json({ error: filming.error }, { status: filming.status });
 
   const body = await request.json().catch(() => null) as {
     filename?: string;

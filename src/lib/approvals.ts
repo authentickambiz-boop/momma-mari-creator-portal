@@ -34,6 +34,7 @@ export function isApprovalGate(value: string): value is ApprovalGate {
 export function approvalGateLabel(id: string) {
   if (id === "brand_reply") return "Brand reply";
   if (id === "gift_guide") return "Gift guide reservation";
+  if (id === "deposit_go_ahead") return "Deposit go-ahead";
   return APPROVAL_GATES.find((gate) => gate.id === id)?.label ?? id;
 }
 

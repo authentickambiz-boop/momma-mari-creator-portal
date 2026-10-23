@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { dealStageEvents, deals, revisions } from "@/db/schema";
+import { creatorFilmingBlocked } from "./brand-deposits";
 import { upsertBrandCrm } from "./brand-crm";
 import { nowIso } from "./format";
 import { assertStaffAccess } from "./managers";
@@ -56,6 +57,10 @@ export async function setDealStage(
   }
   if (!managerOk && input.actorRole !== "admin" && input.actorRole !== "bot" && input.actorRole !== "system" && !creatorChoice && !creatorSign && !creatorGotProduct && !creatorPosted) {
     return { ok: false as const, status: 403, error: "You can't move this deal." };
+  }
+  if (input.actorRole === "creator" && (stage.order ?? 0) >= 15) {
+    const blocked = await creatorFilmingBlocked(db, deal.id, "creator");
+    if (blocked) return blocked;
   }
   if (deal.workflowStage === stage.id) {
     return { ok: true as const, changed: false, workflowStage: stage.id, status: deal.status };

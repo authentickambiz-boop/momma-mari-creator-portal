@@ -17,6 +17,7 @@ import { creatorStageMessage, sideStages, stageAdminLabel, stageShortLabel, trac
 import { PromoSourceForm } from "./promo-source-form";
 import { PromoVisual } from "./promo-visual";
 import { Chips, MaybeTbd } from "./portal-frame";
+import { DealDeposit } from "./deal-deposit";
 import { UploadBox } from "./upload-box";
 import type { PromoView } from "@/lib/promo-visuals";
 import type { DealDetail, DealSummary } from "@/lib/types";
@@ -60,6 +61,7 @@ export function DealBoard({
   paymentError = null,
   safetyError = null,
   signerError = null,
+  depositNotice = null,
   emptyCopy = null,
   visuals = {},
 }: {
@@ -84,6 +86,7 @@ export function DealBoard({
   paymentError?: string | null;
   safetyError?: string | null;
   signerError?: string | null;
+  depositNotice?: string | null;
   emptyCopy?: string | null;
   visuals?: Record<string, PromoView>;
 }) {
@@ -154,6 +157,7 @@ export function DealBoard({
             safetyError={safetyError}
             signerError={signerError}
             visual={visuals[selected.id] ?? null}
+            depositNotice={depositNotice}
           />
         ) : (
           <p className="note empty">Pick a deal to see the brief, the feedback, and where to upload.</p>
@@ -185,6 +189,7 @@ function DealDetailView({
   safetyError,
   signerError,
   visual,
+  depositNotice,
 }: {
   deal: DealDetail;
   backHref: string;
@@ -207,6 +212,7 @@ function DealDetailView({
   safetyError: string | null;
   signerError: string | null;
   visual: PromoView | null;
+  depositNotice: string | null;
 }) {
   const creatorId = creatorQuery.startsWith("?creator=") ? creatorQuery.slice("?creator=".length) : "";
   const current = deal.workflowStage;
@@ -414,6 +420,7 @@ function DealDetailView({
           </ul>
         </div>
       ) : null}
+      <DealDeposit deal={deal} isOwner={isOwner} creatorId={creatorId} notice={depositNotice} />
       <ProductAndPosts
         deal={deal}
         canChangeStage={canChangeStage}
@@ -552,7 +559,8 @@ function DealDetailView({
         </div>
       ) : null}
       {safetyError ? <p className="note alert" role="alert">{safetyErrorNote(safetyError) ?? "That hold was not cleared. Nothing was sent to the brand."}</p> : null}
-      <UploadBox dealId={deal.id} brand={deal.brand} enabled={deal.uploadEnabled} label={deal.uploadLabel || "Upload your draft"} />
+      {deal.deposit.filmingLocked ? <p className="note" data-filming-lock>{deal.deposit.lockMessage}</p> : null}
+      <UploadBox dealId={deal.id} brand={deal.brand} enabled={deal.uploadEnabled && !deal.deposit.filmingLocked} label={deal.uploadLabel || "Upload your draft"} />
     </>
   );
 }
@@ -624,6 +632,7 @@ function ProductAndPosts({
           <button className="btn" type="submit">Save tracking</button>
         </form>
       ) : null}
+      {deal.deposit.filmingLocked ? <p className="note" data-filming-lock>{deal.deposit.lockMessage}</p> : null}
       {deal.canConfirmProduct ? (
         <form action={confirmProductAction} className="stage-form">
           <input type="hidden" name="dealId" value={deal.id} />
