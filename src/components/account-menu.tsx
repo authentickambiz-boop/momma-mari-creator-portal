@@ -9,7 +9,7 @@ export function AccountMenu({
   items,
 }: {
   initials: string;
-  items: { href: string; label: string }[];
+  items: { href: string; label: string; newTab?: boolean }[];
 }) {
   const [open, setOpen] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
@@ -45,7 +45,7 @@ export function AccountMenu({
       {open ? (
         <div className="account-pop" id={menuId} role="menu">
           {items.map((item) => (
-            <Link key={item.href} href={item.href} role="menuitem" onClick={() => setOpen(false)}>
+            <Link key={item.href} href={item.href} role="menuitem" target={item.newTab ? "_blank" : undefined} rel={item.newTab ? "noopener noreferrer" : undefined} onClick={() => setOpen(false)}>
               {item.label}
             </Link>
           ))}

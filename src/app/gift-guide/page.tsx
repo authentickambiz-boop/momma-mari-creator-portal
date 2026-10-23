@@ -7,7 +7,7 @@ import { PUBLIC_ROBOTS } from "@/lib/public-site";
 export const metadata = {
   ...publicPageMeta({
     title: "Holiday Gift Guide 2026 · Momma Mari",
-    description: "Parent creators share gifts they'd actually give. Paid placements are labeled. Reserve a spot for the 2026 holiday guide.",
+    description: "Creators share gifts they'd actually give. Paid placements are labeled. Reserve a spot for the 2026 holiday guide.",
     path: GIFT_GUIDE_OFFER.pagePath,
   }),
   robots: PUBLIC_ROBOTS,

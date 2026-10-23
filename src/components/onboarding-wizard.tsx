@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { finishOnboardingAction } from "@/app/actions";
+import { NicheMultiSelect } from "@/components/niche-multi-select";
 import { TagPicker } from "@/components/tag-picker";
+import { nichesFromStored } from "@/lib/creator-niche-shared";
 import { finishErrorNote } from "@/lib/finish-notes";
-import { BRAND_OPTIONS, NICHE_CATALOG } from "@/lib/niche-catalog";
+import { BRAND_OPTIONS } from "@/lib/niche-catalog";
 import { ONBOARDING_PLATFORMS, onboardingPlatformLabel } from "@/lib/onboarding-fields";
 
 const PLATFORM_LABELS = ONBOARDING_PLATFORMS.map((id) => onboardingPlatformLabel(id));
@@ -37,7 +39,7 @@ export function OnboardingWizard({
         <input name="botName" defaultValue={suggestedBotName} placeholder={`${creatorName} Bot`} required />
         <span className="note">This is the name you and Kamron will see.</span>
       </label>
-      <TagPicker name="niche" label="2. Niche" options={NICHE_CATALOG} selected={niches} placeholder="Search niches" />
+      <NicheMultiSelect name="niche" selected={nichesFromStored(JSON.stringify(niches))} />
       <label>
         3. Content style
         <textarea name="contentStyle" placeholder="Short talking-to-camera videos, warm and practical." required />

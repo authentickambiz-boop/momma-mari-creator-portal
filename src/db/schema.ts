@@ -398,6 +398,7 @@ export const livePosts = sqliteTable("live_posts", {
   confirmedBy: text("confirmed_by"),
   postedOn: text("posted_on"),
   deliverableLabel: text("deliverable_label"),
+  proofKind: text("proof_kind"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -571,6 +572,12 @@ export const creatorProfiles = sqliteTable("creator_profiles", {
   weekendOn: integer("weekend_on", { mode: "boolean" }).notNull().default(false),
   safetyKinds: text("safety_kinds"),
   photoHold: integer("photo_hold", { mode: "boolean" }).notNull().default(false),
+  nicheOther: text("niche_other"),
+  avgViewers: integer("avg_viewers"),
+  hoursPerWeek: integer("hours_per_week"),
+  streamCategories: text("stream_categories"),
+  analyticsProof: text("analytics_proof"),
+  meetsBar: integer("meets_bar", { mode: "boolean" }).notNull().default(false),
   updatedAt: text("updated_at").notNull(),
 });
 
@@ -1634,6 +1641,42 @@ export const creatorFiled1099s = sqliteTable("creator_filed_1099s", {
   byteLength: integer("byte_length").notNull(),
   uploadedBy: text("uploaded_by").notNull(),
   createdAt: text("created_at").notNull(),
+});
+
+/** Live bot-office status written by the bot API. The seed stays in code. */
+export const officeWorldStatus = sqliteTable("office_world_status", {
+  id: text("id").primaryKey(),
+  document: text("document").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** Commands Kamron queues from the bot office. Bots pick them up with the bot API token. */
+export const officeWorldCommands = sqliteTable("office_world_commands", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  status: text("status").notNull(),
+  botIds: text("bot_ids").notNull(),
+  office: text("office"),
+  noteId: text("note_id"),
+  todoId: text("todo_id"),
+  decision: text("decision"),
+  topic: text("topic"),
+  body: text("body").notNull(),
+  due: text("due"),
+  impactDollars: integer("impact_dollars"),
+  result: text("result"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** Vault balances only. Names and amounts. No bank or card credentials. */
+export const officeWallets = sqliteTable("office_wallets", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  balanceCents: integer("balance_cents").notNull(),
+  currency: text("currency").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
 /** Owner choice for a brand: deposit before filming, or Net 30 after a paid-on-time deal. */

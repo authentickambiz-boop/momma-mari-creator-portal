@@ -3,7 +3,7 @@ import type { PortalDb } from "@/db";
 import { approvalEmails, supportMessages } from "@/db/schema";
 import { normalizeEmail, nowIso } from "./format";
 
-export const ABOUT_STORY = "Momma Mari started with MariClare, a parent creator with about 2.3 million followers. Kamron Santo wanted a place where every creator has access to all of their own deals, with a manager to take the weight off.";
+export const ABOUT_STORY = "Momma Mari started with MariClare, a creator with about 2.3 million followers. Kamron Santo wanted a place where every creator has access to all of their own deals, with a manager to take the weight off.";
 
 export const PUBLIC_CONTACT_EMAIL = "Kamron@mommamari.com";
 export const PUBLIC_CONTACT_PHONE = "980-358-0759";

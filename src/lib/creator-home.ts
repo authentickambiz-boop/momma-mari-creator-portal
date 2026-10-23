@@ -31,6 +31,7 @@ export function accountMenuItems(role: Viewer["role"]) {
   }
   if (role === "admin") {
     return [
+      { href: "/worlds", label: "Bot office", newTab: true },
       { href: "/referrals", label: "Referrals" },
       { href: "/support", label: "Support" },
       { href: "/settings", label: "Settings" },

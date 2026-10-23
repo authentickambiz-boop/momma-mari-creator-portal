@@ -79,10 +79,10 @@ describe("brand deposits", { concurrency: 1 }, () => {
     assert.equal(pushEnabled(), false);
     assert.equal(payoutTransfersEnabled(), false);
     assert.equal(packageCheckoutEnabled(), false);
-    const migration = source("drizzle/0058_brand_deposits.sql").toLowerCase();
+    const migration = source("drizzle/0062_brand_deposits.sql").toLowerCase();
     assert.equal(migration.includes("drop "), false);
     assert.equal(migration.includes("delete "), false);
-    const files = ["src/lib/brand-deposits.ts", "src/app/deposit-actions.ts", "drizzle/0058_brand_deposits.sql"].map(source).join("\n").toLowerCase();
+    const files = ["src/lib/brand-deposits.ts", "src/app/deposit-actions.ts", "drizzle/0062_brand_deposits.sql"].map(source).join("\n").toLowerCase();
     assert.equal(files.includes("api.stripe.com"), false);
     assert.equal(files.includes("boldsign"), false);
     assert.equal(files.includes("push_enabled"), false);

@@ -26,6 +26,7 @@ Checked against Webflow Cloud docs on October 17, 2026 ([bring your own app](htt
 - Seed data for MariClare (`mmaclamroc@gmail.com`): KOSBLING, VEV Gummies, WaterH, Persona, Sanvive, Halara, plus a Grail deal that stays hidden from her. `drizzle/0004_creator_profiles.sql` fills in Abby Theriot (`theofficialtheriots@gmail.com`) and AuthenticKam (`authentickambiz@gmail.com`).
 - Draft upload in 8 MB chunks. With Drive credentials, the portal opens a Google resumable session and forwards each chunk. The session URL stays on the server. The draft row stores the deal id, Drive file id, and the deal's Gmail thread id.
 - Bearer JSON API for the agency bot.
+- Bot office at `/worlds` (owner only; `/admin/world` redirects there). The page polls the status API. A scheduler can replace the whole office with one bot-token POST. Payload is documented under Bot office below.
 - Creator interest. Kamron marks an offer "Screened and released to creator" before she can see it. She can say "I'm interested" or "Not for me". That moves the stage, tells Kamron, and drops a pending email into the approval queue. Nothing is sent until he approves it. The From address is `authentickambiz@gmail.com`.
 - Contract versions. An admin uploads the brand's PDF or DOCX. Each file is kept (v1, v2, …) in a Contracts folder. A private checklist stays with Kamron. Asking the brand for changes queues an email from `authentickambiz@gmail.com`. Approving the contract is admin-only and tells the creator the file is ready to sign. She never sees the checklist notes.
 - Click-to-sign. After Kamron approves a PDF (or a DocuSign-marked PDF), the creator opens it on the sign page, agrees to sign electronically, and types or draws her signature. The portal stamps that signature on the PDF, adds a certificate page, and keeps every copy. A signed-contract email to the brand waits in the approval queue, from `authentickambiz@gmail.com`, until Kamron approves it. Have an attorney review this e-sign wording before you rely on it.
@@ -522,6 +523,142 @@ The signed-in creator (or Kamron) calls these. The browser does not send the who
 2. `PUT /api/deals/:dealId/uploads/:draftId` with header `Content-Range: bytes START-END/TOTAL` and the chunk as the body. Chunks are 8 MB (`UPLOAD_CHUNK_BYTES`), a multiple of 256 KB, except the last chunk. They must arrive in order.
 
 Google's resumable URL is not called from the browser, because Drive does not allow that cross-origin. The portal forwards each chunk and does not keep the bytes.
+
+## Bot office
+
+`/worlds` is Kamron's full-screen bot office. A signed-out visit goes to login. Anyone who is not the owner gets a not-found page. The account menu item "Bot office" opens it in a new tab so it can sit on a second monitor. The page polls `GET /api/worlds/status` every 45 seconds and applies bot rooms, tasks, calendars, to-dos, and notes without a reload. Walking between those updates is simulated in the browser.
+
+`GET /api/worlds/status` accepts the owner session cookie or `Authorization: Bearer $BOT_API_TOKEN`. A signed-in non-owner gets 404. `POST /api/worlds/status` and `PATCH /api/worlds/status` accept only the bot token. POST replaces the stored snapshot (the call an external scheduler makes a few times a day). PATCH is smaller: a wing manager updates that wing's calendar and to-dos, any roster bot can drop a note (status starts as `new`), and Kash Bot (`actor` `kash`) is the only one who can change a note's status. XP is not a separate field. It is the sum of `achievements[].xp`.
+
+The main note list on each wing shows only `approved_to_show`. New, with Kash, and held notes (including ideas that were turned down) stay on that wing's Review tab. Do not put creator minimum rates or private relationship details in any text field. The office rejects those phrases.
+
+Room ids on the default floor plan are `office:personal`, `manager:personal`, `office:business`, `manager:business`, `office:creators`, `manager:creators`, `hall`, `hq`, `conference`, `library`, `break`, and `vault`. Office boards are `personal`, `business`, `creators`, and `hq`.
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d @office-snapshot.json \
+  http://localhost:43123/api/worlds/status
+```
+
+`office-snapshot.json` has this shape. The live seed is the same shape, with sample calendar, to-do, and note rows until the first POST.
+
+```json
+{
+  "hqBotId": "kash",
+  "sections": [
+    { "name": "Personal", "manager": "lifemgr", "members": ["lifemgr", "life"] },
+    { "name": "Business", "manager": "bizmgr", "members": ["bizmgr", "money"] },
+    { "name": "Creators", "manager": "cremgr", "members": ["cremgr", "mari"] }
+  ],
+  "bots": [
+    {
+      "id": "kash",
+      "name": "Kash Bot",
+      "short": "KB",
+      "role": "Hub and team manager.",
+      "task": "Deliver the sync.",
+      "update": "Sync written.",
+      "status": "working",
+      "room": "hq",
+      "chatId": "kash"
+    }
+  ],
+  "calendar": [
+    { "id": "cal-hq", "office": "hq", "title": "Evening team sync", "start": "2026-10-22T20:00:00-04:00", "end": "2026-10-22T20:30:00-04:00" }
+  ],
+  "todos": [
+    { "id": "todo-kash", "office": "hq", "task": "Deliver the sync note.", "ownerBot": "kash", "due": "2026-10-23", "impactDollars": 0, "done": false }
+  ],
+  "notes": [
+    { "id": "note-hq", "office": "hq", "date": "2026-10-22", "bot": "kash", "idea": "Post the sync on the HQ board.", "whyNow": "The sync is written.", "status": "approved_to_show" }
+  ],
+  "achievements": [
+    { "icon": "🏁", "title": "Ship It", "date": "Oct 20", "detail": "Portal PRs merged.", "source": "overnight-results-2026-10-21.md", "xp": 200, "credit": ["kash"] }
+  ],
+  "locked": [
+    { "icon": "📚", "title": "Published Author", "goal": "Publish creator Guides #1–#3 on mommamari.com." }
+  ]
+}
+```
+
+`status` is `working`, `waiting`, or `idle`. Note `status` is `new`, `with_kash`, `approved_to_show`, or `held`. `chatId` is the prototype agent id when one exists, and the office links it as `grokbot://app/v1/agent?id=<chatId>`. Omit `chatId` to keep the id already on file. `impactDollars` is a sample or scheduler dollar impact, or `0`.
+
+A manager patch replaces one wing's calendar, to-dos, or both:
+
+```bash
+curl -sS -X PATCH \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"actor":"bizmgr","office":"business","todos":[{"id":"todo-money","office":"business","task":"Watch the sample invoice list.","ownerBot":"money","due":"2026-10-24","impactDollars":0,"done":false}]}' \
+  http://localhost:43123/api/worlds/status
+```
+
+Kash Bot changes a note. Other bots can only add a note, and it is stored as `new`:
+
+```bash
+curl -sS -X PATCH \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"actor":"kash","notes":[{"id":"note-hq","status":"approved_to_show"}]}' \
+  http://localhost:43123/api/worlds/status
+```
+
+On the live site the host is `https://mommamari.com/portal` and the path is still `/api/worlds/status`.
+
+The office is also a control surface. Actions in the room queue a real command: assign a task, call a meeting, approve or hold a note, add a calendar event, add or check a to-do, ask a question, or send a generic request. `POST /api/worlds/commands` accepts the owner session only. `GET /api/worlds/commands` with the owner cookie returns the recent mission log. The same GET with `Authorization: Bearer $BOT_API_TOKEN` returns pending commands (`queued`, `picked_up`, `in_progress`). `PATCH /api/worlds/commands` accepts only the bot token.
+
+Each command moves `queued` → `picked_up` → `in_progress` → `done`, `needs_approval`, or `declined`, and can carry a `result` string. The mission log lists them. The same line sits in a speech bubble over the bot. A command whose text touches sending, paying, or deleting is stored immediately as `needs_approval` with the result `needs your OK in Grok Bot`. Those rows stay out of the pending list, so a bot does not run them.
+
+If `WORLDS_COMMAND_WEBHOOK_URL` is an `http` or `https` URL, each new command is also POSTed there as JSON. A failed or empty webhook still leaves the command in the queue. Leave the variable empty to skip the wake-up call.
+
+The office never calls Stripe and never moves money. Pay commands are stored as `needs_approval`. `WORLDS_PAYMENTS_ENABLED` is on only when it is exactly the string `true`. Leave it empty. While the flag is off, the webhook is skipped for those commands. Turning the flag on still does not charge anyone. A pay command cannot be marked done.
+
+```bash
+curl -sS -X POST \
+  -H "Content-Type: application/json" \
+  -b "portal_session=..." \
+  -d '{"kind":"assign_task","botId":"money","text":"Watch the sample invoice list.","due":"2026-10-24"}' \
+  http://localhost:43123/api/worlds/commands
+
+curl -sS \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  http://localhost:43123/api/worlds/commands
+
+curl -sS -X PATCH \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"id":"<command id>","status":"picked_up","result":"On it."}' \
+  http://localhost:43123/api/worlds/commands
+```
+
+`kind` is one of `assign_task`, `call_meeting`, `note_decision`, `add_event`, `add_todo`, `check_todo`, `ask`, or `request`.
+
+| Kind | Body | Who it is for |
+| --- | --- | --- |
+| `assign_task` | `botId`, `text`, `due` | That bot |
+| `call_meeting` | `botIds`, `topic` | The bots you picked. They also walk to the conference room in the scene. |
+| `note_decision` | `noteId`, `decision` `approve` or `hold` | Kash Bot and the bot who wrote the note |
+| `add_event` | `office`, `title`, `start`, `end` | That wing's manager. `due` is the start and `topic` is the end. |
+| `add_todo` | `office`, `text`, `botId`, `due`, `impactDollars` | The owner bot |
+| `check_todo` | `todoId` | The to-do's owner |
+| `ask` | `botId`, `text` | That bot |
+| `request` | `text`, optional `botId` | That bot, or Kash Bot when `botId` is omitted |
+
+The grounds use Open-Meteo for Mooresville, NC (`latitude=35.58`, `longitude=-80.81`, no key). Rain, clouds, sun, wind, fog, and snow follow that feed. Day and night lighting follows `America/New_York`. Tree and shrub colors follow the season. The roof fades when the camera zooms inside the building.
+
+The vault is the room at the end of the hall. Its round steel door swings open when you click it, and the glowing number above the door is the USD total. Cash stacks and gold bars inside grow with that total. With no wallets the door shows `$0`, and **Add wallet** opens a form for a name and a balance.
+
+`GET /api/worlds/wallets` and `POST /api/worlds/wallets` accept the owner session or `Authorization: Bearer $BOT_API_TOKEN`. Anyone else gets 404. A wallet is `{ "name", "type", "balance", "currency", "updatedAt" }` plus an `id`. `type` is `cash`, `bank`, `gold`, or `other`. `currency` defaults to `USD`. Posting the same name again updates that balance, which is how Money Bot keeps the vault current. The stored total on the door adds USD rows only. Other currencies stay on their own lines. The table stores the name and the amount. It does not store account numbers, routing numbers, cards, or any payment credential, and it does not move money.
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Operating cash","type":"cash","balance":4200,"currency":"USD"}' \
+  http://localhost:43123/api/worlds/wallets
+```
 
 ## Google sign-in
 

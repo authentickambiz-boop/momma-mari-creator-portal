@@ -158,7 +158,7 @@ describe("launch smoke", { concurrency: 1 }, () => {
       (name) => (name === "platforms" ? ["Twitch"] : []),
     );
     assert.equal(handles.handles?.Twitch, "@smoke");
-    const handleSaved = await saveQuestionnaireStep(db, viewer, { step: "platforms", skip: false, pause: false, patch: handles });
+    const handleSaved = await saveQuestionnaireStep(db, viewer, { step: "platforms", skip: false, pause: false, patch: { ...handles, avgViewers: "80" } });
     assert.equal(handleSaved.ok, true);
     const profile = (await db.select().from(creatorProfiles).where(eq(creatorProfiles.creatorId, "smoke-rates")))[0];
     assert.equal(profile?.handles?.includes("Twitch @smoke"), true);

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RankBadge } from "@/components/rank-badge";
+import { platformLabel } from "@/lib/niche-catalog";
 import { pinHost } from "@/lib/member-profile";
 import type { PublicProfile } from "@/lib/profiles";
 
@@ -46,6 +47,7 @@ export function MemberCard({ card }: { card: PublicProfile }) {
         {card.photoHeld ? <span className="chip c-sun">Photos held</span> : null}
         {card.bio ? <p>{card.bio}</p> : null}
         {card.niches?.length ? <p className="note">{card.niches.join(" · ")}</p> : null}
+        {card.meetsBar ? <span className="chip c-gray">Meets bar</span> : null}
       </div>
     </Link>
   );
@@ -65,8 +67,9 @@ export function MemberProfile({ card }: { card: PublicProfile }) {
         {card.joined ? <p className="note">Joined {card.joined}</p> : null}
         {card.bio ? <p>{card.bio}</p> : null}
         {card.niches?.length ? <p>{card.niches.join(" · ")}</p> : null}
+        {card.meetsBar ? <p className="note">Meets bar</p> : null}
         {card.platforms?.length ? (
-          <p>{card.platforms.map((item) => `${item.platform} @${item.handle}`).join(" · ")}</p>
+          <p>{card.platforms.map((item) => `${platformLabel(item.platform)} @${item.handle}${item.followers != null ? ` · ${item.followers.toLocaleString("en-US")}` : ""}`).join(" · ")}</p>
         ) : null}
         {card.handles ? <p>{card.handles}</p> : null}
         <Pins card={card} />

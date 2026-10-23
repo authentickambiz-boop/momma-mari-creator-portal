@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
+import { headers } from "next/headers";
 import { Fraunces, Inter } from "next/font/google";
 import { AnalyticsHooks } from "@/components/analytics-hooks";
 import { CommunityPanel } from "@/components/community-panel";
@@ -25,6 +26,8 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const headerList = await headers();
+  const office = headerList.get("x-bot-office") === "1";
   const seasonal = await loadSeasonalPresentation();
   const pageStyle: CSSProperties | undefined = seasonal.active
     ? ({ "--cream": seasonal.active.palette.page } as CSSProperties)
@@ -32,12 +35,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${inter.variable} ${fraunces.variable}`} data-seasonal={seasonal.active?.id} style={pageStyle}>
       <body>
-        <SeasonalThemeFrame presentation={{ active: seasonal.active, hidden: seasonal.hidden }} />
+        {office ? null : <SeasonalThemeFrame presentation={{ active: seasonal.active, hidden: seasonal.hidden }} />}
         {children}
         <AnalyticsHooks />
-        <SiteFooter />
-        <CommunityPanel />
-        <HomeScreen />
+        {office ? null : <SiteFooter />}
+        {office ? null : <CommunityPanel />}
+        {office ? null : <HomeScreen />}
       </body>
     </html>
   );

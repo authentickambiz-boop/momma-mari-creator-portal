@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { tagChoices } from "@/lib/tag-picker";
 
 export function TagPicker({
@@ -9,12 +9,16 @@ export function TagPicker({
   options,
   selected,
   placeholder = "Search or add",
+  labels,
+  onChange,
 }: {
   name: string;
   label: string;
   options: readonly string[];
   selected: string[];
   placeholder?: string;
+  labels?: Record<string, string>;
+  onChange?: (picked: string[]) => void;
 }) {
   const listId = useId();
   const [picked, setPicked] = useState(selected);
@@ -23,6 +27,11 @@ export function TagPicker({
   const [active, setActive] = useState(0);
   const choices = useMemo(() => tagChoices(options, picked, query), [options, picked, query]);
   const current = choices[Math.min(active, Math.max(choices.length - 1, 0))];
+  const labelFor = (value: string) => labels?.[value] ?? value;
+
+  useEffect(() => {
+    onChange?.(picked);
+  }, [picked, onChange]);
 
   function add(value: string) {
     setPicked((items) => (items.some((item) => item.toLowerCase() === value.toLowerCase()) ? items : [...items, value]));
@@ -41,8 +50,8 @@ export function TagPicker({
       <div className="tag-chips">
         {picked.map((tag) => (
           <span key={tag} className="tag-chip">
-            {tag}
-            <button type="button" aria-label={`Remove ${tag}`} onClick={() => remove(tag)}>×</button>
+            {labelFor(tag)}
+            <button type="button" aria-label={`Remove ${labelFor(tag)}`} onClick={() => remove(tag)}>×</button>
             <input type="hidden" name={name} value={tag} />
           </span>
         ))}
@@ -95,7 +104,7 @@ export function TagPicker({
                 onMouseEnter={() => setActive(index)}
                 onClick={() => add(choice.value)}
               >
-                {choice.add ? `Add "${choice.value}"` : choice.value}
+                {choice.add ? `Add "${choice.value}"` : labelFor(choice.value)}
               </button>
             </li>
           ))}
