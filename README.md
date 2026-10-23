@@ -611,9 +611,9 @@ The office is also a control surface. Tapping a bot, a wall calendar, a to-do bo
 
 Each command moves `queued` → `picked_up` → `in_progress` → `done`, `needs_approval`, or `declined`, and can carry a `result` string. The mission log lists them. The same line sits in a speech bubble over the bot. A command whose text touches sending, paying, or deleting is stored immediately as `needs_approval` with the result `needs your OK in Grok Bot`. Those rows stay out of the pending list, so a bot does not run them.
 
-If `WORLDS_COMMAND_WEBHOOK_URL` is an `http` or `https` URL, each new command is also POSTed there as JSON. A failed or empty webhook still leaves the command in the queue. Leave the variable empty to skip the wake-up call.
+If `WORLDS_COMMAND_WEBHOOK_URL` is an `http` or `https` URL, every queued command is also POSTed there as JSON. That includes a message, a meeting, a calendar event, a to-do, and a note decision. A `needs_approval` row is not posted. `WORLDS_PAYMENTS_ENABLED` does not change the webhook. When `WORLDS_COMMAND_WEBHOOK_SECRET` is set, the POST sends `Authorization: Bearer` with that value. A failed or empty webhook still leaves the command in the queue, and the server logs the host and the HTTP status. It does not log the URL or the secret. Leave the URL empty to skip the wake-up call.
 
-The office never calls Stripe and never moves money. Pay commands are stored as `needs_approval`. `WORLDS_PAYMENTS_ENABLED` is on only when it is exactly the string `true`. Leave it empty. While the flag is off, the webhook is skipped for those commands. Turning the flag on still does not charge anyone. A pay command cannot be marked done.
+The office never calls Stripe and never moves money. Pay commands are stored as `needs_approval`. `WORLDS_PAYMENTS_ENABLED` is on only when it is exactly the string `true`. Leave it empty. Turning the flag on still does not charge anyone. A pay command cannot be marked done.
 
 ```bash
 curl -sS -X POST \
@@ -657,7 +657,7 @@ A bot chat posts `{ "kind": "message", "botId": "<roster id>", "text": "<text>" 
 }
 ```
 
-A reply walks `queued` → `picked_up` → `in_progress` → `done`. The last PATCH is `{ "id": "<command id>", "status": "done", "result": "<reply>" }` with the bot token. The open chat reads `result` from the owner GET. Text that sends, pays, or deletes is stored as `needs_approval` and the webhook is skipped while payments are off. The panel does not send, pay, book, or delete anywhere else.
+A reply walks `queued` → `picked_up` → `in_progress` → `done`. The last PATCH is `{ "id": "<command id>", "status": "done", "result": "<reply>" }` with the bot token. The open chat reads `result` from the owner GET. Text that sends, pays, or deletes is stored as `needs_approval` and that row is not posted to the webhook. The panel does not send, pay, book, or delete anywhere else.
 
 | Kind | Body | Who it is for |
 | --- | --- | --- |

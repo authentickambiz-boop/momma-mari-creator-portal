@@ -15,7 +15,7 @@ import {
   type CommandStatus,
   type OfficeCommand,
 } from "./office-commands";
-import { refuseWorldsPayment, worldsPaymentsEnabled } from "./office-payments";
+import { refuseWorldsPayment } from "./office-payments";
 import { loadOfficeRecord } from "./office-status";
 
 type CommandRow = typeof officeWorldCommands.$inferSelect;
@@ -49,7 +49,7 @@ function rowToCommand(row: CommandRow): OfficeCommand {
 export async function enqueueOfficeCommand(
   db: PortalDb,
   body: unknown,
-  options?: { fetchImpl?: CommandFetch; webhookUrl?: string | null },
+  options?: { fetchImpl?: CommandFetch; webhookUrl?: string | null; webhookSecret?: string | null },
 ) {
   const record = await loadOfficeRecord(db);
   const parsed = parseOfficeCommand(body, record);
@@ -80,12 +80,13 @@ export async function enqueueOfficeCommand(
   });
   const sensitive = command.status === "needs_approval" || touchesSensitiveText(command);
   const refusal = sensitive ? refuseWorldsPayment() : null;
-  const webhookSent = !sensitive || worldsPaymentsEnabled()
-    ? await notifyCommandWebhook(command, {
+  const webhookSent = command.status === "needs_approval"
+    ? false
+    : await notifyCommandWebhook(command, {
       fetchImpl: options?.fetchImpl,
       url: options && "webhookUrl" in options ? options.webhookUrl : process.env.WORLDS_COMMAND_WEBHOOK_URL,
-    })
-    : false;
+      secret: options && "webhookSecret" in options ? options.webhookSecret : process.env.WORLDS_COMMAND_WEBHOOK_SECRET,
+    });
   return {
     ok: true as const,
     status: 201,
