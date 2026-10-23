@@ -281,7 +281,7 @@ describe("bot office", () => {
     assert.match(canvas, /VaultDoor/);
     assert.match(canvas, /onOpenMeet/);
     assert.match(canvas, /MapControls/);
-    assert.match(canvas, /THREE\.MOUSE\.PAN/);
+    assert.match(canvas, /grabPanDelta/);
     assert.match(canvas, /THREE\.MOUSE\.ROTATE/);
     assert.match(canvas, /THREE\.TOUCH\.PAN/);
     assert.match(canvas, /THREE\.TOUCH\.DOLLY_ROTATE/);
