@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { MapControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import type { BotStatus } from "@/lib/worlds/office-catalog";
@@ -21,9 +21,47 @@ export type OfficeCameraApi = {
   zoomBy: (factor: number) => void;
 };
 
+export type OfficeLayers = {
+  offices: boolean;
+  outdoor: boolean;
+  weather: boolean;
+  roof: boolean;
+};
+
+export type OfficeQuality = "fine" | "fast";
+
 type BotCard = { id: string; name: string; short: string; status: BotStatus };
 
 const EXTERIOR_H = 2.55;
+const MAP_MIN_DISTANCE = 3.2;
+const MAP_MAX_DISTANCE = 78;
+
+function mapHome(layout: OfficeLayout) {
+  const lookX = layout.width / 2;
+  const lookZ = layout.depth * 0.42;
+  return {
+    position: new THREE.Vector3(lookX + 18, 28, layout.depth + 32),
+    target: new THREE.Vector3(lookX, 1.2, lookZ),
+  };
+}
+
+function clampMapTarget(orbit: OrbitControlsType, layout: OfficeLayout) {
+  const minX = -14;
+  const maxX = layout.width + 14;
+  const minZ = -14;
+  const maxZ = layout.depth + 28;
+  const x = THREE.MathUtils.clamp(orbit.target.x, minX, maxX);
+  const y = THREE.MathUtils.clamp(orbit.target.y, 0.4, 3.2);
+  const z = THREE.MathUtils.clamp(orbit.target.z, minZ, maxZ);
+  const dx = x - orbit.target.x;
+  const dy = y - orbit.target.y;
+  const dz = z - orbit.target.z;
+  if (dx === 0 && dy === 0 && dz === 0) return;
+  orbit.target.set(x, y, z);
+  orbit.object.position.x += dx;
+  orbit.object.position.y += dy;
+  orbit.object.position.z += dz;
+}
 const INTERIOR_H = 1.22;
 const SILL_H = 0.82;
 const HEADER_Y = 2.12;
@@ -240,7 +278,13 @@ function useOfficeMaterials(layout: OfficeLayout) {
     const floorZ = Math.max(4, layout.depth / 6);
     return {
       wood: wood(2.2, 2.2),
-      woodFloor: wood(floorX, floorZ, "#d7b08a"),
+      woodFloor: wood(floorX, floorZ, "#6a432c"),
+      deskWhite: new THREE.MeshStandardMaterial({ color: "#f4f1ea", roughness: 0.4, metalness: 0.02 }),
+      chairGrey: new THREE.MeshStandardMaterial({ color: "#8e949b", roughness: 0.62 }),
+      tealChair: new THREE.MeshStandardMaterial({ color: "#2a9d8f", roughness: 0.7 }),
+      magentaChair: new THREE.MeshStandardMaterial({ color: "#d63384", roughness: 0.7 }),
+      poufPink: new THREE.MeshStandardMaterial({ color: "#f3c7b8", roughness: 0.88 }),
+      poufBlue: new THREE.MeshStandardMaterial({ color: "#d5e2f4", roughness: 0.88 }),
       carpets: [carpet("#6d7d62"), carpet("#7a6a52"), carpet("#6e5c62")],
       tile: new THREE.MeshStandardMaterial({
         map: repeated(tileAlbedo, 8, 4),
@@ -365,6 +409,7 @@ function Plant({ x, z, scale = 1 }: { x: number; z: number; scale?: number }) {
 }
 
 const MatsContext = createContext<ReturnType<typeof useOfficeMaterials> | null>(null);
+const TapContext = createContext<() => boolean>(() => true);
 function useMats() {
   const mats = useContext(MatsContext);
   if (!mats) throw new Error("Office materials are not ready.");
@@ -376,13 +421,7 @@ function Shell({ layout }: { layout: OfficeLayout }) {
   return (
     <group>
       {layout.rooms.map((room) => {
-        const carpet = room.kind === "vault"
-          ? mats.vaultFloor
-          : room.kind === "office"
-          ? mats.carpets[Math.max(0, room.tint) % mats.carpets.length]
-          : room.kind === "hall" || room.kind === "break"
-            ? mats.tile
-            : mats.woodFloor;
+        const carpet = room.kind === "vault" ? mats.vaultFloor : mats.woodFloor;
         return (
           <mesh key={room.id} rotation={[-Math.PI / 2, 0, 0]} position={[room.x + room.w / 2, 0.02, room.z + room.d / 2]} receiveShadow material={carpet}>
             <planeGeometry args={[room.w, room.d]} />
@@ -457,21 +496,21 @@ function Desk({ x, z, accent }: { x: number; z: number; accent: string }) {
   }), [accent]);
   return (
     <group>
-      <mesh position={[x, 0.74, deskZ]} castShadow receiveShadow material={mats.woodDark}>
+      <mesh position={[x, 0.74, deskZ]} castShadow receiveShadow material={mats.deskWhite}>
         <boxGeometry args={[1.28, 0.06, 0.66]} />
       </mesh>
       {[[-0.54, -0.24], [0.54, -0.24], [-0.54, 0.24], [0.54, 0.24]].map(([lx, lz]) => (
-        <mesh key={`${lx}-${lz}`} position={[x + lx, 0.36, deskZ + lz]} castShadow material={mats.trim}>
-          <boxGeometry args={[0.06, 0.7, 0.06]} />
+        <mesh key={`${lx}-${lz}`} position={[x + lx, 0.36, deskZ + lz]} castShadow material={mats.metal}>
+          <boxGeometry args={[0.05, 0.7, 0.05]} />
         </mesh>
       ))}
-      <mesh position={[x, 0.46, z]} castShadow receiveShadow material={mats.wood}>
+      <mesh position={[x, 0.46, z]} castShadow receiveShadow material={mats.chairGrey}>
         <boxGeometry args={[0.48, 0.07, 0.46]} />
       </mesh>
-      <mesh position={[x, 0.78, z + 0.2]} castShadow material={mats.woodDark}>
+      <mesh position={[x, 0.78, z + 0.2]} castShadow material={mats.chairGrey}>
         <boxGeometry args={[0.48, 0.5, 0.07]} />
       </mesh>
-      <mesh position={[x, 1.02, deskZ - 0.22]} castShadow material={mats.joint}>
+      <mesh position={[x, 1.02, deskZ - 0.22]} castShadow material={mats.deskWhite}>
         <boxGeometry args={[0.62, 0.38, 0.045]} />
       </mesh>
       <mesh position={[x, 1.02, deskZ - 0.195]} material={screen}>
@@ -508,6 +547,15 @@ function Shelf({ x, z, w, d }: { x: number; z: number; w: number; d: number }) {
   );
 }
 
+function HitPad({ args, position }: { args: [number, number, number]; position?: [number, number, number] }) {
+  return (
+    <mesh position={position}>
+      <boxGeometry args={args} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+  );
+}
+
 function WingStations({
   layout,
   sections,
@@ -518,6 +566,7 @@ function WingStations({
   onOpen: (board: BoardOpen) => void;
 }) {
   const mats = useMats();
+  const canOpen = useContext(TapContext);
   const stations = useMemo(() => boardStations(layout, sections), [layout, sections]);
   return (
     <group>
@@ -525,7 +574,7 @@ function WingStations({
         <group key={station.office}>
           <group
             position={[station.calendar.x, 1.45, station.calendar.z]}
-            onClick={(event) => { event.stopPropagation(); onOpen({ office: station.office, panel: "calendar" }); }}
+            onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpen({ office: station.office, panel: "calendar" }); }}
           >
             <mesh castShadow material={mats.frame}>
               <boxGeometry args={[0.72, 0.92, 0.04]} />
@@ -538,10 +587,11 @@ function WingStations({
               <boxGeometry args={[0.6, 0.12, 0.01]} />
               <meshStandardMaterial color="#1f3b2d" />
             </mesh>
+            <HitPad args={[1.25, 1.35, 0.45]} position={[0, 0, 0.06]} />
           </group>
           <group
             position={[station.whiteboard.x, 1.4, station.whiteboard.z]}
-            onClick={(event) => { event.stopPropagation(); onOpen({ office: station.office, panel: "todos" }); }}
+            onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpen({ office: station.office, panel: "todos" }); }}
           >
             <mesh castShadow material={mats.trim}>
               <boxGeometry args={[1.15, 0.78, 0.04]} />
@@ -550,10 +600,11 @@ function WingStations({
               <planeGeometry args={[1.02, 0.64]} />
               <meshStandardMaterial color="#f4f7f2" />
             </mesh>
+            <HitPad args={[1.6, 1.15, 0.45]} position={[0, 0, 0.06]} />
           </group>
           <group
             position={[station.inbox.x, 0, station.inbox.z]}
-            onClick={(event) => { event.stopPropagation(); onOpen({ office: station.office, panel: "notes" }); }}
+            onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpen({ office: station.office, panel: "notes" }); }}
           >
             <mesh position={[0, 0.42, 0]} castShadow receiveShadow material={mats.woodDark}>
               <boxGeometry args={[0.7, 0.5, 0.46]} />
@@ -565,6 +616,7 @@ function WingStations({
               <boxGeometry args={[0.28, 0.02, 0.2]} />
               <meshStandardMaterial color="#f7f1e4" />
             </mesh>
+            <HitPad args={[1.15, 1.05, 0.8]} position={[0, 0.5, 0]} />
           </group>
         </group>
       ))}
@@ -573,6 +625,7 @@ function WingStations({
 }
 
 function BalanceGlow({ text, x, y, z, onOpen }: { text: string; x: number; y: number; z: number; onOpen: () => void }) {
+  const canOpen = useContext(TapContext);
   const map = useMemo(() => {
     const canvas = document.createElement("canvas");
     canvas.width = 768;
@@ -598,7 +651,7 @@ function BalanceGlow({ text, x, y, z, onOpen }: { text: string; x: number; y: nu
   }, [text]);
   return (
     <group position={[x, y, z]}>
-      <mesh onClick={(event) => { event.stopPropagation(); onOpen(); }}>
+      <mesh onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpen(); }}>
         <planeGeometry args={[1.7, 0.42]} />
         <meshStandardMaterial map={map} emissive="#b6ff6a" emissiveMap={map} emissiveIntensity={0.9} toneMapped={false} />
       </mesh>
@@ -645,6 +698,7 @@ function VaultDoor({ layout, total, onOpen }: { layout: OfficeLayout; total: num
   const room = layout.rooms.find((item) => item.id === "vault");
   const plan = vaultPilePlan(total);
   const label = formatWalletMoney(total);
+  const canOpen = useContext(TapContext);
   useFrame((_, dt) => {
     const node = hinge.current;
     if (!node) return;
@@ -665,6 +719,7 @@ function VaultDoor({ layout, total, onOpen }: { layout: OfficeLayout; total: num
   const cz = room.z + room.d - 1.7;
   const openDoor = (event: { stopPropagation: () => void }) => {
     event.stopPropagation();
+    if (!canOpen()) return;
     setOpen((current) => !current);
     onOpen();
   };
@@ -723,8 +778,37 @@ function VaultDoor({ layout, total, onOpen }: { layout: OfficeLayout; total: num
   );
 }
 
-function Furniture({ layout }: { layout: OfficeLayout }) {
+function Armchair({ x, z, material }: { x: number; z: number; material: THREE.Material }) {
+  return (
+    <group position={[x, 0, z]}>
+      <mesh position={[0, 0.28, 0]} castShadow receiveShadow material={material}>
+        <boxGeometry args={[0.64, 0.3, 0.58]} />
+      </mesh>
+      <mesh position={[0, 0.55, -0.22]} castShadow material={material}>
+        <boxGeometry args={[0.64, 0.42, 0.14]} />
+      </mesh>
+      <mesh position={[-0.34, 0.4, 0]} castShadow material={material}>
+        <boxGeometry args={[0.08, 0.22, 0.5]} />
+      </mesh>
+      <mesh position={[0.34, 0.4, 0]} castShadow material={material}>
+        <boxGeometry args={[0.08, 0.22, 0.5]} />
+      </mesh>
+    </group>
+  );
+}
+
+function Pouf({ x, z, material }: { x: number; z: number; material: THREE.Material }) {
+  return (
+    <mesh position={[x, 0.16, z]} castShadow receiveShadow material={material}>
+      <cylinderGeometry args={[0.26, 0.3, 0.28, 8]} />
+    </mesh>
+  );
+}
+
+/** CC0 low-poly props. Desks, monitors, poufs, rugs, plants, and chairs are original geometry. */
+function Furniture({ layout, onOpenMeet }: { layout: OfficeLayout; onOpenMeet: () => void }) {
   const mats = useMats();
+  const canOpen = useContext(TapContext);
   const rooms = Object.fromEntries(layout.rooms.map((room) => [room.id, room])) as Record<string, OfficeRoom>;
   const brk = rooms.break;
   const library = rooms.library;
@@ -736,10 +820,11 @@ function Furniture({ layout }: { layout: OfficeLayout }) {
         <Desk key={id} x={home.x} z={home.z} accent={ACCENTS[index % ACCENTS.length] ?? "#2f6d4f"} />
       ))}
       {table ? (
-        <group>
+        <group onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpenMeet(); }}>
           <mesh position={[table.x, 0.74, table.z]} castShadow receiveShadow material={mats.woodDark}>
             <boxGeometry args={[table.w, 0.08, table.d]} />
           </mesh>
+          <HitPad args={[Math.max(table.w, 1.8), 1.3, Math.max(table.d, 1.4)]} position={[table.x, 0.85, table.z]} />
           {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], index) => (
             <mesh key={index} position={[table.x + sx * (table.w / 2 - 0.4), 0.36, table.z + sz * (table.d / 2 - 0.35)]} castShadow material={mats.trim}>
               <boxGeometry args={[0.1, 0.7, 0.1]} />
@@ -748,9 +833,14 @@ function Furniture({ layout }: { layout: OfficeLayout }) {
         </group>
       ) : null}
       {layout.seats.map((seat, index) => (
-        <mesh key={`seat-${index}`} position={[seat.x, 0.42, seat.z]} castShadow material={mats.fabricAlt}>
-          <boxGeometry args={[0.42, 0.08, 0.42]} />
-        </mesh>
+        <group key={`seat-${index}`} position={[seat.x, 0, seat.z]}>
+          <mesh position={[0, 0.42, 0]} castShadow material={mats.chairGrey}>
+            <boxGeometry args={[0.42, 0.08, 0.42]} />
+          </mesh>
+          <mesh position={[0, 0.68, -0.16]} castShadow material={mats.chairGrey}>
+            <boxGeometry args={[0.42, 0.42, 0.06]} />
+          </mesh>
+        </group>
       ))}
       {library ? (
         <group>
@@ -764,8 +854,13 @@ function Furniture({ layout }: { layout: OfficeLayout }) {
       ) : null}
       {brk ? (
         <group>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[brk.x + 2.3, 0.04, brk.z + brk.d * 0.62]} receiveShadow material={mats.rug}>
-            <planeGeometry args={[3.1, 2.1]} />
+          <mesh rotation={[-Math.PI / 2, 0, 0.2]} position={[brk.x + brk.w * 0.55, 0.045, brk.z + 2.4]} receiveShadow>
+            <planeGeometry args={[2.4, 1.6]} />
+            <meshStandardMaterial color="#efe6d4" />
+          </mesh>
+          <mesh rotation={[-Math.PI / 2, 0, 0.2]} position={[brk.x + brk.w * 0.55, 0.05, brk.z + 2.4]}>
+            <planeGeometry args={[2.05, 0.18]} />
+            <meshStandardMaterial color="#c47b62" />
           </mesh>
           <mesh position={[brk.x + 2.2, 0.38, brk.z + brk.d - 1.15]} castShadow receiveShadow material={mats.fabric}>
             <boxGeometry args={[2.6, 0.42, 0.8]} />
@@ -776,11 +871,10 @@ function Furniture({ layout }: { layout: OfficeLayout }) {
           <mesh position={[brk.x + 2.2, 0.36, brk.z + brk.d - 2.15]} castShadow receiveShadow material={mats.woodDark}>
             <boxGeometry args={[1.1, 0.32, 0.6]} />
           </mesh>
-          {[0, 1].map((index) => (
-            <mesh key={`arm-${index}`} position={[brk.x + 1.15 + index * 2.1, 0.4, brk.z + brk.d - 2.7]} castShadow material={mats.fabricAlt}>
-              <boxGeometry args={[0.7, 0.42, 0.7]} />
-            </mesh>
-          ))}
+          <Pouf x={brk.x + brk.w * 0.42} z={brk.z + 2.15} material={mats.poufPink} />
+          <Pouf x={brk.x + brk.w * 0.68} z={brk.z + 2.55} material={mats.poufBlue} />
+          <Armchair x={brk.x + 1.15} z={brk.z + brk.d - 2.7} material={mats.tealChair} />
+          <Armchair x={brk.x + 3.25} z={brk.z + brk.d - 2.7} material={mats.magentaChair} />
           {[0, 1].map((index) => {
             const tx = brk.x + brk.w * 0.62 + index * 1.7;
             const tz = brk.z + 2.5;
@@ -813,8 +907,8 @@ function Furniture({ layout }: { layout: OfficeLayout }) {
         </group>
       ) : null}
       {hq ? <Plant x={hq.x + 0.7} z={hq.z + 0.8} /> : null}
-      {layout.rooms.filter((room) => room.kind === "manager" || room.kind === "conference").map((room) => (
-        <Plant key={`plant-${room.id}`} x={room.x + room.w - 0.7} z={room.z + 0.8} />
+      {layout.rooms.filter((room) => room.kind === "manager" || room.kind === "conference" || room.kind === "office").map((room) => (
+        <Plant key={`plant-${room.id}`} x={room.x + room.w - 0.7} z={room.z + 0.8} scale={room.kind === "office" ? 0.85 : 1} />
       ))}
       {layout.rooms.filter((room) => room.kind === "hq" || room.kind === "conference" || room.kind === "break").map((room, index) => (
         <mesh key={`art-${room.id}`} position={[room.x + room.w * 0.5, 1.7, room.z + 0.12]} material={mats.frame}>
@@ -850,7 +944,7 @@ function SpeechBubble({ text }: { text: string }) {
   }, [text]);
   if (!text) return null;
   return (
-    <sprite position={[0, 2.55, 0]} scale={[2.15, 0.54, 1]}>
+    <sprite position={[0, 2.15, 0]} scale={[1.8, 0.46, 1]}>
       <spriteMaterial map={map} transparent depthTest={false} />
     </sprite>
   );
@@ -882,12 +976,13 @@ function NameTag({ name, status }: { name: string; status: BotStatus }) {
     return tex;
   }, [name, status]);
   return (
-    <sprite position={[0, 2.05, 0]} scale={[1.7, 0.42, 1]}>
+    <sprite position={[0, 1.78, 0]} scale={[1.45, 0.36, 1]}>
       <spriteMaterial map={map} transparent depthTest={false} />
     </sprite>
   );
 }
 
+/** Chibi bot: a big head, a short body, and a name label. */
 function Robot({
   id,
   name,
@@ -912,6 +1007,7 @@ function Robot({
   sim: OfficeSimStore;
 }) {
   const mats = useMats();
+  const canOpen = useContext(TapContext);
   const root = useRef<THREE.Group>(null);
   const bob = useRef<THREE.Group>(null);
   const armL = useRef<THREE.Group>(null);
@@ -957,36 +1053,37 @@ function Robot({
         <ringGeometry args={[0.42, 0.52, 28]} />
         <meshBasicMaterial color="#1f3b2d" />
       </mesh>
-      <group ref={bob} onClick={(event) => { event.stopPropagation(); onSelect(id); }}>
-        <mesh position={[0, 1.05, 0]} castShadow material={mats.metal}>
-          <capsuleGeometry args={[0.2, 0.42, 6, 12]} />
+      <group ref={bob} onClick={(event) => { event.stopPropagation(); if (canOpen()) onSelect(id); }}>
+        <HitPad args={[0.95, 1.9, 0.95]} position={[0, 1, 0]} />
+        <mesh position={[0, 0.86, 0]} castShadow material={mats.metal}>
+          <capsuleGeometry args={[0.16, 0.22, 4, 8]} />
         </mesh>
-        <mesh position={[0, 1.12, 0.16]} material={chest}>
-          <boxGeometry args={[0.28, 0.22, 0.04]} />
+        <mesh position={[0, 0.9, 0.14]} material={chest}>
+          <boxGeometry args={[0.22, 0.16, 0.04]} />
         </mesh>
-        <mesh position={[0, 1.52, 0]} castShadow material={mats.metal}>
-          <sphereGeometry args={[0.16, 16, 14]} />
+        <mesh position={[0, 1.28, 0]} castShadow material={mats.metal}>
+          <sphereGeometry args={[0.28, 16, 14]} />
         </mesh>
-        <mesh position={[0, 1.52, 0.12]} material={visor}>
-          <boxGeometry args={[0.2, 0.06, 0.04]} />
+        <mesh position={[0, 1.3, 0.22]} material={visor}>
+          <boxGeometry args={[0.28, 0.07, 0.04]} />
         </mesh>
-        <mesh position={[0, 1.74, 0]} material={mats.joint}>
-          <cylinderGeometry args={[0.015, 0.015, 0.16, 6]} />
-        </mesh>
-        <mesh position={[0, 1.84, 0]} material={visor}>
+        <mesh position={[-0.08, 1.36, 0.24]} material={mats.joint}>
           <sphereGeometry args={[0.035, 8, 8]} />
         </mesh>
-        <group ref={armL} position={[-0.28, 1.28, 0]}>
+        <mesh position={[0.08, 1.36, 0.24]} material={mats.joint}>
+          <sphereGeometry args={[0.035, 8, 8]} />
+        </mesh>
+        <group ref={armL} position={[-0.22, 0.98, 0]}>
           <mesh position={[0, -0.22, 0]} castShadow material={mats.metal}>
             <capsuleGeometry args={[0.045, 0.28, 4, 8]} />
           </mesh>
         </group>
-        <group ref={armR} position={[0.28, 1.28, 0]}>
+        <group ref={armR} position={[0.22, 0.98, 0]}>
           <mesh position={[0, -0.22, 0]} castShadow material={mats.metal}>
             <capsuleGeometry args={[0.045, 0.28, 4, 8]} />
           </mesh>
         </group>
-        <group ref={legL} position={[-0.1, 0.72, 0]}>
+        <group ref={legL} position={[-0.08, 0.58, 0]}>
           <mesh position={[0, -0.18, 0]} castShadow material={mats.joint}>
             <capsuleGeometry args={[0.05, 0.22, 4, 8]} />
           </mesh>
@@ -996,7 +1093,7 @@ function Robot({
             </mesh>
           </group>
         </group>
-        <group ref={legR} position={[0.1, 0.72, 0]}>
+        <group ref={legR} position={[0.08, 0.58, 0]}>
           <mesh position={[0, -0.18, 0]} castShadow material={mats.joint}>
             <capsuleGeometry args={[0.05, 0.22, 4, 8]} />
           </mesh>
@@ -1023,7 +1120,7 @@ function Robot({
   );
 }
 
-function Lights({ layout, weather }: { layout: OfficeLayout; weather: OfficeWeather }) {
+function Lights({ layout, weather, quality }: { layout: OfficeLayout; weather: OfficeWeather; quality: OfficeQuality }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const sun = sunPosition(weather.hour, layout);
   const day = THREE.MathUtils.clamp((weather.sunElevation + 0.08) / 1.05, 0, 1);
@@ -1046,8 +1143,8 @@ function Lights({ layout, weather }: { layout: OfficeLayout; weather: OfficeWeat
         intensity={(0.12 + day * 1.65) * overcast}
         color={color}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={quality === "fast" ? 1024 : 2048}
+        shadow-mapSize-height={quality === "fast" ? 1024 : 2048}
         shadow-bias={-0.0004}
         shadow-camera-near={2}
         shadow-camera-far={140}
@@ -1145,6 +1242,11 @@ function Scene({
   speech,
   vaultTotal,
   onOpenVault,
+  onOpenMeet,
+  onClear,
+  canOpen,
+  layers,
+  quality,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1160,19 +1262,17 @@ function Scene({
   speech: Record<string, string>;
   vaultTotal: number;
   onOpenVault: () => void;
+  onOpenMeet: () => void;
+  onClear: () => void;
+  canOpen: () => boolean;
+  layers: OfficeLayers;
+  quality: OfficeQuality;
 }) {
   const mats = useOfficeMaterials(layout);
   const controls = useRef<OrbitControlsType>(null);
   const sky = skyColor(weather);
   const fog = fogDistances(weather);
-  const home = useMemo(() => {
-    const vault = layout.rooms.find((room) => room.id === "vault");
-    const lookX = vault ? vault.x + vault.w / 2 : layout.width * 0.82;
-    return {
-      position: new THREE.Vector3(lookX + 4, 7.2, layout.depth + 14),
-      target: new THREE.Vector3(lookX, 1.35, layout.depth - 1.2),
-    };
-  }, [layout]);
+  const home = useMemo(() => mapHome(layout), [layout]);
   useLayoutEffect(() => {
     cameraApiRef.current = {
       reset() {
@@ -1186,9 +1286,8 @@ function Scene({
         const orbit = controls.current;
         if (!orbit) return;
         const offset = orbit.object.position.clone().sub(orbit.target);
-        offset.multiplyScalar(factor);
-        const dist = offset.length();
-        if (dist < 5 || dist > 120) return;
+        const next = THREE.MathUtils.clamp(offset.length() * factor, MAP_MIN_DISTANCE, MAP_MAX_DISTANCE);
+        offset.setLength(next);
         orbit.object.position.copy(orbit.target).add(offset);
         orbit.update();
       },
@@ -1200,17 +1299,19 @@ function Scene({
   return (
     <>
       <color attach="background" args={[sky]} />
-      <fog attach="fog" args={[sky, fog.near, fog.far]} />
+      {layers.weather ? <fog attach="fog" args={[sky, fog.near, fog.far]} /> : null}
       <StudioEnv />
-      <Lights layout={layout} weather={weather} />
-      <OfficeSite layout={layout} weather={weather} />
+      <Lights layout={layout} weather={weather} quality={quality} />
+      <group onClick={(event) => { event.stopPropagation(); onClear(); }}>
+      <OfficeSite layout={layout} weather={weather} showGrounds={layers.outdoor} showRoof={layers.roof} showWeather={layers.weather} />
+      <TapContext.Provider value={canOpen}>
       <MatsContext.Provider value={mats}>
-      <Shell layout={layout} />
-      <Furniture layout={layout} />
+      {layers.offices ? <Shell layout={layout} /> : null}
+      {layers.offices ? <Furniture layout={layout} onOpenMeet={onOpenMeet} /> : null}
       <VaultDoor layout={layout} total={vaultTotal} onOpen={onOpenVault} />
-      <WingStations layout={layout} sections={sections} onOpen={onOpenBoard} />
+      {layers.offices ? <WingStations layout={layout} sections={sections} onOpen={onOpenBoard} /> : null}
       <SimDriver sim={sim} meetingRef={meetingRef} botsRef={botsRef} />
-      {bots.map((bot, index) => (
+      {layers.offices ? bots.map((bot, index) => (
         <Robot
           key={bot.id}
           id={bot.id}
@@ -1224,25 +1325,37 @@ function Scene({
           layout={layout}
           sim={sim}
         />
-      ))}
+      )) : null}
       </MatsContext.Provider>
-      <OrbitControls
+      </TapContext.Provider>
+      </group>
+      <MapControls
         ref={controls}
         makeDefault
         enableDamping
+        dampingFactor={0.12}
+        screenSpacePanning={false}
+        zoomToCursor
+        zoomSpeed={0.9}
+        panSpeed={1.05}
+        rotateSpeed={0.55}
         target={home.target}
-        maxPolarAngle={Math.PI / 2.08}
-        minPolarAngle={0.28}
-        minDistance={5}
-        maxDistance={120}
+        minDistance={MAP_MIN_DISTANCE}
+        maxDistance={MAP_MAX_DISTANCE}
+        minPolarAngle={0.42}
+        maxPolarAngle={Math.PI / 2.2}
         mouseButtons={{
-          LEFT: THREE.MOUSE.ROTATE,
+          LEFT: THREE.MOUSE.PAN,
           MIDDLE: THREE.MOUSE.DOLLY,
-          RIGHT: THREE.MOUSE.PAN,
+          RIGHT: THREE.MOUSE.ROTATE,
         }}
         touches={{
-          ONE: THREE.TOUCH.ROTATE,
-          TWO: THREE.TOUCH.DOLLY_PAN,
+          ONE: THREE.TOUCH.PAN,
+          TWO: THREE.TOUCH.DOLLY_ROTATE,
+        }}
+        onChange={() => {
+          const orbit = controls.current;
+          if (orbit) clampMapTarget(orbit, layout);
         }}
       />
     </>
@@ -1263,6 +1376,10 @@ export default function OfficeCanvas({
   speech,
   vaultTotal,
   onOpenVault,
+  onOpenMeet,
+  onClear,
+  layers,
+  quality,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1277,18 +1394,23 @@ export default function OfficeCanvas({
   speech: Record<string, string>;
   vaultTotal: number;
   onOpenVault: () => void;
+  onOpenMeet: () => void;
+  onClear: () => void;
+  layers: OfficeLayers;
+  quality: OfficeQuality;
 }) {
   const meetingRef = useRef(meeting);
   const botsRef = useRef(bots);
+  const gesture = useRef({ x: 0, y: 0, dragged: false, active: false });
+  const canOpen = useRef(() => !gesture.current.dragged).current;
   useEffect(() => {
     meetingRef.current = meeting;
     botsRef.current = bots;
   }, [meeting, bots]);
   const camera = useMemo(() => {
-    const vault = layout.rooms.find((room) => room.id === "vault");
-    const lookX = vault ? vault.x + vault.w / 2 : layout.width * 0.82;
+    const home = mapHome(layout);
     return {
-      position: [lookX + 4, 7.2, layout.depth + 14] as [number, number, number],
+      position: home.position.toArray() as [number, number, number],
       fov: 38,
       near: 0.1,
       far: 400,
@@ -1296,10 +1418,26 @@ export default function OfficeCanvas({
   }, [layout]);
   return (
     <Canvas
-      shadows
+      key={quality}
+      shadows={quality !== "fast"}
       camera={camera}
-      dpr={[1, 1.75]}
-      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
+      dpr={quality === "fast" ? [1, 1.15] : [1, 1.75]}
+      gl={{ antialias: quality !== "fast", powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping }}
+      onPointerDown={(event) => {
+        gesture.current = { x: event.clientX, y: event.clientY, dragged: false, active: true };
+      }}
+      onPointerMove={(event) => {
+        if (!gesture.current.active) return;
+        if (event.pointerType === "mouse" && !event.buttons) return;
+        const moved = Math.hypot(event.clientX - gesture.current.x, event.clientY - gesture.current.y);
+        if (moved > 10) gesture.current.dragged = true;
+      }}
+      onPointerUp={() => {
+        gesture.current.active = false;
+      }}
+      onPointerMissed={() => {
+        if (!gesture.current.dragged) onClear();
+      }}
       onCreated={({ gl }) => {
         gl.toneMappingExposure = 1.05;
         gl.setClearColor(skyColor(weather));
@@ -1320,6 +1458,13 @@ export default function OfficeCanvas({
         speech={speech}
         vaultTotal={vaultTotal}
         onOpenVault={onOpenVault}
+        onOpenMeet={onOpenMeet}
+        onClear={() => {
+          if (!gesture.current.dragged) onClear();
+        }}
+        canOpen={canOpen}
+        layers={layers}
+        quality={quality}
       />
     </Canvas>
   );

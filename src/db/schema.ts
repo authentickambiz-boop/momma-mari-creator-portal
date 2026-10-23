@@ -1678,3 +1678,49 @@ export const officeWallets = sqliteTable("office_wallets", {
   currency: text("currency").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+/** Owner choice for a brand: deposit before filming, or Net 30 after a paid-on-time deal. */
+export const brandBillingTerms = sqliteTable("brand_billing_terms", {
+  brandKey: text("brand_key").primaryKey(),
+  terms: text("terms").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** Manual deposit on a paid deal. Gifted deals and Net 30 brands stay not required. */
+export const dealDeposits = sqliteTable("deal_deposits", {
+  dealId: text("deal_id").primaryKey(),
+  status: text("status").notNull(),
+  amountCents: integer("amount_cents"),
+  invoicedOn: text("invoiced_on"),
+  receivedOn: text("received_on"),
+  overrideReason: text("override_reason"),
+  overrideBy: text("override_by"),
+  overrideAt: text("override_at"),
+  updatedBy: text("updated_by"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const dealDepositEvents = sqliteTable("deal_deposit_events", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull(),
+  action: text("action").notNull(),
+  fromStatus: text("from_status"),
+  toStatus: text("to_status"),
+  reason: text("reason"),
+  actorEmail: text("actor_email").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+/** Owner mark for whether a brand paid a deal on time. Used for Net 30 eligibility and the late flag. */
+export const dealPaymentTiming = sqliteTable("deal_payment_timing", {
+  dealId: text("deal_id").primaryKey(),
+  dueOn: text("due_on").notNull(),
+  paidOn: text("paid_on").notNull(),
+  paidOnTime: integer("paid_on_time", { mode: "boolean" }).notNull(),
+  daysLate: integer("days_late").notNull(),
+  markedBy: text("marked_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

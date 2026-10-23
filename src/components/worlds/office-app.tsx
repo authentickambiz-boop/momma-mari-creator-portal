@@ -32,7 +32,7 @@ import {
   type WalletList,
   type WalletType,
 } from "@/lib/worlds/office-wallets";
-import type { BoardOpen, OfficeCameraApi } from "./office-canvas";
+import type { BoardOpen, OfficeCameraApi, OfficeLayers, OfficeQuality } from "./office-canvas";
 import "./office.css";
 
 type LayoutHold = {
@@ -57,6 +57,28 @@ const OfficeCanvas = dynamic(() => import("./office-canvas"), {
   ssr: false,
   loading: () => <div className="office-loading">Opening the bot office…</div>,
 });
+
+const PANELS_KEY = "mm-worlds-panels";
+const LAYERS_KEY = "mm-worlds-layers";
+const QUALITY_KEY = "mm-worlds-quality";
+const DEFAULT_LAYERS: OfficeLayers = { offices: true, outdoor: true, weather: true, roof: true };
+const LAYER_LABEL = {
+  offices: "Offices",
+  outdoor: "Outdoor",
+  weather: "Weather",
+  roof: "Roof",
+} as const;
+
+type OfficeSheet = "info" | "bot" | "board" | "meet" | "vault" | "log" | "achievements";
+
+function CloseRow({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <div className="office-row">
+      <h2>{title}</h2>
+      <button className="office-close" type="button" aria-label="Close" onClick={onClose}>×</button>
+    </div>
+  );
+}
 
 const NOTE_LABEL = {
   new: "New",
@@ -99,15 +121,14 @@ export function OfficeApp() {
   const cameraApiRef = useRef<OfficeCameraApi | null>(null);
   const [status, setStatus] = useState<OfficeStatusResponse | null>(null);
   const [error, setError] = useState("");
-  const [selected, setSelected] = useState("kash");
+  const [selected, setSelected] = useState("");
   const [meeting, setMeeting] = useState<string[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
-  const [showAchievements, setShowAchievements] = useState(false);
+  const [sheet, setSheet] = useState<OfficeSheet | null>(null);
   const [board, setBoard] = useState<BoardOpen | null>(null);
   const [noteView, setNoteView] = useState<"main" | "review">("main");
   const [checkedAt, setCheckedAt] = useState("");
   const [commands, setCommands] = useState<OfficeCommand[]>([]);
-  const [showLog, setShowLog] = useState(false);
   const [commandError, setCommandError] = useState("");
   const [saving, setSaving] = useState(false);
   const [assignText, setAssignText] = useState("");
@@ -123,13 +144,36 @@ export function OfficeApp() {
   const [todoOwner, setTodoOwner] = useState("kash");
   const [weather, setWeather] = useState<OfficeWeather>(() => weatherFromClock(new Date()));
   const [wallets, setWallets] = useState<WalletList>({ wallets: [], total: 0, currency: "USD" });
-  const [vaultOpen, setVaultOpen] = useState(false);
   const [addingWallet, setAddingWallet] = useState(false);
   const [walletName, setWalletName] = useState("");
   const [walletBalance, setWalletBalance] = useState("");
   const [walletType, setWalletType] = useState<WalletType>("cash");
   const [walletError, setWalletError] = useState("");
   const [savingWallet, setSavingWallet] = useState(false);
+  const [query, setQuery] = useState("");
+  const [layers, setLayers] = useState<OfficeLayers>(DEFAULT_LAYERS);
+  const [quality, setQuality] = useState<OfficeQuality>("fine");
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(PANELS_KEY) === "show") setSheet("info");
+      const savedLayers = window.localStorage.getItem(LAYERS_KEY);
+      if (savedLayers) {
+        const parsed = JSON.parse(savedLayers) as Partial<OfficeLayers>;
+        setLayers({
+          offices: parsed.offices !== false,
+          outdoor: parsed.outdoor !== false,
+          weather: parsed.weather !== false,
+          roof: parsed.roof !== false,
+        });
+      }
+      const savedQuality = window.localStorage.getItem(QUALITY_KEY);
+      if (savedQuality === "fine" || savedQuality === "fast") setQuality(savedQuality);
+      else if (window.matchMedia("(pointer: coarse)").matches) setQuality("fast");
+    } catch {
+      // Private browsing can block storage. The view stays clear.
+    }
+  }, []);
 
   useEffect(() => {
     let stop = false;
@@ -249,16 +293,71 @@ export function OfficeApp() {
     () => sim?.getVersion() ?? 0,
     () => 0,
   );
-  const bot = status?.bots.find((item) => item.id === selected) ?? status?.bots[0] ?? null;
+  const bot = status?.bots.find((item) => item.id === selected) ?? null;
   const liveBot = bot && sim ? sim.state.bots[bot.id] : undefined;
   const activity = liveBot && layout && version >= 0 ? simActivity(liveBot, layout) : null;
 
   const speech = useMemo(() => speechForBots(commands), [commands]);
+  const botMatches = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle || !status) return [];
+    return status.bots.filter((item) => `${item.name} ${item.short} ${item.role}`.toLowerCase().includes(needle)).slice(0, 6);
+  }, [query, status]);
+
+  function rememberPanels(show: boolean) {
+    try {
+      window.localStorage.setItem(PANELS_KEY, show ? "show" : "hide");
+    } catch {
+      // The button still works for this visit.
+    }
+  }
+
+  function dismiss() {
+    setSheet(null);
+    setBoard(null);
+    setSelected("");
+    rememberPanels(false);
+  }
+
+  function togglePanels() {
+    const show = sheet !== "info";
+    rememberPanels(show);
+    setSheet(show ? "info" : null);
+  }
+
+  function toggleLayer(key: keyof OfficeLayers) {
+    setLayers((current) => {
+      const next = { ...current, [key]: !current[key] };
+      try {
+        window.localStorage.setItem(LAYERS_KEY, JSON.stringify(next));
+      } catch {
+        // The chip still applies for this visit.
+      }
+      return next;
+    });
+  }
+
+  function toggleQuality() {
+    setQuality((current) => {
+      const next = current === "fine" ? "fast" : "fine";
+      try {
+        window.localStorage.setItem(QUALITY_KEY, next);
+      } catch {
+        // The toggle still applies for this visit.
+      }
+      return next;
+    });
+  }
+
+  function openBot(id: string) {
+    setSelected(id);
+    setSheet("bot");
+    setQuery("");
+  }
 
   async function postCommand(payload: unknown) {
     setSaving(true);
     setCommandError("");
-    setShowLog(true);
     try {
       const response = await fetch(withBasePath(COMMANDS_PATH), {
         method: "POST",
@@ -272,7 +371,6 @@ export function OfficeApp() {
         return false;
       }
       setCommands((current) => [body.command as OfficeCommand, ...current.filter((item) => item.id !== body.command?.id)]);
-      setShowLog(true);
       return true;
     } catch {
       setCommandError("The command did not queue.");
@@ -288,7 +386,7 @@ export function OfficeApp() {
   }
 
   function openVault(form: boolean) {
-    setVaultOpen(true);
+    setSheet("vault");
     setAddingWallet(form);
     setWalletError("");
   }
@@ -344,9 +442,13 @@ export function OfficeApp() {
             layout={layout}
             sections={status.sections}
             bots={status.bots}
-            selected={bot?.id ?? selected}
-            onSelect={setSelected}
-            onOpenBoard={(next) => { setBoard(next); setNoteView(next.panel === "notes" ? "main" : noteView); }}
+            selected={selected}
+            onSelect={openBot}
+            layers={layers}
+            quality={quality}
+            onOpenBoard={(next) => { setBoard(next); setNoteView(next.panel === "notes" ? "main" : noteView); setSheet("board"); }}
+            onOpenMeet={() => setSheet("meet")}
+            onClear={dismiss}
             meeting={meeting}
             sim={sim}
             cameraApiRef={cameraApiRef}
@@ -360,9 +462,57 @@ export function OfficeApp() {
         )}
       </div>
 
-      <section className="office-panel office-tools" aria-label="Office controls">
-        <div className="office-kicker">Momma Mari bot office</div>
-        <h2>Team level {status?.team.level ?? "…"}</h2>
+      <div className="office-hud">
+        <button type="button" className="office-panels-toggle" aria-pressed={sheet === "info"} onClick={togglePanels}>Panels</button>
+        <div className="office-search">
+          <input aria-label="Find a bot" placeholder="Find a bot" value={query} onChange={(event) => setQuery(event.target.value)} />
+          {query.trim() ? (
+            <ul className="office-search-list">
+              {botMatches.length ? botMatches.map((item) => (
+                <li key={item.id}><button type="button" onClick={() => openBot(item.id)}>{item.name}</button></li>
+              )) : <li className="office-kicker">No matching bots</li>}
+            </ul>
+          ) : null}
+        </div>
+        <div className="office-layers" role="group" aria-label="Map layers">
+          {(Object.keys(LAYER_LABEL) as (keyof OfficeLayers)[]).map((key) => (
+            <button key={key} type="button" aria-pressed={layers[key]} onClick={() => toggleLayer(key)}>{LAYER_LABEL[key]}</button>
+          ))}
+          <button type="button" aria-pressed={quality === "fine"} aria-label="Graphics quality" onClick={toggleQuality}>{quality === "fine" ? "Fine" : "Fast"}</button>
+        </div>
+      </div>
+      <div className="office-nav">
+        <button type="button" aria-label="Zoom in" onClick={() => cameraApiRef.current?.zoomBy(0.82)}>+</button>
+        <button type="button" aria-label="Zoom out" onClick={() => cameraApiRef.current?.zoomBy(1.22)}>−</button>
+        <button type="button" onClick={() => cameraApiRef.current?.reset()}>Recenter</button>
+      </div>
+      {layout && sim && status ? (
+        <div className="office-minimap" aria-label="Office map">
+          <svg viewBox={`0 0 ${layout.width} ${layout.depth}`} aria-hidden="true">
+            {layout.rooms.map((room) => (
+              <rect key={room.id} x={room.x} y={room.z} width={room.w} height={room.d} />
+            ))}
+          </svg>
+          {status.bots.map((item) => {
+            const live = sim.state.bots[item.id];
+            if (!live || version < 0) return null;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={selected === item.id ? "office-map-dot is-selected" : "office-map-dot"}
+                style={{ left: `${(live.x / layout.width) * 100}%`, top: `${(live.z / layout.depth) * 100}%` }}
+                aria-label={item.name}
+                onClick={() => openBot(item.id)}
+              />
+            );
+          })}
+        </div>
+      ) : null}
+
+      {sheet === "info" ? (
+      <section className="office-panel office-sheet office-tools" aria-label="Office controls">
+        <CloseRow title={`Team level ${status?.team.level ?? "…"}`} onClose={dismiss} />
         {status ? (
           <>
             <div>{status.team.xp} XP · {status.team.toNext} to next</div>
@@ -370,9 +520,9 @@ export function OfficeApp() {
           </>
         ) : null}
         <div className="office-actions">
-          <button type="button" aria-pressed={showAchievements} onClick={() => setShowAchievements((open) => !open)}>Achievements</button>
-          <button type="button" aria-pressed={showLog} onClick={() => setShowLog((open) => !open)}>Mission log</button>
-          <button type="button" onClick={() => cameraApiRef.current?.reset()}>Reset view</button>
+          <button type="button" onClick={() => setSheet("achievements")}>Achievements</button>
+          <button type="button" onClick={() => setSheet("log")}>Mission log</button>
+          <button type="button" onClick={() => cameraApiRef.current?.reset()}>Recenter</button>
           <button type="button" onClick={() => cameraApiRef.current?.zoomBy(0.85)}>Zoom in</button>
           <button type="button" onClick={() => cameraApiRef.current?.zoomBy(1.18)}>Zoom out</button>
           <button type="button" onClick={() => void toggleFullscreen()}>Fullscreen</button>
@@ -381,11 +531,11 @@ export function OfficeApp() {
             <button type="button" onClick={() => openVault(true)}>Add wallet</button>
           ) : null}
         </div>
-        <p className="office-kicker">Drag to orbit. Right-drag to pan. Scroll to zoom. Open this tab on a second monitor.</p>
+        <p className="office-kicker">Drag to pan. Right-drag or twist to rotate. Scroll, pinch, or the plus and minus buttons zoom. A drag does not open a panel.</p>
         <p className="office-kicker">{checkedAt ? `Live · checked ${checkedAt}` : "Checking the office…"} Polls every {Math.round(OFFICE_POLL_MS / 1000)}s.</p>
         <p className="office-kicker">{weather.label}. Roof fades as you zoom inside.</p>
         {error ? <p className="office-error">{error}</p> : null}
-        {commandError && !showLog ? <p className="office-error">{commandError}</p> : null}
+        {commandError ? <p className="office-error">{commandError}</p> : null}
         {status ? (
           <div>
             {status.sections.map((section) => (
@@ -395,10 +545,12 @@ export function OfficeApp() {
           </div>
         ) : null}
       </section>
+      ) : null}
 
-      {bot ? (
-        <section className="office-panel office-detail" aria-label={`${bot.name} status`}>
-          <h2>{bot.name}</h2>
+      {sheet === "bot" && bot ? (
+        <section className="office-panel office-sheet office-detail" aria-label={`${bot.name} status`}>
+          <CloseRow title={bot.name} onClose={dismiss} />
+          {commandError ? <p className="office-error">{commandError}</p> : null}
           <p>{bot.statusLabel}</p>
           <p><b>Role:</b> {bot.role}</p>
           <p><b>Current task:</b> {bot.task}</p>
@@ -448,8 +600,10 @@ export function OfficeApp() {
         </section>
       ) : null}
 
-      <section className="office-panel office-meet" aria-label="Conference room">
-        <b>Conference room{meeting.length ? ` (${meeting.length} called)` : ""}</b>
+      {sheet === "meet" ? (
+      <section className="office-panel office-sheet office-meet" aria-label="Conference room">
+        <CloseRow title={`Conference room${meeting.length ? ` (${meeting.length} called)` : ""}`} onClose={dismiss} />
+        {commandError ? <p className="office-error">{commandError}</p> : null}
         <div className="office-actions">
           <button type="button" onClick={() => call(status?.bots.map((item) => item.id) ?? [], "Everyone")}>Call everyone</button>
           {status ? Object.entries(status.topics).map(([topic, ids]) => (
@@ -471,13 +625,12 @@ export function OfficeApp() {
           <button type="button" onClick={() => call(picked, "Selected bots")}>Call selected ({picked.length})</button>
         </div>
       </section>
+      ) : null}
 
-      {board && status ? (
-        <section className="office-panel office-board" aria-label={`${OFFICE_LABEL[board.office]} board`}>
-          <div className="office-row">
-            <h2>{OFFICE_LABEL[board.office]}</h2>
-            <button className="office-text-btn" type="button" onClick={() => setBoard(null)}>Close</button>
-          </div>
+      {sheet === "board" && board && status ? (
+        <section className="office-panel office-sheet office-board" aria-label={`${OFFICE_LABEL[board.office]} board`}>
+          <CloseRow title={OFFICE_LABEL[board.office]} onClose={dismiss} />
+          {commandError ? <p className="office-error">{commandError}</p> : null}
           <div className="office-actions">
             {(["calendar", "todos", "notes"] as const).map((panel) => (
               <button key={panel} type="button" aria-pressed={board.panel === panel} onClick={() => setBoard({ office: board.office, panel })}>
@@ -579,12 +732,9 @@ export function OfficeApp() {
         </section>
       ) : null}
 
-      {showLog ? (
-        <section className="office-panel office-log" aria-label="Mission log">
-          <div className="office-row">
-            <h2>Mission log</h2>
-            <button className="office-text-btn" type="button" onClick={() => setShowLog(false)}>Close</button>
-          </div>
+      {sheet === "log" ? (
+        <section className="office-panel office-sheet office-log" aria-label="Mission log">
+          <CloseRow title="Mission log" onClose={dismiss} />
           {commandError ? <p className="office-error">{commandError}</p> : null}
           <ul className="office-list">
             {commands.length === 0 ? <li>No commands yet. Assign a task, call a meeting, or update a board.</li> : null}
@@ -599,12 +749,9 @@ export function OfficeApp() {
         </section>
       ) : null}
 
-      {vaultOpen ? (
-        <section className="office-panel office-vault" aria-label="Vault">
-          <div className="office-row">
-            <h2>Vault</h2>
-            <button className="office-text-btn" type="button" onClick={() => setVaultOpen(false)}>Close</button>
-          </div>
+      {sheet === "vault" ? (
+        <section className="office-panel office-sheet office-vault" aria-label="Vault">
+          <CloseRow title="Vault" onClose={dismiss} />
           <p className="office-vault-total">{formatWalletMoney(wallets.total)}</p>
           <p className="office-kicker">Balances only. No bank login or card number is stored here.</p>
           {walletError ? <p className="office-error">{walletError}</p> : null}
@@ -645,12 +792,9 @@ export function OfficeApp() {
         </section>
       ) : null}
 
-      {showAchievements && status ? (
-        <section className="office-panel office-achievements" aria-label="Achievements">
-          <div className="office-row">
-            <h2>Achievements</h2>
-            <button className="office-text-btn" type="button" onClick={() => setShowAchievements(false)}>Close</button>
-          </div>
+      {sheet === "achievements" && status ? (
+        <section className="office-panel office-sheet office-achievements" aria-label="Achievements">
+          <CloseRow title="Achievements" onClose={dismiss} />
           <p className="office-kicker">Unlocked cards are verified wins. XP is split across the credited bots. {reviewCount} notes are waiting in review across the wings.</p>
           <div className="office-grid">
             {status.achievements.map((achievement) => (

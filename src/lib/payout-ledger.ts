@@ -3,6 +3,7 @@ import type { PortalDb } from "@/db";
 import { creatorFiled1099s, creatorW9s, creators, payoutLedger } from "@/db/schema";
 import { isOwner } from "./authz";
 import { formatMoney, nowIso } from "./format";
+import { receivedDepositIds } from "./brand-deposits";
 import { payoutTransfersEnabled } from "./payout-flag";
 import { decryptToken, encryptToken, tokenEncryptionConfigured } from "./token-crypto";
 import type { Viewer } from "./types";
@@ -33,6 +34,8 @@ export type PayoutLine = {
   weekOf: string | null;
   note: string | null;
   waitingOnBrand: boolean;
+  /** True when the brand deposit is received or this line already has a brand payment date. */
+  fundsCleared: boolean;
 };
 
 export type PayoutWeek = {
@@ -86,7 +89,7 @@ function canSeeCreator(viewer: Viewer, creatorId: string) {
   return viewer.role === "creator" && viewer.creatorId === creatorId;
 }
 
-function toLine(row: typeof payoutLedger.$inferSelect, names: Map<string, string>): PayoutLine {
+function toLine(row: typeof payoutLedger.$inferSelect, names: Map<string, string>, fundsCleared: boolean): PayoutLine {
   return {
     id: row.id,
     creatorId: row.creatorId,
@@ -104,6 +107,7 @@ function toLine(row: typeof payoutLedger.$inferSelect, names: Map<string, string
     weekOf: row.weekOf,
     note: row.note,
     waitingOnBrand: !row.brandPaidOn,
+    fundsCleared,
   };
 }
 
@@ -116,9 +120,10 @@ export async function listPayoutLedger(db: PortalDb, viewer: Viewer): Promise<{ 
   if (viewer.role === "manager") return { ok: false, status: 403, error: "Payouts stay with the owner and each creator.", code: "forbidden" };
   const names = await nameMap(db);
   const rows = await db.select().from(payoutLedger);
-  const lines = rows
-    .filter((row) => canSeeCreator(viewer, row.creatorId))
-    .map((row) => toLine(row, names))
+  const visible = rows.filter((row) => canSeeCreator(viewer, row.creatorId));
+  const cleared = await receivedDepositIds(db, visible.map((row) => row.dealId).filter((id): id is string => Boolean(id)));
+  const lines = visible
+    .map((row) => toLine(row, names, Boolean(row.brandPaidOn) || (row.dealId != null && cleared.has(row.dealId))))
     .sort((left, right) => (right.payoutOn ?? right.brandPaidOn ?? "").localeCompare(left.payoutOn ?? left.brandPaidOn ?? ""));
   const waiting = lines.filter((line) => !line.payoutOn);
   const grouped = new Map<string, PayoutLine[]>();

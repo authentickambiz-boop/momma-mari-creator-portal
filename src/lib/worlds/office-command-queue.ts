@@ -6,6 +6,7 @@ import { containsPrivateOfficeDetail } from "./office-catalog";
 import {
   APPROVAL_PHRASE,
   COMMAND_STATUSES,
+  commandTouchesSensitive,
   notifyCommandWebhook,
   parseOfficeCommand,
   PENDING_COMMAND_STATUSES,
@@ -14,9 +15,14 @@ import {
   type CommandStatus,
   type OfficeCommand,
 } from "./office-commands";
+import { refuseWorldsPayment, worldsPaymentsEnabled } from "./office-payments";
 import { loadOfficeRecord } from "./office-status";
 
 type CommandRow = typeof officeWorldCommands.$inferSelect;
+
+function touchesSensitiveText(command: { body: string; topic: string | null; due: string | null }) {
+  return [command.body, command.topic, command.due].some((value) => Boolean(value) && commandTouchesSensitive(value ?? ""));
+}
 
 function rowToCommand(row: CommandRow): OfficeCommand {
   const parsed = parseJson<unknown>(row.botIds, []);
@@ -47,7 +53,7 @@ export async function enqueueOfficeCommand(
 ) {
   const record = await loadOfficeRecord(db);
   const parsed = parseOfficeCommand(body, record);
-  if (!parsed.ok) return parsed;
+  if (!parsed.ok) return { ...parsed, charged: false as const };
   const now = nowIso();
   const command: OfficeCommand = {
     ...parsed.value,
@@ -72,11 +78,20 @@ export async function enqueueOfficeCommand(
     createdAt: command.createdAt,
     updatedAt: command.updatedAt,
   });
-  const webhookSent = await notifyCommandWebhook(command, {
-    fetchImpl: options?.fetchImpl,
-    url: options && "webhookUrl" in options ? options.webhookUrl : process.env.WORLDS_COMMAND_WEBHOOK_URL,
-  });
-  return { ok: true as const, status: 201, body: { command, webhookSent } };
+  const sensitive = command.status === "needs_approval" || touchesSensitiveText(command);
+  const refusal = sensitive ? refuseWorldsPayment() : null;
+  const webhookSent = !sensitive || worldsPaymentsEnabled()
+    ? await notifyCommandWebhook(command, {
+      fetchImpl: options?.fetchImpl,
+      url: options && "webhookUrl" in options ? options.webhookUrl : process.env.WORLDS_COMMAND_WEBHOOK_URL,
+    })
+    : false;
+  return {
+    ok: true as const,
+    status: 201,
+    charged: false as const,
+    body: { command, webhookSent, charged: refusal ? refusal.charged : false },
+  };
 }
 
 export async function listPendingCommands(db: PortalDb) {
@@ -121,7 +136,11 @@ export async function updateOfficeCommand(db: PortalDb, body: unknown) {
   const row = rows[0];
   if (!row) return { ok: false as const, status: 404, error: "Command not found." };
   const current = rowToCommand(row);
-  const next = nextCommandState(current.status, body.status as CommandStatus, result);
+  const requested = body.status as CommandStatus;
+  if (requested !== current.status && touchesSensitiveText(current)) {
+    return refuseWorldsPayment();
+  }
+  const next = nextCommandState(current.status, requested, result);
   if (!next.ok) return next;
   const updatedAt = nowIso();
   await db

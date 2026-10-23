@@ -283,16 +283,18 @@ function Precipitation({ layout, weather }: { layout: OfficeLayout; weather: Off
 
 function Roof({ layout }: { layout: OfficeLayout }) {
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const capRef = useRef<THREE.MeshStandardMaterial>(null);
   useFrame(({ camera }) => {
-    const material = materialRef.current;
-    if (!material) return;
-    const over = camera.position.x > -3
-      && camera.position.x < layout.width + 3
-      && camera.position.z > -3
-      && camera.position.z < layout.depth + 3;
-    const open = over ? 1 - THREE.MathUtils.smoothstep(camera.position.y, 7.5, 16) : 0;
-    material.opacity = 1 - open;
-    material.depthWrite = material.opacity > 0.85;
+    const over = camera.position.x > -8
+      && camera.position.x < layout.width + 8
+      && camera.position.z > -8
+      && camera.position.z < layout.depth + 10;
+    const open = over ? 1 - THREE.MathUtils.smoothstep(camera.position.y, 8, 20) : 0;
+    for (const material of [materialRef.current, capRef.current]) {
+      if (!material) continue;
+      material.opacity = 1 - open;
+      material.depthWrite = material.opacity > 0.85;
+    }
   });
   return (
     <group>
@@ -302,7 +304,7 @@ function Roof({ layout }: { layout: OfficeLayout }) {
       </mesh>
       <mesh position={[layout.width / 2, WALL_H + 0.34, layout.depth / 2]}>
         <boxGeometry args={[layout.width + 0.4, 0.12, layout.depth + 0.4]} />
-        <meshStandardMaterial color="#6a625a" roughness={0.8} />
+        <meshStandardMaterial ref={capRef} color="#6a625a" roughness={0.8} transparent opacity={1} />
       </mesh>
     </group>
   );
@@ -335,7 +337,19 @@ function EntranceSign() {
   );
 }
 
-export function OfficeSite({ layout, weather }: { layout: OfficeLayout; weather: OfficeWeather }) {
+export function OfficeSite({
+  layout,
+  weather,
+  showGrounds = true,
+  showRoof = true,
+  showWeather = true,
+}: {
+  layout: OfficeLayout;
+  weather: OfficeWeather;
+  showGrounds?: boolean;
+  showRoof?: boolean;
+  showWeather?: boolean;
+}) {
   const mats = useSiteMaterials(layout);
   const pad = 2.15;
   const lotW = 22;
@@ -370,7 +384,8 @@ export function OfficeSite({ layout, weather }: { layout: OfficeLayout; weather:
     { x: lotX + 13.4, z: lotZ + lotD - 3.1, yaw: Math.PI, color: "#2c3f55" },
   ];
   return (
-    <group>
+    <>
+    <group visible={showGrounds}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[layout.width / 2, -0.02, layout.depth / 2]} receiveShadow material={mats.grass}>
         <planeGeometry args={[layout.width + 72, layout.depth + 78]} />
       </mesh>
@@ -443,9 +458,14 @@ export function OfficeSite({ layout, weather }: { layout: OfficeLayout; weather:
           <EntranceSign />
         </group>
       </group>
+    </group>
+    <group visible={showRoof}>
       <Roof layout={layout} />
+    </group>
+    <group visible={showWeather}>
       <Clouds layout={layout} weather={weather} />
       <Precipitation layout={layout} weather={weather} />
     </group>
+    </>
   );
 }

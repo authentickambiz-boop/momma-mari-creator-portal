@@ -22,6 +22,7 @@ import { listOwnerDealReviews } from "@/lib/creator-deal-review";
 import { listOwnerTasks } from "@/lib/creator-tasks";
 import { CREATOR_NICHES, listAdminRoster, nicheIdFromInput, rosterMatchesNiche } from "@/lib/creator-niches";
 import { loadPortal } from "@/lib/current-user";
+import { ensureOpenDeposits, listDepositsWaiting } from "@/lib/brand-deposits";
 import { formatMoney } from "@/lib/format";
 import { growthErrorNote } from "@/lib/growth-notes";
 import { inviteErrorNote } from "@/lib/invite-notes";
@@ -168,6 +169,29 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     );
   }
   const today = new Date().toISOString().slice(0, 10);
+  await ensureOpenDeposits(portal.db);
+  const depositQueue = await listDepositsWaiting(portal.db, portal.viewer, today);
+  const depositCard = (
+    <div className="card" style={{ marginTop: 14 }} data-deposit-queue>
+      <div className="sec-title">Waiting on deposit</div>
+      <p className="note">Paid deals invoiced for the 50% deposit. Manual invoices only. Nothing is emailed from here.</p>
+      {!depositQueue.ok || depositQueue.deals.length === 0 ? <p className="note empty">No deposits waiting.</p> : (
+        <table>
+          <thead><tr><th>Brand</th><th>Deal</th><th>Amount</th><th>Days since invoiced</th></tr></thead>
+          <tbody>
+            {depositQueue.deals.map((deal) => (
+              <tr key={deal.dealId}>
+                <td>{deal.brand}</td>
+                <td><a href={`/deals/${deal.dealId}`}>{deal.dealLabel}</a></td>
+                <td>{deal.amountCents == null ? "—" : formatMoney(deal.amountCents)}</td>
+                <td>{deal.daysSinceInvoiced == null ? "—" : deal.daysSinceInvoiced}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
   await queueUsageRenewalDrafts(portal.db, today);
   await syncPostedUsageNotices(portal.db, today);
   await queueBrandRecapDrafts(portal.db, today);
@@ -230,6 +254,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
         {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
         <ApplicationsCard applications={applications} note={applyNote} />
+        {depositCard}
         {commissionCard}
         {giftGuideCard}
         {taskCard}
@@ -257,6 +282,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {inviteNote ? <p className="private-note">{inviteNote}</p> : null}
       {signedNote ? <p className="private-note" role="alert">{signedNote}</p> : null}
       <ApplicationsCard applications={applications} note={applyNote} />
+      {depositCard}
       {commissionCard}
       {giftGuideCard}
       {taskCard}
