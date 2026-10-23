@@ -8,6 +8,7 @@ import { isFakeCalendarDay } from "./deadlines";
 import { setDealStage } from "./deal-stage";
 import { isPaymentStatus } from "./fulfillment";
 import { findCreatorByEmail, findCreatorById } from "./queries";
+import { noteAccountConnected } from "./worlds/game-wallet-store";
 import { holdForOwnerReview } from "./deal-review";
 import { isDealStage, workflowStageForLegacy, workflowStageForVideoStep } from "./stages";
 
@@ -437,10 +438,16 @@ export async function upsertCreator(db: PortalDb, body: unknown) {
   };
   if (existing) {
     await db.update(creators).set(values).where(eq(creators.id, body.id));
-    return { status: 200, body: { id: body.id, email, created: false } };
+  } else {
+    await db.insert(creators).values({ ...values, id: body.id, isSeed: false, createdAt: nowIso() });
   }
-  await db.insert(creators).values({ ...values, id: body.id, isSeed: false, createdAt: nowIso() });
-  return { status: 201, body: { id: body.id, email, created: true } };
+  const socials = ["tiktok", "instagram", "facebook", "youtube"] as const;
+  for (const platform of socials) {
+    const next = values[`${platform}Status`];
+    const prev = existing?.accounts[platform].status ?? "disconnected";
+    if (next === "connected" && prev !== "connected") await noteAccountConnected(db, body.id, platform);
+  }
+  return { status: existing ? 200 : 201, body: { id: body.id, email, created: !existing } };
 }
 
 function contactField(body: Record<string, unknown>, key: "name" | "email" | "company") {

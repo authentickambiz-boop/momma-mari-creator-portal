@@ -13,6 +13,7 @@ import { assignedManagersByCreator, notifyStaff } from "./managers";
 import { ONBOARDING_PLATFORMS, type OnboardingPlatform } from "./onboarding-fields";
 import { AGENCY_MAILBOX_ID, readAgencyMailbox, setAgencyReconnect } from "./agency-mailbox";
 import { encryptToken } from "./token-crypto";
+import { noteAccountConnected } from "./worlds/game-wallet-store";
 
 export const CREATOR_READY_MESSAGE = "New creator ready for bot";
 export const HOSTED_EMAIL_KIND = "hosted_email";
@@ -53,6 +54,7 @@ export async function saveGmailConnection(
     gmailReconnectReason: null,
     emailStatus: "connected",
   }).where(eq(creators.id, creatorId));
+  await noteAccountConnected(db, creatorId, "gmail");
   return { ok: true as const, gmailEmail };
 }
 

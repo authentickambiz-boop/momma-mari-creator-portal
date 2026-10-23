@@ -15,6 +15,7 @@ import {
   type CommandStatus,
   type OfficeCommand,
 } from "./office-commands";
+import { noteCommandCompleted } from "./game-wallet-store";
 import { refuseWorldsPayment } from "./office-payments";
 import { loadOfficeRecord } from "./office-status";
 
@@ -148,6 +149,9 @@ export async function updateOfficeCommand(db: PortalDb, body: unknown) {
     .update(officeWorldCommands)
     .set({ status: next.value.status, result: next.value.result, updatedAt })
     .where(eq(officeWorldCommands.id, current.id));
+  if (current.status !== "done" && next.value.status === "done") {
+    await noteCommandCompleted(db, current.id, current.botIds);
+  }
   return {
     ok: true as const,
     status: 200,

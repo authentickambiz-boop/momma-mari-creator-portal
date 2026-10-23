@@ -9,10 +9,10 @@ import {
   applyPalette,
   BODY_SHAPES,
   BODY_SIZES,
-  CHARACTER_ITEMS,
   CHARACTER_PATH,
   CHARACTER_SLOTS,
   CHARACTER_SWATCHES,
+  characterSlotChoices,
   defaultCharacter,
   EXPRESSIONS,
   EYE_STYLES,
@@ -20,9 +20,11 @@ import {
   NAME_TAG_STYLES,
   randomCharacter,
   type CharacterConfig,
+  SHOP_CLOTHING,
   type CharacterSlotName,
   type CharacterSubjectKind,
 } from "@/lib/worlds/character";
+import { formatGameUnits, GAME_CATALOG } from "@/lib/worlds/game-wallet";
 import { CharacterFigure } from "./character-figure";
 import "./character.css";
 
@@ -118,19 +120,26 @@ function Choices({
   selected,
   onPick,
   labelText,
+  locked,
 }: {
   values: readonly string[];
   selected: string;
   onPick: (value: string) => void;
   labelText: string;
+  locked?: Readonly<Record<string, string>>;
 }) {
   return (
     <div>
       <p className="character-kicker">{labelText}</p>
       <div className="character-choices" role="group" aria-label={labelText}>
-        {values.map((value) => (
-          <button key={value} type="button" aria-pressed={selected === value} onClick={() => onPick(value)}>{label(value)}</button>
-        ))}
+        {values.map((value) => {
+          const lock = locked?.[value];
+          return (
+            <button key={value} type="button" aria-pressed={selected === value} disabled={Boolean(lock)} onClick={() => onPick(value)}>
+              {lock ? `${label(value)} · ${lock}` : label(value)}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -172,6 +181,7 @@ export function CharacterCreator({
   title,
   backHref,
   backLabel,
+  unlocked = [],
 }: {
   subjectKind: CharacterSubjectKind;
   subjectId: string;
@@ -179,6 +189,7 @@ export function CharacterCreator({
   title: string;
   backHref: string;
   backLabel: string;
+  unlocked?: readonly string[];
 }) {
   const [tab, setTab] = useState<TabId>("body");
   const [config, setConfig] = useState(initial);
@@ -220,6 +231,16 @@ export function CharacterCreator({
   }
 
   const slot = (CHARACTER_SLOTS as readonly string[]).includes(tab) ? tab as CharacterSlotName : null;
+  const slotChoices = slot ? characterSlotChoices(slot) : [];
+  const locked: Record<string, string> = {};
+  if (slot) {
+    for (const item of SHOP_CLOTHING[slot]) {
+      if (!unlocked.includes(item)) {
+        const product = GAME_CATALOG.find((row) => row.sku === item);
+        locked[item] = product ? formatGameUnits(product.priceCents / 100) : "Locked";
+      }
+    }
+  }
 
   return (
     <div className="character-studio">
@@ -251,7 +272,7 @@ export function CharacterCreator({
           ) : null}
           {slot ? (
             <>
-              <Choices labelText="Style" values={CHARACTER_ITEMS[slot]} selected={config.slots[slot].item} onPick={(item) => setSlot(slot, { item })} />
+              <Choices labelText="Style" values={slotChoices} selected={config.slots[slot].item} locked={locked} onPick={(item) => setSlot(slot, { item })} />
               <Swatches labelText="Color" selected={config.slots[slot].color} onPick={(color) => setSlot(slot, { color })} />
             </>
           ) : null}

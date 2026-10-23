@@ -13,6 +13,7 @@ import {
 import { agencyTimeZone, normalizeEmail, nowIso } from "./format";
 import { revokeGoogleToken, type GoogleTokenRevoker } from "./google-oauth";
 import { decryptToken, encryptToken } from "./token-crypto";
+import { noteAccountConnected } from "./worlds/game-wallet-store";
 import type { Viewer } from "./types";
 
 export type GoogleCalendarState = "off" | "ready" | "unavailable" | "needs_reconnect" | "not_configured";
@@ -102,6 +103,7 @@ export async function saveCalendarConnection(
   };
   if (existing[0]) await db.update(creatorCalendars).set(values).where(eq(creatorCalendars.creatorId, creatorId));
   else await db.insert(creatorCalendars).values({ creatorId, ...values });
+  if (!isSelfCalendarId(creatorId)) await noteAccountConnected(db, creatorId, "calendar");
   return { ok: true as const };
 }
 

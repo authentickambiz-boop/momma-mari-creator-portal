@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { creatorIntake, creatorPlatforms, creatorTasks, creators } from "@/db/schema";
 import { nowIso } from "./format";
+import { noteTaskCompleted } from "./worlds/game-wallet-store";
 import { PLATFORM_OPTIONS } from "./niche-catalog";
 import { US_STATES } from "./profile-shared";
 import type { Viewer } from "./types";
@@ -261,6 +262,7 @@ export async function saveProfileIntake(db: PortalDb, viewer: Viewer, input: Pro
   const tasks = await db.select().from(creatorTasks).where(eq(creatorTasks.id, taskId));
   if (tasks[0] && tasks[0].status !== "done") {
     await db.update(creatorTasks).set({ status: "done", updatedAt: timestamp }).where(eq(creatorTasks.id, taskId));
+    await noteTaskCompleted(db, creator.id, taskId);
   }
   return { ok: true as const, id: intakeId };
 }

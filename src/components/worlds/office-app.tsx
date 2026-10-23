@@ -39,11 +39,29 @@ import {
   type WalletList,
   type WalletType,
 } from "@/lib/worlds/office-wallets";
+import { formatGameUnits, GAME_WALLET_PATH } from "@/lib/worlds/game-wallet";
 import type { BoardOpen, OfficeCameraApi, OfficeLayers, OfficeQuality } from "./office-canvas";
 import { OfficeJoystick } from "./office-joystick";
 import { panelsEnabledFromStorage, panelsStorageValue } from "@/lib/worlds/office-chrome";
 import type { Stick } from "@/lib/worlds/office-move";
 import "./office.css";
+
+type GameCatalogItem = {
+  sku: string;
+  name: string;
+  category: string;
+  price: number;
+  owned: boolean;
+  note: string | null;
+};
+
+type GameWalletView = {
+  wallet: { balance: number; history: { direction: string; amount: number; reason: string; source: string; createdAt: string }[] };
+  catalog: GameCatalogItem[];
+  rates: Record<string, number> | null;
+  bots: { id: string; name: string; balance: number }[];
+  creators: { id: string; name: string; balance: number }[];
+};
 
 type LayoutHold = {
   key: string;
@@ -79,7 +97,7 @@ const LAYER_LABEL = {
   roof: "Roof",
 } as const;
 
-type OfficeSheet = "info" | "bot" | "board" | "meet" | "vault" | "log" | "achievements";
+type OfficeSheet = "info" | "bot" | "board" | "meet" | "vault" | "log" | "achievements" | "currency";
 
 function CloseRow({ title, onClose }: { title: string; onClose: () => void }) {
   return (
@@ -159,6 +177,10 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
   const [walletBalance, setWalletBalance] = useState("");
   const [walletType, setWalletType] = useState<WalletType>("cash");
   const [walletError, setWalletError] = useState("");
+  const [gameWallet, setGameWallet] = useState<GameWalletView | null>(null);
+  const [gameError, setGameError] = useState("");
+  const [gameRates, setGameRates] = useState<Record<string, string>>({});
+  const [savingGame, setSavingGame] = useState(false);
   const [savingWallet, setSavingWallet] = useState(false);
   const [query, setQuery] = useState("");
   const [layers, setLayers] = useState<OfficeLayers>(DEFAULT_LAYERS);
@@ -448,6 +470,59 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
     if (ids.length && topic) void postCommand({ kind: "call_meeting", botIds: ids, topic });
   }
 
+  function applyGameWallet(body: GameWalletView) {
+    setGameWallet(body);
+    if (body.rates) {
+      setGameRates(Object.fromEntries(Object.entries(body.rates).map(([key, value]) => [key, String(value)])));
+    }
+  }
+
+  async function loadGameWallet() {
+    try {
+      const response = await fetch(withBasePath(GAME_WALLET_PATH), { cache: "no-store", credentials: "same-origin" });
+      const body = await response.json().catch(() => null) as (GameWalletView & { error?: string }) | null;
+      if (!response.ok || !body || !body.wallet) {
+        setGameError(body?.error || "The currency wallet did not load.");
+        return;
+      }
+      setGameError("");
+      applyGameWallet(body);
+    } catch {
+      setGameError("The currency wallet did not load.");
+    }
+  }
+
+  function openCurrency() {
+    if (!panelsEnabled) return;
+    setMenuOpen(false);
+    setSheet("currency");
+    setGameError("");
+    void loadGameWallet();
+  }
+
+  async function postGameWallet(payload: unknown) {
+    setSavingGame(true);
+    setGameError("");
+    try {
+      const response = await fetch(withBasePath(GAME_WALLET_PATH), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await response.json().catch(() => null) as { error?: string; wallet?: GameWalletView["wallet"]; rates?: Record<string, number> } | null;
+      if (!response.ok) {
+        setGameError(body?.error || "That currency action did not finish.");
+        return;
+      }
+      await loadGameWallet();
+    } catch {
+      setGameError("That currency action did not finish.");
+    } finally {
+      setSavingGame(false);
+    }
+  }
+
   function openVault(form: boolean) {
     if (!panelsEnabled) return;
     setMenuOpen(false);
@@ -605,6 +680,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
               <button type="button" disabled={!panelsEnabled} onClick={() => openSheet("achievements")}>Achievements</button>
               <button type="button" disabled={!panelsEnabled} onClick={() => openSheet("log")}>Mission log</button>
               <button type="button" disabled={!panelsEnabled} onClick={() => openVault(false)}>Vault {formatWalletMoney(wallets.total)}</button>
+              <button type="button" disabled={!panelsEnabled} onClick={() => openCurrency()}>Currency</button>
               <button type="button" onClick={() => void toggleFullscreen()}>Fullscreen</button>
             </div>
           </div>
@@ -630,6 +706,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
           <button type="button" onClick={() => cameraApiRef.current?.zoomBy(1.18)}>Zoom out</button>
           <button type="button" onClick={() => void toggleFullscreen()}>Fullscreen</button>
           <button type="button" onClick={() => openVault(false)}>Vault {formatWalletMoney(wallets.total)}</button>
+          <button type="button" onClick={() => openCurrency()}>Currency</button>
           {wallets.wallets.length === 0 ? (
             <button type="button" onClick={() => openVault(true)}>Add wallet</button>
           ) : null}
@@ -867,6 +944,70 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {sheet === "currency" ? (
+        <section className="office-panel office-sheet office-vault" aria-label="Currency">
+          <CloseRow title="Currency" onClose={dismiss} />
+          <p className="office-vault-total">{gameWallet ? formatGameUnits(gameWallet.wallet.balance) : "…"}</p>
+          <p className="office-kicker">In-game currency only. Real money is not moved here.</p>
+          {gameError ? <p className="office-error">{gameError}</p> : null}
+          <h2>Shop</h2>
+          <ul className="office-list">
+            {(gameWallet?.catalog ?? []).map((item) => (
+              <li key={item.sku}>
+                <b>{item.name}</b> · {formatGameUnits(item.price)}
+                <div className="office-kicker">{item.category}{item.note ? ` · ${item.note}` : ""}</div>
+                <button type="button" disabled={savingGame || item.owned || (gameWallet != null && item.price > gameWallet.wallet.balance)} onClick={() => void postGameWallet({ action: "buy", sku: item.sku })}>
+                  {item.owned ? "Owned" : "Buy"}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <h2>History</h2>
+          {gameWallet && gameWallet.wallet.history.length === 0 ? <p>No currency yet.</p> : null}
+          <ul className="office-list">
+            {(gameWallet?.wallet.history ?? []).map((entry) => (
+              <li key={`${entry.createdAt}-${entry.reason}-${entry.source}-${entry.amount}`}>
+                <b>{entry.direction === "debit" ? "Spent" : "Earned"} {formatGameUnits(entry.amount)}</b>
+                <div className="office-kicker">{entry.reason} · {entry.source}</div>
+              </li>
+            ))}
+          </ul>
+          {gameWallet && gameWallet.bots.length > 0 ? (
+            <>
+              <h2>Bot wallets</h2>
+              <ul className="office-list">
+                {gameWallet.bots.map((bot) => <li key={bot.id}><b>{bot.name}</b> · {formatGameUnits(bot.balance)}</li>)}
+              </ul>
+            </>
+          ) : null}
+          {gameWallet && gameWallet.creators.length > 0 ? (
+            <>
+              <h2>Creator wallets</h2>
+              <ul className="office-list">
+                {gameWallet.creators.map((person) => <li key={person.id}><b>{person.name}</b> · {formatGameUnits(person.balance)}</li>)}
+              </ul>
+            </>
+          ) : null}
+          {gameWallet?.rates ? (
+            <form className="office-form" onSubmit={(event) => {
+              event.preventDefault();
+              const rates = Object.fromEntries(Object.entries(gameRates).map(([key, value]) => [key, Number(value)]));
+              void postGameWallet({ action: "set-rates", rates });
+            }}>
+              <p className="office-kicker">Earn amounts in currency-dollars. Minigames stay unavailable.</p>
+              {Object.entries(gameRates).map(([key, value]) => (
+                <label key={key} className="office-field"><span className="office-kicker">{key}</span>
+                  <input aria-label={`${key} earn amount`} inputMode="decimal" value={value} onChange={(event) => setGameRates((current) => ({ ...current, [key]: event.target.value }))} />
+                </label>
+              ))}
+              <button type="submit" disabled={savingGame}>Save earn amounts</button>
+            </form>
+          ) : null}
+          <button type="button" disabled title="Real-money purchases are off. Nothing is charged.">Buy currency with real money</button>
+          <p className="office-kicker">Real-money purchases are off. Nothing is charged.</p>
         </section>
       ) : null}
 

@@ -10,6 +10,8 @@ import {
   parseCharacterSubject,
 } from "@/lib/worlds/character";
 import { listBotCharacters, readCharacter, writeCharacter } from "@/lib/worlds/character-store";
+import { wearBlock } from "@/lib/worlds/game-wallet";
+import { ownedSkus } from "@/lib/worlds/game-wallet-store";
 import { findOfficeBot } from "@/lib/worlds/office-catalog";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +59,10 @@ export async function PUT(request: Request) {
   const config = parseCharacter(record.config);
   if (!config.ok) return noStore({ error: config.error }, 400);
   const db = await getDb();
+  const wearer = characterSubjectForViewer(viewer);
+  const owned = wearer ? await ownedSkus(db, wearer) : [];
+  const locked = wearBlock(config.value, owned);
+  if (locked) return noStore({ error: locked }, 403);
   const character = await writeCharacter(db, subject.value, config.value, viewer.email);
   return noStore({ character });
 }

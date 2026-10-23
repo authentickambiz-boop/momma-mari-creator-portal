@@ -6,6 +6,7 @@ import { isOwner } from "@/lib/authz";
 import { requireViewer } from "@/lib/current-user";
 import { canOpenCharacterCreator, characterSubjectForViewer, type CharacterSubject } from "@/lib/worlds/character";
 import { readCharacter } from "@/lib/worlds/character-store";
+import { ownedSkus } from "@/lib/worlds/game-wallet-store";
 import { findOfficeBot } from "@/lib/worlds/office-catalog";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,8 @@ export default async function CreateCharacterPage({
   if (!subject) notFound();
   const db = await getDb();
   const character = await readCharacter(db, subject);
+  const wearer = characterSubjectForViewer(viewer);
+  const unlocked = wearer ? await ownedSkus(db, wearer) : [];
   return (
     <CharacterCreator
       subjectKind={subject.kind}
@@ -42,6 +45,7 @@ export default async function CreateCharacterPage({
       title={title}
       backHref={isOwner(viewer) ? "/worlds" : "/connect"}
       backLabel={isOwner(viewer) ? "Back to Worlds" : "Skip for now"}
+      unlocked={unlocked}
     />
   );
 }
