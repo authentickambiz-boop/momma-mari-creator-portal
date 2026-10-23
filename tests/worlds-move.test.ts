@@ -4,12 +4,16 @@ import path from "node:path";
 import { describe, test } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import * as THREE from "three";
 import { OfficeJoystick } from "../src/components/worlds/office-joystick";
+import { buildOfficeLayout } from "../src/lib/worlds/office-layout";
 import {
+  OFFICE_FOV,
   PAN_DRAG_PX,
   STICK_SPEED,
   grabPanDelta,
   moveDelta,
+  officeCameraHome,
   rayGroundPoint,
   stickFromDrag,
 } from "../src/lib/worlds/office-move";
@@ -107,5 +111,45 @@ describe("Worlds camera move", () => {
     assert.match(canvas, /THREE\.TOUCH\.PAN/);
     assert.match(canvas, /pointerType === "touch"/);
     assert.match(canvas, /if \(!gesture\.current\.dragged\) onClear\(\)/);
+  });
+
+  test("the default camera frames the whole building and a failed view is visible", () => {
+    const layout = buildOfficeLayout();
+    const home = officeCameraHome(layout.width, layout.depth);
+    assert.ok(home.distance > 40 && home.distance < 160);
+    assert.ok(home.position.y > 8);
+    const camera = new THREE.PerspectiveCamera(OFFICE_FOV, 4 / 3, 0.1, 800);
+    camera.position.copy(home.position);
+    camera.lookAt(home.target);
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+    for (const y of [0, 3.2]) {
+      for (const x of [0, layout.width]) {
+        for (const z of [0, layout.depth]) {
+          const ndc = new THREE.Vector3(x, y, z).project(camera);
+          assert.ok(ndc.z > -1 && ndc.z < 1, `${x},${y},${z} z ${ndc.z}`);
+          assert.ok(Math.abs(ndc.x) < 0.92 && Math.abs(ndc.y) < 0.92, `${x},${y},${z} ${ndc.x},${ndc.y}`);
+        }
+      }
+    }
+    const wide = new THREE.PerspectiveCamera(OFFICE_FOV, 16 / 9, 0.1, 800);
+    wide.position.copy(home.position);
+    wide.lookAt(home.target);
+    wide.updateMatrixWorld();
+    wide.updateProjectionMatrix();
+    for (const x of [0, layout.width]) {
+      for (const z of [0, layout.depth]) {
+        const ndc = new THREE.Vector3(x, 1.5, z).project(wide);
+        assert.ok(Math.abs(ndc.x) < 1 && Math.abs(ndc.y) < 1);
+      }
+    }
+    const canvas = source("src/components/worlds/office-canvas.tsx");
+    const css = source("src/components/worlds/office.css");
+    assert.match(canvas, /powerPreference: "default"/);
+    assert.match(canvas, /alpha: false/);
+    assert.match(canvas, /The 3D office did not draw/);
+    assert.match(canvas, /webglcontextlost/);
+    assert.equal(canvas.includes('powerPreference: "high-performance"'), false);
+    assert.match(css, /\.office-notice/);
   });
 });
