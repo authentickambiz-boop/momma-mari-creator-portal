@@ -47,6 +47,10 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
       - name: Build Momma Mari Worlds
         uses: tauri-apps/tauri-action@v0
         env:

@@ -32,6 +32,7 @@ describe("Momma Mari Worlds desktop", () => {
       assert.equal(existsSync(path.join("desktop/src-tauri/icons", icon)), true, icon);
     }
 
+    assert.match(workflow, /npm ci/);
     assert.match(workflow, /windows-latest/);
     assert.match(workflow, /macos-latest/);
     assert.match(workflow, /upload-artifact/);
