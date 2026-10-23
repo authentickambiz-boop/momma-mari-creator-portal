@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function WorldsPage() {
-  const viewer = await requireViewer();
+  const viewer = await requireViewer("/worlds");
   if (!isOwner(viewer)) notFound();
   return <OfficeApp />;
 }

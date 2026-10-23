@@ -7,6 +7,7 @@ import { findCreatorById, listCreators } from "./queries";
 import { profileIntakeMissing } from "./profile-intake";
 import { readSession, sessionCookieName } from "./session";
 import type { CreatorProfile, Viewer } from "./types";
+import { worldsReturnPath } from "./worlds/office-return";
 
 /** Managers see connection status only. Links, tokens, and passwords stay with the owner. */
 export function hideAccountCredentials(creator: CreatorProfile): CreatorProfile {
@@ -57,9 +58,13 @@ export async function currentViewer(): Promise<Viewer | null> {
   };
 }
 
-export async function requireViewer() {
+export async function requireViewer(returnPath?: string) {
   const viewer = await currentViewer();
-  if (!viewer) redirect("/login");
+  if (!viewer) {
+    const next = worldsReturnPath(returnPath);
+    if (next) redirect(`/login?next=${next}`);
+    redirect("/login");
+  }
   return viewer;
 }
 

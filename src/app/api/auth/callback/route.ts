@@ -35,6 +35,7 @@ import { saveGmailConnection } from "@/lib/onboarding";
 import { creatorStartPath } from "@/lib/questionnaire";
 import { resolveLogin } from "@/lib/queries";
 import { createSession, sessionCookieName, sessionCookieOptions } from "@/lib/session";
+import { WORLDS_RETURN_COOKIE, worldsReturnCookie } from "@/lib/worlds/office-return";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -53,21 +54,28 @@ export async function GET(request: Request) {
     return finishCalendarConnect(code, state);
   }
   const cookie = request.headers.get("cookie") ?? "";
+  const worlds = worldsReturnCookie(cookie);
   const stateCookie = cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${oauthStateCookieName()}=`))?.split("=").slice(1).join("=");
   const valid = await verifyOAuthState(stateCookie ? decodeURIComponent(stateCookie) : undefined, state);
-  if (!valid || !code) {
-    return NextResponse.redirect(`${appBaseUrl()}/login?error=oauth`);
-  }
+  if (!valid || !code) return loginRedirect("oauth", worlds);
   const email = await exchangeCode(code);
-  if (!email) return NextResponse.redirect(`${appBaseUrl()}/login?error=oauth`);
+  if (!email) return loginRedirect("oauth", worlds);
   const db = await getDb();
   const login = await resolveLogin(db, email);
-  if (!login.ok) return NextResponse.redirect(`${appBaseUrl()}/login?error=not_allowed`);
+  if (!login.ok) return loginRedirect("not_allowed", worlds);
   const session = await createSession(db, login.viewer);
-  const start = await creatorStartPath(db, login.viewer);
+  const start = worlds ?? await creatorStartPath(db, login.viewer);
   const response = NextResponse.redirect(`${appBaseUrl()}${start}`);
   response.cookies.set(sessionCookieName(), session.cookieValue, sessionCookieOptions());
   response.cookies.set(oauthStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
+  response.cookies.set(WORLDS_RETURN_COOKIE, "", { ...sessionCookieOptions(), maxAge: 0 });
+  return response;
+}
+
+function loginRedirect(error: string, worlds: string | null) {
+  const next = worlds ? `&next=${worlds}` : "";
+  const response = NextResponse.redirect(`${appBaseUrl()}/login?error=${error}${next}`);
+  response.cookies.set(WORLDS_RETURN_COOKIE, "", { ...sessionCookieOptions(), maxAge: 0 });
   return response;
 }
 
