@@ -3,6 +3,7 @@ import { PublicShell } from "@/components/public-shell";
 import { getDb } from "@/db/getDb";
 import { withBasePath } from "@/lib/format";
 import { NOT_REPORTED, publicBrandRecap } from "@/lib/brand-recap";
+import { REPLY_PROMISE } from "@/lib/public-site";
 import { recapMetricCards } from "@/lib/brand-recap-report";
 
 export const metadata = {
@@ -87,7 +88,7 @@ export default async function BrandRecapPage({ params }: { params: Promise<{ tok
       {/* Payments stay off. This page only links to the brief. */}
       <p><a className="btn" href={report.rebookHref}>Rebook or extend usage</a></p>
       <p><a className="btn ghost" href={withBasePath(`/brand-recap/${token}/csv`)}>Download CSV</a></p>
-      <p className="note">Print or share this page. Tell us about the next campaign, or about extending usage. We reply within 3 business days.</p>
+      <p className="note">Print or share this page. Tell us about the next campaign, or about extending usage. {REPLY_PROMISE}</p>
     </PublicShell>
   );
 }

@@ -536,6 +536,8 @@ label.contract-choices {
   padding: 12px 14px;
   margin-bottom: 14px;
 }
+.payment-how h2 { font-size: 18px; line-height: 1.3; margin: 0 0 4px; }
+.payment-how p { margin: 0; }
 .private-note { background: var(--sun-l); border-radius: 16px; padding: 12px 14px; margin-top: 14px; }
 .progress { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 10px; }
 .progress span { display: block; height: 100%; background: var(--terra); }

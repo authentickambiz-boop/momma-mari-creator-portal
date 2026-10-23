@@ -64,7 +64,7 @@ describe("public roster showcase", { concurrency: 1 }, () => {
     assert.equal(INQUIRY_SUBMIT_LABEL, "Send the brief");
     assert.equal(inquire.includes("Send to Momma Mari"), false);
     assert.equal(brief.includes("Send to Momma Mari"), false);
-    assert.match(inquire, /3 business days/);
+    assert.match(inquire, /REPLY_PROMISE/);
     assert.equal(inquire.includes("does not send an email"), false);
 
     const approvalsBefore = (await db.select().from(approvalEmails)).length;

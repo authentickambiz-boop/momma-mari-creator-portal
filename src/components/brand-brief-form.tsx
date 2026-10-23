@@ -6,11 +6,10 @@ import {
   BUDGET_RANGES,
   HEARD_ABOUT,
   PAYMENT_METHODS,
-  PAYMENT_TERMS,
   USAGE_CHOICES,
   USAGE_DURATIONS,
 } from "@/lib/brand-brief";
-import { INQUIRY_SUBMIT_LABEL } from "@/lib/public-site";
+import { INQUIRY_SUBMIT_LABEL, REPLY_PROMISE } from "@/lib/public-site";
 
 export function BrandBriefForm({ featuredId, brand }: { featuredId?: string | null; brand?: string | null }) {
   return (
@@ -102,20 +101,13 @@ export function BrandBriefForm({ featuredId, brand }: { featuredId?: string | nu
           <option value="yes">Yes</option>
         </select>
       </label>
-      <label>Payment terms
-        <select name="paymentTerms" defaultValue="Net 30">
-          {PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}
-        </select>
-      </label>
+      <div className="callout payment-how">
+        <h2>How payment works</h2>
+        <p>New brands pay 50% before filming and 50% when the content posts. Terms are confirmed in your agreement.</p>
+      </div>
       <label>Payment method
         <select name="paymentMethod" defaultValue="ACH">
           {PAYMENT_METHODS.map((method) => <option key={method} value={method}>{method}</option>)}
-        </select>
-      </label>
-      <label>Deposit?
-        <select name="deposit" defaultValue="no">
-          <option value="no">No</option>
-          <option value="yes">Yes</option>
         </select>
       </label>
       <label>Product sample
@@ -134,7 +126,7 @@ export function BrandBriefForm({ featuredId, brand }: { featuredId?: string | nu
           <input name="website" tabIndex={-1} autoComplete="off" />
         </label>
       </div>
-      <p className="note">We reply within 3 business days.</p>
+      <p className="note">{REPLY_PROMISE}</p>
       <PrivacyNotice />
       <button className="btn" type="submit">{INQUIRY_SUBMIT_LABEL}</button>
     </form>

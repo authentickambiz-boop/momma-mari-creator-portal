@@ -31,6 +31,7 @@ export async function brandInquiryAction(formData: FormData) {
     billingEmail: String(formData.get("billingEmail") ?? ""),
     legalEntity: String(formData.get("legalEntity") ?? ""),
     poNeeded: String(formData.get("poNeeded") ?? ""),
+    // Old clients may still post these. saveBrandBrief ignores them and sets terms itself.
     paymentTerms: String(formData.get("paymentTerms") ?? ""),
     paymentMethod: String(formData.get("paymentMethod") ?? ""),
     deposit: String(formData.get("deposit") ?? ""),

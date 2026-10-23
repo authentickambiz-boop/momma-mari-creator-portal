@@ -8,7 +8,7 @@ import { GIFT_GUIDE_OFFER, giftGuideErrorNote } from "@/lib/gift-guide";
 import { inquiryErrorNote } from "@/lib/inquiry-notes";
 import { publicPageMeta } from "@/lib/public-meta";
 import { publicMeetCreator } from "@/lib/public-creators";
-import { PUBLIC_ROBOTS } from "@/lib/public-site";
+import { PUBLIC_ROBOTS, REPLY_PROMISE } from "@/lib/public-site";
 
 const NOTES: Record<string, string> = {
   error: "Add the brand name and a real work email, then try again. Nothing was emailed.",
@@ -29,7 +29,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   return {
     ...publicPageMeta({
       title: "Work with us · Momma Mari",
-      description: "Tell Momma Mari about a brand partnership. We reply within 3 business days.",
+        description: `Tell Momma Mari about a brand partnership. ${REPLY_PROMISE}`,
       path: "/inquire",
     }),
     robots: PUBLIC_ROBOTS,
@@ -49,7 +49,7 @@ export default async function InquirePage({ searchParams }: { searchParams: Prom
   return (
     <PublicShell
       title={giftGuide ? "Reserve a Holiday Gift Guide spot" : "Work with us"}
-      lede={giftGuide ? `${GIFT_GUIDE_OFFER.lede} ${GIFT_GUIDE_OFFER.reserveNote}` : "Tell us about the campaign. We reply within 3 business days."}
+      lede={giftGuide ? `${GIFT_GUIDE_OFFER.lede} ${GIFT_GUIDE_OFFER.reserveNote}` : `Tell us about the campaign. ${REPLY_PROMISE}`}
     >
       {params.sent ? (
         giftGuide ? (
@@ -60,7 +60,7 @@ export default async function InquirePage({ searchParams }: { searchParams: Prom
         ) : (
           <div className="callout" role="status">
             <b>We have your brief.</b>
-            <p>You&apos;ll hear from us within 3 business days.</p>
+            <p>{REPLY_PROMISE}</p>
           </div>
         )
       ) : (
