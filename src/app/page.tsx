@@ -19,6 +19,7 @@ import { listCreatorOffers } from "@/lib/brand-offers";
 import { CreatorTodos } from "@/components/creator-todos";
 import { CREATOR_REVIEW_EMPTY, creatorReviewNeedsAction, listCreatorDealReviews } from "@/lib/creator-deal-review";
 import { listCreatorOpenTasks } from "@/lib/creator-tasks";
+import { ensureCreatorDeposits, ensureOpenDeposits } from "@/lib/brand-deposits";
 import { questionnaireFor } from "@/lib/questionnaire";
 import { inviteErrorNote } from "@/lib/invite-notes";
 import { noticeErrorNote } from "@/lib/notice-notes";
@@ -38,6 +39,9 @@ const TODO_NOTES: Record<string, string> = {
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string; passed?: string; invite?: string; noticeError?: string; checkout?: string; todo?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
+  if (portal.viewer.role === "admin") await ensureOpenDeposits(portal.db);
+  else if (portal.viewer.creatorId) await ensureCreatorDeposits(portal.db, portal.viewer.creatorId);
+  else if (portal.viewedId && portal.viewedId !== "all") await ensureCreatorDeposits(portal.db, portal.viewedId);
   const deals = await listDealsForViewer(portal.db, portal.viewer, portal.viewedId);
   const visuals = await promoViewsForDeals(portal.db, deals);
   const fallback = deals.find((deal) => deal.id === "vev")?.id ?? deals[0]?.id;

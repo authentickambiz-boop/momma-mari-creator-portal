@@ -1,6 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { creatorQuestionnaires, creatorTasks, creators, deals, podGoals, podMembers } from "@/db/schema";
+import { depositLockTodos } from "./brand-deposits";
 import { isFakeCalendarDay } from "./deadlines";
 import { agencyTimeZone, nowIso, parseJson } from "./format";
 import { profileIntakeMissing, profileIntakeTaskId } from "./profile-intake";
@@ -22,6 +23,8 @@ export type CreatorTodo = {
   dueDate: string | null;
   category: TaskCategory;
   overdue: boolean;
+  /** A filming step that stays put until the brand deposit lands. */
+  locked?: boolean;
 };
 
 export type OwnerTask = {
@@ -238,7 +241,9 @@ export async function listCreatorOpenTasks(db: PortalDb, creatorId: string) {
   await ensureProfileIntakeTask(db, creatorId);
   const today = portalToday();
   const rows = await db.select().from(creatorTasks).where(eq(creatorTasks.creatorId, creatorId));
-  return byDueDate(rows.filter((row) => row.status === "open").map((row) => toTodo(row, today)));
+  const open = byDueDate(rows.filter((row) => row.status === "open").map((row) => toTodo(row, today)));
+  const locked = await depositLockTodos(db, creatorId);
+  return [...open, ...locked];
 }
 
 export async function listOwnerTasks(db: PortalDb, viewer: Viewer) {
@@ -268,6 +273,9 @@ export async function listOwnerTasks(db: PortalDb, viewer: Viewer) {
 }
 
 export async function markCreatorTaskDone(db: PortalDb, viewer: Viewer, taskId: string) {
+  if (taskId.startsWith("deposit-lock-")) {
+    return { ok: false as const, error: "That step stays locked until the deposit lands." };
+  }
   const rows = await db.select().from(creatorTasks).where(eq(creatorTasks.id, taskId));
   const task = rows[0];
   if (!task) return { ok: false as const, error: "That to-do is not on your list." };

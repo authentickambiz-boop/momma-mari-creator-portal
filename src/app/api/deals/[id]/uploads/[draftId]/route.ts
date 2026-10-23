@@ -3,6 +3,7 @@ import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
 import { forwardChunk } from "@/lib/drive";
 import { getDealAccessRow, getDraftRow, markDraftProgress } from "@/lib/queries";
+import { creatorFilmingBlocked } from "@/lib/brand-deposits";
 import { assertCanUpload, parseContentRange, validateChunk } from "@/lib/uploads";
 import { onDraftSubmitted } from "@/lib/video-review";
 
@@ -15,6 +16,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   if (!deal) return NextResponse.json({ error: "That deal isn't on your list." }, { status: 404 });
   const allowed = assertCanUpload(viewer, deal);
   if (!allowed.ok) return NextResponse.json({ error: allowed.error }, { status: allowed.status });
+  const filming = await creatorFilmingBlocked(db, deal.id, viewer.role);
+  if (filming) return NextResponse.json({ error: filming.error }, { status: filming.status });
   const draft = await getDraftRow(db, draftId);
   if (!draft || draft.dealId !== deal.id) return NextResponse.json({ error: "That upload isn't on this deal." }, { status: 404 });
   if (draft.status !== "uploading") return NextResponse.json({ error: "This upload already finished." }, { status: 409 });

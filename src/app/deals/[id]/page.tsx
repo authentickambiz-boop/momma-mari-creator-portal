@@ -12,16 +12,19 @@ import { listUnreadCreatorNotices } from "@/lib/video-review";
 import { dealNoticeNote, dealNoticeSpecific } from "@/lib/deal-notice-notes";
 import { promoErrorNote } from "@/lib/promo-notes";
 import { promoViewsForDeals } from "@/lib/promo-visuals";
+import { ensureDealDeposit } from "@/lib/brand-deposits";
+import { depositErrorNote } from "@/lib/deposit-notes";
 
 export default async function DealPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string; productError?: string; postError?: string; paymentError?: string; safetyError?: string; signerError?: string; reply?: string; replyError?: string; rate?: string; rateError?: string; dates?: string; datesError?: string; saved?: string; rulesError?: string; promo?: string; promoError?: string }>;
+  searchParams: Promise<{ creator?: string; stageError?: string; interestError?: string; releaseError?: string; reviewError?: string; contractError?: string; signed?: string; productError?: string; postError?: string; paymentError?: string; safetyError?: string; signerError?: string; reply?: string; replyError?: string; rate?: string; rateError?: string; dates?: string; datesError?: string; saved?: string; rulesError?: string; promo?: string; promoError?: string; deposit?: string; depositError?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const portal = await loadPortal(query.creator ?? null);
+  await ensureDealDeposit(portal.db, id);
   const creatorNotices = portal.viewer.role === "creator" && portal.viewer.creatorId
     ? await listUnreadCreatorNotices(portal.db, portal.viewer.creatorId)
     : [];
@@ -134,6 +137,7 @@ export default async function DealPage({
         paymentError={query.paymentError ?? null}
         safetyError={query.safetyError ?? null}
         signerError={query.signerError ?? null}
+        depositNotice={query.deposit === "saved" ? "Deposit saved. Nothing was emailed." : query.deposit === "timing" ? "Payment timing saved. Nothing was emailed or switched on its own." : depositErrorNote(query.depositError)}
         visuals={visuals}
       />
     </PortalFrame>

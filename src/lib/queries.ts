@@ -18,6 +18,7 @@ import {
   shipments,
 } from "@/db/schema";
 import { AGENCY_MAILBOX_ID } from "./agency-mailbox";
+import { depositViewForDeal } from "./brand-deposits";
 import { adminDisplayName, adminEmails, canSeeDeal } from "./authz";
 import { findManagerByEmail } from "./managers";
 import { CONTRACT_CHECKS, signingFormatLabel } from "./contract-shared";
@@ -330,6 +331,7 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
     safetyForDeal(db, dealId),
   ]);
   const summary = hideMoney(toSummary(row, creator?.name ?? (row.creatorId === AGENCY_MAILBOX_ID ? "Kamron" : "Creator")), viewer);
+  const deposit = await depositViewForDeal(db, viewer, row, paymentRows[0]?.amountOwedCents ?? null);
   const interestState = await interestContextForDeal(db, dealId);
   const brandEmail = interestState.brandEmail ?? firstEmail(row.contact);
   const offerOpen = !row.workflowStage || row.workflowStage === "offer_received" || row.workflowStage === "offer_shared";
@@ -409,7 +411,7 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
       confirmedAt: post.confirmedAt,
       confirmedBy: viewer.role === "creator" ? null : post.confirmedBy,
     })),
-    canConfirmProduct: (viewer.role === "creator" ? viewer.creatorId === row.creatorId : staff) && row.workflowStage === "waiting_for_product",
+    canConfirmProduct: (viewer.role === "creator" ? viewer.creatorId === row.creatorId : staff) && row.workflowStage === "waiting_for_product" && !deposit?.filmingLocked,
     canSubmitPosts: (viewer.role === "creator" ? viewer.creatorId === row.creatorId : staff) && (getDealStage(row.workflowStage)?.order ?? 0) >= 20,
     canMarkPayment: viewer.role === "admin" && (getDealStage(row.workflowStage)?.order ?? 0) >= 21,
     productRequired: row.productRequired,
@@ -427,6 +429,16 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
       ? (await db.select().from(brandReplyDrafts).where(eq(brandReplyDrafts.dealId, dealId)))[0]?.body ?? null
       : null,
     reviewStatus: staff ? row.reviewStatus : null,
+    deposit: deposit ?? {
+      status: "not_required",
+      statusLabel: "Not required",
+      amountCents: null,
+      invoicedOn: null,
+      receivedOn: null,
+      filmingLocked: false,
+      lockMessage: null,
+      overrideReason: null,
+    },
   };
 }
 

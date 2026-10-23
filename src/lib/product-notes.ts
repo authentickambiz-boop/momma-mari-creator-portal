@@ -6,6 +6,7 @@ const PRODUCT_ERROR_TEXT = {
   list: "That creator isn't on your list.",
   past: "This deal is already past the product. Nothing was changed.",
   move: "You can't move this deal.",
+  deposit: "Waiting on the brand's deposit; you'll get a go-ahead once it lands",
 } as const;
 
 /** A short code for the tracking form. Unknown wording stays the fixed fallback. */

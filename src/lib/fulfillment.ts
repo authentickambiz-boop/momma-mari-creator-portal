@@ -2,6 +2,7 @@ import { and, asc, eq, gt } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { creatorNotifications, dealStageEvents, deals, livePosts, offerScreenings, payments, revisions, shipments } from "@/db/schema";
 import { createApprovalEmail, BRAND_EMAIL_SENDER } from "./approvals";
+import { creatorFilmingBlocked } from "./brand-deposits";
 import { upsertBrandCrm } from "./brand-crm";
 import { setDealStage } from "./deal-stage";
 import { AGENCY_COMMISSION_PERCENT, CREATOR_PAYOUT_PERCENT, commissionLabel, feeAndPayout, nowIso } from "./format";
@@ -253,6 +254,8 @@ export async function confirmProductReceived(
     const allowed = await staffOrBot(db, deal.creatorId, { email: input.actorEmail, role: input.actorRole });
     if (!allowed.ok) return allowed;
   }
+  const filming = await creatorFilmingBlocked(db, deal.id, input.actorRole);
+  if (filming) return filming;
   if (deal.workflowStage !== "waiting_for_product") {
     return { ok: false, status: 409, error: "This deal is already past the product. Nothing was changed." };
   }
