@@ -9,7 +9,7 @@ import type { BotStatus } from "@/lib/worlds/office-catalog";
 import type { OfficeLayout, OfficeRoom, OfficeSection } from "@/lib/worlds/office-layout";
 import { isSeated, type OfficeSimStore } from "@/lib/worlds/office-sim";
 import { boardStations, type OfficeKey } from "@/lib/worlds/office-state";
-import { formatWalletMoney, vaultPilePlan } from "@/lib/worlds/office-wallets";
+import { vaultPilePlan } from "@/lib/worlds/office-wallets";
 import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/worlds/office-weather";
 import { BOT_CAPSULE_CENTER, BOT_CAPSULE_LENGTH, BOT_CAPSULE_RADIUS, pickBotCapsule, rayFromClient, type BotHitPose } from "@/lib/worlds/bot-hit";
 import { defaultCharacter, nameTagFrame, type CharacterConfig, type CharacterPose } from "@/lib/worlds/character";
@@ -710,15 +710,15 @@ function GoldPile() {
   );
 }
 
-/** Round steel door on the vault's hall wall. Click swings it open and the piles track the balance. */
-function VaultDoor({ layout, total, onOpen }: { layout: OfficeLayout; total: number; onOpen: () => void }) {
+/** Outdoor vault shell. Tap opens the in-game bank. Real-money totals stay on the Tools vault list. */
+function VaultDoor({ layout, bankBalance, onOpen }: { layout: OfficeLayout; bankBalance: number; onOpen: () => void }) {
   const mats = useMats();
   const hinge = useRef<THREE.Group>(null);
   const angle = useRef(0);
   const [open, setOpen] = useState(false);
   const room = layout.rooms.find((item) => item.id === "vault");
-  const plan = vaultPilePlan(total);
-  const label = formatWalletMoney(total);
+  const plan = vaultPilePlan(bankBalance);
+  const label = "BANK";
   const canOpen = useContext(TapContext);
   useFrame((_, dt) => {
     const node = hinge.current;
@@ -794,7 +794,10 @@ function VaultDoor({ layout, total, onOpen }: { layout: OfficeLayout; total: num
           </group>
         );
       })}
-      <pointLight position={[cx, 1.7, cz]} color="#ffe1a8" intensity={total > 0 ? 1.1 : 0.25} distance={room.d} decay={2} />
+      <group position={[doorX, 1.2, doorZ + 0.45]} {...pointerCursor} onClick={openDoor}>
+        <HitPad args={[2.4, 2.6, 0.9]} />
+      </group>
+      <pointLight position={[cx, 1.7, cz]} color="#ffe1a8" intensity={bankBalance > 0 ? 1.1 : 0.25} distance={room.d} decay={2} />
     </group>
   );
 }
@@ -1500,8 +1503,8 @@ function Scene({
   cameraApiRef,
   weather,
   speech,
-  vaultTotal,
-  onOpenVault,
+  bankBalance,
+  onOpenBank,
   onOpenMeet,
   canOpen,
   layers,
@@ -1523,8 +1526,8 @@ function Scene({
   cameraApiRef: React.MutableRefObject<OfficeCameraApi | null>;
   weather: OfficeWeather;
   speech: Record<string, string>;
-  vaultTotal: number;
-  onOpenVault: () => void;
+  bankBalance: number;
+  onOpenBank: () => void;
   onOpenMeet: () => void;
   canOpen: () => boolean;
   layers: OfficeLayers;
@@ -1574,7 +1577,7 @@ function Scene({
       <MatsContext.Provider value={mats}>
       {layers.offices ? <Shell layout={layout} /> : null}
       {layers.offices ? <Furniture layout={layout} onOpenMeet={onOpenMeet} /> : null}
-      <VaultDoor layout={layout} total={vaultTotal} onOpen={onOpenVault} />
+      <VaultDoor layout={layout} bankBalance={bankBalance} onOpen={onOpenBank} />
       {layers.offices ? <WingStations layout={layout} sections={sections} onOpen={onOpenBoard} /> : null}
       <SimDriver sim={sim} meetingRef={meetingRef} botsRef={botsRef} />
       {layers.offices ? bots.map((bot) => (
@@ -1686,8 +1689,8 @@ export default function OfficeCanvas({
   cameraApiRef,
   weather,
   speech,
-  vaultTotal,
-  onOpenVault,
+  bankBalance,
+  onOpenBank,
   onOpenMeet,
   onClear,
   layers,
@@ -1706,8 +1709,8 @@ export default function OfficeCanvas({
   cameraApiRef: React.MutableRefObject<OfficeCameraApi | null>;
   weather: OfficeWeather;
   speech: Record<string, string>;
-  vaultTotal: number;
-  onOpenVault: () => void;
+  bankBalance: number;
+  onOpenBank: () => void;
   onOpenMeet: () => void;
   onClear: () => void;
   layers: OfficeLayers;
@@ -1851,8 +1854,8 @@ export default function OfficeCanvas({
         cameraApiRef={cameraApiRef}
         weather={weather}
         speech={speech}
-        vaultTotal={vaultTotal}
-        onOpenVault={onOpenVault}
+        bankBalance={bankBalance}
+        onOpenBank={onOpenBank}
         onOpenMeet={onOpenMeet}
         canOpen={canOpen}
         layers={layers}

@@ -1737,6 +1737,8 @@ export const gameWallets = sqliteTable("game_wallets", {
 export const gameLedger = sqliteTable("game_ledger", {
   id: text("id").primaryKey(),
   walletId: text("wallet_id").notNull(),
+  /** wallet is spendable. bank is protected. uncollected waits for a bank visit. */
+  bucket: text("bucket").notNull().default("wallet"),
   direction: text("direction").notNull(),
   amountCents: integer("amount_cents").notNull(),
   reason: text("reason").notNull(),
@@ -1757,6 +1759,19 @@ export const gameEarnRates = sqliteTable("game_earn_rates", {
   earnType: text("earn_type").primaryKey(),
   amountCents: integer("amount_cents").notNull(),
   updatedAt: text("updated_at").notNull(),
+});
+
+/** Owner-set weekly interest for the in-game bank. One row, not a balance. */
+export const gameInterestRates = sqliteTable("game_interest_rates", {
+  id: text("id").primaryKey(),
+  weeklyBps: integer("weekly_bps").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** Last calendar day interest was considered. This is not a balance. */
+export const gameBankMarks = sqliteTable("game_bank_marks", {
+  walletId: text("wallet_id").primaryKey(),
+  accruedThrough: text("accrued_through").notNull(),
 });
 
 /** Versioned Worlds look for a user or a roster bot. No prices are stored. */
