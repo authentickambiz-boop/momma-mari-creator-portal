@@ -4,6 +4,7 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { OfficeLayout } from "@/lib/worlds/office-layout";
+import { roofBlocksClicks, roofOpenAmount } from "@/lib/worlds/office-move";
 import { FOLIAGE_COLORS, type OfficeWeather } from "@/lib/worlds/office-weather";
 
 const WALL_H = 2.55;
@@ -281,15 +282,22 @@ function Precipitation({ layout, weather }: { layout: OfficeLayout; weather: Off
   );
 }
 
+function skipRoofRaycast() {
+  return false;
+}
+
 function Roof({ layout }: { layout: OfficeLayout }) {
+  const slab = useRef<THREE.Mesh>(null);
+  const cap = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
   const capRef = useRef<THREE.MeshStandardMaterial>(null);
   useFrame(({ camera }) => {
-    const over = camera.position.x > -8
-      && camera.position.x < layout.width + 8
-      && camera.position.z > -8
-      && camera.position.z < layout.depth + 10;
-    const open = over ? 1 - THREE.MathUtils.smoothstep(camera.position.y, 8, 20) : 0;
+    const open = roofOpenAmount(camera.position, layout);
+    const pass = !roofBlocksClicks(open);
+    const raycast = pass ? skipRoofRaycast : THREE.Mesh.prototype.raycast;
+    for (const mesh of [slab.current, cap.current]) {
+      if (mesh && mesh.raycast !== raycast) mesh.raycast = raycast;
+    }
     for (const material of [materialRef.current, capRef.current]) {
       if (!material) continue;
       material.opacity = 1 - open;
@@ -298,11 +306,11 @@ function Roof({ layout }: { layout: OfficeLayout }) {
   });
   return (
     <group>
-      <mesh position={[layout.width / 2, WALL_H + 0.16, layout.depth / 2]} castShadow>
+      <mesh ref={slab} position={[layout.width / 2, WALL_H + 0.16, layout.depth / 2]} castShadow>
         <boxGeometry args={[layout.width + 1.1, 0.22, layout.depth + 1.1]} />
         <meshStandardMaterial ref={materialRef} color="#4e463f" roughness={0.78} metalness={0.08} transparent opacity={1} />
       </mesh>
-      <mesh position={[layout.width / 2, WALL_H + 0.34, layout.depth / 2]}>
+      <mesh ref={cap} position={[layout.width / 2, WALL_H + 0.34, layout.depth / 2]}>
         <boxGeometry args={[layout.width + 0.4, 0.12, layout.depth + 0.4]} />
         <meshStandardMaterial ref={capRef} color="#6a625a" roughness={0.8} transparent opacity={1} />
       </mesh>

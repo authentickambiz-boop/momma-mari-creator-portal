@@ -6,6 +6,12 @@ export type Stick = { x: number; y: number };
 export const OFFICE_FOV = 38;
 export const MAP_MIN_DISTANCE = 3.2;
 export const MAP_MAX_DISTANCE = 200;
+export const MAP_MIN_POLAR = 0.42;
+export const MAP_MAX_POLAR = Math.PI / 2.2;
+
+/** One ordinary mouse notch. Twelve of these go from the overview through the roof. */
+export const WHEEL_NOTCH_PX = 100;
+export const WHEEL_ZOOM = 0.9;
 
 function num(value: number) {
   return value === 0 ? 0 : value;
@@ -124,6 +130,46 @@ export function officeCameraHome(width: number, depth: number) {
     else lo = mid;
   }
   return { position: target.clone().addScaledVector(aim, hi), target, distance: hi };
+}
+
+/**
+ * Scale for one wheel event. Negative deltaY zooms in.
+ * Pixel deltas accumulate, so a trackpad nudge is not a full notch.
+ */
+export function wheelZoomFactor(deltaY: number, deltaMode = 0) {
+  if (!Number.isFinite(deltaY) || deltaY === 0) return 1;
+  const unit = deltaMode === 1 ? 16 : deltaMode === 2 ? 800 : 1;
+  const notches = Math.max(-6, Math.min(6, (deltaY * unit) / WHEEL_NOTCH_PX));
+  return WHEEL_ZOOM ** -notches;
+}
+
+/**
+ * 0 while the camera is out over the lawn, 1 once it is low and close enough
+ * to see the rooms. Both edges are smooth so the roof does not pop.
+ */
+export function roofOpenAmount(
+  camera: { x: number; y: number; z: number },
+  layout: { width: number; depth: number },
+) {
+  if (![camera.x, camera.y, camera.z, layout.width, layout.depth].every(Number.isFinite)) return 0;
+  const outsideX = Math.max(0, -camera.x, camera.x - layout.width);
+  const outsideZ = Math.max(0, -camera.z, camera.z - layout.depth);
+  const outside = Math.hypot(outsideX, outsideZ);
+  const near = 1 - THREE.MathUtils.smoothstep(outside, 0, 36);
+  const low = 1 - THREE.MathUtils.smoothstep(camera.y, 6, 34);
+  return THREE.MathUtils.clamp(near * low, 0, 1);
+}
+
+/** A solid roof should block clicks. A see-through one must not, or it swallows every bot. */
+export function roofBlocksClicks(open: number) {
+  return !(open > 0.35);
+}
+
+/** Right-drag orbit, in radians. Dragging right decreases theta, matching a grab of the building. */
+export function rotateOffset(dx: number, dy: number, viewportHeight: number, speed = 0.55) {
+  const height = viewportHeight > 1 ? viewportHeight : 1;
+  const scale = (2 * Math.PI * speed) / height;
+  return { theta: num(-dx * scale), phi: num(-dy * scale) };
 }
 
 /** A pose the map can keep drawing. Anything else is sent back to the default framing. */

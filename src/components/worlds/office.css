@@ -37,11 +37,14 @@
 .office-loading {
   position: absolute;
   inset: 0;
+  z-index: 1;
   display: grid;
   place-items: center;
+  background: #1b1714;
   color: #fbf8f3;
   font-family: var(--heading);
   font-size: 28px;
+  pointer-events: none;
 }
 .office-panel {
   position: absolute;
