@@ -288,6 +288,47 @@
   background: #fff;
   color: #1c211e;
 }
+.office-joystick {
+  display: none;
+  position: absolute;
+  z-index: 7;
+  left: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  touch-action: none;
+  user-select: none;
+}
+.office-joystick-base {
+  width: 96px;
+  height: 96px;
+  padding: 0;
+  border: 1px solid rgba(214, 206, 193, 0.95);
+  border-radius: 50%;
+  background: rgba(251, 248, 243, 0.55);
+  box-shadow: 0 8px 20px rgba(22, 41, 31, 0.16);
+  display: grid;
+  place-items: center;
+  touch-action: none;
+}
+.office-joystick-knob {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #1f3b2d;
+  box-shadow: 0 2px 6px rgba(22, 41, 31, 0.3);
+  transition: transform 180ms cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+.office-joystick-knob[data-dragging="true"] {
+  transition: none;
+}
+@media (pointer: coarse) {
+  .office-joystick { display: block; }
+}
+@media (pointer: coarse) and (max-width: 800px) {
+  .office-joystick.is-lifted {
+    bottom: calc(45vh + 16px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 body:has(.bot-office) { overflow: hidden; background: #1b1714; }
 body:has(.bot-office) .site-footer,
 body:has(.bot-office) .seasonal-banner,

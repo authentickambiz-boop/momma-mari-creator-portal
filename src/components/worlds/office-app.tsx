@@ -33,7 +33,9 @@ import {
   type WalletType,
 } from "@/lib/worlds/office-wallets";
 import type { BoardOpen, OfficeCameraApi, OfficeLayers, OfficeQuality } from "./office-canvas";
+import { OfficeJoystick } from "./office-joystick";
 import { panelsEnabledFromStorage, panelsStorageValue } from "@/lib/worlds/office-chrome";
+import type { Stick } from "@/lib/worlds/office-move";
 import "./office.css";
 
 type LayoutHold = {
@@ -120,6 +122,7 @@ function dollars(amount: number) {
 export function OfficeApp() {
   const root = useRef<HTMLDivElement>(null);
   const cameraApiRef = useRef<OfficeCameraApi | null>(null);
+  const stickRef = useRef<Stick>({ x: 0, y: 0 });
   const [status, setStatus] = useState<OfficeStatusResponse | null>(null);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState("");
@@ -487,6 +490,7 @@ export function OfficeApp() {
             speech={speech}
             vaultTotal={wallets.total}
             onOpenVault={() => openVault(false)}
+            stickRef={stickRef}
           />
         ) : (
           <div className="office-loading">{error || "Opening the bot office…"}</div>
@@ -569,6 +573,8 @@ export function OfficeApp() {
         ) : null}
       </div>
 
+      <OfficeJoystick stickRef={stickRef} lifted={sheet !== null} />
+
       {sheet === "info" ? (
       <section className="office-panel office-sheet office-tools" aria-label="Office controls">
         <CloseRow title={`Team level ${status?.team.level ?? "…"}`} onClose={dismiss} />
@@ -590,7 +596,7 @@ export function OfficeApp() {
             <button type="button" onClick={() => openVault(true)}>Add wallet</button>
           ) : null}
         </div>
-        <p className="office-kicker">Drag to pan. Right-drag or twist to rotate. Scroll, pinch, or the plus and minus buttons zoom. A drag does not open a panel.</p>
+        <p className="office-kicker">Drag the ground to pan. Right-drag or twist to rotate. Scroll, pinch, or the plus and minus buttons zoom. On a phone, the joystick moves the view. A drag does not open a panel.</p>
         <p className="office-kicker">{checkedAt ? `Live · checked ${checkedAt}` : "Checking the office…"} Polls every {Math.round(OFFICE_POLL_MS / 1000)}s.</p>
         <p className="office-kicker">{weather.label}. Roof fades as you zoom inside.</p>
         {error ? <p className="office-error">{error}</p> : null}

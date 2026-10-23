@@ -11,6 +11,7 @@ import { isSeated, type OfficeSimStore } from "@/lib/worlds/office-sim";
 import { boardStations, type OfficeKey } from "@/lib/worlds/office-state";
 import { formatWalletMoney, vaultPilePlan } from "@/lib/worlds/office-wallets";
 import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/worlds/office-weather";
+import { PAN_DRAG_PX, grabPanDelta, moveDelta, rayGroundPoint, type Stick } from "@/lib/worlds/office-move";
 import { OfficeSite } from "./office-grounds";
 
 export type BoardPanel = "calendar" | "todos" | "notes";
@@ -1227,6 +1228,134 @@ function StudioEnv() {
   return <primitive object={texture} attach="environment" />;
 }
 
+type MapGesture = { x: number; y: number; dragged: boolean; active: boolean };
+
+/** Left-drag slides the ground point under the cursor. A short press still selects. */
+function GroundGrab({
+  controls,
+  layout,
+  gesture,
+}: {
+  controls: React.RefObject<OrbitControlsType | null>;
+  layout: OfficeLayout;
+  gesture: React.MutableRefObject<MapGesture>;
+}) {
+  const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
+  useEffect(() => {
+    const el = gl.domElement;
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    let pointerId = -1;
+    let startX = 0;
+    let startY = 0;
+    let anchor: { x: number; z: number } | null = null;
+    let panning = false;
+
+    function groundAt(event: PointerEvent) {
+      const orbit = controls.current;
+      const rect = el.getBoundingClientRect();
+      if (!orbit || rect.width === 0 || rect.height === 0) return null;
+      ndc.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1,
+      );
+      raycaster.setFromCamera(ndc, camera);
+      const { origin, direction } = raycaster.ray;
+      return rayGroundPoint(
+        { x: origin.x, y: origin.y, z: origin.z },
+        { x: direction.x, y: direction.y, z: direction.z },
+        orbit.target.y,
+      );
+    }
+
+    function finish(event: PointerEvent) {
+      if (event.pointerId !== pointerId) return;
+      if (el.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
+      pointerId = -1;
+      anchor = null;
+      panning = false;
+    }
+
+    function onDown(event: PointerEvent) {
+      if (event.pointerType === "touch" || event.button !== 0) return;
+      if ((event.buttons & 2) !== 0) return;
+      pointerId = event.pointerId;
+      startX = event.clientX;
+      startY = event.clientY;
+      anchor = null;
+      panning = false;
+    }
+
+    function onMove(event: PointerEvent) {
+      if (event.pointerId !== pointerId || pointerId < 0) return;
+      if ((event.buttons & 1) === 0 || (event.buttons & 2) !== 0) return;
+      if (Math.hypot(event.clientX - startX, event.clientY - startY) <= PAN_DRAG_PX) return;
+      const orbit = controls.current;
+      if (!orbit) return;
+      gesture.current.dragged = true;
+      const hit = groundAt(event);
+      if (!hit) return;
+      if (!panning || !anchor) {
+        anchor = hit;
+        panning = true;
+        el.setPointerCapture(event.pointerId);
+        return;
+      }
+      nudgeTarget(orbit, grabPanDelta(anchor, hit), layout);
+      anchor = groundAt(event) ?? anchor;
+    }
+
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", finish);
+    el.addEventListener("pointercancel", finish);
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", finish);
+      el.removeEventListener("pointercancel", finish);
+    };
+  }, [camera, gl, controls, layout, gesture]);
+  return null;
+}
+
+function nudgeTarget(orbit: OrbitControlsType, delta: { x: number; z: number }, layout: OfficeLayout) {
+  orbit.target.x += delta.x;
+  orbit.target.z += delta.z;
+  orbit.object.position.x += delta.x;
+  orbit.object.position.z += delta.z;
+  clampMapTarget(orbit, layout);
+  orbit.update();
+}
+
+function StickMover({
+  stickRef,
+  controls,
+  layout,
+}: {
+  stickRef: React.MutableRefObject<Stick>;
+  controls: React.RefObject<OrbitControlsType | null>;
+  layout: OfficeLayout;
+}) {
+  useFrame((_, dt) => {
+    const stick = stickRef.current;
+    if (stick.x === 0 && stick.y === 0) return;
+    const orbit = controls.current;
+    if (!orbit) return;
+    const step = Math.min(Math.max(dt, 0), 0.05);
+    const delta = moveDelta(
+      stick,
+      orbit.object.position.x - orbit.target.x,
+      orbit.object.position.z - orbit.target.z,
+      step,
+    );
+    if (delta.x === 0 && delta.z === 0) return;
+    nudgeTarget(orbit, delta, layout);
+  }, 1);
+  return null;
+}
+
 function Scene({
   layout,
   sections,
@@ -1247,6 +1376,8 @@ function Scene({
   canOpen,
   layers,
   quality,
+  stickRef,
+  gesture,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1267,6 +1398,8 @@ function Scene({
   canOpen: () => boolean;
   layers: OfficeLayers;
   quality: OfficeQuality;
+  stickRef: React.MutableRefObject<Stick>;
+  gesture: React.MutableRefObject<MapGesture>;
 }) {
   const mats = useOfficeMaterials(layout);
   const controls = useRef<OrbitControlsType>(null);
@@ -1329,6 +1462,8 @@ function Scene({
       </MatsContext.Provider>
       </TapContext.Provider>
       </group>
+      <GroundGrab controls={controls} layout={layout} gesture={gesture} />
+      <StickMover stickRef={stickRef} controls={controls} layout={layout} />
       <MapControls
         ref={controls}
         makeDefault
@@ -1345,7 +1480,7 @@ function Scene({
         minPolarAngle={0.42}
         maxPolarAngle={Math.PI / 2.2}
         mouseButtons={{
-          LEFT: THREE.MOUSE.PAN,
+          LEFT: -1 as THREE.MOUSE,
           MIDDLE: THREE.MOUSE.DOLLY,
           RIGHT: THREE.MOUSE.ROTATE,
         }}
@@ -1380,6 +1515,7 @@ export default function OfficeCanvas({
   onClear,
   layers,
   quality,
+  stickRef,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1398,6 +1534,7 @@ export default function OfficeCanvas({
   onClear: () => void;
   layers: OfficeLayers;
   quality: OfficeQuality;
+  stickRef: React.MutableRefObject<Stick>;
 }) {
   const meetingRef = useRef(meeting);
   const botsRef = useRef(bots);
@@ -1430,7 +1567,7 @@ export default function OfficeCanvas({
         if (!gesture.current.active) return;
         if (event.pointerType === "mouse" && !event.buttons) return;
         const moved = Math.hypot(event.clientX - gesture.current.x, event.clientY - gesture.current.y);
-        if (moved > 10) gesture.current.dragged = true;
+        if (moved > PAN_DRAG_PX) gesture.current.dragged = true;
       }}
       onPointerUp={() => {
         gesture.current.active = false;
@@ -1465,6 +1602,8 @@ export default function OfficeCanvas({
         canOpen={canOpen}
         layers={layers}
         quality={quality}
+        stickRef={stickRef}
+        gesture={gesture}
       />
     </Canvas>
   );
