@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "The office page is a remote site and is not given Tauri commands.",
+  "windows": ["main"],
+  "permissions": []
+}

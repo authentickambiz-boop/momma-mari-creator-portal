@@ -1,0 +1,16 @@
+[package]
+name = "momma-mari-worlds"
+version = "0.1.0"
+description = "Desktop window for the Momma Mari bot office"
+authors = ["Momma Mari LLC"]
+edition = "2021"
+rust-version = "1.90"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+open = "5"
+tauri = { version = "2", features = [] }
+tauri-plugin-window-state = "2"
+url = "2"
