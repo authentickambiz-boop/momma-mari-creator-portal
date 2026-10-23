@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { COMMUNITY_EMOJIS, COMMUNITY_GUIDELINES, privateKinds } from "@/lib/community-shared";
 import { publicBasePath, withBasePath } from "@/lib/format";
 import { isPublicMarketingPath } from "@/lib/public-site";
+import { isBotOfficePath } from "@/lib/worlds/office-path";
 
 type Message = {
   id: string;
@@ -75,7 +76,9 @@ export function CommunityPanel() {
   const logRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
-  const publicPage = isPublicMarketingPath(usePathname() ?? "", publicBasePath());
+  const pathname = usePathname() ?? "";
+  const base = publicBasePath();
+  const publicPage = isPublicMarketingPath(pathname, base) || isBotOfficePath(pathname, base);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("mm-community-panel");

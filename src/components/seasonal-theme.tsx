@@ -8,6 +8,7 @@ import { BatIcon, GhostIcon, PumpkinIcon } from "@/components/seasonal-icons";
 import { SeasonalSparkle } from "@/components/seasonal-sparkle";
 import { SEASONAL_PREVIEW_PARAM } from "@/lib/seasonal-calendar";
 import { publicBasePath, withBasePath } from "@/lib/format";
+import { isBotOfficePath } from "@/lib/worlds/office-path";
 import {
   seasonalSurface,
   themeById,
@@ -328,10 +329,13 @@ function IllustratedScene({ theme, surface }: { theme: SeasonalTheme; surface: S
 }
 
 export function SeasonalThemeFrame({ presentation }: { presentation: Presentation }) {
-  const surface = seasonalSurface(usePathname() ?? "/", publicBasePath());
+  const pathname = usePathname() ?? "/";
+  const base = publicBasePath();
+  const surface = seasonalSurface(pathname, base);
   const preview = usePreviewTheme();
   const theme = preview ?? presentation.active;
   const hidden = preview ? null : presentation.hidden;
+  if (isBotOfficePath(pathname, base)) return null;
   return (
     <>
       {theme ? (

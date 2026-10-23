@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { publicBasePath, withBasePath } from "@/lib/format";
 import { QUIET_HOURS_NOTE, homeScreenOffer, isIosHomeScreen } from "@/lib/home-screen";
 import { isPublicMarketingPath } from "@/lib/public-site";
+import { isBotOfficePath } from "@/lib/worlds/office-path";
 
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 
@@ -13,7 +14,8 @@ export function HomeScreen() {
   const [ios, setIos] = useState(false);
   const [promptEvent, setPromptEvent] = useState<InstallPrompt | null>(null);
   const base = publicBasePath();
-  const publicPage = isPublicMarketingPath(usePathname() ?? "", base);
+  const pathname = usePathname() ?? "";
+  const publicPage = isPublicMarketingPath(pathname, base) || isBotOfficePath(pathname, base);
   const offer = homeScreenOffer({ installed, ios, canPrompt: Boolean(promptEvent) });
 
   useEffect(() => {

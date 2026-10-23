@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/plans", destination: "/pricing", permanent: false },
+      { source: "/admin/world", destination: "/worlds", permanent: false },
     ];
   },
   serverExternalPackages: ["node:sqlite"],

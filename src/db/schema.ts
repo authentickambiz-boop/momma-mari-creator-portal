@@ -1642,3 +1642,39 @@ export const creatorFiled1099s = sqliteTable("creator_filed_1099s", {
   uploadedBy: text("uploaded_by").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+/** Live bot-office status written by the bot API. The seed stays in code. */
+export const officeWorldStatus = sqliteTable("office_world_status", {
+  id: text("id").primaryKey(),
+  document: text("document").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** Commands Kamron queues from the bot office. Bots pick them up with the bot API token. */
+export const officeWorldCommands = sqliteTable("office_world_commands", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  status: text("status").notNull(),
+  botIds: text("bot_ids").notNull(),
+  office: text("office"),
+  noteId: text("note_id"),
+  todoId: text("todo_id"),
+  decision: text("decision"),
+  topic: text("topic"),
+  body: text("body").notNull(),
+  due: text("due"),
+  impactDollars: integer("impact_dollars"),
+  result: text("result"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** Vault balances only. Names and amounts. No bank or card credentials. */
+export const officeWallets = sqliteTable("office_wallets", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  balanceCents: integer("balance_cents").notNull(),
+  currency: text("currency").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
