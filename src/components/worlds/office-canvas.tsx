@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Component, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { MapControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -11,7 +11,7 @@ import { isSeated, type OfficeSimStore } from "@/lib/worlds/office-sim";
 import { boardStations, type OfficeKey } from "@/lib/worlds/office-state";
 import { formatWalletMoney, vaultPilePlan } from "@/lib/worlds/office-wallets";
 import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/worlds/office-weather";
-import { PAN_DRAG_PX, grabPanDelta, moveDelta, rayGroundPoint, type Stick } from "@/lib/worlds/office-move";
+import { OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, rayGroundPoint, type Stick } from "@/lib/worlds/office-move";
 import { OfficeSite } from "./office-grounds";
 
 export type BoardPanel = "calendar" | "todos" | "notes";
@@ -35,15 +35,11 @@ type BotCard = { id: string; name: string; short: string; status: BotStatus };
 
 const EXTERIOR_H = 2.55;
 const MAP_MIN_DISTANCE = 3.2;
-const MAP_MAX_DISTANCE = 78;
+const MAP_MAX_DISTANCE = 200;
 
 function mapHome(layout: OfficeLayout) {
-  const lookX = layout.width / 2;
-  const lookZ = layout.depth * 0.42;
-  return {
-    position: new THREE.Vector3(lookX + 18, 28, layout.depth + 32),
-    target: new THREE.Vector3(lookX, 1.2, lookZ),
-  };
+  const home = officeCameraHome(layout.width, layout.depth);
+  return { position: home.position, target: home.target };
 }
 
 function clampMapTarget(orbit: OrbitControlsType, layout: OfficeLayout) {
@@ -1497,6 +1493,38 @@ function Scene({
   );
 }
 
+function OfficeNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="office-notice" role="alert">
+      <div>
+        <p>The 3D office did not draw.</p>
+        <p className="office-kicker">{message}</p>
+        <button type="button" onClick={onRetry}>Try again</button>
+      </div>
+    </div>
+  );
+}
+
+class OfficeViewBoundary extends Component<{ children: ReactNode; resetKey: number }, { error: string }> {
+  state = { error: "" };
+
+  static getDerivedStateFromError(error: unknown) {
+    const message = error instanceof Error ? error.message : "The 3D office stopped.";
+    return { error: message };
+  }
+
+  componentDidUpdate(prev: { resetKey: number }) {
+    if (prev.resetKey !== this.props.resetKey && this.state.error) this.setState({ error: "" });
+  }
+
+  render() {
+    if (this.state.error) {
+      return <OfficeNotice message={this.state.error} onRetry={() => this.setState({ error: "" })} />;
+    }
+    return this.props.children;
+  }
+}
+
 export default function OfficeCanvas({
   layout,
   sections,
@@ -1540,6 +1568,22 @@ export default function OfficeCanvas({
   const botsRef = useRef(bots);
   const gesture = useRef({ x: 0, y: 0, dragged: false, active: false });
   const canOpen = useRef(() => !gesture.current.dragged).current;
+  const drawn = useRef(false);
+  const [failure, setFailure] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const watchKey = `${quality}-${attempt}`;
+  useLayoutEffect(() => {
+    return () => {
+      drawn.current = false;
+    };
+  }, [watchKey]);
+  useEffect(() => {
+    if (failure) return;
+    const timer = window.setTimeout(() => {
+      if (!drawn.current) setFailure("The 3D view did not start. Graphics may be turned off.");
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [failure, watchKey]);
   useEffect(() => {
     meetingRef.current = meeting;
     botsRef.current = bots;
@@ -1548,18 +1592,37 @@ export default function OfficeCanvas({
     const home = mapHome(layout);
     return {
       position: home.position.toArray() as [number, number, number],
-      fov: 38,
+      fov: OFFICE_FOV,
       near: 0.1,
-      far: 400,
+      far: 800,
     };
   }, [layout]);
+  if (failure) {
+    return (
+      <OfficeNotice
+        message={failure}
+        onRetry={() => {
+          drawn.current = false;
+          setFailure("");
+          setAttempt((value) => value + 1);
+        }}
+      />
+    );
+  }
   return (
+    <OfficeViewBoundary resetKey={attempt}>
     <Canvas
-      key={quality}
+      key={`${quality}-${attempt}`}
       shadows={quality !== "fast"}
       camera={camera}
       dpr={quality === "fast" ? [1, 1.15] : [1, 1.75]}
-      gl={{ antialias: quality !== "fast", powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping }}
+      gl={{
+        alpha: false,
+        antialias: quality !== "fast",
+        powerPreference: "default",
+        failIfMajorPerformanceCaveat: false,
+        toneMapping: THREE.ACESFilmicToneMapping,
+      }}
       onPointerDown={(event) => {
         gesture.current = { x: event.clientX, y: event.clientY, dragged: false, active: true };
       }}
@@ -1576,8 +1639,13 @@ export default function OfficeCanvas({
         if (!gesture.current.dragged) onClear();
       }}
       onCreated={({ gl }) => {
+        drawn.current = true;
         gl.toneMappingExposure = 1.05;
-        gl.setClearColor(skyColor(weather));
+        gl.setClearColor(skyColor(weather), 1);
+        gl.domElement.addEventListener("webglcontextlost", (event) => {
+          event.preventDefault();
+          setFailure("The 3D office lost its graphics context.");
+        });
       }}
     >
       <Scene
@@ -1606,5 +1674,6 @@ export default function OfficeCanvas({
         gesture={gesture}
       />
     </Canvas>
+    </OfficeViewBoundary>
   );
 }

@@ -1,5 +1,9 @@
+import * as THREE from "three";
+
 /** Stick axes are -1..1. x is to the right, y is up the screen. */
 export type Stick = { x: number; y: number };
+
+export const OFFICE_FOV = 38;
 
 function num(value: number) {
   return value === 0 ? 0 : value;
@@ -74,4 +78,48 @@ export function rayGroundPoint(
     x: origin.x + direction.x * t,
     z: origin.z + direction.z * t,
   };
+}
+
+/**
+ * Default camera for a 4:3 frame. The same view direction as the map,
+ * pulled back until the building, plus a small margin, sits inside the picture.
+ */
+export function officeCameraHome(width: number, depth: number) {
+  const lookX = width / 2;
+  const lookY = 1.4;
+  const lookZ = depth * 0.45;
+  const target = new THREE.Vector3(lookX, lookY, lookZ);
+  const aim = new THREE.Vector3(18, 26.8, depth + 32 - depth * 0.42);
+  if (aim.lengthSq() < 1) aim.set(18, 27, 40);
+  aim.normalize();
+  const camera = new THREE.PerspectiveCamera(OFFICE_FOV, 4 / 3, 0.1, 800);
+  const corners: THREE.Vector3[] = [];
+  for (const y of [0, 3.4]) {
+    for (const x of [-1.5, width + 1.5]) {
+      for (const z of [-1.5, depth + 1.5]) corners.push(new THREE.Vector3(x, y, z));
+    }
+  }
+  const fits = (distance: number) => {
+    camera.position.copy(target).addScaledVector(aim, distance);
+    camera.lookAt(target);
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+    for (const corner of corners) {
+      const ndc = corner.clone().project(camera);
+      if (ndc.z < -1 || ndc.z > 1) return false;
+      if (Math.abs(ndc.x) > 0.9 || Math.abs(ndc.y) > 0.9) return false;
+    }
+    return true;
+  };
+  let lo = 12;
+  let hi = 220;
+  if (!fits(hi)) {
+    return { position: target.clone().addScaledVector(aim, hi), target, distance: hi };
+  }
+  for (let step = 0; step < 24; step += 1) {
+    const mid = (lo + hi) / 2;
+    if (fits(mid)) hi = mid;
+    else lo = mid;
+  }
+  return { position: target.clone().addScaledVector(aim, hi), target, distance: hi };
 }

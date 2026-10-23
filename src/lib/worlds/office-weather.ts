@@ -158,7 +158,7 @@ export function fogDistances(weather: OfficeWeather) {
   if (weather.kind === "fog" || weather.fog > 0.6) return { near: 10, far: 48 };
   if (weather.kind === "rain" || weather.kind === "snow") return { near: 22, far: 90 };
   if (weather.sunElevation < 0) return { near: 28, far: 110 };
-  return { near: 55, far: 190 };
+  return { near: 140, far: 360 };
 }
 
 export function sunPosition(hour: number, site: { width: number; depth: number }) {

@@ -6,8 +6,34 @@
   color: #1c211e;
   overflow: hidden;
 }
-.office-stage { position: absolute; inset: 0; }
-.office-stage canvas { display: block; width: 100%; height: 100%; }
+.office-stage { position: absolute; inset: 0; z-index: 0; }
+.office-stage canvas { display: block; width: 100%; height: 100%; background: #8ec4ea; }
+.office-notice {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  color: #fbf8f3;
+  background: #1b1714;
+  font-family: var(--heading);
+  font-size: 28px;
+}
+.office-notice p { margin: 0 auto 12px; max-width: 28rem; }
+.office-notice .office-kicker { color: #d9d0c4; font-size: 14px; }
+.office-notice button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #fbf8f3;
+  color: #1c211e;
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
 .office-loading {
   position: absolute;
   inset: 0;
