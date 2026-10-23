@@ -1,4 +1,26 @@
-import { route, roomAt, type OfficeLayout, type Vec } from "./office-layout";
+import { OWNER_ACTOR_ID, route, roomAt, type OfficeLayout, type Vec } from "./office-layout";
+
+/** Yaw 0 faces +Z, toward the default camera south of the building. */
+export const SEAT_YAW = 0;
+
+/** +1 puts the desk and monitor on the +Z side of the chair. */
+export const DESK_SIDE = 1;
+
+/** Chair, desk, and monitor positions for a home at (x, z). */
+export function deskFacing(x: number, z: number) {
+  const side = DESK_SIDE;
+  const deskZ = z + 0.82 * side;
+  return {
+    seat: { x, z },
+    chairBack: { x, z: z - 0.2 * side },
+    desk: { x, z: deskZ },
+    monitor: { x, z: deskZ + 0.22 * side },
+    screen: { x, z: deskZ + 0.195 * side },
+    keyboard: { x: x - 0.05, z: deskZ - 0.12 * side },
+    mug: { x: x + 0.42, z: deskZ - 0.08 * side },
+    screenYaw: side > 0 ? Math.PI : 0,
+  };
+}
 
 export type SimPlan = "home" | "away" | "meet";
 
@@ -41,7 +63,7 @@ export function createSimState(layout: OfficeLayout, botIds: string[]): SimState
       id,
       x: home.x,
       z: home.z,
-      yaw: Math.PI,
+      yaw: SEAT_YAW,
       path: [],
       plan: "home",
       wait: 0,
@@ -138,7 +160,7 @@ export function stepOfficeSim(state: SimState, layout: OfficeLayout, dt: number,
     const ids = Object.keys(state.bots);
     ids.forEach((id, index) => {
       const bot = state.bots[id];
-      if (!bot) return;
+      if (!bot || id === OWNER_ACTOR_ID) return;
       if (ctx.meeting.includes(id)) {
         const seat = layout.seats[index % Math.max(1, layout.seats.length)] ?? layout.seats[0];
         if (seat) send(bot, layout, seat, "meet", "Walking to the conference room", "In the meeting");
@@ -175,7 +197,7 @@ export function stepOfficeSim(state: SimState, layout: OfficeLayout, dt: number,
       }
     } else {
       const home = layout.homes[bot.id];
-      if (home && isSeated(bot, home)) bot.yaw = lerpAngle(bot.yaw, Math.PI, step);
+      if (home && isSeated(bot, home)) bot.yaw = lerpAngle(bot.yaw, SEAT_YAW, step);
     }
   }
 
@@ -183,7 +205,7 @@ export function stepOfficeSim(state: SimState, layout: OfficeLayout, dt: number,
     state.tripTimer -= step;
     if (state.tripTimer <= 0) {
       state.tripTimer = 3.4 + ctx.rng() * 1.6;
-      const free = Object.values(state.bots).filter((bot) => bot.plan === "home" && !bot.path.length && !ctx.meeting.includes(bot.id));
+      const free = Object.values(state.bots).filter((bot) => bot.id !== OWNER_ACTOR_ID && bot.plan === "home" && !bot.path.length && !ctx.meeting.includes(bot.id));
       if (free.length) {
         const bot = free[Math.floor(ctx.rng() * free.length)] ?? free[0];
         const roll = ctx.rng();
@@ -192,7 +214,7 @@ export function stepOfficeSim(state: SimState, layout: OfficeLayout, dt: number,
           const spot = layout.librarySpots[Math.floor(ctx.rng() * layout.librarySpots.length)] ?? layout.librarySpots[0];
           send(bot, layout, spot, "away", "Walking to the research library", "Researching in the library", 8 + ctx.rng() * 8);
         } else if (working && roll < 0.8) {
-          const others = Object.values(state.bots).filter((other) => other.id !== bot.id);
+          const others = Object.values(state.bots).filter((other) => other.id !== bot.id && other.id !== OWNER_ACTOR_ID);
           const other = others[Math.floor(ctx.rng() * others.length)];
           const desk = other ? layout.homes[other.id] : undefined;
           if (other && desk) {

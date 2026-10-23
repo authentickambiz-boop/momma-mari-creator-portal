@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { withBasePath } from "@/lib/format";
-import { buildOfficeLayout } from "@/lib/worlds/office-layout";
+import { OWNER_ACTOR_ID, buildOfficeLayout } from "@/lib/worlds/office-layout";
 import {
   APPROVAL_PHRASE,
   CHAT_POLL_MS,
@@ -16,7 +16,7 @@ import {
   type CommandStatus,
   type OfficeCommand,
 } from "@/lib/worlds/office-commands";
-import { CHARACTER_PATH, LOOKS_POLL_MS, defaultCharacter, parseCharacter, type CharacterConfig } from "@/lib/worlds/character";
+import { CHARACTER_PATH, LOOKS_POLL_MS, OWNER_LOOK_SEED, defaultCharacter, parseCharacter, type CharacterConfig } from "@/lib/worlds/character";
 import { assignBotRooms, createOfficeSimStore, placeBotsInRooms, simActivity } from "@/lib/worlds/office-sim";
 import {
   OFFICE_LABEL,
@@ -116,7 +116,7 @@ const LAYER_LABEL = {
   roof: "Roof",
 } as const;
 
-type OfficeSheet = "info" | "bot" | "board" | "meet" | "vault" | "log" | "achievements" | "currency" | "bank";
+type OfficeSheet = "info" | "bot" | "you" | "board" | "meet" | "vault" | "log" | "achievements" | "currency" | "bank";
 
 function CloseRow({ title, onClose }: { title: string; onClose: () => void }) {
   return (
@@ -337,25 +337,51 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
   useEffect(() => {
     let stop = false;
     async function loadLooks() {
+      const fresh = Date.now();
+      let botsOk = false;
+      const nextBots: Record<string, CharacterConfig> = {};
+      let mineConfig: CharacterConfig | undefined;
+      let mineOk = false;
       try {
-        const response = await fetch(withBasePath(`${CHARACTER_PATH}?kind=bot&fresh=${Date.now()}`), {
+        const response = await fetch(withBasePath(`${CHARACTER_PATH}?kind=bot&fresh=${fresh}`), {
           cache: "no-store",
           credentials: "same-origin",
           headers: { "cache-control": "no-cache", pragma: "no-cache" },
         });
         const body = await response.json().catch(() => null) as { characters?: { subjectId?: string; config?: unknown }[] } | null;
-        if (stop || !response.ok || !body || !Array.isArray(body.characters)) return;
-        const next: Record<string, CharacterConfig> = {};
-        for (const item of body.characters) {
-          if (!item || typeof item.subjectId !== "string") continue;
-          const parsed = parseCharacter(item.config);
-          if (parsed.ok) next[item.subjectId] = parsed.value;
-          else next[item.subjectId] = defaultCharacter(item.subjectId);
+        if (!stop && response.ok && body && Array.isArray(body.characters)) {
+          botsOk = true;
+          for (const item of body.characters) {
+            if (!item || typeof item.subjectId !== "string" || item.subjectId === OWNER_ACTOR_ID) continue;
+            const parsed = parseCharacter(item.config);
+            nextBots[item.subjectId] = parsed.ok ? parsed.value : defaultCharacter(item.subjectId);
+          }
         }
-        setLooks(next);
       } catch {
-        // Keep the looks already on screen. A failed poll must not wipe a saved outfit.
+        // Keep the bot looks already on screen.
       }
+      try {
+        const response = await fetch(withBasePath(`${CHARACTER_PATH}?mine=1&fresh=${fresh}`), {
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: { "cache-control": "no-cache", pragma: "no-cache" },
+        });
+        const body = await response.json().catch(() => null) as { character?: { config?: unknown } } | null;
+        if (!stop && response.ok && body?.character) {
+          const parsed = parseCharacter(body.character.config);
+          mineConfig = parsed.ok ? parsed.value : defaultCharacter(OWNER_LOOK_SEED);
+          mineOk = true;
+        }
+      } catch {
+        // Keep the owner's look already on screen.
+      }
+      if (stop || (!botsOk && !mineOk)) return;
+      setLooks((current) => {
+        const next = botsOk ? { ...nextBots } : { ...current };
+        if (mineOk && mineConfig) next[OWNER_ACTOR_ID] = mineConfig;
+        else if (current[OWNER_ACTOR_ID]) next[OWNER_ACTOR_ID] = current[OWNER_ACTOR_ID];
+        return next;
+      });
     }
     function onVisible() {
       if (document.visibilityState === "visible") void loadLooks();
@@ -412,10 +438,14 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
   }, [hold]);
   const sim = useMemo(() => {
     if (!layout || !hold) return null;
-    const store = createOfficeSimStore(layout, hold.botIds);
+    const store = createOfficeSimStore(layout, [...hold.botIds.filter((id) => id !== OWNER_ACTOR_ID), OWNER_ACTOR_ID]);
     placeBotsInRooms(store.state, layout, hold.rooms);
     return store;
   }, [layout, hold]);
+  const sceneBots = useMemo(() => {
+    const roster = (status?.bots ?? []).filter((item) => item.id !== OWNER_ACTOR_ID);
+    return [...roster, { id: OWNER_ACTOR_ID, name: "You", short: "You", status: "idle" as const }];
+  }, [status]);
   useEffect(() => {
     if (!sim || !layout || !status) return;
     assignBotRooms(sim.state, layout, Object.fromEntries(status.bots.map((item) => [item.id, item.room])));
@@ -496,7 +526,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
     setQuery("");
     setMenuOpen(false);
     setBoard(null);
-    setSheet("bot");
+    setSheet(id === OWNER_ACTOR_ID ? "you" : "bot");
   }
 
   async function postCommand(payload: unknown) {
@@ -678,7 +708,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
           <OfficeCanvas
             layout={layout}
             sections={status.sections}
-            bots={status.bots}
+            bots={sceneBots}
             looks={looks}
             selected={selected}
             onSelect={openBot}
@@ -756,7 +786,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
                     <rect key={room.id} x={room.x} y={room.z} width={room.w} height={room.d} />
                   ))}
                 </svg>
-                {status.bots.map((item) => {
+                {sceneBots.map((item) => {
                   const live = sim.state.bots[item.id];
                   if (!live || version < 0) return null;
                   return (
@@ -823,6 +853,14 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
           </div>
         ) : null}
       </section>
+      ) : null}
+
+      {sheet === "you" ? (
+        <section className="office-panel office-sheet office-chat" aria-label="You">
+          <CloseRow title="You" onClose={dismiss} />
+          <p>This is your character at the HQ desk.</p>
+          {charactersEnabled ? <Link className="office-link" href="/worlds/create">Customize</Link> : null}
+        </section>
       ) : null}
 
       {sheet === "bot" && bot ? (

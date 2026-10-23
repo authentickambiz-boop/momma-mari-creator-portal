@@ -14,6 +14,9 @@ export type OfficeSection = {
 
 export const HQ_BOT_ID = "kash";
 
+/** Office actor for the signed-in owner. Not a roster bot. */
+export const OWNER_ACTOR_ID = "you";
+
 export const OFFICE_SECTIONS: OfficeSection[] = [
   {
     name: "Personal",
@@ -353,12 +356,17 @@ export function buildOfficeLayout(options?: {
   const placed = new Set(Object.keys(homes));
   const hqRoom = rooms.find((room) => room.id === "hq");
   (options?.extraBotIds ?? []).forEach((id, index) => {
-    if (placed.has(id) || !hqRoom) return;
+    if (placed.has(id) || id === OWNER_ACTOR_ID || !hqRoom) return;
     const col = index % 3;
     const row = Math.floor(index / 3);
     homes[id] = { x: hqRoom.x + 1.1 + col * 1.5, z: hqRoom.z + 1.4 + row * 1.6 };
     placed.add(id);
   });
+  const hqHome = homes[hqBotId];
+  if (hqHome && hqRoom && hqBotId !== OWNER_ACTOR_ID) {
+    const x = Math.min(hqRoom.x + hqRoom.w - 0.9, Math.max(hqRoom.x + 0.9, hqHome.x + 1.45));
+    homes[OWNER_ACTOR_ID] = { x, z: hqHome.z };
+  }
 
   const windows: WindowOpening[] = [];
   const vaultRoom = rooms.find((room) => room.id === "vault");
