@@ -5,6 +5,7 @@ import { depositLockTodos } from "./brand-deposits";
 import { isFakeCalendarDay } from "./deadlines";
 import { agencyTimeZone, nowIso, parseJson } from "./format";
 import { profileIntakeMissing, profileIntakeTaskId } from "./profile-intake";
+import { noteTaskCompleted } from "./worlds/game-wallet-store";
 import { findCreatorByEmail, findCreatorById } from "./queries";
 import type { QuestionnaireAnswers } from "./questionnaire";
 import type { Viewer } from "./types";
@@ -288,6 +289,7 @@ export async function markCreatorTaskDone(db: PortalDb, viewer: Viewer, taskId: 
   }
   if (task.status !== "done") {
     await db.update(creatorTasks).set({ status: "done", updatedAt: nowIso() }).where(eq(creatorTasks.id, task.id));
+    await noteTaskCompleted(db, task.creatorId, task.id);
   }
   return { ok: true as const };
 }
@@ -315,6 +317,7 @@ export async function saveCreatorTask(
     status: input.status,
     updatedAt: nowIso(),
   }).where(eq(creatorTasks.id, current.id));
+  if (input.status === "done" && current.status !== "done") await noteTaskCompleted(db, current.creatorId, current.id);
   return { ok: true as const };
 }
 

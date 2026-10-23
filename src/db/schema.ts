@@ -1725,6 +1725,40 @@ export const dealPaymentTiming = sqliteTable("deal_payment_timing", {
   updatedAt: text("updated_at").notNull(),
 });
 
+/** In-game currency wallet. Credits and debits live in game_ledger. */
+export const gameWallets = sqliteTable("game_wallets", {
+  id: text("id").primaryKey(),
+  subjectKind: text("subject_kind").notNull(),
+  subjectId: text("subject_id").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [uniqueIndex("game_wallets_subject").on(table.subjectKind, table.subjectId)]);
+
+/** Append-only in-game currency entries. Rows are inserted and never revised. */
+export const gameLedger = sqliteTable("game_ledger", {
+  id: text("id").primaryKey(),
+  walletId: text("wallet_id").notNull(),
+  direction: text("direction").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  reason: text("reason").notNull(),
+  source: text("source").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [uniqueIndex("game_ledger_idempotency").on(table.idempotencyKey)]);
+
+export const gameInventory = sqliteTable("game_inventory", {
+  id: text("id").primaryKey(),
+  walletId: text("wallet_id").notNull(),
+  sku: text("sku").notNull(),
+  acquiredAt: text("acquired_at").notNull(),
+}, (table) => [uniqueIndex("game_inventory_sku").on(table.walletId, table.sku)]);
+
+/** Owner-configurable earn amounts. This is not the ledger. */
+export const gameEarnRates = sqliteTable("game_earn_rates", {
+  earnType: text("earn_type").primaryKey(),
+  amountCents: integer("amount_cents").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 /** Versioned Worlds look for a user or a roster bot. No prices are stored. */
 export const officeCharacters = sqliteTable("office_characters", {
   id: text("id").primaryKey(),

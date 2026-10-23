@@ -12,6 +12,7 @@ import { clearCreatorGmail, mailboxForCreator } from "./gmail-push";
 import { revokeGoogleToken, type GoogleTokenRevoker } from "./google-oauth";
 import { encryptToken, decryptToken } from "./token-crypto";
 import type { Viewer } from "./types";
+import { noteAccountConnected } from "./worlds/game-wallet-store";
 
 export async function driveConnectionState(db: PortalDb, creatorId: string) {
   const rows = await db.select({
@@ -44,6 +45,7 @@ export async function saveDriveConnection(db: PortalDb, creatorId: string, refre
     driveRefreshToken: cipher,
     driveReconnectReason: null,
   }).where(eq(creators.id, creatorId));
+  await noteAccountConnected(db, creatorId, "drive");
   return { ok: true as const };
 }
 
