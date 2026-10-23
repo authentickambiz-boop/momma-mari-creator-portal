@@ -379,7 +379,7 @@ describe("bot office", () => {
     if (!denied.ok) {
       assert.equal(denied.status, 403);
       assert.equal(denied.error, "Worlds payments are off. Nothing was charged.");
-      assert.equal(denied.charged, false);
+      assert.equal("charged" in denied ? denied.charged : undefined, false);
     }
     const held = await listRecentCommands(db);
     assert.equal(held.find((command) => command.id === blocked.body.command.id)?.status, "needs_approval");
