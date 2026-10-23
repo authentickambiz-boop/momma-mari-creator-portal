@@ -171,6 +171,16 @@ export function notesForView(notes: OfficeNote[], view: "main" | "review") {
   return notes.filter((note) => (view === "main" ? note.status === "approved_to_show" : note.status !== "approved_to_show"));
 }
 
+/** Events whose end is still ahead. A clock that cannot be parsed stays on the list. */
+export function upcomingEvents<T extends { start: string; end: string }>(events: T[], now = Date.now()) {
+  return events
+    .filter((event) => {
+      const end = Date.parse(event.end);
+      return Number.isNaN(end) || end >= now;
+    })
+    .sort((a, b) => a.start.localeCompare(b.start));
+}
+
 export function boardStations(layout: OfficeLayout, sections: OfficeSection[] = OFFICE_SECTIONS) {
   const wings: { office: OfficeKey; roomId: string }[] = (["personal", "business", "creators"] as const).map((office) => {
     const section = sections.find((item) => item.manager === OFFICE_MANAGERS[office])

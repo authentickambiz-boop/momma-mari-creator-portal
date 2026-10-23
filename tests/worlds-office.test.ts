@@ -221,7 +221,7 @@ describe("bot office", () => {
     assert.match(app, /OFFICE_POLL_MS/);
     assert.match(app, /ssr:\s*false/);
     assert.match(app, /notesForView/);
-    assert.match(app, /Open chat/);
+    assert.match(app, /kind: "message"/);
     assert.match(redirects, /source:\s*"\/admin\/world"/);
     assert.match(redirects, /destination:\s*"\/worlds"/);
     assert.equal(accountMenuItems("admin").some((item) => item.href === "/worlds" && item.newTab), true);

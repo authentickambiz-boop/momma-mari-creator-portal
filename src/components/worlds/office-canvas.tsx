@@ -551,6 +551,26 @@ function HitPad({ args, position }: { args: [number, number, number]; position?:
   );
 }
 
+/** Returning false tells Three's raycaster not to walk into this group's children. */
+function skipPointer() {
+  return false;
+}
+
+function setCanvasCursor(event: { stopPropagation: () => void; nativeEvent: Event }, cursor: string) {
+  event.stopPropagation();
+  const node = event.nativeEvent.target;
+  if (node instanceof HTMLCanvasElement) node.style.cursor = cursor;
+}
+
+const pointerCursor = {
+  onPointerOver(event: { stopPropagation: () => void; nativeEvent: Event }) {
+    setCanvasCursor(event, "pointer");
+  },
+  onPointerOut(event: { stopPropagation: () => void; nativeEvent: Event }) {
+    setCanvasCursor(event, "");
+  },
+};
+
 function WingStations({
   layout,
   sections,
@@ -569,6 +589,7 @@ function WingStations({
         <group key={station.office}>
           <group
             position={[station.calendar.x, 1.45, station.calendar.z]}
+            {...pointerCursor}
             onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpen({ office: station.office, panel: "calendar" }); }}
           >
             <mesh castShadow material={mats.frame}>
@@ -582,10 +603,11 @@ function WingStations({
               <boxGeometry args={[0.6, 0.12, 0.01]} />
               <meshStandardMaterial color="#1f3b2d" />
             </mesh>
-            <HitPad args={[1.25, 1.35, 0.45]} position={[0, 0, 0.06]} />
+            <HitPad args={[1.4, 1.6, 0.7]} position={[0, 0, 0.2]} />
           </group>
           <group
             position={[station.whiteboard.x, 1.4, station.whiteboard.z]}
+            {...pointerCursor}
             onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpen({ office: station.office, panel: "todos" }); }}
           >
             <mesh castShadow material={mats.trim}>
@@ -595,10 +617,11 @@ function WingStations({
               <planeGeometry args={[1.02, 0.64]} />
               <meshStandardMaterial color="#f4f7f2" />
             </mesh>
-            <HitPad args={[1.6, 1.15, 0.45]} position={[0, 0, 0.06]} />
+            <HitPad args={[1.8, 1.4, 0.7]} position={[0, 0, 0.2]} />
           </group>
           <group
             position={[station.inbox.x, 0, station.inbox.z]}
+            {...pointerCursor}
             onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpen({ office: station.office, panel: "notes" }); }}
           >
             <mesh position={[0, 0.42, 0]} castShadow receiveShadow material={mats.woodDark}>
@@ -611,7 +634,7 @@ function WingStations({
               <boxGeometry args={[0.28, 0.02, 0.2]} />
               <meshStandardMaterial color="#f7f1e4" />
             </mesh>
-            <HitPad args={[1.15, 1.05, 0.8]} position={[0, 0.5, 0]} />
+            <HitPad args={[1.4, 1.4, 1.1]} position={[0, 0.7, 0]} />
           </group>
         </group>
       ))}
@@ -811,15 +834,17 @@ function Furniture({ layout, onOpenMeet }: { layout: OfficeLayout; onOpenMeet: (
   const table = layout.conferenceTable;
   return (
     <group>
+      <group raycast={skipPointer}>
       {Object.entries(layout.homes).map(([id, home], index) => (
         <Desk key={id} x={home.x} z={home.z} accent={ACCENTS[index % ACCENTS.length] ?? "#2f6d4f"} />
       ))}
+      </group>
       {table ? (
-        <group onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpenMeet(); }}>
+        <group {...pointerCursor} onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpenMeet(); }}>
           <mesh position={[table.x, 0.74, table.z]} castShadow receiveShadow material={mats.woodDark}>
             <boxGeometry args={[table.w, 0.08, table.d]} />
           </mesh>
-          <HitPad args={[Math.max(table.w, 1.8), 1.3, Math.max(table.d, 1.4)]} position={[table.x, 0.85, table.z]} />
+          <HitPad args={[Math.max(table.w + 0.6, 2.4), 1.6, Math.max(table.d + 0.6, 2)]} position={[table.x, 0.9, table.z]} />
           {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], index) => (
             <mesh key={index} position={[table.x + sx * (table.w / 2 - 0.4), 0.36, table.z + sz * (table.d / 2 - 0.35)]} castShadow material={mats.trim}>
               <boxGeometry args={[0.1, 0.7, 0.1]} />
@@ -827,6 +852,7 @@ function Furniture({ layout, onOpenMeet }: { layout: OfficeLayout; onOpenMeet: (
           ))}
         </group>
       ) : null}
+      <group raycast={skipPointer}>
       {layout.seats.map((seat, index) => (
         <group key={`seat-${index}`} position={[seat.x, 0, seat.z]}>
           <mesh position={[0, 0.42, 0]} castShadow material={mats.chairGrey}>
@@ -911,6 +937,7 @@ function Furniture({ layout, onOpenMeet }: { layout: OfficeLayout; onOpenMeet: (
           <meshStandardMaterial color={ACCENTS[index % ACCENTS.length]} />
         </mesh>
       ))}
+      </group>
     </group>
   );
 }
@@ -1048,8 +1075,8 @@ function Robot({
         <ringGeometry args={[0.42, 0.52, 28]} />
         <meshBasicMaterial color="#1f3b2d" />
       </mesh>
-      <group ref={bob} onClick={(event) => { event.stopPropagation(); if (canOpen()) onSelect(id); }}>
-        <HitPad args={[0.95, 1.9, 0.95]} position={[0, 1, 0]} />
+      <group ref={bob} {...pointerCursor} onClick={(event) => { event.stopPropagation(); if (canOpen()) onSelect(id); }}>
+        <HitPad args={[1.2, 2.2, 1.2]} position={[0, 1.05, 0]} />
         <mesh position={[0, 0.86, 0]} castShadow material={mats.metal}>
           <capsuleGeometry args={[0.16, 0.22, 4, 8]} />
         </mesh>

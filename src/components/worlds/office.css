@@ -66,6 +66,29 @@
 .office-kicker { color: #4a534d; font-size: 12px; }
 .office-bar { height: 8px; background: #e7eee8; border-radius: 99px; overflow: hidden; margin: 6px 0 8px; }
 .office-bar span { display: block; height: 100%; background: #2f6d4f; }
+.office-chat-log {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  max-height: 180px;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+}
+.office-chat-log li {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff;
+}
+.office-chat-log li[data-from="owner"] { background: #e7eee8; }
+.office-chat-form {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+}
+.office-chat-form .office-field { flex: 1; }
+.office-chat-form input { min-height: 44px; width: 100%; }
 .office-actions, .office-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .office-actions button, .office-chips button, .office-text-btn {
   border: 1px solid #d6cec1;
@@ -366,6 +389,20 @@ body:has(.bot-office) .community-panel,
 body:has(.bot-office) .community-fab,
 body:has(.bot-office) .home-install,
 body:has(.bot-office) .home-bar { display: none; }
+
+@media (min-width: 801px) {
+  .office-panel.office-sheet.office-chat,
+  .office-panel.office-sheet.office-board,
+  .office-panel.office-sheet.office-meet {
+    left: auto;
+    right: 12px;
+    top: 64px;
+    bottom: auto;
+    width: min(340px, calc(100vw - 24px));
+    max-height: min(420px, calc(100vh - 88px));
+    transform: none;
+  }
+}
 
 @media (max-width: 800px) {
   .office-panel.office-sheet {
