@@ -64,6 +64,19 @@
 .office-panel h2 { font-size: 22px; margin: 0 0 6px; }
 .office-panel p { margin: 6px 0; }
 .office-kicker { color: #4a534d; font-size: 12px; }
+.office-resend {
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #8a3b24;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.office-resend:disabled { cursor: wait; opacity: 0.7; }
 .office-bar { height: 8px; background: #e7eee8; border-radius: 99px; overflow: hidden; margin: 6px 0 8px; }
 .office-bar span { display: block; height: 100%; background: #2f6d4f; }
 .office-chat-log {

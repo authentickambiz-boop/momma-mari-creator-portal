@@ -56,6 +56,9 @@ export const APPROVAL_PHRASE = "needs your OK in Grok Bot";
 export const COMMANDS_PATH = "/api/worlds/commands";
 /** How often an open chat, board, or meeting panel reloads the command queue. */
 export const CHAT_POLL_MS = 4000;
+/** A queued message older than this never woke the bot. The chat offers a resend. */
+export const STALE_QUEUED_MS = 10 * 60 * 1000;
+export const NOT_DELIVERED_LABEL = "not delivered, tap to resend";
 
 const SENSITIVE = /\b(send|sending|pay|paying|payment|delete|deleting)\b/i;
 
@@ -318,23 +321,26 @@ export type ChatTurn = {
   id: string;
   from: "owner" | "bot";
   text: string;
-  state: "queued" | "sent" | "needs_approval" | "declined";
+  state: "queued" | "sent" | "needs_approval" | "declined" | "not_delivered";
 };
 
+function ownerTurnState(command: OfficeCommand, now: number): ChatTurn["state"] {
+  if (command.status === "needs_approval") return "needs_approval";
+  if (command.status === "declined") return "declined";
+  if (command.status !== "queued") return "sent";
+  const created = Date.parse(command.createdAt);
+  if (Number.isFinite(created) && now - created > STALE_QUEUED_MS) return "not_delivered";
+  return "queued";
+}
+
 /** Owner lines and bot replies for one bot. Only kind "message" is chat. */
-export function chatForBot(commands: OfficeCommand[], botId: string, limit = 12): ChatTurn[] {
+export function chatForBot(commands: OfficeCommand[], botId: string, limit = 12, now = Date.now()): ChatTurn[] {
   const mine = commands
     .filter((command) => command.kind === "message" && command.botIds.includes(botId))
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
   const turns: ChatTurn[] = [];
   for (const command of mine) {
-    const state = command.status === "queued"
-      ? "queued"
-      : command.status === "needs_approval"
-        ? "needs_approval"
-        : command.status === "declined"
-          ? "declined"
-          : "sent";
+    const state = ownerTurnState(command, now);
     turns.push({ id: command.id, from: "owner", text: command.body, state });
     const reply = command.result?.trim() ?? "";
     if (reply && reply !== APPROVAL_PHRASE && command.status !== "needs_approval") {

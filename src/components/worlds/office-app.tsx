@@ -8,6 +8,7 @@ import {
   APPROVAL_PHRASE,
   CHAT_POLL_MS,
   COMMANDS_PATH,
+  NOT_DELIVERED_LABEL,
   chatForBot,
   openCommands,
   speechForBots,
@@ -628,7 +629,17 @@ export function OfficeApp() {
               <li key={turn.id} data-from={turn.from}>
                 <b>{turn.from === "owner" ? "You" : bot.name}</b>
                 <div>{turn.text}</div>
-                {turn.from === "owner" ? (
+                {turn.from === "owner" && turn.state === "not_delivered" ? (
+                  <button
+                    type="button"
+                    className="office-resend"
+                    disabled={saving}
+                    onClick={() => void postCommand({ kind: "message", botId: bot.id, text: turn.text })}
+                  >
+                    {NOT_DELIVERED_LABEL}
+                  </button>
+                ) : null}
+                {turn.from === "owner" && turn.state !== "not_delivered" ? (
                   <div className="office-kicker">{turn.state === "needs_approval" ? APPROVAL_PHRASE : turn.state}</div>
                 ) : null}
               </li>

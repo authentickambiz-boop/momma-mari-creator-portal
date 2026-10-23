@@ -5,14 +5,23 @@ import { describe, test } from "node:test";
 import * as THREE from "three";
 import { enqueueOfficeCommand, listRecentCommands, updateOfficeCommand } from "../src/lib/worlds/office-command-queue";
 import {
+  botCapsuleScreenDiameter,
+  botCapsuleWorldCenter,
+  pickBotCapsule,
+  rayFromClient,
+} from "../src/lib/worlds/bot-hit";
+import {
   APPROVAL_PHRASE,
   CHAT_POLL_MS,
+  NOT_DELIVERED_LABEL,
+  STALE_QUEUED_MS,
   chatForBot,
   openCommands,
   parseOfficeCommand,
   type OfficeCommand,
 } from "../src/lib/worlds/office-commands";
-import { roofBlocksClicks } from "../src/lib/worlds/office-move";
+import { buildOfficeLayout } from "../src/lib/worlds/office-layout";
+import { OFFICE_FOV, officeCameraHome, roofBlocksClicks } from "../src/lib/worlds/office-move";
 import { seedOfficeRecord, upcomingEvents } from "../src/lib/worlds/office-state";
 import { openTestDb } from "./harness";
 
@@ -192,8 +201,14 @@ describe("Worlds object panels", () => {
     assert.match(css, /min-width: 801px/);
     assert.match(canvas, /setCanvasCursor\(event, "pointer"\)/);
     assert.match(canvas, /raycast=\{skipPointer\}/);
-    assert.match(canvas, /HitPad args=\{\[1\.4, 2\.5, 2\.2\]\}/);
+    assert.match(canvas, /name="bot-capsule"/);
+    assert.match(canvas, /name="bot-hover"/);
+    assert.match(canvas, /pickBotCapsule/);
+    assert.match(canvas, /stopImmediatePropagation\(\)/);
     assert.match(canvas, /onSelect\(id\)/);
+    assert.match(app, /NOT_DELIVERED_LABEL/);
+    assert.match(app, /kind: "message", botId: bot\.id, text: turn\.text/);
+    assert.equal(NOT_DELIVERED_LABEL, "not delivered, tap to resend");
     assert.match(canvas, /onPointerMissed/);
     assert.equal(canvas.includes("onClick={(event) => { event.stopPropagation(); onClear(); }}"), false);
     assert.match(canvas, /panel: "calendar"/);
@@ -238,18 +253,95 @@ describe("Worlds object panels", () => {
 
     const glass = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 0.2), new THREE.MeshBasicMaterial());
     glass.position.set(0, 1.2, 2);
-    const bot = new THREE.Group();
-    const botPad = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.5, 2.2), new THREE.MeshBasicMaterial());
-    botPad.position.set(0, 1.25, 0.45);
-    bot.add(botPad);
-    const building = new THREE.Group();
-    building.add(glass);
-    building.add(bot);
-    building.updateMatrixWorld(true);
+    glass.updateMatrixWorld(true);
     const aimed = new THREE.Raycaster();
-    aimed.set(new THREE.Vector3(0, 1.3, 6), new THREE.Vector3(0, 0, -1));
-    assert.equal(aimed.intersectObject(building, true)[0]?.object, glass);
-    assert.equal(aimed.intersectObject(bot, true)[0]?.object, botPad);
+    aimed.set(new THREE.Vector3(0, 1.6, 6), new THREE.Vector3(0, 0, -1));
+    const pose = { id: "content", x: 0, y: 0, z: 0, yaw: Math.PI };
+    assert.equal(aimed.intersectObject(glass, true)[0]?.object, glass);
+    assert.equal(pickBotCapsule(aimed.ray, [pose]), "content");
+  });
+
+  test("a desk bot capsule is easy to hit at the default zoom, ahead of the building", () => {
+    const layout = buildOfficeLayout();
+    const home = officeCameraHome(layout.width, layout.depth);
+    const view = { left: 0, top: 0, width: 1024, height: 768 };
+    const diameter = botCapsuleScreenDiameter(home.distance, view.height, OFFICE_FOV);
+    assert.ok(diameter >= 72, `capsule diameter is ${diameter.toFixed(1)}px`);
+
+    const camera = new THREE.PerspectiveCamera(OFFICE_FOV, view.width / view.height, 0.1, 800);
+    camera.position.copy(home.position);
+    camera.lookAt(home.target);
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+
+    const spot = layout.homes.content;
+    assert.ok(spot, "content bot has a desk");
+    const pose = { id: "content", x: spot.x, y: 0, z: spot.z, yaw: Math.PI };
+    const world = botCapsuleWorldCenter(pose);
+    const ndc = world.clone().project(camera);
+    assert.ok(Math.abs(ndc.x) < 1 && Math.abs(ndc.y) < 1, "content bot is inside the default frame");
+    const clientX = ((ndc.x + 1) / 2) * view.width;
+    const clientY = ((-ndc.y + 1) / 2) * view.height;
+    const ray = rayFromClient(camera, clientX, clientY, view);
+    assert.ok(ray);
+    assert.equal(pickBotCapsule(ray, [pose]), "content");
+    const sloppy = rayFromClient(camera, clientX + diameter * 0.3, clientY, view);
+    assert.ok(sloppy);
+    assert.equal(pickBotCapsule(sloppy, [pose]), "content");
+
+    const mid = ray.origin.clone().addScaledVector(ray.direction, camera.position.distanceTo(world) * 0.45);
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(12, 8, 0.4), new THREE.MeshBasicMaterial());
+    glass.position.copy(mid);
+    glass.lookAt(camera.position);
+    glass.updateMatrixWorld(true);
+    const blocked = new THREE.Raycaster(ray.origin, ray.direction);
+    const wall = blocked.intersectObject(glass, true)[0];
+    assert.ok(wall, "the window sits in front of the bot");
+    assert.ok(wall.distance < camera.position.distanceTo(world));
+    assert.equal(pickBotCapsule(ray, [pose]), "content");
+
+    const neighbor = { id: "kash", x: spot.x + 1.5, y: 0, z: spot.z, yaw: Math.PI };
+    assert.equal(pickBotCapsule(ray, [neighbor, pose]), "content");
+    const miss = rayFromClient(camera, 4, 4, view);
+    assert.equal(pickBotCapsule(miss!, [pose]), null);
+  });
+
+  test("a queued message older than 10 minutes can be resent", () => {
+    const now = Date.parse("2026-10-23T20:00:00.000Z");
+    const stuck: OfficeCommand = {
+      id: "msg-305",
+      kind: "message",
+      status: "queued",
+      botIds: ["content"],
+      office: null,
+      noteId: null,
+      todoId: null,
+      decision: null,
+      topic: null,
+      body: "Hi!",
+      due: null,
+      impactDollars: null,
+      result: null,
+      createdAt: new Date(now - STALE_QUEUED_MS - 1).toISOString(),
+      updatedAt: new Date(now - STALE_QUEUED_MS - 1).toISOString(),
+    };
+    const fresh: OfficeCommand = {
+      ...stuck,
+      id: "msg-fresh",
+      createdAt: new Date(now - STALE_QUEUED_MS).toISOString(),
+      updatedAt: new Date(now - STALE_QUEUED_MS).toISOString(),
+    };
+    const approval: OfficeCommand = {
+      ...stuck,
+      id: "msg-pay",
+      status: "needs_approval",
+      result: APPROVAL_PHRASE,
+      body: "Please pay the printer.",
+    };
+    assert.equal(chatForBot([stuck], "content", 12, now)[0]?.state, "not_delivered");
+    assert.equal(chatForBot([fresh], "content", 12, now)[0]?.state, "queued");
+    assert.equal(chatForBot([approval], "content", 12, now)[0]?.state, "needs_approval");
+    assert.equal(NOT_DELIVERED_LABEL, "not delivered, tap to resend");
   });
 
   test("queued commands wake the webhook while payments are off, and approval rows do not", async () => {
