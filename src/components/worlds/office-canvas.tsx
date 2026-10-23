@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { MapControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import type { BotStatus } from "@/lib/worlds/office-catalog";
@@ -24,6 +24,35 @@ export type OfficeCameraApi = {
 type BotCard = { id: string; name: string; short: string; status: BotStatus };
 
 const EXTERIOR_H = 2.55;
+const MAP_MIN_DISTANCE = 3.2;
+const MAP_MAX_DISTANCE = 78;
+
+function mapHome(layout: OfficeLayout) {
+  const lookX = layout.width / 2;
+  const lookZ = layout.depth * 0.42;
+  return {
+    position: new THREE.Vector3(lookX + 18, 28, layout.depth + 32),
+    target: new THREE.Vector3(lookX, 1.2, lookZ),
+  };
+}
+
+function clampMapTarget(orbit: OrbitControlsType, layout: OfficeLayout) {
+  const minX = -14;
+  const maxX = layout.width + 14;
+  const minZ = -14;
+  const maxZ = layout.depth + 28;
+  const x = THREE.MathUtils.clamp(orbit.target.x, minX, maxX);
+  const y = THREE.MathUtils.clamp(orbit.target.y, 0.4, 3.2);
+  const z = THREE.MathUtils.clamp(orbit.target.z, minZ, maxZ);
+  const dx = x - orbit.target.x;
+  const dy = y - orbit.target.y;
+  const dz = z - orbit.target.z;
+  if (dx === 0 && dy === 0 && dz === 0) return;
+  orbit.target.set(x, y, z);
+  orbit.object.position.x += dx;
+  orbit.object.position.y += dy;
+  orbit.object.position.z += dz;
+}
 const INTERIOR_H = 1.22;
 const SILL_H = 0.82;
 const HEADER_Y = 2.12;
@@ -365,6 +394,7 @@ function Plant({ x, z, scale = 1 }: { x: number; z: number; scale?: number }) {
 }
 
 const MatsContext = createContext<ReturnType<typeof useOfficeMaterials> | null>(null);
+const TapContext = createContext<() => boolean>(() => true);
 function useMats() {
   const mats = useContext(MatsContext);
   if (!mats) throw new Error("Office materials are not ready.");
@@ -527,6 +557,7 @@ function WingStations({
   onOpen: (board: BoardOpen) => void;
 }) {
   const mats = useMats();
+  const canOpen = useContext(TapContext);
   const stations = useMemo(() => boardStations(layout, sections), [layout, sections]);
   return (
     <group>
@@ -534,7 +565,7 @@ function WingStations({
         <group key={station.office}>
           <group
             position={[station.calendar.x, 1.45, station.calendar.z]}
-            onClick={(event) => { event.stopPropagation(); onOpen({ office: station.office, panel: "calendar" }); }}
+            onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpen({ office: station.office, panel: "calendar" }); }}
           >
             <mesh castShadow material={mats.frame}>
               <boxGeometry args={[0.72, 0.92, 0.04]} />
@@ -551,7 +582,7 @@ function WingStations({
           </group>
           <group
             position={[station.whiteboard.x, 1.4, station.whiteboard.z]}
-            onClick={(event) => { event.stopPropagation(); onOpen({ office: station.office, panel: "todos" }); }}
+            onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpen({ office: station.office, panel: "todos" }); }}
           >
             <mesh castShadow material={mats.trim}>
               <boxGeometry args={[1.15, 0.78, 0.04]} />
@@ -564,7 +595,7 @@ function WingStations({
           </group>
           <group
             position={[station.inbox.x, 0, station.inbox.z]}
-            onClick={(event) => { event.stopPropagation(); onOpen({ office: station.office, panel: "notes" }); }}
+            onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpen({ office: station.office, panel: "notes" }); }}
           >
             <mesh position={[0, 0.42, 0]} castShadow receiveShadow material={mats.woodDark}>
               <boxGeometry args={[0.7, 0.5, 0.46]} />
@@ -585,6 +616,7 @@ function WingStations({
 }
 
 function BalanceGlow({ text, x, y, z, onOpen }: { text: string; x: number; y: number; z: number; onOpen: () => void }) {
+  const canOpen = useContext(TapContext);
   const map = useMemo(() => {
     const canvas = document.createElement("canvas");
     canvas.width = 768;
@@ -610,7 +642,7 @@ function BalanceGlow({ text, x, y, z, onOpen }: { text: string; x: number; y: nu
   }, [text]);
   return (
     <group position={[x, y, z]}>
-      <mesh onClick={(event) => { event.stopPropagation(); onOpen(); }}>
+      <mesh onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpen(); }}>
         <planeGeometry args={[1.7, 0.42]} />
         <meshStandardMaterial map={map} emissive="#b6ff6a" emissiveMap={map} emissiveIntensity={0.9} toneMapped={false} />
       </mesh>
@@ -657,6 +689,7 @@ function VaultDoor({ layout, total, onOpen }: { layout: OfficeLayout; total: num
   const room = layout.rooms.find((item) => item.id === "vault");
   const plan = vaultPilePlan(total);
   const label = formatWalletMoney(total);
+  const canOpen = useContext(TapContext);
   useFrame((_, dt) => {
     const node = hinge.current;
     if (!node) return;
@@ -677,6 +710,7 @@ function VaultDoor({ layout, total, onOpen }: { layout: OfficeLayout; total: num
   const cz = room.z + room.d - 1.7;
   const openDoor = (event: { stopPropagation: () => void }) => {
     event.stopPropagation();
+    if (!canOpen()) return;
     setOpen((current) => !current);
     onOpen();
   };
@@ -737,6 +771,7 @@ function VaultDoor({ layout, total, onOpen }: { layout: OfficeLayout; total: num
 
 function Furniture({ layout, onOpenMeet }: { layout: OfficeLayout; onOpenMeet: () => void }) {
   const mats = useMats();
+  const canOpen = useContext(TapContext);
   const rooms = Object.fromEntries(layout.rooms.map((room) => [room.id, room])) as Record<string, OfficeRoom>;
   const brk = rooms.break;
   const library = rooms.library;
@@ -748,7 +783,7 @@ function Furniture({ layout, onOpenMeet }: { layout: OfficeLayout; onOpenMeet: (
         <Desk key={id} x={home.x} z={home.z} accent={ACCENTS[index % ACCENTS.length] ?? "#2f6d4f"} />
       ))}
       {table ? (
-        <group onClick={(event) => { event.stopPropagation(); onOpenMeet(); }}>
+        <group onClick={(event) => { event.stopPropagation(); if (canOpen()) onOpenMeet(); }}>
           <mesh position={[table.x, 0.74, table.z]} castShadow receiveShadow material={mats.woodDark}>
             <boxGeometry args={[table.w, 0.08, table.d]} />
           </mesh>
@@ -925,6 +960,7 @@ function Robot({
   sim: OfficeSimStore;
 }) {
   const mats = useMats();
+  const canOpen = useContext(TapContext);
   const root = useRef<THREE.Group>(null);
   const bob = useRef<THREE.Group>(null);
   const armL = useRef<THREE.Group>(null);
@@ -970,7 +1006,7 @@ function Robot({
         <ringGeometry args={[0.42, 0.52, 28]} />
         <meshBasicMaterial color="#1f3b2d" />
       </mesh>
-      <group ref={bob} onClick={(event) => { event.stopPropagation(); onSelect(id); }}>
+      <group ref={bob} onClick={(event) => { event.stopPropagation(); if (canOpen()) onSelect(id); }}>
         <HitPad args={[0.95, 1.9, 0.95]} position={[0, 1, 0]} />
         <mesh position={[0, 1.05, 0]} castShadow material={mats.metal}>
           <capsuleGeometry args={[0.2, 0.42, 6, 12]} />
@@ -1037,7 +1073,7 @@ function Robot({
   );
 }
 
-function Lights({ layout, weather }: { layout: OfficeLayout; weather: OfficeWeather }) {
+function Lights({ layout, weather, phone }: { layout: OfficeLayout; weather: OfficeWeather; phone: boolean }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const sun = sunPosition(weather.hour, layout);
   const day = THREE.MathUtils.clamp((weather.sunElevation + 0.08) / 1.05, 0, 1);
@@ -1060,8 +1096,8 @@ function Lights({ layout, weather }: { layout: OfficeLayout; weather: OfficeWeat
         intensity={(0.12 + day * 1.65) * overcast}
         color={color}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={phone ? 1024 : 2048}
+        shadow-mapSize-height={phone ? 1024 : 2048}
         shadow-bias={-0.0004}
         shadow-camera-near={2}
         shadow-camera-far={140}
@@ -1161,6 +1197,8 @@ function Scene({
   onOpenVault,
   onOpenMeet,
   onClear,
+  canOpen,
+  phone,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1178,19 +1216,14 @@ function Scene({
   onOpenVault: () => void;
   onOpenMeet: () => void;
   onClear: () => void;
+  canOpen: () => boolean;
+  phone: boolean;
 }) {
   const mats = useOfficeMaterials(layout);
   const controls = useRef<OrbitControlsType>(null);
   const sky = skyColor(weather);
   const fog = fogDistances(weather);
-  const home = useMemo(() => {
-    const vault = layout.rooms.find((room) => room.id === "vault");
-    const lookX = vault ? vault.x + vault.w / 2 : layout.width * 0.82;
-    return {
-      position: new THREE.Vector3(lookX + 4, 7.2, layout.depth + 14),
-      target: new THREE.Vector3(lookX, 1.35, layout.depth - 1.2),
-    };
-  }, [layout]);
+  const home = useMemo(() => mapHome(layout), [layout]);
   useLayoutEffect(() => {
     cameraApiRef.current = {
       reset() {
@@ -1204,9 +1237,8 @@ function Scene({
         const orbit = controls.current;
         if (!orbit) return;
         const offset = orbit.object.position.clone().sub(orbit.target);
-        offset.multiplyScalar(factor);
-        const dist = offset.length();
-        if (dist < 5 || dist > 120) return;
+        const next = THREE.MathUtils.clamp(offset.length() * factor, MAP_MIN_DISTANCE, MAP_MAX_DISTANCE);
+        offset.setLength(next);
         orbit.object.position.copy(orbit.target).add(offset);
         orbit.update();
       },
@@ -1220,9 +1252,10 @@ function Scene({
       <color attach="background" args={[sky]} />
       <fog attach="fog" args={[sky, fog.near, fog.far]} />
       <StudioEnv />
-      <Lights layout={layout} weather={weather} />
+      <Lights layout={layout} weather={weather} phone={phone} />
       <group onClick={(event) => { event.stopPropagation(); onClear(); }}>
       <OfficeSite layout={layout} weather={weather} />
+      <TapContext.Provider value={canOpen}>
       <MatsContext.Provider value={mats}>
       <Shell layout={layout} />
       <Furniture layout={layout} onOpenMeet={onOpenMeet} />
@@ -1245,24 +1278,35 @@ function Scene({
         />
       ))}
       </MatsContext.Provider>
+      </TapContext.Provider>
       </group>
-      <OrbitControls
+      <MapControls
         ref={controls}
         makeDefault
         enableDamping
+        dampingFactor={0.12}
+        screenSpacePanning={false}
+        zoomToCursor
+        zoomSpeed={0.9}
+        panSpeed={1.05}
+        rotateSpeed={0.55}
         target={home.target}
-        maxPolarAngle={Math.PI / 2.08}
-        minPolarAngle={0.28}
-        minDistance={5}
-        maxDistance={120}
+        minDistance={MAP_MIN_DISTANCE}
+        maxDistance={MAP_MAX_DISTANCE}
+        minPolarAngle={0.42}
+        maxPolarAngle={Math.PI / 2.2}
         mouseButtons={{
-          LEFT: THREE.MOUSE.ROTATE,
+          LEFT: THREE.MOUSE.PAN,
           MIDDLE: THREE.MOUSE.DOLLY,
-          RIGHT: THREE.MOUSE.PAN,
+          RIGHT: THREE.MOUSE.ROTATE,
         }}
         touches={{
-          ONE: THREE.TOUCH.ROTATE,
-          TWO: THREE.TOUCH.DOLLY_PAN,
+          ONE: THREE.TOUCH.PAN,
+          TWO: THREE.TOUCH.DOLLY_ROTATE,
+        }}
+        onChange={() => {
+          const orbit = controls.current;
+          if (orbit) clampMapTarget(orbit, layout);
         }}
       />
     </>
@@ -1304,16 +1348,17 @@ export default function OfficeCanvas({
 }) {
   const meetingRef = useRef(meeting);
   const botsRef = useRef(bots);
-  const gesture = useRef({ x: 0, y: 0, dragged: false });
+  const gesture = useRef({ x: 0, y: 0, dragged: false, active: false });
+  const canOpen = useRef(() => !gesture.current.dragged).current;
+  const phone = useMemo(() => window.matchMedia("(pointer: coarse)").matches || Math.min(window.innerWidth, window.innerHeight) < 800, []);
   useEffect(() => {
     meetingRef.current = meeting;
     botsRef.current = bots;
   }, [meeting, bots]);
   const camera = useMemo(() => {
-    const vault = layout.rooms.find((room) => room.id === "vault");
-    const lookX = vault ? vault.x + vault.w / 2 : layout.width * 0.82;
+    const home = mapHome(layout);
     return {
-      position: [lookX + 4, 7.2, layout.depth + 14] as [number, number, number],
+      position: home.position.toArray() as [number, number, number],
       fov: 38,
       near: 0.1,
       far: 400,
@@ -1323,15 +1368,19 @@ export default function OfficeCanvas({
     <Canvas
       shadows
       camera={camera}
-      dpr={[1, 1.75]}
-      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
+      dpr={phone ? [1, 1.15] : [1, 1.75]}
+      gl={{ antialias: !phone, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping }}
       onPointerDown={(event) => {
-        gesture.current = { x: event.clientX, y: event.clientY, dragged: false };
+        gesture.current = { x: event.clientX, y: event.clientY, dragged: false, active: true };
       }}
       onPointerMove={(event) => {
-        if (!event.buttons) return;
+        if (!gesture.current.active) return;
+        if (event.pointerType === "mouse" && !event.buttons) return;
         const moved = Math.hypot(event.clientX - gesture.current.x, event.clientY - gesture.current.y);
         if (moved > 10) gesture.current.dragged = true;
+      }}
+      onPointerUp={() => {
+        gesture.current.active = false;
       }}
       onPointerMissed={() => {
         if (!gesture.current.dragged) onClear();
@@ -1360,6 +1409,8 @@ export default function OfficeCanvas({
         onClear={() => {
           if (!gesture.current.dragged) onClear();
         }}
+        canOpen={canOpen}
+        phone={phone}
       />
     </Canvas>
   );

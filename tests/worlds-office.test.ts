@@ -280,6 +280,16 @@ describe("bot office", () => {
     assert.match(canvas, /OfficeSite/);
     assert.match(canvas, /VaultDoor/);
     assert.match(canvas, /onOpenMeet/);
+    assert.match(canvas, /MapControls/);
+    assert.match(canvas, /THREE\.MOUSE\.PAN/);
+    assert.match(canvas, /THREE\.MOUSE\.ROTATE/);
+    assert.match(canvas, /THREE\.TOUCH\.PAN/);
+    assert.match(canvas, /THREE\.TOUCH\.DOLLY_ROTATE/);
+    assert.match(canvas, /MAP_MIN_DISTANCE/);
+    assert.match(canvas, /clampMapTarget/);
+    assert.match(app, /Recenter/);
+    assert.match(app, /aria-label="Zoom in"/);
+    assert.match(app, /aria-label="Zoom out"/);
     const grounds = source("src/components/worlds/office-grounds.tsx");
     assert.match(grounds, /Momma Mari/);
     const weather = source("src/lib/worlds/office-weather.ts");

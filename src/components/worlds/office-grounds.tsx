@@ -283,16 +283,18 @@ function Precipitation({ layout, weather }: { layout: OfficeLayout; weather: Off
 
 function Roof({ layout }: { layout: OfficeLayout }) {
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const capRef = useRef<THREE.MeshStandardMaterial>(null);
   useFrame(({ camera }) => {
-    const material = materialRef.current;
-    if (!material) return;
-    const over = camera.position.x > -3
-      && camera.position.x < layout.width + 3
-      && camera.position.z > -3
-      && camera.position.z < layout.depth + 3;
-    const open = over ? 1 - THREE.MathUtils.smoothstep(camera.position.y, 7.5, 16) : 0;
-    material.opacity = 1 - open;
-    material.depthWrite = material.opacity > 0.85;
+    const over = camera.position.x > -8
+      && camera.position.x < layout.width + 8
+      && camera.position.z > -8
+      && camera.position.z < layout.depth + 10;
+    const open = over ? 1 - THREE.MathUtils.smoothstep(camera.position.y, 8, 20) : 0;
+    for (const material of [materialRef.current, capRef.current]) {
+      if (!material) continue;
+      material.opacity = 1 - open;
+      material.depthWrite = material.opacity > 0.85;
+    }
   });
   return (
     <group>
@@ -302,7 +304,7 @@ function Roof({ layout }: { layout: OfficeLayout }) {
       </mesh>
       <mesh position={[layout.width / 2, WALL_H + 0.34, layout.depth / 2]}>
         <boxGeometry args={[layout.width + 0.4, 0.12, layout.depth + 0.4]} />
-        <meshStandardMaterial color="#6a625a" roughness={0.8} />
+        <meshStandardMaterial ref={capRef} color="#6a625a" roughness={0.8} transparent opacity={1} />
       </mesh>
     </group>
   );

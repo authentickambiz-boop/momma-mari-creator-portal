@@ -401,6 +401,11 @@ export function OfficeApp() {
       </div>
 
       <button type="button" className="office-panels-toggle" aria-pressed={sheet === "info"} onClick={togglePanels}>Panels</button>
+      <div className="office-nav">
+        <button type="button" aria-label="Zoom in" onClick={() => cameraApiRef.current?.zoomBy(0.82)}>+</button>
+        <button type="button" aria-label="Zoom out" onClick={() => cameraApiRef.current?.zoomBy(1.22)}>−</button>
+        <button type="button" onClick={() => cameraApiRef.current?.reset()}>Recenter</button>
+      </div>
 
       {sheet === "info" ? (
       <section className="office-panel office-sheet office-tools" aria-label="Office controls">
@@ -414,7 +419,7 @@ export function OfficeApp() {
         <div className="office-actions">
           <button type="button" onClick={() => setSheet("achievements")}>Achievements</button>
           <button type="button" onClick={() => setSheet("log")}>Mission log</button>
-          <button type="button" onClick={() => cameraApiRef.current?.reset()}>Reset view</button>
+          <button type="button" onClick={() => cameraApiRef.current?.reset()}>Recenter</button>
           <button type="button" onClick={() => cameraApiRef.current?.zoomBy(0.85)}>Zoom in</button>
           <button type="button" onClick={() => cameraApiRef.current?.zoomBy(1.18)}>Zoom out</button>
           <button type="button" onClick={() => void toggleFullscreen()}>Fullscreen</button>
@@ -423,7 +428,7 @@ export function OfficeApp() {
             <button type="button" onClick={() => openVault(true)}>Add wallet</button>
           ) : null}
         </div>
-        <p className="office-kicker">Drag to orbit. Right-drag to pan. Scroll to zoom. Open this tab on a second monitor.</p>
+        <p className="office-kicker">Drag to pan. Right-drag or twist to rotate. Scroll, pinch, or the plus and minus buttons zoom. A drag does not open a panel.</p>
         <p className="office-kicker">{checkedAt ? `Live · checked ${checkedAt}` : "Checking the office…"} Polls every {Math.round(OFFICE_POLL_MS / 1000)}s.</p>
         <p className="office-kicker">{weather.label}. Roof fades as you zoom inside.</p>
         {error ? <p className="office-error">{error}</p> : null}

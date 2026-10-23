@@ -79,6 +79,27 @@
   color: #fbf8f3;
   border-color: #1f3b2d;
 }
+.office-nav {
+  position: absolute;
+  z-index: 6;
+  left: 12px;
+  top: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.office-nav button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #d6cec1;
+  border-radius: 999px;
+  background: rgba(251, 248, 243, 0.94);
+  color: #1c211e;
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
 .office-close {
   min-width: 44px;
   min-height: 44px;
