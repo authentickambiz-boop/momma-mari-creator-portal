@@ -4,6 +4,8 @@ import * as THREE from "three";
 export type Stick = { x: number; y: number };
 
 export const OFFICE_FOV = 38;
+export const MAP_MIN_DISTANCE = 3.2;
+export const MAP_MAX_DISTANCE = 200;
 
 function num(value: number) {
   return value === 0 ? 0 : value;
@@ -122,4 +124,21 @@ export function officeCameraHome(width: number, depth: number) {
     else lo = mid;
   }
   return { position: target.clone().addScaledVector(aim, hi), target, distance: hi };
+}
+
+/** A pose the map can keep drawing. Anything else is sent back to the default framing. */
+export function officeCameraPoseOk(
+  position: { x: number; y: number; z: number },
+  target: { x: number; y: number; z: number },
+  layout: { width: number; depth: number },
+) {
+  const values = [position.x, position.y, position.z, target.x, target.y, target.z, layout.width, layout.depth];
+  if (values.some((value) => !Number.isFinite(value))) return false;
+  if (target.x < -14 || target.x > layout.width + 14) return false;
+  if (target.y < 0.4 || target.y > 3.2) return false;
+  if (target.z < -14 || target.z > layout.depth + 28) return false;
+  const distance = Math.hypot(position.x - target.x, position.y - target.y, position.z - target.z);
+  if (distance < MAP_MIN_DISTANCE - 0.05 || distance > MAP_MAX_DISTANCE + 0.05) return false;
+  if (position.y < 0.15) return false;
+  return true;
 }

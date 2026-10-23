@@ -11,7 +11,7 @@ import { isSeated, type OfficeSimStore } from "@/lib/worlds/office-sim";
 import { boardStations, type OfficeKey } from "@/lib/worlds/office-state";
 import { formatWalletMoney, vaultPilePlan } from "@/lib/worlds/office-wallets";
 import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/worlds/office-weather";
-import { OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, rayGroundPoint, type Stick } from "@/lib/worlds/office-move";
+import { MAP_MAX_DISTANCE, MAP_MIN_DISTANCE, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, type Stick } from "@/lib/worlds/office-move";
 import { OfficeSite } from "./office-grounds";
 
 export type BoardPanel = "calendar" | "todos" | "notes";
@@ -34,8 +34,6 @@ export type OfficeQuality = "fine" | "fast";
 type BotCard = { id: string; name: string; short: string; status: BotStatus };
 
 const EXTERIOR_H = 2.55;
-const MAP_MIN_DISTANCE = 3.2;
-const MAP_MAX_DISTANCE = 200;
 
 function mapHome(layout: OfficeLayout) {
   const home = officeCameraHome(layout.width, layout.depth);
@@ -1334,6 +1332,7 @@ function StickMover({
   controls: React.RefObject<OrbitControlsType | null>;
   layout: OfficeLayout;
 }) {
+  // Stay on the default priority. A positive one makes React Three Fiber skip drawing the scene.
   useFrame((_, dt) => {
     const stick = stickRef.current;
     if (stick.x === 0 && stick.y === 0) return;
@@ -1348,7 +1347,26 @@ function StickMover({
     );
     if (delta.x === 0 && delta.z === 0) return;
     nudgeTarget(orbit, delta, layout);
-  }, 1);
+  });
+  return null;
+}
+
+function CameraGuard({
+  controls,
+  layout,
+}: {
+  controls: React.RefObject<OrbitControlsType | null>;
+  layout: OfficeLayout;
+}) {
+  const home = useMemo(() => mapHome(layout), [layout]);
+  useFrame(() => {
+    const orbit = controls.current;
+    if (!orbit) return;
+    if (officeCameraPoseOk(orbit.object.position, orbit.target, layout)) return;
+    orbit.object.position.copy(home.position);
+    orbit.target.copy(home.target);
+    orbit.update();
+  });
   return null;
 }
 
@@ -1460,6 +1478,7 @@ function Scene({
       </group>
       <GroundGrab controls={controls} layout={layout} gesture={gesture} />
       <StickMover stickRef={stickRef} controls={controls} layout={layout} />
+      <CameraGuard controls={controls} layout={layout} />
       <MapControls
         ref={controls}
         makeDefault

@@ -14,6 +14,7 @@ import {
   grabPanDelta,
   moveDelta,
   officeCameraHome,
+  officeCameraPoseOk,
   rayGroundPoint,
   stickFromDrag,
 } from "../src/lib/worlds/office-move";
@@ -151,5 +152,27 @@ describe("Worlds camera move", () => {
     assert.match(canvas, /webglcontextlost/);
     assert.equal(canvas.includes('powerPreference: "high-performance"'), false);
     assert.match(css, /\.office-notice/);
+    const stick = canvas.slice(canvas.indexOf("function StickMover"), canvas.indexOf("function CameraGuard"));
+    assert.match(stick, /useFrame\(\(_, dt\) => \{/);
+    assert.equal(stick.includes(", 1)"), false);
+    assert.match(canvas, /function CameraGuard/);
+    assert.match(canvas, /officeCameraPoseOk/);
+    const homeOk = officeCameraPoseOk(home.position, home.target, layout);
+    assert.equal(homeOk, true);
+    assert.equal(officeCameraPoseOk(
+      { x: Number.NaN, y: 20, z: 40 },
+      { x: home.target.x, y: home.target.y, z: home.target.z },
+      layout,
+    ), false);
+    assert.equal(officeCameraPoseOk(
+      { x: 10, y: -4, z: 10 },
+      { x: home.target.x, y: home.target.y, z: home.target.z },
+      layout,
+    ), false);
+    assert.equal(officeCameraPoseOk(
+      home.position,
+      { x: layout.width + 80, y: 1.4, z: layout.depth / 2 },
+      layout,
+    ), false);
   });
 });
