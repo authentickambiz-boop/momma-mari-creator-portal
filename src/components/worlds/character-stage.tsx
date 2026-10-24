@@ -156,9 +156,10 @@ function stopPointer(event: ReactPointerEvent) {
 }
 
 /**
- * Studio turntable for the office chibi. PR #210's GLB is a sphere and
- * cylinder export, not a finished humanoid mesh, so this preview keeps
- * CharacterFigure until a real GLB lands.
+ * Studio turntable for the office chibi. Stay on CharacterFigure until
+ * PR #210 replaces humanoid.glb with a real full body: neck, shoulders,
+ * arms, legs, and a soft realistic face. Do not mount the sphere/cylinder
+ * export or a bust-only mesh.
  */
 export function CharacterStage({
   config,
