@@ -4,41 +4,68 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { CanvasTexture, DoubleSide, SRGBColorSpace, Vector3, type Group, type Mesh } from "three";
 import type { CityDistrict, CityLot, Plot, Street } from "@/lib/worlds/city/locations";
+import { boxesOverlap } from "@/lib/worlds/city/locations";
 import type { HomeTier } from "@/lib/worlds/economy";
 import { districtBillboard } from "@/lib/worlds/city/scene-shell";
+import { CITY_PARK, MANSION_FOUNTAIN, curbReturns, roadPieces, type RoadRect, type RoadSegment } from "@/lib/worlds/city/streets";
 import { FOLIAGE_COLORS, type OfficeWeather } from "@/lib/worlds/office-weather";
-import { CityBuilding } from "./building";
+import { CityBuilding, Gable } from "./building";
+
+function sidewalks(segment: RoadSegment): RoadRect[] {
+  const insetStart = segment.roundStart ? 1.55 : 0;
+  const insetEnd = segment.roundEnd ? 1.55 : 0;
+  if (segment.alongX) {
+    const x = segment.x + insetStart;
+    const w = segment.w - insetStart - insetEnd;
+    if (w < 0.8) return [];
+    return [
+      { id: `${segment.id}-walk-n`, x, z: segment.z - 1.45, w, d: 1.2 },
+      { id: `${segment.id}-walk-s`, x, z: segment.z + segment.d + 0.25, w, d: 1.2 },
+    ];
+  }
+  const z = segment.z + insetStart;
+  const d = segment.d - insetStart - insetEnd;
+  if (d < 0.8) return [];
+  return [
+    { id: `${segment.id}-walk-w`, x: segment.x - 1.45, z, w: 1.2, d },
+    { id: `${segment.id}-walk-e`, x: segment.x + segment.w + 0.25, z, w: 1.2, d },
+  ];
+}
 
 function Streets({ district }: { district: CityDistrict }) {
+  const roads = useMemo(
+    () => district.streets.filter((street) => street.kind === "road"),
+    [district.streets],
+  );
+  const laid = useMemo(() => roadPieces(roads), [roads]);
+  const turns = useMemo(() => curbReturns(laid.crossings), [laid.crossings]);
+  const walks = useMemo(() => laid.segments.flatMap(sidewalks), [laid.segments]);
   return (
     <group>
-      {district.streets.map((street) => (
-        <mesh
-          key={street.id}
-          name={street.id}
-          position={[street.x + street.w / 2, street.kind === "road" ? 0.03 : 0.05, street.z + street.d / 2]}
-          receiveShadow
-        >
-          <boxGeometry args={[street.w, street.kind === "road" ? 0.05 : 0.05, street.d]} />
-          <meshStandardMaterial
-            color={street.kind === "road" ? "#3a3d42" : "#cfc8bb"}
-            roughness={street.kind === "road" ? 0.92 : 0.86}
-          />
+      {[...laid.segments, ...laid.crossings].map((road) => (
+        <mesh key={road.id} name={road.id} position={[road.x + road.w / 2, 0.04, road.z + road.d / 2]} receiveShadow>
+          <boxGeometry args={[road.w, 0.05, road.d]} />
+          <meshStandardMaterial color="#3a3d42" roughness={0.92} />
         </mesh>
       ))}
-      {district.streets.filter((street) => street.kind === "road").map((street) => {
-        const alongX = street.w >= street.d;
-        return (
-          <mesh
-            key={`${street.id}-curb`}
-            position={[street.x + street.w / 2, 0.07, street.z + street.d / 2]}
-            receiveShadow
-          >
-            <boxGeometry args={[alongX ? street.w : 0.18, 0.06, alongX ? 0.18 : street.d]} />
-            <meshStandardMaterial color="#b7b1a6" roughness={0.9} />
-          </mesh>
-        );
-      })}
+      {turns.map((turn) => (
+        <mesh key={turn.id} position={[turn.x, 0.07, turn.z]} rotation={[0, turn.theta, 0]} receiveShadow>
+          <cylinderGeometry args={[1.65, 1.65, 0.04, 10, 1, false, 0, Math.PI / 2]} />
+          <meshStandardMaterial color="#3a3d42" roughness={0.92} />
+        </mesh>
+      ))}
+      {turns.map((turn) => (
+        <mesh key={`${turn.id}-walk`} position={[turn.x, 0.045, turn.z]} rotation={[0, turn.theta, 0]} receiveShadow>
+          <cylinderGeometry args={[2.85, 2.85, 0.03, 10, 1, false, 0, Math.PI / 2]} />
+          <meshStandardMaterial color="#cfc8bb" roughness={0.86} />
+        </mesh>
+      ))}
+      {walks.map((walk) => (
+        <mesh key={walk.id} position={[walk.x + walk.w / 2, 0.055, walk.z + walk.d / 2]} receiveShadow>
+          <boxGeometry args={[walk.w, 0.04, walk.d]} />
+          <meshStandardMaterial color="#cfc8bb" roughness={0.86} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -58,22 +85,165 @@ function lampSpots(streets: readonly Street[]) {
   });
 }
 
-function Lamps({ district }: { district: CityDistrict }) {
+function Lamps({ district, dark }: { district: CityDistrict; dark: boolean }) {
   const spots = useMemo(() => lampSpots(district.streets), [district.streets]);
   return (
     <group>
-      {spots.map((spot) => (
+      {spots.map((spot, index) => (
         <group key={spot.id} position={[spot.x, 0, spot.z]}>
           <mesh position={[0, 1.55, 0]} castShadow>
             <cylinderGeometry args={[0.05, 0.08, 3.1, 6]} />
             <meshStandardMaterial color="#2a2926" roughness={0.7} />
           </mesh>
-          <mesh position={[0, 3.15, 0]}>
-            <sphereGeometry args={[0.18, 10, 8]} />
-            <meshStandardMaterial color="#f6e2a8" emissive="#f2c14e" emissiveIntensity={0.35} />
+          <mesh position={[0.34, 3.05, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.035, 0.035, 0.7, 5]} />
+            <meshStandardMaterial color="#2a2926" roughness={0.6} />
           </mesh>
+          <mesh position={[0.62, 2.95, 0]}>
+            <sphereGeometry args={[0.16, 10, 8]} />
+            <meshStandardMaterial
+              color={dark ? "#fff3c4" : "#d9d3c7"}
+              emissive={dark ? "#ffd27a" : "#000000"}
+              emissiveIntensity={dark ? 1.8 : 0}
+            />
+          </mesh>
+          {dark && index % 2 === 0 ? <pointLight position={[0.62, 2.85, 0]} intensity={0.45} distance={8} decay={2} color="#ffd9a0" /> : null}
         </group>
       ))}
+    </group>
+  );
+}
+
+function Tree({ x, z, canopy, scale = 1 }: { x: number; z: number; canopy: string; scale?: number }) {
+  return (
+    <group position={[x, 0, z]} scale={scale}>
+      <mesh position={[0, 0.7, 0]} castShadow>
+        <cylinderGeometry args={[0.1, 0.16, 1.4, 6]} />
+        <meshStandardMaterial color="#6b4a32" roughness={0.9} />
+      </mesh>
+      <mesh position={[0, 1.7, 0]} castShadow>
+        <sphereGeometry args={[0.62, 10, 8]} />
+        <meshStandardMaterial color={canopy} roughness={0.82} />
+      </mesh>
+    </group>
+  );
+}
+
+function Bush({ x, z }: { x: number; z: number }) {
+  return (
+    <mesh position={[x, 0.28, z]} castShadow>
+      <sphereGeometry args={[0.32, 8, 6]} />
+      <meshStandardMaterial color="#2f6d4f" roughness={0.86} />
+    </mesh>
+  );
+}
+
+function FlowerBed({ x, z }: { x: number; z: number }) {
+  return (
+    <group position={[x, 0, z]}>
+      <mesh position={[0, 0.08, 0]}>
+        <boxGeometry args={[1.1, 0.12, 0.55]} />
+        <meshStandardMaterial color="#5c3c2e" roughness={0.9} />
+      </mesh>
+      {[[-0.28, 0], [0, 0.08], [0.28, -0.04]].map(([px, pz], index) => (
+        <mesh key={px} position={[px, 0.24, pz]}>
+          <sphereGeometry args={[0.1, 8, 6]} />
+          <meshStandardMaterial color={["#d4567a", "#f2c14e", "#f7f1e4"][index] ?? "#f2c14e"} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function StreetLife({ district, canopy }: { district: CityDistrict; canopy: string }) {
+  const pieces = useMemo(() => {
+    const roads = district.streets.filter((street) => street.kind === "road");
+    const blocked = [...district.plots, ...district.lots, ...district.streets, CITY_PARK, MANSION_FOUNTAIN];
+    const trees: { id: string; x: number; z: number }[] = [];
+    const bushes: { id: string; x: number; z: number }[] = [];
+    const flowers: { id: string; x: number; z: number }[] = [];
+    const fits = (x: number, z: number, w = 1.2, d = 1.2) => !blocked.some((box) => boxesOverlap({ x: x - w / 2, z: z - d / 2, w, d }, box, 0.3));
+    for (const road of roads) {
+      const alongX = road.w >= road.d;
+      const span = alongX ? road.w : road.d;
+      const count = Math.max(1, Math.floor(span / 18));
+      for (let index = 0; index < count && trees.length < 36; index += 1) {
+        const t = (index + 0.5) / count;
+        const x = alongX ? road.x + road.w * t : road.x - 3.1;
+        const z = alongX ? road.z - 3.1 : road.z + road.d * t;
+        if (fits(x, z)) trees.push({ id: `${road.id}-tree-${index}`, x, z });
+        const bx = alongX ? x + 2.2 : road.x + road.w + 3.1;
+        const bz = alongX ? road.z + road.d + 3.1 : z + 1.4;
+        if (bushes.length < 24 && fits(bx, bz, 0.8, 0.8)) bushes.push({ id: `${road.id}-bush-${index}`, x: bx, z: bz });
+      }
+    }
+    for (const lot of district.lots) {
+      const x = lot.x + lot.w + 1.3;
+      const z = lot.z + 1.1;
+      if (flowers.length < 12 && fits(x, z, 1.3, 0.8)) flowers.push({ id: `${lot.id}-flowers`, x, z });
+    }
+    return { trees, bushes, flowers };
+  }, [district]);
+  return (
+    <group>
+      {pieces.trees.map((tree) => <Tree key={tree.id} x={tree.x} z={tree.z} canopy={canopy} />)}
+      {pieces.bushes.map((bush) => <Bush key={bush.id} x={bush.x} z={bush.z} />)}
+      {pieces.flowers.map((bed) => <FlowerBed key={bed.id} x={bed.x} z={bed.z} />)}
+    </group>
+  );
+}
+
+function CityPark({ canopy }: { canopy: string }) {
+  const { x, z, w, d } = CITY_PARK;
+  return (
+    <group name="city-park" position={[x + w / 2, 0, z + d / 2]}>
+      <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[5.2, 20]} />
+        <meshStandardMaterial color="#6ea356" roughness={0.95} />
+      </mesh>
+      <mesh position={[0, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[3.1, 3.55, 20]} />
+        <meshStandardMaterial color="#cfc8bb" roughness={0.88} side={DoubleSide} />
+      </mesh>
+      <mesh position={[0, 0.06, 0]}>
+        <cylinderGeometry args={[1.15, 1.25, 0.12, 16]} />
+        <meshStandardMaterial color="#7eb0c8" roughness={0.25} metalness={0.15} />
+      </mesh>
+      <Tree x={-3.4} z={-2.2} canopy={canopy} scale={1.15} />
+      <Tree x={3.2} z={-1.6} canopy={canopy} />
+      <Tree x={-2.6} z={3.1} canopy="#2f6d4f" scale={0.9} />
+      <Bush x={2.4} z={2.6} />
+      <Bush x={-1.2} z={3.6} />
+      <FlowerBed x={3.6} z={0.4} />
+      <FlowerBed x={-3.8} z={0.8} />
+      <mesh position={[1.6, 0.28, -3.2]}>
+        <boxGeometry args={[1.1, 0.12, 0.36]} />
+        <meshStandardMaterial color="#6b4a32" roughness={0.8} />
+      </mesh>
+    </group>
+  );
+}
+
+function MansionFountain() {
+  const { x, z, w, d } = MANSION_FOUNTAIN;
+  return (
+    <group name="mansion-fountain" position={[x + w / 2, 0, z + d / 2]}>
+      <mesh position={[0, 0.28, 0]} receiveShadow>
+        <cylinderGeometry args={[1.7, 1.85, 0.45, 16]} />
+        <meshStandardMaterial color="#d9d3c8" roughness={0.72} />
+      </mesh>
+      <mesh position={[0, 0.48, 0]}>
+        <cylinderGeometry args={[1.35, 1.35, 0.08, 16]} />
+        <meshStandardMaterial color="#8ec4ea" roughness={0.12} metalness={0.25} />
+      </mesh>
+      <mesh position={[0, 0.85, 0]} castShadow>
+        <cylinderGeometry args={[0.16, 0.22, 0.9, 8]} />
+        <meshStandardMaterial color="#c6a15a" metalness={0.45} roughness={0.35} />
+      </mesh>
+      <mesh position={[0, 1.35, 0]}>
+        <sphereGeometry args={[0.18, 10, 8]} />
+        <meshStandardMaterial color="#d7eef6" roughness={0.08} metalness={0.3} emissive="#c5dce8" emissiveIntensity={0.15} />
+      </mesh>
     </group>
   );
 }
@@ -286,6 +456,7 @@ function LotShell({ w, d, tier }: { w: number; d: number; tier: keyof typeof SHE
         <boxGeometry args={[sw + 0.2, 0.14, sd + 0.2]} />
         <meshStandardMaterial color="#4e463f" roughness={0.74} />
       </mesh>
+      <Gable w={sw * 0.92} h={0.74 + h} d={sd * 0.88} color="#6b3a28" overhangX={0.1} overhangZ={0.16} pitch={0.38} ends={false} />
       {[-1, 1].map((side) => (
         <mesh key={`jamb-${side}`} position={[side * sw * 0.16, 0.62 + h * 0.36, sd / 2 + 0.04]} castShadow>
           <boxGeometry args={[0.1, h * 0.72, 0.1]} />
@@ -360,7 +531,7 @@ function EmptyLotMarker({
         <cylinderGeometry args={[0.05, 0.07, 2.3, 6]} />
         <meshStandardMaterial color="#2a2926" roughness={0.7} />
       </mesh>
-      <mesh ref={board} position={[0, claimed ? SHELL_HEIGHT[lot.tier] + 1.55 : 2.15, 0]}>
+      <mesh ref={board} position={[0, claimed ? SHELL_HEIGHT[lot.tier] + 3.1 : 2.15, 0]}>
         <planeGeometry args={[Math.min(6.2, Math.max(3.4, w * 0.82)), 2.15]} />
         <meshBasicMaterial map={map} toneMapped={false} side={DoubleSide} />
       </mesh>
@@ -474,15 +645,19 @@ export function CityLayer({
 }) {
   const { ground } = district;
   const canopy = FOLIAGE_COLORS[weather.foliage].canopy[0] ?? "#3e8a42";
+  const dark = weather.sunElevation <= 0.05;
   return (
     <group name="worlds-city">
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[ground.x + ground.w / 2, -0.05, ground.z + ground.d / 2]} receiveShadow>
         <planeGeometry args={[ground.w, ground.d]} />
-        <meshStandardMaterial color="#5f8a46" roughness={0.96} />
+        <meshStandardMaterial color={dark ? "#1d3324" : "#5f8a46"} roughness={0.96} />
       </mesh>
       <Streets district={district} />
+      <CityPark canopy={canopy} />
+      <MansionFountain />
+      <StreetLife district={district} canopy={canopy} />
       <DoorPaths plots={district.plots} />
-      <Lamps district={district} />
+      <Lamps district={district} dark={dark} />
       <ParkedCars streets={district.streets} />
       <DistrictLabels plots={district.plots} />
       {district.lots.map((lot) => (

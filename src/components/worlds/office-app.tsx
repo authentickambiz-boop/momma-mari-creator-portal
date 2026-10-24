@@ -45,7 +45,7 @@ import { CityChrome } from "./city/city-panel";
 import { allowsWalkIn, decideEnter, type AccessRole } from "@/lib/worlds/city/access";
 import { officeInteractables } from "@/lib/worlds/city/interactables";
 import { buildCityDistrict, locationById, plotForLocation, type CityLocationId, type CityLot } from "@/lib/worlds/city/locations";
-import { cityDayWeather, interiorStand } from "@/lib/worlds/city/scene-shell";
+import { cityDayWeather, cityNightWeather, interiorStand } from "@/lib/worlds/city/scene-shell";
 import { emptyCitySession, type CitySession } from "@/lib/worlds/city/tasks";
 import type { HomeTier } from "@/lib/worlds/economy";
 import { OfficeJoystick } from "./office-joystick";
@@ -856,6 +856,11 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
                 <button key={key} type="button" aria-pressed={layers[key]} onClick={() => toggleLayer(key)}>{LAYER_LABEL[key]}</button>
               ))}
               <button type="button" aria-pressed={quality === "fine"} aria-label="Graphics quality" onClick={toggleQuality}>{quality === "fine" ? "Fine" : "Fast"}</button>
+              {cityMode ? (
+                <button type="button" aria-pressed={weather.sunElevation <= 0} aria-label="Night lighting" onClick={() => setWeather((current) => (current.sunElevation <= 0 ? cityDayWeather(new Date()) : cityNightWeather(new Date())))}>
+                  {weather.sunElevation <= 0 ? "Day" : "Night"}
+                </button>
+              ) : null}
             </div>
             {charactersEnabled ? <Link className="office-link" href="/worlds/create">Your character</Link> : null}
             <div className="office-nav">

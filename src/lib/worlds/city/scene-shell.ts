@@ -66,6 +66,22 @@ export function cityDayWeather(date = new Date()): OfficeWeather {
   };
 }
 
+/** Same lighting math as the office, held after dark so street lamps can be checked. */
+export function cityNightWeather(date = new Date()): OfficeWeather {
+  const hour = 21;
+  const elevation = sunElevation(hour);
+  const weather = weatherFromClock(date, { kind: "clear", cloud: 0.05, wind: 1, tempC: 14 });
+  return {
+    ...weather,
+    hour,
+    sunElevation: elevation,
+    isDay: elevation > 0,
+    kind: "clear",
+    cloud: 0.05,
+    label: "Mooresville · night",
+  };
+}
+
 /** Billboard size for a district name. Tall enough to read from the city overview. */
 export function districtBillboard(label: string) {
   const wide = Math.max(18, Math.min(34, label.length * 1.7));
@@ -81,10 +97,11 @@ export function interiorStand(plot: { x: number; z: number; w: number; d: number
   const cz = plot.z + plot.d / 2;
   const ox = Math.sin(plot.yaw);
   const oz = Math.cos(plot.yaw);
-  const reach = Math.max(2.4, Math.min(plot.d * 0.28, 4.2));
+  const eyeReach = Math.min(Math.max(plot.d * 0.16, 1.15), 2.35);
+  const aimReach = eyeReach - 3.45;
   return {
-    eye: { x: cx + ox * reach, y: 2.15, z: cz + oz * reach },
-    aim: { x: cx - ox * 0.6, y: 1.2, z: cz - oz * 0.6 },
+    eye: { x: cx + ox * eyeReach, y: 1.95, z: cz + oz * eyeReach },
+    aim: { x: cx + ox * aimReach, y: 1.15, z: cz + oz * aimReach },
   };
 }
 

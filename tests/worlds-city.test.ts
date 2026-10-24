@@ -16,7 +16,9 @@ import {
   refuseRealPayment,
 } from "../src/lib/worlds/economy";
 import { worldsCityEnabled } from "../src/lib/worlds/city/flag";
-import { cityOverviewHome, districtBillboard, interiorStand, officeTargetBounds, poseInsideBounds } from "../src/lib/worlds/city/scene-shell";
+import { cityNightWeather, cityOverviewHome, districtBillboard, interiorStand, officeTargetBounds, poseInsideBounds } from "../src/lib/worlds/city/scene-shell";
+import { gableSlabs, shedSlab, slabPoint } from "../src/lib/worlds/city/roofs";
+import { CITY_PARK, MANSION_FOUNTAIN, curbReturns, roadPieces } from "../src/lib/worlds/city/streets";
 import { officeCameraHome, officeCameraPoseOk } from "../src/lib/worlds/office-move";
 import {
   CITY_LOCATION_IDS,
@@ -569,4 +571,40 @@ test("neighborhood streets, empty lots, and a taller apartment stay in practice"
   assert.ok(kept);
   assert.deepEqual(kept.claimedLotIds, [lot.id]);
   assert.equal(kept.apartmentUnits, 1);
+});
+
+test("ownable roofs sit on the walls and roads are not drawn twice", () => {
+  const layout = buildOfficeLayout();
+  const district = buildCityDistrict(layout);
+  const gable = gableSlabs(7.2, 3.3);
+  for (const slab of gable.slabs) {
+    const eave = slabPoint(slab, -Math.sign(slab.rotZ) * slab.length / 2, -slab.thickness / 2);
+    const ridge = slabPoint(slab, Math.sign(slab.rotZ) * slab.length / 2, -slab.thickness / 2);
+    assert.ok(eave.y > 3.3, `eave ${eave.y}`);
+    assert.ok(Math.abs(ridge.x) < 0.05, `ridge x ${ridge.x}`);
+    assert.ok(ridge.y > eave.y);
+  }
+  const shed = shedSlab(8, 4.2);
+  const low = slabPoint(shed, 0, -shed.thickness / 2, shed.length / 2);
+  assert.ok(low.y > 4.2, `shed eave ${low.y}`);
+  const roads = district.streets.filter((street) => street.kind === "road");
+  const { segments, crossings } = roadPieces(roads);
+  for (let i = 0; i < segments.length; i += 1) {
+    for (let j = i + 1; j < segments.length; j += 1) {
+      assert.equal(boxesOverlap(segments[i], segments[j], -0.02), false, `${segments[i].id} ${segments[j].id}`);
+    }
+    for (const cross of crossings) {
+      assert.equal(boxesOverlap(segments[i], cross, -0.02), false, `${segments[i].id} ${cross.id}`);
+    }
+  }
+  assert.ok(curbReturns(crossings).length >= 4);
+  const blocked = [...district.plots, ...district.lots, ...district.streets];
+  assert.equal(blocked.some((box) => boxesOverlap(CITY_PARK, box, 0.2)), false);
+  const fountainHits = [...district.lots, ...district.streets, ...district.plots.filter((plot) => plot.id !== "mansion-grounds")];
+  assert.equal(fountainHits.some((box) => boxesOverlap(MANSION_FOUNTAIN, box, 0.15)), false);
+  const mansion = district.plots.find((plot) => plot.id === "mansion-grounds");
+  assert.ok(mansion && boxesOverlap(MANSION_FOUNTAIN, mansion, 0));
+  assert.ok(cityNightWeather(new Date()).sunElevation < 0);
+  assert.match(source("src/components/worlds/city/building.tsx"), /CityInterior/);
+  assert.match(source("src/components/worlds/office-app.tsx"), /Night lighting/);
 });
