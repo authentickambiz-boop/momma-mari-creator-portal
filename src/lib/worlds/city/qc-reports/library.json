@@ -1,0 +1,232 @@
+{
+  "locationId": "library",
+  "name": "Library",
+  "pass": true,
+  "liveSocialActions": false,
+  "liveEmailSend": false,
+  "earningsCapCents": null,
+  "realPayments": false,
+  "sent": false,
+  "tasks": [
+    {
+      "taskId": "library-summary",
+      "name": "Content summary",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 650,
+      "balanceCents": 650,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $6.50. Balance Kash $6.50."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "library-test",
+      "name": "Shelf test",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 600,
+      "balanceCents": 600,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $6.00. Balance Kash $6.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "library-read",
+      "name": "Read the shelf",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 0,
+      "balanceCents": 0,
+      "score": null,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Auto check is on. You opened a card. The tip stays hidden until you submit."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "No peer or bot score on this path."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $0.00. Balance Kash $0.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 30, then blocked. Window limit:visit. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "library-story",
+      "name": "Short story",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 800,
+      "balanceCents": 800,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $8.00. Balance Kash $8.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "library-rate",
+      "name": "Rate a shelf piece",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 400,
+      "balanceCents": 400,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $4.00. Balance Kash $4.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 6, then blocked. Window limit:task:library-rate. No earnings cap."
+        }
+      ]
+    }
+  ],
+  "sharedCaps": [
+    {
+      "windowKey": "limit:paid",
+      "limit": 5,
+      "pass": true,
+      "detail": "5 library-summary runs filled limit:paid. The next library-test was rejected. library-rate keeps its own cap of 6. No earnings cap."
+    }
+  ],
+  "negatives": [],
+  "note": "Each task ran on a throwaway owner session. Nothing was posted or sent."
+}

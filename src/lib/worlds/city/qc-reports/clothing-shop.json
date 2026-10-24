@@ -1,0 +1,14 @@
+{
+  "locationId": "clothing-shop",
+  "name": "Clothing shop",
+  "pass": true,
+  "liveSocialActions": false,
+  "liveEmailSend": false,
+  "earningsCapCents": null,
+  "realPayments": false,
+  "sent": false,
+  "tasks": [],
+  "sharedCaps": [],
+  "negatives": [],
+  "note": "No scored tasks. The shop spends Kash and does not post or send mail."
+}

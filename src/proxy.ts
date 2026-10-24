@@ -16,5 +16,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/worlds", "/worlds/create", "/worlds/city", "/portal/worlds", "/portal/worlds/create", "/portal/worlds/city"],
+  matcher: ["/worlds", "/worlds/create", "/worlds/city", "/worlds/city/smoke", "/portal/worlds", "/portal/worlds/create", "/portal/worlds/city", "/portal/worlds/city/smoke"],
 };

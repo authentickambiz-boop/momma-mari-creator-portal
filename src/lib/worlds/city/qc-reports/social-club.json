@@ -1,0 +1,289 @@
+{
+  "locationId": "social-club",
+  "name": "Social club",
+  "pass": true,
+  "liveSocialActions": false,
+  "liveEmailSend": false,
+  "earningsCapCents": null,
+  "realPayments": false,
+  "sent": false,
+  "tasks": [
+    {
+      "taskId": "club-hello",
+      "name": "Say hello",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 0,
+      "balanceCents": 0,
+      "score": null,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Auto check is on. The note stays in the city."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "No peer or bot score on this path."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $0.00. Balance Kash $0.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 30, then blocked. Window limit:visit. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "social-like",
+      "name": "Like a draft",
+      "external": "social",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 200,
+      "balanceCents": 200,
+      "score": 94,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The draft names the action and stays kind. Live posting is off."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 94."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Owner gate holds the social draft."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $2.00. Balance Kash $2.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 8, then blocked. Window limit:social. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "social-comment",
+      "name": "Comment draft",
+      "external": "social",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 350,
+      "balanceCents": 350,
+      "score": 78,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The draft names the action and stays kind. Live posting is off."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 78."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Owner gate holds the social draft."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $3.50. Balance Kash $3.50."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 8, then blocked. Window limit:social. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "social-follow",
+      "name": "Follow draft",
+      "external": "social",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 250,
+      "balanceCents": 250,
+      "score": 90,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The draft names the action and stays kind. Live posting is off."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 90."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Owner gate holds the social draft."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $2.50. Balance Kash $2.50."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 8, then blocked. Window limit:social. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "social-story",
+      "name": "Story draft",
+      "external": "social",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 500,
+      "balanceCents": 500,
+      "score": 86,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The draft names the action and stays kind. Live posting is off."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 86."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Owner gate holds the social draft."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $5.00. Balance Kash $5.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 8, then blocked. Window limit:social. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "social-story-reply",
+      "name": "Story reply draft",
+      "external": "social",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 400,
+      "balanceCents": 400,
+      "score": 94,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The draft names the action and stays kind. Live posting is off."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 94."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Owner gate holds the social draft."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $4.00. Balance Kash $4.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 8, then blocked. Window limit:social. No earnings cap."
+        }
+      ]
+    }
+  ],
+  "sharedCaps": [
+    {
+      "windowKey": "limit:social",
+      "limit": 8,
+      "pass": true,
+      "detail": "8 social-like runs filled limit:social. The next social-comment was rejected. No earnings cap."
+    }
+  ],
+  "negatives": [
+    {
+      "id": "spam-comment",
+      "name": "Spam comment rejected",
+      "locationId": "social-club",
+      "pass": true,
+      "detail": "Spam comment rejected. Nothing was posted."
+    },
+    {
+      "id": "disallowed-note",
+      "name": "Disallowed note rejected",
+      "locationId": "social-club",
+      "pass": true,
+      "detail": "A disallowed note was rejected and was not stored. Nothing was posted or sent."
+    }
+  ],
+  "note": "Each task ran on a throwaway owner session. Nothing was posted or sent."
+}

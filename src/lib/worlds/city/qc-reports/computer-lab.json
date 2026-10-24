@@ -1,0 +1,190 @@
+{
+  "locationId": "computer-lab",
+  "name": "Computer lab",
+  "pass": true,
+  "liveSocialActions": false,
+  "liveEmailSend": false,
+  "earningsCapCents": null,
+  "realPayments": false,
+  "sent": false,
+  "tasks": [
+    {
+      "taskId": "data-entry",
+      "name": "Sample data entry",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 500,
+      "balanceCents": 500,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $5.00. Balance Kash $5.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "qa-check",
+      "name": "Sample QA check",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 550,
+      "balanceCents": 550,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $5.50. Balance Kash $5.50."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "clip-tags",
+      "name": "Tag a sample clip",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 500,
+      "balanceCents": 500,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $5.00. Balance Kash $5.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "sheet-cleanup",
+      "name": "Clean a sample sheet",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 520,
+      "balanceCents": 520,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $5.20. Balance Kash $5.20."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    }
+  ],
+  "sharedCaps": [
+    {
+      "windowKey": "limit:paid",
+      "limit": 5,
+      "pass": true,
+      "detail": "5 data-entry runs filled limit:paid. The next qa-check was rejected. No earnings cap."
+    }
+  ],
+  "negatives": [],
+  "note": "Each task ran on a throwaway owner session. Nothing was posted or sent."
+}

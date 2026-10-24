@@ -37,7 +37,7 @@ const JOB_SITES = new Set([
   "music-studio",
 ]);
 
-const OFFICE_BOT_LOCK = "Office roster bots stay inside HQ until the buildings are connected.";
+export const OFFICE_BOT_LOCK = "Office roster bots stay inside HQ until the buildings are connected.";
 
 function article(label: string) {
   return /^[aeiou]/i.test(label) ? "an" : "a";

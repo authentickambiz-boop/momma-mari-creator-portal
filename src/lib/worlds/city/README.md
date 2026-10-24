@@ -14,6 +14,37 @@ Quality runs in order: an auto check, then a peer or bot score, then an owner ga
 
 `src/lib/worlds/city/practice.ts` is the owner practice harness. `runPracticeTask` and `runPracticeLocation` run Social club, Library, and Call center tasks on a throwaway owner session with a mocked note, the real quality checks, and a Kash payout. The harness does not post or send. `tests/worlds-city.test.ts` runs that harness for every task in those three buildings, and once more for every city task, before this draft is a public release. `WORLDS_CITY` defaults off. The route still requires the owner.
 
+`npm run worlds:smoke` opens `/worlds/city/smoke` in Playwright as the owner and checks every building panel: the task list and a **Submit in the city** button, or the shop's **Buy with Kash** button when the building has no scored tasks. That page 404s unless `WORLDS_CITY` and `WORLDS_CITY_SMOKE` are both exactly `true`. It is not a login return path. `tests/worlds-city-shop.test.ts` walks Studio, Apartment, House, Creator loft, and Mansion against every clothing and furniture item.
+
+`npm run worlds:qc` runs that harness for every building. Each task has to pass the auto check, the peer or bot score path, the owner gate when the work is external, `sent: false`, the Kash payout, and the daily cap. The command prints a pass/fail table and writes `src/lib/worlds/city/qc-reports/<building>.json` and `.md`. Spam comments are rejected, a note the city does not allow is rejected and not stored, an apartment cannot buy a yard item, a non-owner cannot enter the office, and an office roster bot cannot leave HQ. `LIVE_SOCIAL_ACTIONS` and `LIVE_EMAIL_SEND` stay false.
+
+## Task QC
+
+<!-- worlds-qc:start -->
+`npm run worlds:qc` prints this table. `LIVE_SOCIAL_ACTIONS` and `LIVE_EMAIL_SEND` stay false. Nothing is posted or emailed.
+
+| Building | Tasks | Passed | Result |
+| --- | ---: | ---: | --- |
+| Office | 1 | 1 | PASS |
+| Personal home | 6 | 6 | PASS |
+| Social club | 6 | 6 | PASS |
+| Research lab | 4 | 4 | PASS |
+| Library | 5 | 5 | PASS |
+| Computer lab | 4 | 4 | PASS |
+| Learning center | 6 | 6 | PASS |
+| Call center | 5 | 5 | PASS |
+| Art studio | 3 | 3 | PASS |
+| Music studio | 3 | 3 | PASS |
+| Bank | 1 | 1 | PASS |
+| Clothing shop | 0 | 0 | PASS |
+| Furniture shop | 0 | 0 | PASS |
+| Negative checks | 5 | 5 | PASS |
+
+Negative checks: spam comment rejected, disallowed note rejected and not stored, apartment buying a yard item rejected, non-owner office enter rejected, office bot leave blocked.
+
+Per-building JSON and markdown reports: `src/lib/worlds/city/qc-reports/`.
+<!-- worlds-qc:end -->
+
 The office, the bank, the bots, the calendar, the to-dos, Box, and the conference table are the existing office taps. They are listed in `interactables.ts` with the new buildings.
 
 ## Locations
