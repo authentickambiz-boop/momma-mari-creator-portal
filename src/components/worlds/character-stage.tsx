@@ -156,10 +156,9 @@ function stopPointer(event: ReactPointerEvent) {
 }
 
 /**
- * Studio turntable for the office chibi. Stay on CharacterFigure until
- * PR #210 replaces humanoid.glb with a real full body: neck, shoulders,
- * arms, legs, and a soft realistic face. Do not mount the sphere/cylinder
- * export or a bust-only mesh.
+ * Studio turntable for the office chibi. PR #210's humanoid.glb failed
+ * owner QC (stump shoulders, floating hands). Keep CharacterFigure until
+ * new previews show continuous arms on stand, walk, and sit, and a clean collar.
  */
 export function CharacterStage({
   config,

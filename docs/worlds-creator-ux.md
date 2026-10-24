@@ -6,17 +6,15 @@ The creator at `/worlds/create` (production mount `/portal/worlds/create`) edits
 
 This studio uses the current chibi (`characterFigure`). That is the mesh the office draws for You, so a saved look matches the desk.
 
-PR #210 (`cursor/worlds-humanoid-2ba0`) is open and not merged. Its `public/worlds/humanoid.glb` is a `THREE.GLTFExporter` dump of the sphere and cylinder rig. Bone names include a neck, shoulders, arms, and legs, but the surfaces are toy primitives (the largest mesh is a few hundred vertices, and the file has no textures). That is not a full body and not a soft realistic face. This studio does not preview it, and it does not preview a bust.
+PR #210 (`cursor/worlds-humanoid-2ba0`) has replaced the sphere rig with a full-body MakeHuman `humanoid.glb`. Owner QC failed: standing and sitting show missing or collapsed arms (stump shoulders, floating hands). This studio does not switch to that file. It stays on the office chibi until #210 posts new previews with continuous arms on stand, walk, and sit, and a clean collar.
 
-The creator switches off `characterFigure` only when #210 replaces that file with a real full-body humanoid: a sculpted mesh that has a neck, shoulders, arms, and legs, plus a soft realistic face. Until then the studio stays on the office chibi. The categories, turntable, and version 1 save path stay as they are.
-
-## Gaps until a real full-body GLB lands
+## Gaps until those previews land
 
 - Emotes are limb pivots on the chibi: idle, walk, wave, and sit. They are not skeletal clips. Cheer, dance, and think from #210 are not here.
 - Clothes do not deform with the body. Tops, coats, pants, and shoes are shells.
 - Top and outerwear share the `top` slot. A shirt replaces a coat, and a coat replaces a shirt. There is no second outerwear layer in version 1.
 - Hair, hems, and trims do not spring.
-- The sphere and cylinder export on #210 stays off this preview, including any bust-only cut of it.
+- The current #210 GLB stays off this preview until stand, walk, and sit show continuous arms and a clean collar.
 - Every wearable id in the current catalog has a chibi mesh. A category with no meshed ids, a worn id the builder does not draw, or a failed WebGL context shows an empty or error state. The office skips a piece it cannot draw.
 
 ## Studio light and the office HUD

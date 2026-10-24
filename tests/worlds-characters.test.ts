@@ -311,8 +311,9 @@ describe("Worlds characters", () => {
     assert.equal(stage.includes("createHumanoid"), false);
     assert.equal(stage.includes("StudioHumanoid"), false);
     assert.equal(stage.includes("useGLTF"), false);
-    assert.match(source("docs/worlds-creator-ux.md"), /real full-body humanoid/);
-    assert.match(source("docs/worlds-creator-ux.md"), /soft realistic face/);
+    assert.match(source("docs/worlds-creator-ux.md"), /continuous arms/);
+    assert.match(source("docs/worlds-creator-ux.md"), /clean collar/);
+    assert.match(source("docs/worlds-creator-ux.md"), /does not switch/);
     assert.match(creator, /sheetCoverRef/);
     assert.match(app, /next\[OWNER_ACTOR_ID\] = mineConfig/);
     assert.match(app, /It wears the look you save in the character creator/);
