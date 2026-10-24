@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { OfficeJoystick } from "../src/components/worlds/office-joystick";
 import { buildOfficeLayout } from "../src/lib/worlds/office-layout";
 import {
+  MAP_MIN_DISTANCE,
   OFFICE_FOV,
   PAN_DRAG_PX,
   STICK_SPEED,
@@ -21,6 +22,7 @@ import {
   rotateOffset,
   stickFromDrag,
   wheelZoomFactor,
+  zoomOffset,
 } from "../src/lib/worlds/office-move";
 
 function source(file: string) {
@@ -114,6 +116,9 @@ describe("Worlds camera move", () => {
     assert.match(canvas, /RIGHT: -1 as THREE\.MOUSE/);
     assert.match(canvas, /rotateOffset/);
     assert.match(canvas, /wheelZoomFactor/);
+    assert.match(canvas, /zoomOffset\(aim/);
+    assert.match(canvas, /applyDistanceZoom\(orbit, home\.aim/);
+    assert.equal(canvas.includes("offset.setLength"), false);
     assert.match(canvas, /stopImmediatePropagation/);
     assert.match(canvas, /THREE\.TOUCH\.DOLLY_ROTATE/);
     assert.match(canvas, /THREE\.TOUCH\.PAN/);
@@ -193,6 +198,24 @@ describe("Worlds camera move", () => {
     let distance = 71;
     for (let step = 0; step < 12; step += 1) distance *= wheelZoomFactor(-100);
     assert.ok(distance > 18 && distance < 22, `distance ${distance}`);
+
+    const layoutForZoom = buildOfficeLayout();
+    const homeForZoom = officeCameraHome(layoutForZoom.width, layoutForZoom.depth);
+    const aim = homeForZoom.position.clone().sub(homeForZoom.target);
+    const homeSpherical = new THREE.Spherical().setFromVector3(aim);
+    for (const factor of [wheelZoomFactor(100), wheelZoomFactor(-100)]) {
+      const zoomed = zoomOffset(aim, homeForZoom.distance, factor);
+      const spherical = new THREE.Spherical().setFromVector3(new THREE.Vector3(zoomed.x, zoomed.y, zoomed.z));
+      assert.ok(Math.abs(spherical.theta - homeSpherical.theta) < 1e-6, `theta ${spherical.theta}`);
+      assert.ok(Math.abs(spherical.phi - homeSpherical.phi) < 1e-6, `phi ${spherical.phi}`);
+      assert.ok(Math.abs(zoomed.distance - homeForZoom.distance * factor) < 1e-6);
+    }
+    const closest = zoomOffset(aim, homeForZoom.distance, 0);
+    assert.equal(closest.distance, MAP_MIN_DISTANCE);
+    const framed = 2 * MAP_MIN_DISTANCE * Math.tan(THREE.MathUtils.degToRad(OFFICE_FOV / 2));
+    assert.ok(framed < 1, `a character should fill the close view, framed height ${framed}`);
+    const closePosition = homeForZoom.target.clone().add(new THREE.Vector3(closest.x, closest.y, closest.z));
+    assert.equal(officeCameraPoseOk(closePosition, homeForZoom.target, layoutForZoom), true);
 
     const layout = buildOfficeLayout();
     const home = officeCameraHome(layout.width, layout.depth);

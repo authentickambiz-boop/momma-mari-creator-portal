@@ -14,7 +14,7 @@ import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/w
 import { BOT_CAPSULE_CENTER, BOT_CAPSULE_LENGTH, BOT_CAPSULE_RADIUS, pickBotCapsule, rayFromClient, type BotHitPose } from "@/lib/worlds/bot-hit";
 import { OWNER_LOOK_SEED, defaultCharacter, nameTagFrame, type CharacterConfig, type CharacterPose } from "@/lib/worlds/character";
 import { CharacterFigure } from "./character-figure";
-import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, type Stick } from "@/lib/worlds/office-move";
+import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, zoomOffset, type Stick } from "@/lib/worlds/office-move";
 import { OfficeSite } from "./office-grounds";
 
 export type BoardPanel = "calendar" | "todos" | "notes";
@@ -40,7 +40,23 @@ const EXTERIOR_H = 2.55;
 
 function mapHome(layout: OfficeLayout) {
   const home = officeCameraHome(layout.width, layout.depth);
-  return { position: home.position, target: home.target };
+  return {
+    position: home.position,
+    target: home.target,
+    aim: home.position.clone().sub(home.target),
+  };
+}
+
+/** Dolly along the default aim. OrbitControls must not rewrite that direction. */
+function applyDistanceZoom(orbit: OrbitControlsType, aim: THREE.Vector3, factor: number) {
+  const distance = orbit.object.position.distanceTo(orbit.target);
+  const offset = zoomOffset(aim, distance, factor);
+  const place = () => {
+    orbit.object.position.set(orbit.target.x + offset.x, orbit.target.y + offset.y, orbit.target.z + offset.z);
+  };
+  place();
+  orbit.update();
+  place();
 }
 
 function clampMapTarget(orbit: OrbitControlsType, layout: OfficeLayout) {
@@ -1316,6 +1332,7 @@ function MapGestures({
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
+  const aim = useMemo(() => mapHome(layout).aim, [layout]);
   useEffect(() => {
     const el = gl.domElement;
     const raycaster = new THREE.Raycaster();
@@ -1421,12 +1438,7 @@ function MapGestures({
       event.stopImmediatePropagation();
       const factor = wheelZoomFactor(event.deltaY, event.deltaMode);
       if (factor === 1) return;
-      offset.copy(orbit.object.position).sub(orbit.target);
-      const next = THREE.MathUtils.clamp(offset.length() * factor, MAP_MIN_DISTANCE, MAP_MAX_DISTANCE);
-      if (offset.lengthSq() < 1e-8) return;
-      offset.setLength(next);
-      orbit.object.position.copy(orbit.target).add(offset);
-      orbit.update();
+      applyDistanceZoom(orbit, aim, factor);
     }
 
     el.addEventListener("pointerdown", onDown);
@@ -1438,7 +1450,7 @@ function MapGestures({
       window.removeEventListener("pointerup", finish);
       window.removeEventListener("pointercancel", finish);
     };
-  }, [camera, gl, controls, layout, gesture]);
+  }, [camera, gl, controls, layout, gesture, aim]);
   return null;
 }
 
@@ -1563,11 +1575,7 @@ function Scene({
       zoomBy(factor) {
         const orbit = controls.current;
         if (!orbit) return;
-        const offset = orbit.object.position.clone().sub(orbit.target);
-        const next = THREE.MathUtils.clamp(offset.length() * factor, MAP_MIN_DISTANCE, MAP_MAX_DISTANCE);
-        offset.setLength(next);
-        orbit.object.position.copy(orbit.target).add(offset);
-        orbit.update();
+        applyDistanceZoom(orbit, home.aim, factor);
       },
     };
     return () => {
