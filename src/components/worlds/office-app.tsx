@@ -45,7 +45,8 @@ import { CityChrome } from "./city/city-panel";
 import { allowsWalkIn, decideEnter, type AccessRole } from "@/lib/worlds/city/access";
 import { officeInteractables } from "@/lib/worlds/city/interactables";
 import { buildCityDistrict, locationById, plotForLocation, type CityLocationId, type CityLot } from "@/lib/worlds/city/locations";
-import { homeRoomShift } from "@/lib/worlds/city/interiors";
+import { homeRoomShift, housingInteriorSize } from "@/lib/worlds/city/interiors";
+import { housingModelForTier, type DecorMode, type DecorSku, type DecorTurns } from "@/lib/worlds/city/decorate";
 import { cityDayWeather, cityNightWeather, interiorStand } from "@/lib/worlds/city/scene-shell";
 import { emptyCitySession, type CitySession } from "@/lib/worlds/city/tasks";
 import type { HomeTier } from "@/lib/worlds/economy";
@@ -214,6 +215,36 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
   const [cityLotId, setCityLotId] = useState<string | null>(null);
   const [viewerRole, setViewerRole] = useState<AccessRole>("owner");
   const [citySession, setCitySession] = useState<CitySession>(() => emptyCitySession());
+  const decorTry = useRef<(gx: number, gz: number) => void>(() => {});
+  const bindDecorTry = useCallback((fn: (gx: number, gz: number) => void) => {
+    decorTry.current = fn;
+  }, []);
+  const [decorHover, setDecorHover] = useState<DecorMode["hover"]>(null);
+  const [decorUi, setDecorUi] = useState<{ active: boolean; gridOn: boolean; sku: DecorSku; turns: DecorTurns; blocked: NonNullable<DecorMode["blocked"]> | null }>({
+    active: false,
+    gridOn: true,
+    sku: "plant",
+    turns: 0,
+    blocked: null,
+  });
+  const onDecorUi = useCallback((ui: typeof decorUi) => {
+    setDecorUi((current) => {
+      const sameBlocked = current.blocked?.gx === ui.blocked?.gx
+        && current.blocked?.gz === ui.blocked?.gz
+        && current.blocked?.sku === ui.blocked?.sku
+        && current.blocked?.turns === ui.blocked?.turns
+        && (current.blocked === null) === (ui.blocked === null);
+      if (current.active === ui.active && current.gridOn === ui.gridOn && current.sku === ui.sku && current.turns === ui.turns && sameBlocked) return current;
+      return ui;
+    });
+  }, []);
+  const onDecorHover = useCallback((cell: DecorMode["hover"]) => {
+    setDecorHover((current) => {
+      if (current?.gx === cell?.gx && current?.gz === cell?.gz) return current;
+      if (!current && !cell) return current;
+      return cell;
+    });
+  }, []);
   const rememberCitySession = useCallback((next: CitySession) => {
     setCitySession((current) => (current === next ? current : next));
   }, []);
@@ -457,6 +488,14 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
       extraBotIds: hold.botIds,
     });
   }, [hold]);
+  const decorRoom = useMemo(() => {
+    if (!layout) return null;
+    const district = buildCityDistrict(layout, homeTier, citySession.apartmentUnits);
+    const plot = plotForLocation(district.plots, "home", homeTier);
+    if (!plot) return null;
+    const model = housingModelForTier(homeTier);
+    return { model, ...housingInteriorSize(model, plot.w, plot.d) };
+  }, [layout, homeTier, citySession.apartmentUnits]);
   const sim = useMemo(() => {
     if (!layout || !hold) return null;
     const store = createOfficeSimStore(layout, [...hold.botIds.filter((id) => id !== OWNER_ACTOR_ID), OWNER_ACTOR_ID]);
@@ -815,7 +854,28 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
             bankBalance={gameWallet?.wallet.bank ?? 0}
             onOpenBank={() => openBank()}
             stickRef={stickRef}
-            city={cityMode ? { homeTier, apartmentUnits: citySession.apartmentUnits, claimedLotIds: citySession.claimedLotIds, selectedId: cityLotId ?? cityPlot, interiorOpen: cityVisit?.interiorOpen ?? false, locked: cityVisit?.locked ?? false, onOpenLocation: openCity } : null}
+            city={cityMode ? {
+              homeTier,
+              apartmentUnits: citySession.apartmentUnits,
+              claimedLotIds: citySession.claimedLotIds,
+              selectedId: cityLotId ?? cityPlot,
+              interiorOpen: cityVisit?.interiorOpen ?? false,
+              locked: cityVisit?.locked ?? false,
+              onOpenLocation: openCity,
+              decor: {
+                model: decorRoom?.model ?? housingModelForTier(homeTier),
+                placements: citySession.decorPlacements,
+                mode: decorUi.active ? {
+                  gridOn: decorUi.gridOn,
+                  sku: decorUi.sku,
+                  turns: decorUi.turns,
+                  hover: decorHover,
+                  blocked: decorUi.blocked,
+                  onHover: onDecorHover,
+                  onCell: (cell) => decorTry.current(cell.gx, cell.gz),
+                } : null,
+              },
+            } : null}
           />
         ) : (
           <div className="office-loading">{error || "Opening the bot office…"}</div>
@@ -924,6 +984,9 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
           propertyTier={cityVisit?.plot?.propertyTier}
           viewerRole={viewerRole}
           onViewerRole={setViewerRole}
+          decorRoom={decorRoom}
+          onDecorUi={onDecorUi}
+          bindDecorTry={bindDecorTry}
         />
       ) : null}
 

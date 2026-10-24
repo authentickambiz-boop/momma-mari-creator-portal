@@ -1,6 +1,7 @@
 /** Wall-hugging room plans. The center aisle stays open up to the objective. */
 
 import type { BuildingModel } from "./locations";
+import { HOUSE_ROW_GAP, STUDIO_ROW_GAP } from "./roofs";
 
 export type InteriorZone = "entry" | "work" | "lounge" | "decor" | "path" | "objective";
 
@@ -26,7 +27,12 @@ export type InteriorProp =
   | "books"
   | "queue"
   | "atm"
-  | "notes";
+  | "notes"
+  | "coffee"
+  | "floorlamp"
+  | "bin"
+  | "cabinet"
+  | "rack";
 
 export type InteriorFace = "left" | "right" | "back";
 
@@ -117,6 +123,27 @@ export function interiorModels() {
  * Local shift from the plot center to the furnished unit.
  * House lane's middle house is centered. The loft and studio rooms are not.
  */
+/**
+ * Interior width and depth for one housing unit.
+ * `plotW` and `plotD` are the district plot. The shell scales those before this inset.
+ */
+export function housingInteriorSize(model: BuildingModel, plotW: number, plotD: number) {
+  const w = plotW * 0.92;
+  const d = plotD * 0.72;
+  if (model === "studio") {
+    const unit = w / 4 - STUDIO_ROW_GAP;
+    return { w: Math.max(2.1, unit - 0.45), d: Math.max(2.2, d * 0.7 - 0.45) };
+  }
+  if (model === "apartment") return { w: w * 0.86 - 0.7, d: d * 0.78 - 0.7 };
+  if (model === "houses") {
+    const unit = w / 3 - HOUSE_ROW_GAP;
+    return { w: unit - 0.55, d: d * 0.62 - 0.55 };
+  }
+  if (model === "loft") return { w: w * 0.4 - 0.6, d: d * 0.7 - 0.6 };
+  if (model === "mansion") return { w: w * 0.72 - 0.7, d: d * 0.62 - 0.7 };
+  return { w: plotW - 0.75, d: plotD - 0.75 };
+}
+
 export function homeRoomShift(model: BuildingModel, plotW: number, _plotD: number) {
   const w = plotW * 0.92;
   if (model === "loft") return { x: -w * 0.24, z: 0 };
@@ -247,13 +274,17 @@ function marker(room: Room, color: string): InteriorBox {
 }
 
 function plant(room: Room, which: "left" | "right"): InteriorBox {
+  return plantAt(room, which, "plant", room.halfD * 0.42);
+}
+
+function plantAt(room: Room, which: "left" | "right", id: string, z: number): InteriorBox {
   const x = which === "left" ? -room.halfW + 0.42 : room.halfW - 0.42;
   return box({
-    id: "plant",
+    id,
     zone: "entry",
     x,
     y: 0.45,
-    z: room.halfD * 0.42,
+    z,
     w: 0.36,
     h: 0.85,
     d: 0.36,
@@ -262,6 +293,47 @@ function plant(room: Room, which: "left" | "right"): InteriorBox {
     prop: "plant",
     face: which,
   });
+}
+
+/** A small prop just outside the aisle, in front of the wall furniture. */
+function beside(
+  room: Room,
+  which: "left" | "right",
+  id: string,
+  z: number,
+  wantW: number,
+  wantD: number,
+  h: number,
+  color: string,
+  zone: InteriorZone,
+  prop: InteriorProp,
+  finish: InteriorFinish = "wood",
+): InteriorBox {
+  const span = Math.max(0.34, room.halfW - room.aisle - 0.4);
+  const w = Math.min(wantW, span);
+  const depth = Math.min(wantD, 0.5);
+  const inner = room.aisle + 0.12;
+  const x = which === "left" ? -(inner + w / 2) : inner + w / 2;
+  return box({ id, zone, x, y: h / 2, z, w, h, d: depth, color, finish, prop, face: which });
+}
+
+function wallMount(
+  room: Room,
+  id: string,
+  x: number,
+  y: number,
+  z: number,
+  wide: number,
+  tall: number,
+  color: string,
+  face: InteriorFace,
+  prop: InteriorProp,
+): InteriorBox {
+  if (face === "back") {
+    return box({ id, zone: "decor", x, y, z: -room.halfD + 0.14, w: wide, h: tall, d: 0.08, color, finish: "wood", prop, face });
+  }
+  const edge = face === "left" ? -room.halfW + 0.14 : room.halfW - 0.14;
+  return box({ id, zone: "decor", x: edge, y, z, w: 0.08, h: tall, d: wide, color, finish: "wood", prop, face });
 }
 
 function shared(room: Room, path: string, mark: string): InteriorBox[] {
@@ -409,24 +481,38 @@ function layoutFor(model: BuildingModel, room: Room): InteriorBox[] {
       ...shared(room, "#d7c4a3", "#6b4c7a"),
       along(room, "left", "bed", -room.halfD * 0.12, 1.15, 0.72, 0.7, "#f4efe4", "lounge", "bed", "plaster"),
       along(room, "left", "night", room.halfD * 0.22, 0.36, 0.36, 0.7, "#c4a574", "lounge", "lamp"),
+      along(room, "left", "wardrobe", -room.halfD * 0.5, 0.7, 0.42, 1.5, "#8d5524", "work", "cabinet"),
+      along(room, "left", "floor-lamp", room.halfD * 0.38, 0.3, 0.3, 1.35, "#f6e2a8", "lounge", "floorlamp", "metal"),
+      plantAt(room, "left", "fern", room.halfD * 0.58),
       alongBack(room, "kitchen", 1.35, 0.55, 0.95, "#efe6d6", "work", "kitchen", "plaster"),
       along(room, "right", "sofa", -room.halfD * 0.05, 1.1, 0.68, 0.85, "#6b4c7a", "lounge", "sofa", "plaster"),
-      along(room, "right", "tv", room.halfD * 0.18, 0.7, 0.4, 0.85, "#2a2e33", "work", "tv", "metal"),
+      beside(room, "right", "coffee", -room.halfD * 0.05, 0.48, 0.4, 0.36, "#c4a574", "lounge", "coffee"),
+      along(room, "right", "tv", room.halfD * 0.72, 0.7, 0.4, 0.85, "#2a2e33", "work", "tv", "metal"),
       rug(room, "right", "rug", -room.halfD * 0.05, 1.2, 0.8, "#6b4c7a"),
-      framed(room, "print", -0.4, 1.5, 0, 0.36, 0.3, "#8ec4ea", "back"),
-      framed(room, "print-b", 0.4, 1.48, 0, 0.32, 0.32, "#e07a5f", "back"),
+      wallMount(room, "shelf", 0, 1.55, room.halfD * 0.02, 0.7, 0.28, "#6b4a32", "right", "rack"),
+      framed(room, "print", -0.7, 1.5, 0, 0.36, 0.3, "#8ec4ea", "back"),
+      framed(room, "print-b", 0, 1.62, 0, 0.32, 0.32, "#e07a5f", "back"),
+      framed(room, "print-c", 0.7, 1.48, 0, 0.34, 0.28, "#f2c14e", "back"),
     ];
   }
   if (model === "houses") {
     return [
       ...shared(room, "#c4a574", "#e07a5f"),
       along(room, "left", "sofa", mid, 1.2, 0.7, 0.86, "#6b4c7a", "lounge", "sofa", "plaster"),
+      beside(room, "left", "coffee", mid, 0.48, 0.4, 0.36, "#c4a574", "lounge", "coffee"),
       along(room, "left", "lamp", mid + room.halfD * 0.28, 0.34, 0.34, 0.72, "#c4a574", "lounge", "lamp"),
-      along(room, "left", "tv", mid - room.halfD * 0.32, 0.72, 0.4, 0.9, "#2a2e33", "work", "tv", "metal"),
+      along(room, "left", "floor-lamp", room.halfD * 0.58, 0.3, 0.3, 1.35, "#f6e2a8", "lounge", "floorlamp", "metal"),
+      plantAt(room, "left", "fern", room.halfD * 0.74),
+      along(room, "left", "tv", -room.halfD * 0.3, 0.72, 0.4, 0.9, "#2a2e33", "work", "tv", "metal"),
+      along(room, "left", "bed", -room.halfD * 0.64, 1.05, 0.7, 0.7, "#f4efe4", "lounge", "bed", "plaster"),
+      along(room, "left", "night", -room.halfD * 0.9, 0.32, 0.32, 0.7, "#c4a574", "lounge", "lamp"),
       along(room, "right", "desk", room.halfD * 0.16, 1.05, 0.88, 0.92, "#8d5524", "work", "desk"),
       along(room, "right", "kitchen", -room.halfD * 0.28, 0.9, 0.5, 0.95, "#efe6d6", "work", "kitchen", "plaster"),
+      along(room, "right", "bin", -room.halfD * 0.52, 0.28, 0.28, 0.48, "#2a2e33", "work", "bin", "metal"),
+      along(room, "right", "cabinet", -room.halfD * 0.78, 0.7, 0.4, 1.5, "#8d5524", "work", "cabinet"),
       alongBack(room, "dining", 1.35, 0.78, 0.78, "#c4a574", "work", "table"),
       rug(room, "left", "rug", mid, 1.25, 0.85, "#8d5524"),
+      wallMount(room, "shelf", 0, 1.72, -room.halfD * 0.64, 0.62, 0.26, "#6b4a32", "left", "rack"),
       framed(room, "art", 0, 1.55, -room.halfD * 0.28, 0.42, 0.32, "#e07a5f", "left"),
       framed(room, "art-b", 0, 1.48, room.halfD * 0.4, 0.36, 0.28, "#8ec4ea", "left"),
       framed(room, "art-c", 0, 1.62, 0, 0.46, 0.34, "#f2c14e", "back"),
@@ -436,14 +522,22 @@ function layoutFor(model: BuildingModel, room: Room): InteriorBox[] {
     return [
       ...shared(room, "#d5e7f0", "#8ec4ea"),
       along(room, "left", "work-table", -room.halfD * 0.05, 1.15, 0.88, 0.92, "#f7f1e4", "work", "desk"),
+      along(room, "left", "floor-lamp", room.halfD * 0.16, 0.3, 0.3, 1.35, "#f6e2a8", "lounge", "floorlamp", "metal"),
       along(room, "left", "lamp", room.halfD * 0.28, 0.34, 0.34, 0.72, "#c4a574", "lounge", "lamp"),
       along(room, "left", "books", room.halfD * 0.42, 0.32, 0.28, 0.4, "#e07a5f", "work", "books"),
+      along(room, "left", "kitchen", -room.halfD * 0.48, 0.95, 0.5, 0.95, "#efe6d6", "work", "kitchen", "plaster"),
+      plantAt(room, "left", "fern", room.halfD * 0.68),
       along(room, "right", "daybed", mid, 1.15, 0.7, 0.7, "#8a4b3c", "lounge", "bed", "plaster"),
-      along(room, "right", "tv", room.halfD * 0.24, 0.62, 0.36, 0.8, "#243044", "work", "tv", "metal"),
+      beside(room, "right", "coffee", mid, 0.48, 0.4, 0.36, "#c4a574", "lounge", "coffee"),
+      along(room, "right", "tv", room.halfD * 0.64, 0.62, 0.36, 0.8, "#243044", "work", "tv", "metal"),
+      along(room, "right", "wardrobe", -room.halfD * 0.48, 0.72, 0.42, 1.5, "#4e3418", "work", "cabinet"),
       rug(room, "right", "rug", mid, 1.2, 0.8, "#8a4b3c"),
-      alongBack(room, "backdrop", 1.2, 0.16, 1.05, "#f7f1e4", "decor", "art", "paint"),
-      framed(room, "still", -0.5, 1.55, 0, 0.36, 0.36, "#e07a5f", "back"),
-      framed(room, "still-b", 0.5, 1.5, 0, 0.32, 0.4, "#8ec4ea", "back"),
+      alongBack(room, "dining", 1.35, 0.72, 0.78, "#c4a574", "work", "table"),
+      wallMount(room, "shelf", 0, 1.7, mid, 0.7, 0.26, "#6b4a32", "right", "rack"),
+      framed(room, "still", -1.15, 1.55, 0, 0.36, 0.36, "#e07a5f", "back"),
+      framed(room, "still-b", -0.45, 1.62, 0, 0.32, 0.4, "#8ec4ea", "back"),
+      framed(room, "still-c", 0.45, 1.58, 0, 0.34, 0.32, "#f2c14e", "back"),
+      framed(room, "still-d", 1.15, 1.5, 0, 0.3, 0.36, "#6b4c7a", "back"),
     ];
   }
   if (model === "mansion") {
@@ -451,6 +545,10 @@ function layoutFor(model: BuildingModel, room: Room): InteriorBox[] {
       ...shared(room, "#6b4c7a", "#c6a15a"),
       alongBack(room, "table", 1.6, 0.78, 0.78, "#8d5524", "work", "table"),
       along(room, "left", "settee", mid, 1.2, 0.7, 0.86, "#c6a15a", "lounge", "sofa", "plaster"),
+      beside(room, "left", "coffee", mid, 0.48, 0.4, 0.36, "#c4a574", "lounge", "coffee"),
+      along(room, "left", "floor-lamp", room.halfD * 0.42, 0.3, 0.3, 1.35, "#f6e2a8", "lounge", "floorlamp", "metal"),
+      plantAt(room, "left", "fern", room.halfD * 0.62),
+      rug(room, "left", "rug", mid, 1.3, 0.9, "#6b4c7a"),
       along(room, "right", "sideboard", mid, 1.05, 0.45, 0.9, "#4e3418", "work", "counter"),
       framed(room, "gallery-a", -0.55, 1.55, 0, 0.36, 0.46, "#e07a5f", "back"),
       framed(room, "gallery-b", 0, 1.6, 0, 0.36, 0.5, "#f2c14e", "back"),

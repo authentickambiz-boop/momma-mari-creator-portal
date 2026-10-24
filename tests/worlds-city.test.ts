@@ -17,7 +17,8 @@ import {
 } from "../src/lib/worlds/economy";
 import { worldsCityEnabled } from "../src/lib/worlds/city/flag";
 import { cityNightWeather, cityOverviewHome, districtBillboard, interiorStand, officeTargetBounds, poseInsideBounds } from "../src/lib/worlds/city/scene-shell";
-import { homeRoomShift, interiorAisle, interiorLayout, interiorModels, interiorPathClear } from "../src/lib/worlds/city/interiors";
+import { homeRoomShift, housingInteriorSize, interiorAisle, interiorLayout, interiorModels, interiorPathClear } from "../src/lib/worlds/city/interiors";
+import { decorGrid, evaluatePlacement, firstOpenCell, housingModelForTier, reservedWalkCells } from "../src/lib/worlds/city/decorate";
 import { HOUSE_ROW_GAP, STUDIO_ROW_GAP, gableSlabs, rowRoofClearance, shedSlab, slabPoint } from "../src/lib/worlds/city/roofs";
 import { CITY_PARK, MANSION_FOUNTAIN, curbOuterRadius, curbReturns, paveCity, roadPieces } from "../src/lib/worlds/city/streets";
 import { officeCameraHome, officeCameraPoseOk } from "../src/lib/worlds/office-move";
@@ -43,6 +44,8 @@ import {
   claimCityLot,
   emptyCitySession,
   parseCitySession,
+  placeDecorItem,
+  removeDecorItem,
   pipelineLabel,
   submitCityTask,
   unlockHomeTier,
@@ -224,6 +227,13 @@ test("interior furniture stays on the walls and the aisle reaches the marker", (
   assert.ok(house.some((piece) => piece.prop === "lamp"));
   assert.ok(house.some((piece) => piece.prop === "tv"));
   assert.ok(house.some((piece) => piece.prop === "kitchen"));
+  assert.ok(house.some((piece) => piece.prop === "coffee"));
+  assert.ok(house.some((piece) => piece.prop === "bed"));
+  assert.ok(house.some((piece) => piece.prop === "floorlamp"));
+  const loftRoom = interiorLayout("loft", 11.9, 7.5);
+  assert.ok(loftRoom.some((piece) => piece.prop === "kitchen"));
+  assert.ok(loftRoom.some((piece) => piece.prop === "table"));
+  assert.ok(loftRoom.some((piece) => piece.prop === "coffee"));
   const library = interiorLayout("library", 11.25, 8.25);
   assert.ok(library.filter((piece) => piece.prop === "shelf").length >= 3);
   assert.ok(library.some((piece) => piece.prop === "books"));
@@ -246,6 +256,51 @@ test("interior furniture stays on the walls and the aisle reaches the marker", (
   const shifted = interiorStand({ x: 6, z: 80, w: 34, d: 16, yaw: Math.PI }, loft);
   const centered = interiorStand({ x: 6, z: 80, w: 34, d: 16, yaw: Math.PI });
   assert.ok(Math.hypot(shifted.eye.x - centered.eye.x, shifted.eye.z - centered.eye.z) > 4);
+});
+
+test("decorate snaps to the housing grid and refuses overlaps", () => {
+  const tiers = [
+    ["studio", 0],
+    ["apartment", 0],
+    ["house", 0],
+    ["creator-loft", 0],
+    ["mansion", 0],
+  ] as const;
+  const layout = buildOfficeLayout();
+  for (const [tier] of tiers) {
+    const model = housingModelForTier(tier);
+    const district = buildCityDistrict(layout, tier);
+    const plot = district.plots.find((item) => item.propertyTier === tier);
+    assert.ok(plot, tier);
+    const room = { model, ...housingInteriorSize(model, plot.w, plot.d) };
+    assert.ok(room.w > 2 && room.d > 2, tier);
+    const grid = decorGrid(room.w, room.d);
+    assert.ok(grid.cols >= 4 && grid.rows >= 4, tier);
+    const pieces = interiorLayout(model, room.w, room.d);
+    assert.equal(interiorPathClear(pieces, room.w, room.d), true, tier);
+    const walk = reservedWalkCells(grid, room.w, room.d);
+    assert.ok(walk.size > 0, tier);
+    const open = firstOpenCell(room, [], "plant", 0);
+    assert.ok(open, tier);
+    const session = { ...emptyCitySession(), homeTier: tier, kashCents: 500_000 };
+    const placed = placeDecorItem(session, "owner", room, { sku: "plant", gx: open.gx, gz: open.gz, turns: 0 }, 10);
+    assert.equal(placed.ok, true);
+    if (!placed.ok) return;
+    const again = placeDecorItem(placed.session, "owner", room, { sku: "chair", gx: open.gx, gz: open.gz, turns: 0 }, 11);
+    assert.equal(again.ok, false);
+    if (again.ok) return;
+    assert.match(again.error, /overlap|walk/i);
+    const stranger = placeDecorItem(session, "user", room, { sku: "plant", gx: open.gx, gz: open.gz, turns: 0 }, 12);
+    assert.equal(stranger.ok, false);
+    const walkCell = [...walk][0]?.split(",").map(Number) ?? [0, 0];
+    const blockedWalk = evaluatePlacement(room, [], { sku: "plant", gx: walkCell[0] ?? 0, gz: walkCell[1] ?? 0, turns: 0 });
+    assert.equal(blockedWalk.ok, false);
+    const kept = parseCitySession(JSON.stringify(placed.session));
+    assert.equal(kept?.decorPlacements.length, 1);
+    const removed = removeDecorItem(placed.session, "owner", placed.session.decorPlacements[0]?.id ?? "");
+    assert.equal(removed.ok, true);
+    if (removed.ok) assert.equal(removed.session.decorPlacements.length, 0);
+  }
 });
 
 test("office taps and city buildings share one registry", () => {

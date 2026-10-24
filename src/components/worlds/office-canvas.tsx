@@ -40,6 +40,11 @@ export type CitySceneMode = {
   interiorOpen: boolean;
   locked: boolean;
   onOpenLocation: (id: string) => void;
+  decor?: {
+    model: import("@/lib/worlds/city/decorate").HousingModel;
+    placements: readonly import("@/lib/worlds/city/decorate").DecorPlacement[];
+    mode: import("@/lib/worlds/city/decorate").DecorMode | null;
+  } | null;
 };
 
 export type OfficeLayers = {
@@ -1673,6 +1678,7 @@ function Scene({
             tier={tier}
             weather={weather}
             claimedLotIds={city.claimedLotIds}
+            decor={city.decor ?? null}
           />
         </WorldSceneShell>
       ) : null}

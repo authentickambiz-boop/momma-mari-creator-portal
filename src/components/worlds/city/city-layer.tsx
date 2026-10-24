@@ -10,6 +10,7 @@ import { districtBillboard } from "@/lib/worlds/city/scene-shell";
 import { CITY_PARK, MANSION_FOUNTAIN, WALK_WIDTH, curbOuterRadius, paveCity, type CurbReturn, type RoadCap, type RoadRect } from "@/lib/worlds/city/streets";
 import { FOLIAGE_COLORS, type OfficeWeather } from "@/lib/worlds/office-weather";
 import { CityBuilding, Gable } from "./building";
+import type { DecorMode, DecorPlacement, HousingModel } from "@/lib/worlds/city/decorate";
 
 /** Sector in the same space as CylinderGeometry: angle 0 is +Z, opening toward +X. */
 function sectorGeometry(outer: number, length: number, segments: number, inner = 0) {
@@ -672,6 +673,7 @@ export function CityLayer({
   tier,
   weather,
   claimedLotIds,
+  decor = null,
 }: {
   district: CityDistrict;
   quality: "fine" | "fast";
@@ -684,6 +686,11 @@ export function CityLayer({
   tier: HomeTier;
   weather: OfficeWeather;
   claimedLotIds: readonly string[];
+  decor?: {
+    model: HousingModel;
+    placements: readonly DecorPlacement[];
+    mode: DecorMode | null;
+  } | null;
 }) {
   const { ground } = district;
   const canopy = FOLIAGE_COLORS[weather.foliage].canopy[0] ?? "#3e8a42";
@@ -724,6 +731,8 @@ export function CityLayer({
           locked={selectedId === plot.id && locked}
           canOpen={canOpen}
           onEnter={() => onEnter(plot.id)}
+          placements={decor?.placements}
+          mode={decor?.mode && selectedId === plot.id && plot.model === decor.model ? decor.mode : null}
         />
       ))}
     </group>

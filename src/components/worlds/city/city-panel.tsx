@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { APARTMENT_UNIT_PRICE_CENTS, ASSET_OWNER, HOME_TIER_LABEL, HOME_TIER_PRICE_CENTS, HOME_TIERS, apartmentFloors, formatKash, shopItemsFor, type HomeTier } from "@/lib/worlds/economy";
 import { ACCESS_ROLES, decideEnter, type AccessRole } from "@/lib/worlds/city/access";
 import { CITY_LOCATIONS, SKILL_LABEL, locationById, type CityLot } from "@/lib/worlds/city/locations";
 import type { CityInteractable } from "@/lib/worlds/city/interactables";
+import { DECOR_CATALOG, type DecorSku, type DecorTurns } from "@/lib/worlds/city/decorate";
 import {
   buyCityItem,
   claimApartmentUnit,
@@ -12,12 +13,17 @@ import {
   emptyCitySession,
   homeItemsForTier,
   LIBRARY_TIPS,
+  openDecorCell,
   parseCitySession,
   pipelineLabel,
+  placeDecorItem,
+  removeDecorItem,
+  rotateDecorItem,
   submitCityTask,
   tasksForLocation,
   unlockHomeTier,
   type CitySession,
+  type DecorRoom,
 } from "@/lib/worlds/city/tasks";
 import "./city.css";
 
@@ -42,6 +48,9 @@ export function CityChrome({
   viewerRole,
   onViewerRole,
   lot,
+  decorRoom,
+  onDecorUi,
+  bindDecorTry,
 }: {
   locationId: string | null;
   officeTaps: readonly CityInteractable[];
@@ -54,6 +63,9 @@ export function CityChrome({
   viewerRole: AccessRole;
   onViewerRole: (role: AccessRole) => void;
   lot?: CityLot | null;
+  decorRoom: DecorRoom | null;
+  onDecorUi: (ui: { active: boolean; gridOn: boolean; sku: DecorSku; turns: DecorTurns; blocked: { gx: number; gz: number; turns: DecorTurns; sku: DecorSku } | null }) => void;
+  bindDecorTry: (fn: (gx: number, gz: number) => void) => void;
 }) {
   const [session, setSession] = useState<CitySession>(() => {
     if (typeof window === "undefined") return emptyCitySession();
@@ -66,6 +78,13 @@ export function CityChrome({
   const message = banner.at === sheetKey ? banner.message : "";
   const error = banner.at === sheetKey ? banner.error : "";
   const [placesOpen, setPlacesOpen] = useState(false);
+  const [decorating, setDecorating] = useState(false);
+  const [gridOn, setGridOn] = useState(true);
+  const [decorSku, setDecorSku] = useState<DecorSku>("plant");
+  const [decorTurns, setDecorTurns] = useState<DecorTurns>(0);
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const [lastCell, setLastCell] = useState<{ gx: number; gz: number } | null>(null);
+  const [decorNote, setDecorNote] = useState<{ text: string; blocked: boolean } | null>(null);
   const [qc, setQc] = useState<Record<string, { auto: string; peer: string; owner: string; delivery: string }>>({});
 
   useEffect(() => {
@@ -79,6 +98,39 @@ export function CityChrome({
   useEffect(() => {
     onSession(session);
   }, [session, onSession]);
+
+  const decorActive = decorating && locationId === "home" && viewerRole === "owner" && !!decorRoom;
+
+  useEffect(() => {
+    onDecorUi({
+      active: decorActive,
+      gridOn,
+      sku: decorSku,
+      turns: decorTurns,
+      blocked: decorNote?.blocked && lastCell ? { ...lastCell, turns: decorTurns, sku: decorSku } : null,
+    });
+  }, [decorActive, gridOn, decorSku, decorTurns, decorNote, lastCell, onDecorUi]);
+
+  const tryDecorRef = useRef<(gx: number, gz: number) => void>(() => {});
+  tryDecorRef.current = (gx, gz) => {
+    if (!decorRoom || !decorActive) return;
+    const moving = movingId ? session.decorPlacements.find((item) => item.id === movingId) : null;
+    const sku = moving?.sku ?? decorSku;
+    const turns = moving ? moving.turns : decorTurns;
+    const result = placeDecorItem(session, viewerRole, decorRoom, { sku, gx, gz, turns }, Date.now(), moving?.id);
+    setLastCell({ gx, gz });
+    if (!result.ok) {
+      setDecorNote({ text: result.error, blocked: true });
+      return;
+    }
+    setDecorNote({ text: result.message, blocked: false });
+    setMovingId(null);
+    setSession(result.session);
+  };
+
+  useEffect(() => {
+    bindDecorTry((gx, gz) => tryDecorRef.current(gx, gz));
+  }, [bindDecorTry]);
 
   const location = locationId ? locationById(locationId) : null;
   const decision = location ? decideEnter(location, viewerRole, session, propertyTier) : null;
@@ -152,6 +204,9 @@ export function CityChrome({
             ))}
           </nav>
         ) : null}
+        {decorNote ? (
+          <p className="city-decor-note" role="status" data-blocked={decorNote.blocked ? "true" : "false"}>{decorNote.text}</p>
+        ) : null}
       </div>
       {location ? (
         <section className="office-panel office-sheet city-sheet" aria-label={`${location.name} interior`} data-location={location.id}>
@@ -209,6 +264,86 @@ export function CityChrome({
                   </button>
                 ))}
               </div>
+              {viewerRole === "owner" ? (
+                <div className="city-task">
+                  <h3>Decorate</h3>
+                  <p>Practice only. The starter pieces are free for the owner. Placements stay on this device. No real payment.</p>
+                  <button
+                    type="button"
+                    aria-pressed={decorActive}
+                    onClick={() => {
+                      setDecorating((on) => {
+                        const next = !on;
+                        setDecorNote(next ? { text: "Decorating this home. The floor grid is on.", blocked: false } : null);
+                        return next;
+                      });
+                      setMovingId(null);
+                    }}
+                  >
+                    {decorActive ? "Leave decorate" : "Decorate this home"}
+                  </button>
+                  {decorActive ? (
+                    <>
+                      <div className="office-actions" aria-label="Decor catalog">
+                        {DECOR_CATALOG.map((item) => (
+                          <button
+                            key={item.sku}
+                            type="button"
+                            aria-pressed={decorSku === item.sku && !movingId}
+                            onClick={() => {
+                              setDecorSku(item.sku);
+                              setMovingId(null);
+                            }}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="office-actions">
+                        <button type="button" aria-pressed={gridOn} onClick={() => setGridOn((on) => !on)}>Floor grid</button>
+                        <button type="button" onClick={() => setDecorTurns((turns) => ((turns + 1) % 4) as DecorTurns)}>Rotate</button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!decorRoom) return;
+                            const moving = movingId ? session.decorPlacements.find((item) => item.id === movingId) : null;
+                            const cell = openDecorCell(
+                              decorRoom,
+                              session.decorPlacements,
+                              moving?.sku ?? decorSku,
+                              moving?.turns ?? decorTurns,
+                              moving?.id,
+                            );
+                            if (!cell) {
+                              setDecorNote({ text: "No open cell is left for that piece.", blocked: true });
+                              return;
+                            }
+                            tryDecorRef.current(cell.gx, cell.gz);
+                          }}
+                        >
+                          Place on open cell
+                        </button>
+                        <button type="button" disabled={!lastCell} onClick={() => lastCell && tryDecorRef.current(lastCell.gx, lastCell.gz)}>
+                          Place on last cell
+                        </button>
+                      </div>
+                      <p>Click the floor to place on the grid. Rotate turns the piece before it lands.</p>
+                      <ul className="city-shop">
+                        {session.decorPlacements.filter((item) => item.model === decorRoom?.model).map((item) => (
+                          <li key={item.id}>
+                            <b>{DECOR_CATALOG.find((entry) => entry.sku === item.sku)?.label}</b> · cell {item.gx}, {item.gz}
+                            <div className="office-actions">
+                              <button type="button" aria-pressed={movingId === item.id} onClick={() => setMovingId(item.id)}>Move</button>
+                              <button type="button" onClick={() => decorRoom && apply(rotateDecorItem(session, viewerRole, decorRoom, item.id))}>Rotate piece</button>
+                              <button type="button" onClick={() => apply(removeDecorItem(session, viewerRole, item.id))}>Remove</button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
           {shop.length ? (

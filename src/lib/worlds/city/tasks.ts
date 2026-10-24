@@ -21,6 +21,17 @@ import {
   type HomeTier,
 } from "../economy";
 import {
+  DECOR_CAP,
+  decorItem,
+  evaluatePlacement,
+  firstOpenCell,
+  isDecorPlacement,
+  type DecorPlacement,
+  type DecorSku,
+  type DecorTurns,
+  type HousingModel,
+} from "./decorate";
+import {
   SKILL_LABEL,
   type CityLocationId,
   type SkillId,
@@ -92,6 +103,8 @@ export type CitySession = {
   claimedLotIds: string[];
   /** Extra floors added to the apartment complex. There are no apartment yard lots. */
   apartmentUnits: number;
+  /** Owner decorate placements, saved on this device. Free practice props. */
+  decorPlacements: DecorPlacement[];
 };
 
 export type CitySuccess = { ok: true; session: CitySession; message: string; sent?: false; score?: number | null };
@@ -812,6 +825,7 @@ export function emptyCitySession(): CitySession {
     libraryTips: [],
     claimedLotIds: [],
     apartmentUnits: 0,
+    decorPlacements: [],
   };
 }
 
@@ -851,6 +865,7 @@ function clone(session: CitySession): CitySession {
     libraryTips: [...session.libraryTips],
     claimedLotIds: [...session.claimedLotIds],
     apartmentUnits: session.apartmentUnits,
+    decorPlacements: session.decorPlacements.map((item) => ({ ...item })),
   };
 }
 
@@ -1139,10 +1154,84 @@ export function parseCitySession(raw: string): CitySession | null {
       libraryTips: Array.isArray(value.libraryTips) ? value.libraryTips.filter((item): item is string => typeof item === "string") : [],
       claimedLotIds: Array.isArray(value.claimedLotIds) ? value.claimedLotIds.filter((item): item is string => typeof item === "string") : [],
       apartmentUnits: typeof value.apartmentUnits === "number" && Number.isFinite(value.apartmentUnits) ? Math.max(0, Math.trunc(value.apartmentUnits)) : 0,
+      decorPlacements: Array.isArray(value.decorPlacements) ? value.decorPlacements.filter(isDecorPlacement) : [],
     };
   } catch {
     return null;
   }
+}
+
+export type DecorRoom = { model: HousingModel; w: number; d: number };
+
+function decorDenied(role: string): CityResult | null {
+  if (role === "owner") return null;
+  return { ok: false, error: "Only the owner can decorate in this practice build." };
+}
+
+export function placeDecorItem(
+  session: CitySession,
+  role: string,
+  room: DecorRoom,
+  input: { sku: DecorSku; gx: number; gz: number; turns: DecorTurns },
+  now: number,
+  movingId?: string,
+): CityResult {
+  const denied = decorDenied(role);
+  if (denied) return denied;
+  const mine = session.decorPlacements.filter((item) => item.model === room.model && item.id !== movingId);
+  if (!movingId && mine.length >= DECOR_CAP) {
+    return { ok: false, error: "This home is full for now. Remove a piece to place another." };
+  }
+  const check = evaluatePlacement(room, session.decorPlacements, input, movingId);
+  if (!check.ok) return { ok: false, error: check.reason };
+  const next = clone(session);
+  const label = decorItem(input.sku).label.toLowerCase();
+  if (movingId) {
+    const current = next.decorPlacements.find((item) => item.id === movingId);
+    if (!current) return { ok: false, error: "That piece is no longer in the room." };
+    current.gx = input.gx;
+    current.gz = input.gz;
+    current.turns = input.turns;
+    current.sku = input.sku;
+    return { ok: true, session: next, sent: false, message: `Moved the ${label}. Saved on this device. No real payment.` };
+  }
+  next.decorPlacements.push({
+    id: `decor-${now}-${input.gx}-${input.gz}`,
+    model: room.model,
+    sku: input.sku,
+    gx: input.gx,
+    gz: input.gz,
+    turns: input.turns,
+  });
+  return { ok: true, session: next, sent: false, message: `Placed a ${label} at cell ${input.gx}, ${input.gz}. Saved on this device. No real payment.` };
+}
+
+export function rotateDecorItem(session: CitySession, role: string, room: DecorRoom, id: string): CityResult {
+  const denied = decorDenied(role);
+  if (denied) return denied;
+  const current = session.decorPlacements.find((item) => item.id === id);
+  if (!current || current.model !== room.model) return { ok: false, error: "That piece is not in this home." };
+  const turns = ((current.turns + 1) % 4) as DecorTurns;
+  const check = evaluatePlacement(room, session.decorPlacements, { sku: current.sku, gx: current.gx, gz: current.gz, turns }, id);
+  if (!check.ok) return { ok: false, error: check.reason };
+  const next = clone(session);
+  const placed = next.decorPlacements.find((item) => item.id === id);
+  if (!placed) return { ok: false, error: "That piece is not in this home." };
+  placed.turns = turns;
+  return { ok: true, session: next, sent: false, message: `Rotated the ${decorItem(placed.sku).label.toLowerCase()}. Saved on this device.` };
+}
+
+export function removeDecorItem(session: CitySession, role: string, id: string): CityResult {
+  const denied = decorDenied(role);
+  if (denied) return denied;
+  if (!session.decorPlacements.some((item) => item.id === id)) return { ok: false, error: "That piece is not in this home." };
+  const next = clone(session);
+  next.decorPlacements = next.decorPlacements.filter((item) => item.id !== id);
+  return { ok: true, session: next, sent: false, message: "Removed that piece. Saved on this device." };
+}
+
+export function openDecorCell(room: DecorRoom, placements: readonly DecorPlacement[], sku: DecorSku, turns: DecorTurns, ignoreId?: string) {
+  return firstOpenCell(room, placements, sku, turns, ignoreId);
 }
 
 export function actionClassOf(kind: CityTaskKind): ActionClass {

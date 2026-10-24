@@ -51,6 +51,20 @@
   color: #fbf8f3;
 }
 .city-sheet { z-index: 4; }
+.city-decor-note {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #d6cec1;
+  color: #1c211e;
+  font-size: 14px;
+}
+.city-decor-note[data-blocked="true"] {
+  border-color: #8a3a32;
+  color: #6a243c;
+  background: #f8ece8;
+}
 .city-balance { font-weight: 700; }
 .city-room {
   display: grid;

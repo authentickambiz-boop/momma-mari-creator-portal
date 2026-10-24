@@ -14,7 +14,21 @@ import {
 } from "three";
 import type { HomeTier } from "@/lib/worlds/economy";
 import type { BuildingModel, Plot } from "@/lib/worlds/city/locations";
-import { interiorLayout, type InteriorBox } from "@/lib/worlds/city/interiors";
+import { housingInteriorSize, interiorLayout, type InteriorBox } from "@/lib/worlds/city/interiors";
+import {
+  cellCenter,
+  cellKey,
+  cellsFor,
+  decorGrid,
+  decorItem,
+  evaluatePlacement,
+  isHousingModel,
+  placementCenter,
+  snapCell,
+  type DecorMode,
+  type DecorPlacement,
+  type HousingModel,
+} from "@/lib/worlds/city/decorate";
 import { HOUSE_ROW_GAP, ROW_ROOF_OVERHANG_X, ROW_ROOF_OVERHANG_Z, STUDIO_ROW_GAP, gableSlabs, shedSlab } from "@/lib/worlds/city/roofs";
 import { locationById } from "@/lib/worlds/city/locations";
 
@@ -907,6 +921,9 @@ function KitchenMesh({ color }: { color: string }) {
       <ToonCylinder position={[-0.32, 0.77, 0.04]} args={[0.065, 0.065, 0.025, 10]} color="#2a2e33" />
       <ToonCylinder position={[-0.14, 0.77, 0.04]} args={[0.065, 0.065, 0.025, 10]} color="#2a2e33" />
       <ToonBox position={[0.08, 0.74, 0.04]} args={[0.16, 0.03, 0.14]} color="#8ec4ea" finish="metal" />
+      <ToonBox position={[-0.28, 0.86, -0.08]} args={[0.22, 0.14, 0.16]} color="#f7f1e4" finish="paint" />
+      <ToonBox position={[-0.28, 0.86, 0.02]} args={[0.16, 0.08, 0.02]} color="#1c211e" finish="paint" />
+      <ToonBox position={[-0.02, 0.8, 0.08]} args={[0.16, 0.1, 0.1]} color="#c45c4a" finish="paint" />
       <ToonBox position={[0.46, 0.56, 0]} args={[0.26, 1.08, 0.42]} color="#f7f1e4" finish="paint" />
       <ToonBox position={[0.46, 0.7, 0.22]} args={[0.18, 0.025, 0.015]} color="#2a2e33" finish="metal" />
       <ToonBox position={[0.56, 0.82, 0.2]} args={[0.025, 0.14, 0.025]} color="#2a2e33" finish="metal" />
@@ -972,6 +989,79 @@ function NotesMesh() {
       <ToonBox position={[0.06, 0.64, 0.03]} args={[0.09, 0.08, 0.015]} color="#f2b4c4" finish="paint" />
       <ToonBox position={[-0.02, 0.54, 0.03]} args={[0.1, 0.08, 0.015]} color="#8ec4ea" finish="paint" />
       <ToonBox position={[0.05, 0.76, 0.035]} args={[0.07, 0.06, 0.012]} color="#e7ffc4" finish="paint" />
+    </group>
+  );
+}
+
+function CoffeeMesh({ color }: { color: string }) {
+  const legs = [[-0.28, -0.14], [0.28, -0.14], [-0.28, 0.14], [0.28, 0.14]] as const;
+  return (
+    <group>
+      {legs.map(([x, z]) => (
+        <ToonBox key={`${x}${z}`} position={[x, 0.14, z]} args={[0.04, 0.28, 0.04]} color="#3a2a22" finish="wood" />
+      ))}
+      <ToonBox position={[0, 0.3, 0]} args={[0.7, 0.05, 0.38]} color={color} finish="wood" />
+      <ToonBox position={[-0.08, 0.35, 0.02]} args={[0.22, 0.04, 0.16]} color="#e07a5f" finish="paint" />
+      <ToonBox position={[0.12, 0.39, -0.02]} args={[0.18, 0.035, 0.14]} color="#8ec4ea" finish="paint" />
+    </group>
+  );
+}
+
+function FloorLampMesh() {
+  return (
+    <group>
+      <ToonCylinder position={[0, 0.04, 0]} args={[0.12, 0.14, 0.06, 10]} color="#2a2e33" />
+      <ToonBox position={[0, 0.62, 0]} args={[0.04, 1.1, 0.04]} color="#2a2e33" finish="metal" />
+      <mesh position={[0, 1.22, 0]}>
+        <cylinderGeometry args={[0.08, 0.16, 0.16, 10]} />
+        <meshStandardMaterial color="#f6e2a8" emissive="#f2c14e" emissiveIntensity={0.75} roughness={0.38} />
+      </mesh>
+    </group>
+  );
+}
+
+function BinMesh() {
+  return (
+    <group>
+      <ToonCylinder position={[0, 0.2, 0]} args={[0.11, 0.09, 0.36, 8]} color="#2a2e33" />
+      <ToonCylinder position={[0, 0.4, 0]} args={[0.12, 0.12, 0.04, 8]} color="#8a847c" />
+    </group>
+  );
+}
+
+function CabinetMesh({ color }: { color: string }) {
+  return (
+    <group>
+      <ToonBox position={[0, 0.75, 0]} args={[0.66, 1.45, 0.36]} color={color} finish="wood" />
+      <ToonBox position={[0, 0.75, 0.19]} args={[0.02, 1.3, 0.02]} color="#3a2a22" finish="wood" />
+      <ToonBox position={[-0.12, 0.85, 0.2]} args={[0.03, 0.1, 0.03]} color="#c6a15a" finish="metal" />
+      <ToonBox position={[0.12, 0.85, 0.2]} args={[0.03, 0.1, 0.03]} color="#c6a15a" finish="metal" />
+    </group>
+  );
+}
+
+function RackMesh({ wide }: { wide: number }) {
+  return (
+    <group>
+      <ToonBox position={[0, 0, 0]} args={[wide, 0.06, 0.16]} color="#6b4a32" finish="wood" />
+      <ToonBox position={[-wide * 0.32, -0.08, 0.02]} args={[0.04, 0.12, 0.1]} color="#3a2a22" finish="wood" />
+      <ToonBox position={[wide * 0.32, -0.08, 0.02]} args={[0.04, 0.12, 0.1]} color="#3a2a22" finish="wood" />
+      <ToonBox position={[-wide * 0.18, 0.1, 0]} args={[0.12, 0.14, 0.1]} color="#e07a5f" finish="paint" />
+      <ToonBox position={[0.02, 0.08, 0]} args={[0.16, 0.08, 0.1]} color="#f2c14e" finish="paint" />
+      <ToonBox position={[wide * 0.2, 0.12, 0]} args={[0.08, 0.16, 0.08]} color="#1f3b2d" finish="paint" />
+    </group>
+  );
+}
+
+function EaselMesh({ color }: { color: string }) {
+  return (
+    <group>
+      <ToonBox position={[0, 0.32, 0]} args={[0.06, 0.64, 0.06]} color="#6b4a32" finish="wood" />
+      <ToonBox position={[-0.12, 0.16, 0.08]} args={[0.04, 0.36, 0.04]} color="#6b4a32" finish="wood" rotation={[0.3, 0, 0.2]} />
+      <ToonBox position={[0.12, 0.16, 0.08]} args={[0.04, 0.36, 0.04]} color="#6b4a32" finish="wood" rotation={[0.3, 0, -0.2]} />
+      <group position={[0, 0.7, 0.04]}>
+        <FramedArt wide={0.4} tall={0.46} color={color} />
+      </group>
     </group>
   );
 }
@@ -1107,6 +1197,18 @@ function InteriorPiece({ piece }: { piece: InteriorBox }) {
   if (piece.prop === "queue") return <FitProp piece={piece} baseW={0.9} baseD={0.28}><QueueMesh /></FitProp>;
   if (piece.prop === "atm") return <FitProp piece={piece} baseW={0.55} baseD={0.4}><AtmMesh /></FitProp>;
   if (piece.prop === "notes") return <FitProp piece={piece} baseW={0.32} baseD={0.2}><NotesMesh /></FitProp>;
+  if (piece.prop === "coffee") return <FitProp piece={piece} baseW={0.8} baseD={0.42}><CoffeeMesh color={piece.color} /></FitProp>;
+  if (piece.prop === "floorlamp") return <FitProp piece={piece} baseW={0.32} baseD={0.32}><FloorLampMesh /></FitProp>;
+  if (piece.prop === "bin") return <FitProp piece={piece} baseW={0.28} baseD={0.28}><BinMesh /></FitProp>;
+  if (piece.prop === "cabinet") return <FitProp piece={piece} baseW={0.72} baseD={0.4}><CabinetMesh color={piece.color} /></FitProp>;
+  if (piece.prop === "rack") {
+    const wide = piece.w < piece.d ? piece.d : piece.w;
+    return (
+      <group position={[piece.x, piece.y, piece.z]} rotation={[0, faceYaw(piece.face), 0]}>
+        <RackMesh wide={wide} />
+      </group>
+    );
+  }
   return (
     <ToonBox
       position={[piece.x, piece.y, piece.z]}
@@ -1117,20 +1219,142 @@ function InteriorPiece({ piece }: { piece: InteriorBox }) {
   );
 }
 
+function PlacedDecor({ placement, w, d }: { placement: DecorPlacement; w: number; d: number }) {
+  const grid = decorGrid(w, d);
+  const item = decorItem(placement.sku);
+  const spot = placementCenter(grid, item, placement.gx, placement.gz, placement.turns);
+  const yaw = placement.turns * (Math.PI / 2);
+  if (item.prop === "rug") {
+    return (
+      <mesh position={[spot.x, 0.13, spot.z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[spot.w * 0.92, spot.d * 0.92]} />
+        <meshBasicMaterial color={item.color} />
+      </mesh>
+    );
+  }
+  const mesh = item.prop === "sofa" ? <SofaMesh color={item.color} />
+    : item.prop === "chair" ? <ChairMesh color={item.color} />
+    : item.prop === "coffee" ? <CoffeeMesh color={item.color} />
+    : item.prop === "plant" ? <PlantMesh />
+    : item.prop === "floorlamp" ? <FloorLampMesh />
+    : item.prop === "kitchen" ? <KitchenMesh color={item.color} />
+    : <EaselMesh color={item.color} />;
+  return (
+    <group position={[spot.x, 0, spot.z]} rotation={[0, yaw, 0]} scale={[spot.w / item.baseW, 1, spot.d / item.baseD]}>
+      {mesh}
+    </group>
+  );
+}
+
+function FloorGridLines({ w, d }: { w: number; d: number }) {
+  const grid = decorGrid(w, d);
+  const x0 = grid.originX;
+  const z0 = grid.originZ;
+  const x1 = x0 + grid.cols * grid.cell;
+  const z1 = z0 + grid.rows * grid.cell;
+  const thick = 0.02;
+  const rise = 0.08;
+  const strips = [];
+  for (let i = 0; i <= grid.cols; i += 1) {
+    const x = x0 + i * grid.cell;
+    strips.push(
+      <mesh key={`vx${i}`} position={[x, 0.14 + rise / 2, (z0 + z1) / 2]}>
+        <boxGeometry args={[thick, rise, z1 - z0]} />
+        <meshBasicMaterial color="#314556" toneMapped={false} />
+      </mesh>,
+    );
+  }
+  for (let i = 0; i <= grid.rows; i += 1) {
+    const z = z0 + i * grid.cell;
+    strips.push(
+      <mesh key={`hz${i}`} position={[(x0 + x1) / 2, 0.14 + rise / 2, z]}>
+        <boxGeometry args={[x1 - x0, rise, thick]} />
+        <meshBasicMaterial color="#314556" toneMapped={false} />
+      </mesh>,
+    );
+  }
+  return <group>{strips}</group>;
+}
+
+function CellPaint({ w, d, cells, color }: { w: number; d: number; cells: { gx: number; gz: number }[]; color: string }) {
+  const grid = decorGrid(w, d);
+  return (
+    <group name="decor-block">
+      {cells.map((cell) => {
+        const center = cellCenter(grid, cell.gx, cell.gz);
+        return (
+          <mesh key={cellKey(cell.gx, cell.gz)} position={[center.x, 0.24, center.z]}>
+            <boxGeometry args={[grid.cell * 0.9, 0.2, grid.cell * 0.9]} />
+            <meshBasicMaterial color={color} toneMapped={false} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
 function CityInterior({
   model,
   w,
   d,
+  placements = [],
+  mode = null,
 }: {
   model: BuildingModel;
   w: number;
   d: number;
   tier: HomeTier;
+  placements?: readonly DecorPlacement[];
+  mode?: DecorMode | null;
 }) {
   const pieces = useMemo(() => interiorLayout(model, w, d), [model, w, d]);
+  const roomRef = useRef<Group>(null);
+  const housing = isHousingModel(model) ? model : null;
+  const mine = housing ? placements.filter((item) => item.model === housing) : [];
+  const hoverCells = mode && housing ? cellsFor(decorItem(mode.sku), mode.hover?.gx ?? -1, mode.hover?.gz ?? -1, mode.turns) : [];
+  const showHover = !!mode?.hover && hoverCells.length > 0 && hoverCells.every((cell) => cell.gx >= 0);
+  const hoverOk = showHover && housing && mode
+    ? evaluatePlacement({ model: housing, w, d }, mine, { sku: mode.sku, gx: mode.hover!.gx, gz: mode.hover!.gz, turns: mode.turns }).ok
+    : false;
+  const blockedCells = mode?.blocked && housing
+    ? cellsFor(decorItem(mode.blocked.sku), mode.blocked.gx, mode.blocked.gz, mode.blocked.turns)
+    : [];
+  function readCell(point: Vector3) {
+    const room = roomRef.current;
+    if (!room) return null;
+    const local = room.worldToLocal(point.clone());
+    return snapCell(decorGrid(w, d), local.x, local.z);
+  }
   return (
-    <group name="city-interior">
+    <group name="city-interior" ref={roomRef}>
       {pieces.map((piece) => <InteriorPiece key={piece.id} piece={piece} />)}
+      {mine.map((placement) => <PlacedDecor key={placement.id} placement={placement} w={w} d={d} />)}
+      {mode?.gridOn ? <FloorGridLines w={w} d={d} /> : null}
+      {mode?.blocked && blockedCells.length ? <CellPaint w={w} d={d} cells={blockedCells} color="#e23b5a" /> : null}
+      {showHover && !mode?.blocked ? <CellPaint w={w} d={d} cells={hoverCells} color={hoverOk ? "#7eb6d8" : "#d4567a"} /> : null}
+      {mode ? (
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0.15, 0]}
+          onPointerMove={(event) => {
+            event.stopPropagation();
+            const cell = readCell(event.point);
+            if (cell) mode.onHover(cell);
+          }}
+          onPointerOut={(event) => {
+            event.stopPropagation();
+            mode.onHover(null);
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            const cell = readCell(event.point);
+            if (cell) mode.onCell(cell);
+          }}
+        >
+          <planeGeometry args={[w, d]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      ) : null}
       <pointLight position={[0, 2.1, 0.4]} intensity={0.85} distance={16} decay={2} color="#fff1d6" />
     </group>
   );
@@ -1444,6 +1668,8 @@ function ApartmentStack({
   open,
   mid,
   furnish,
+  placements,
+  mode,
 }: {
   plot: Plot;
   w: number;
@@ -1451,6 +1677,8 @@ function ApartmentStack({
   open: boolean;
   mid: boolean;
   furnish: boolean;
+  placements?: readonly DecorPlacement[];
+  mode?: DecorMode | null;
 }) {
   const floors = Math.max(3, plot.floors);
   const bw = w * 0.86;
@@ -1478,7 +1706,7 @@ function ApartmentStack({
         </group>
       ))}
       <ToonBox position={[0, 0.05, d * 0.42]} args={[w * 0.7, 0.08, d * 0.28]} color="#c8c2b6" finish="stone" />
-      {furnish ? <CityInterior model="apartment" w={bw - 0.7} d={bd - 0.7} tier="apartment" /> : null}
+      {furnish ? <CityInterior model="apartment" w={housingInteriorSize("apartment", plot.w, plot.d).w} d={housingInteriorSize("apartment", plot.w, plot.d).d} tier="apartment" placements={placements} mode={mode} /> : null}
     </group>
   );
 }
@@ -1490,6 +1718,8 @@ function Neighborhood({
   open,
   mid,
   furnish,
+  placements,
+  mode,
 }: {
   model: BuildingModel;
   plot: Plot;
@@ -1497,9 +1727,12 @@ function Neighborhood({
   open: boolean;
   mid: boolean;
   furnish: boolean;
+  placements?: readonly DecorPlacement[];
+  mode?: DecorMode | null;
 }) {
   const w = plot.w * 0.92;
   const d = plot.d * 0.72;
+  const room = housingInteriorSize(model, plot.w, plot.d);
   if (model === "studio") {
     const count = 4;
     const unit = w / count - STUDIO_ROW_GAP;
@@ -1512,7 +1745,7 @@ function Neighborhood({
             <group key={x} position={[x, 0, 0]}>
               <Envelope w={unit} h={2.55} d={d * 0.7} color={index % 2 ? "#d7b07a" : plot.wall} yaw={0} open={open && index === 1} outline={false} finish="wood" />
               <Gable w={unit} h={2.55} d={d * 0.7} color={plot.roof} overhangX={ROW_ROOF_OVERHANG_X} overhangZ={ROW_ROOF_OVERHANG_Z} endColor={index % 2 ? "#d7b07a" : plot.wall} />
-              {furnish && index === 1 ? <CityInterior model="studio" w={Math.max(2.1, unit - 0.45)} d={Math.max(2.2, d * 0.7 - 0.45)} tier="studio" /> : null}
+              {furnish && index === 1 ? <CityInterior model="studio" w={room.w} d={room.d} tier="studio" placements={placements} mode={mode} /> : null}
               {mid ? <Windows w={unit * 0.8} h={2.4} d={d * 0.7} rows={1} cols={2} /> : null}
               <ToonBox position={[0, 0.12, d * 0.35 + 0.45]} args={[unit * 0.55, 0.16, 0.7]} color="#cfc8bb" finish="stone" />
             </group>
@@ -1523,7 +1756,7 @@ function Neighborhood({
   }
   if (model === "apartment") {
     return (
-      <ApartmentStack plot={plot} w={w} d={d} open={open} mid={mid} furnish={furnish} />
+      <ApartmentStack plot={plot} w={w} d={d} open={open} mid={mid} furnish={furnish} placements={placements} mode={mode} />
     );
   }
   if (model === "houses") {
@@ -1538,7 +1771,7 @@ function Neighborhood({
             <group key={x} position={[x, 0, -0.4]}>
               <Envelope w={unit} h={3.3} d={d * 0.62} color={index === 1 ? "#efe6d6" : plot.wall} yaw={0} open={open && index === 1} outline={false} finish={index === 1 ? "plaster" : "brick"} />
               <Gable w={unit} h={3.3} d={d * 0.62} color={plot.roof} overhangX={ROW_ROOF_OVERHANG_X} overhangZ={ROW_ROOF_OVERHANG_Z} endColor={index === 1 ? "#efe6d6" : plot.wall} />
-              {furnish && index === 1 ? <CityInterior model="houses" w={unit - 0.55} d={d * 0.62 - 0.55} tier="house" /> : null}
+              {furnish && index === 1 ? <CityInterior model="houses" w={room.w} d={room.d} tier="house" placements={placements} mode={mode} /> : null}
               {mid ? <Windows w={unit * 0.75} h={3} d={d * 0.62} rows={1} cols={2} /> : null}
               <ToonBox position={[0, 1.05, d * 0.31 + 0.45]} args={[unit * 0.55, 0.1, 0.9]} color={plot.roof} finish="wood" />
               {mid ? <PicketRun w={unit + 0.4} z={d * 0.31 + 1.15} /> : null}
@@ -1557,7 +1790,7 @@ function Neighborhood({
           <group key={x} position={[x, 0, 0]}>
             <Envelope w={w * 0.4} h={4.2} d={d * 0.7} color={plot.wall} yaw={0} open={open && index === 0} outline={false} finish="brick" />
             <ShedRoof w={w * 0.4} h={4.2} d={d * 0.7} color="#d5e7f0" finish="glass" />
-            {furnish && index === 0 ? <CityInterior model="loft" w={w * 0.4 - 0.6} d={d * 0.7 - 0.6} tier="creator-loft" /> : null}
+            {furnish && index === 0 ? <CityInterior model="loft" w={room.w} d={room.d} tier="creator-loft" placements={placements} mode={mode} /> : null}
             {mid ? <Windows w={w * 0.28} h={3.6} d={d * 0.7} rows={2} cols={3} /> : null}
             {mid ? <ToonBox position={[w * 0.12, 2.2, d * 0.35 + 0.2]} args={[w * 0.16, 2.2, 0.16]} color="#d5e7f0" finish="glass" /> : null}
           </group>
@@ -1582,7 +1815,7 @@ function Neighborhood({
           <YardTree w={w * 0.2} d={d * 0.1} canopy="#2f6d4f" />
         </group>
       ) : null}
-      {furnish ? <CityInterior model="mansion" w={w * 0.72 - 0.7} d={d * 0.62 - 0.7} tier="mansion" /> : null}
+      {furnish ? <CityInterior model="mansion" w={room.w} d={room.d} tier="mansion" placements={placements} mode={mode} /> : null}
     </group>
   );
 }
@@ -1597,6 +1830,8 @@ export function CityBuilding({
   locked,
   canOpen,
   onEnter,
+  placements,
+  mode,
 }: {
   plot: Plot;
   tier: HomeTier;
@@ -1607,6 +1842,8 @@ export function CityBuilding({
   locked: boolean;
   canOpen: () => boolean;
   onEnter: () => void;
+  placements?: readonly DecorPlacement[];
+  mode?: DecorMode | null;
 }) {
   const location = locationById(plot.locationId);
   const model = plot.model ?? location?.buildingModel ?? "lab";
@@ -1627,7 +1864,7 @@ export function CityBuilding({
       {model === "hq" ? (
         <HqBody w={plot.w} h={height} d={plot.d} open={open} />
       ) : neighborhood ? (
-        <Neighborhood model={model} plot={plot} tier={placeTier} open={open} mid={mid} furnish={open || (mid && !locked)} />
+        <Neighborhood model={model} plot={plot} tier={placeTier} open={open} mid={mid} furnish={open || (mid && !locked)} placements={placements} mode={open ? mode : null} />
       ) : (
         <>
           <Envelope w={plot.w} h={height} d={plot.d} color={plot.wall} yaw={plot.yaw} open={open} outline={close} finish={WALL_FINISH[model] ?? "brick"} />
