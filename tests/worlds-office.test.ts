@@ -245,7 +245,7 @@ describe("bot office", () => {
     assert.match(app, /localStorage/);
     assert.match(app, /onOpenMeet/);
     assert.match(app, /onClear/);
-    assert.match(source("src/components/worlds/office.css"), /45vh/);
+    assert.match(source("src/components/worlds/office.css"), /max-height: min\(78vh, 680px\)/);
     assert.match(source("src/components/worlds/office.css"), /office-sheet/);
     const walletsRoute = source("src/app/api/worlds/wallets/route.ts");
     assert.match(walletsRoute, /authorizeBot/);

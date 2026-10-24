@@ -5,7 +5,11 @@
 
 import type { CharacterSlotName } from "./character";
 
-export const CURRENCY = { code: "KASH", label: "Kash $" } as const;
+/** K with a line through it, the same idea as $. U+20AD KIP SIGN. */
+export const KASH_MARK = "₭";
+
+/** The name stays "Kash $". Amounts use {@link KASH_MARK} as the prefix people see. */
+export const CURRENCY = { code: "KASH", label: "Kash $", mark: KASH_MARK } as const;
 
 /** Ledger cents in one Kash unit. */
 export const CENTS_PER_UNIT = 100;
@@ -139,9 +143,11 @@ export function centsToUnits(cents: number) {
 
 export function formatKash(amount: number) {
   const safe = Number.isFinite(amount) ? amount : 0;
-  const whole = Math.abs(safe - Math.round(safe)) < 0.001;
-  const text = whole ? String(Math.round(safe)) : safe.toFixed(2);
-  return `${text} ${CURRENCY.label}`;
+  const negative = safe < 0;
+  const abs = Math.abs(safe);
+  const whole = Math.abs(abs - Math.round(abs)) < 0.001;
+  const text = whole ? String(Math.round(abs)) : abs.toFixed(2);
+  return `${negative ? "-" : ""}${KASH_MARK}${text}`;
 }
 
 /** Stub. Bot level does not change payouts yet. The id is reserved for a later multiplier. */

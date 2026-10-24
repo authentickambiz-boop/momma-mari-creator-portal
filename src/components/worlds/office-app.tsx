@@ -17,7 +17,7 @@ import {
   type OfficeCommand,
 } from "@/lib/worlds/office-commands";
 import { CHARACTER_PATH, LOOKS_POLL_MS, OWNER_LOOK_SEED, defaultCharacter, parseCharacter, type CharacterConfig } from "@/lib/worlds/character";
-import { assignBotRooms, createOfficeSimStore, placeBotsInRooms, simActivity } from "@/lib/worlds/office-sim";
+import { assignBotRooms, createOfficeSimStore, placeBotsInRooms, placeOwnerOutdoors, simActivity } from "@/lib/worlds/office-sim";
 import {
   OFFICE_LABEL,
   OFFICE_POLL_MS,
@@ -44,7 +44,10 @@ import { formatGameUnits, GAME_WALLET_PATH } from "@/lib/worlds/game-wallet";
 import type { BoardOpen, OfficeCameraApi, OfficeLayers, OfficeQuality } from "./office-canvas";
 import { OfficeJoystick } from "./office-joystick";
 import { panelsEnabledFromStorage, panelsStorageValue } from "@/lib/worlds/office-chrome";
+import type { CameraMode } from "@/lib/worlds/follow-camera";
+import { nextUpLine, type WorldsRailId } from "@/lib/worlds/worlds-hud";
 import type { Stick } from "@/lib/worlds/office-move";
+import { WorldsHud } from "./worlds-hud";
 import "./office.css";
 
 type GameCatalogItem = {
@@ -120,7 +123,18 @@ const LAYER_LABEL = {
   roof: "Roof",
 } as const;
 
-type OfficeSheet = "info" | "bot" | "you" | "board" | "meet" | "vault" | "log" | "achievements" | "currency" | "bank";
+type OfficeSheet = "info" | "bot" | "you" | "board" | "meet" | "vault" | "log" | "achievements" | "currency" | "bank" | "places" | "shop" | "tasks" | "settings" | "inventory";
+type QualityPref = "auto" | OfficeQuality;
+
+const CAMERA_KEY = "mm-worlds-camera";
+const MUSIC_KEY = "mm-worlds-music";
+const SFX_KEY = "mm-worlds-sfx";
+const HIDE_CLICKS_KEY = "mm-worlds-hide-clicks";
+
+function clampVolume(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
 
 function CloseRow({ title, onClose }: { title: string; onClose: () => void }) {
   return (
@@ -167,7 +181,15 @@ function dollars(amount: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
 }
 
-export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: boolean }) {
+export function OfficeApp({
+  charactersEnabled = false,
+  place = "office",
+  cityEnabled = false,
+}: {
+  charactersEnabled?: boolean;
+  place?: "office" | "city";
+  cityEnabled?: boolean;
+}) {
   const root = useRef<HTMLDivElement>(null);
   const cameraApiRef = useRef<OfficeCameraApi | null>(null);
   const stickRef = useRef<Stick>({ x: 0, y: 0 });
@@ -209,11 +231,20 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
   const [savingWallet, setSavingWallet] = useState(false);
   const [query, setQuery] = useState("");
   const [layers, setLayers] = useState<OfficeLayers>(DEFAULT_LAYERS);
-  const [quality, setQuality] = useState<OfficeQuality>("fine");
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [qualityPref, setQualityPref] = useState<QualityPref>("auto");
+  const [coarse, setCoarse] = useState(false);
+  const [cameraMode, setCameraMode] = useState<CameraMode>("follow");
+  const [music, setMusic] = useState(80);
+  const [sfx, setSfx] = useState(50);
+  const [hideClicks, setHideClicks] = useState(false);
   const [panelsEnabled, setPanelsEnabled] = useState(true);
+  const quality: OfficeQuality = qualityPref === "fast" || (qualityPref === "auto" && coarse) ? "fast" : "fine";
 
   useEffect(() => {
+    const media = window.matchMedia("(pointer: coarse)");
+    const applyCoarse = () => setCoarse(media.matches);
+    applyCoarse();
+    media.addEventListener("change", applyCoarse);
     try {
       setPanelsEnabled(panelsEnabledFromStorage(window.localStorage.getItem(PANELS_KEY)));
       const savedLayers = window.localStorage.getItem(LAYERS_KEY);
@@ -227,17 +258,23 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
         });
       }
       const savedQuality = window.localStorage.getItem(QUALITY_KEY);
-      if (savedQuality === "fine" || savedQuality === "fast") setQuality(savedQuality);
-      else if (window.matchMedia("(pointer: coarse)").matches) setQuality("fast");
+      if (savedQuality === "fine" || savedQuality === "fast" || savedQuality === "auto") setQualityPref(savedQuality);
+      const savedCamera = window.localStorage.getItem(CAMERA_KEY);
+      if (place === "office" && (savedCamera === "follow" || savedCamera === "overview")) setCameraMode(savedCamera);
+      const savedMusic = Number(window.localStorage.getItem(MUSIC_KEY));
+      if (Number.isFinite(savedMusic)) setMusic(clampVolume(savedMusic));
+      const savedSfx = Number(window.localStorage.getItem(SFX_KEY));
+      if (Number.isFinite(savedSfx)) setSfx(clampVolume(savedSfx));
+      setHideClicks(window.localStorage.getItem(HIDE_CLICKS_KEY) === "on");
     } catch {
       // Private browsing can block storage. The view stays clear.
     }
-  }, []);
+    return () => media.removeEventListener("change", applyCoarse);
+  }, [place]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
-      setMenuOpen(false);
       setSheet(null);
       setBoard(null);
       setSelected("");
@@ -452,8 +489,9 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
     if (!layout || !hold) return null;
     const store = createOfficeSimStore(layout, [...hold.botIds.filter((id) => id !== OWNER_ACTOR_ID), OWNER_ACTOR_ID]);
     placeBotsInRooms(store.state, layout, hold.rooms);
+    if (place === "city") placeOwnerOutdoors(store.state, layout);
     return store;
-  }, [layout, hold]);
+  }, [layout, hold, place]);
   const sceneBots = useMemo(() => {
     const roster = (status?.bots ?? []).filter((item) => item.id !== OWNER_ACTOR_ID);
     return [...roster, { id: OWNER_ACTOR_ID, name: "You", short: "You", status: "idle" as const }];
@@ -498,14 +536,31 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
     setSheet(null);
     setBoard(null);
     setSelected("");
-    setMenuOpen(false);
   }
 
   function openSheet(next: OfficeSheet) {
-    if (!panelsEnabled) return;
-    setMenuOpen(false);
+    if (!panelsEnabled && next !== "settings") return;
     setBoard(null);
     setSheet(next);
+  }
+
+  function savePref(key: string, value: string) {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      // The control still applies for this visit.
+    }
+  }
+
+  function chooseQuality(next: QualityPref) {
+    setQualityPref(next);
+    savePref(QUALITY_KEY, next);
+  }
+
+  function chooseCamera(next: CameraMode) {
+    if (place === "city") return;
+    setCameraMode(next);
+    savePref(CAMERA_KEY, next);
   }
 
   function toggleLayer(key: keyof OfficeLayers) {
@@ -520,23 +575,10 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
     });
   }
 
-  function toggleQuality() {
-    setQuality((current) => {
-      const next = current === "fine" ? "fast" : "fine";
-      try {
-        window.localStorage.setItem(QUALITY_KEY, next);
-      } catch {
-        // The toggle still applies for this visit.
-      }
-      return next;
-    });
-  }
-
   function openBot(id: string) {
     if (!panelsEnabled) return;
     setSelected(id);
     setQuery("");
-    setMenuOpen(false);
     setBoard(null);
     setSheet(id === OWNER_ACTOR_ID ? "you" : "bot");
   }
@@ -597,15 +639,13 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
 
   function openCurrency() {
     if (!panelsEnabled) return;
-    setMenuOpen(false);
-    setSheet("currency");
+    setSheet("shop");
     setGameError("");
     void loadGameWallet();
   }
 
   function openBank() {
     if (!panelsEnabled) return;
-    setMenuOpen(false);
     setSheet("bank");
     setGameError("");
     void loadGameWallet();
@@ -662,7 +702,6 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
 
   function openVault(form: boolean) {
     if (!panelsEnabled) return;
-    setMenuOpen(false);
     setSheet("vault");
     setAddingWallet(form);
     setWalletError("");
@@ -711,7 +750,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
   const boardNotes = status && board ? status.notes.filter((note) => note.office === board.office) : [];
 
   return (
-    <div className="bot-office" ref={root} onContextMenu={(event) => event.preventDefault()}>
+    <div className="bot-office" data-camera-mode={place === "city" ? "follow" : cameraMode} data-place={place} ref={root} onContextMenu={(event) => event.preventDefault()}>
       <div className="office-stage">
         {layout && sim && status ? (
           <OfficeCanvas
@@ -727,7 +766,6 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
               if (!panelsEnabled) return;
               setBoard(next);
               setSelected("");
-              setMenuOpen(false);
               setSheet("board");
             }}
             onOpenMeet={() => openSheet("meet")}
@@ -740,32 +778,149 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
             bankBalance={gameWallet?.wallet.bank ?? 0}
             onOpenBank={() => openBank()}
             stickRef={stickRef}
+            cameraMode={place === "city" ? "follow" : cameraMode}
+            drivePlayer={sheet === null && (place === "city" || cameraMode === "follow")}
+            hideClicks={hideClicks}
           />
         ) : (
           <div className="office-loading">{error || "Opening the bot office…"}</div>
         )}
       </div>
 
-      <div className="office-corner">
-        <button
-          type="button"
-          className="office-corner-button"
-          aria-label="Office tools"
-          aria-expanded={menuOpen}
-          onClick={() => {
-            setMenuOpen((open) => {
-              if (!open) {
-                setSheet(null);
-                setBoard(null);
-              }
-              return !open;
-            });
-          }}
-        >
-          Tools
-        </button>
-        {menuOpen ? (
-          <div className="office-menu" aria-label="Office tools">
+      <WorldsHud
+        walletText={gameWallet ? formatGameUnits(gameWallet.wallet.balance) : "…"}
+        bankText={gameWallet ? formatGameUnits(gameWallet.wallet.bank) : "…"}
+        onWallet={() => openBank()}
+        onBank={() => openBank()}
+        quest={nextUpLine({ todos: status?.todos ?? [], charactersEnabled, place })}
+        onQuest={() => openSheet("tasks")}
+        inventoryLocked={!charactersEnabled}
+        active={
+          sheet === "shop" || sheet === "currency" ? "shop"
+          : sheet === "tasks" || sheet === "log" ? "tasks"
+          : sheet === "places" || sheet === "info" || sheet === "achievements" ? "places"
+          : sheet === "settings" ? "settings"
+          : sheet === "inventory" ? "inventory"
+          : null
+        }
+        onOpen={(id) => {
+          if (id === "shop") openCurrency();
+          else openSheet(id);
+        }}
+      />
+
+      <OfficeJoystick stickRef={stickRef} lifted={sheet !== null} label={place === "city" || cameraMode === "follow" ? "Move" : "Move the camera"} />
+
+      <div
+        className={sheet ? "worlds-backdrop" : "worlds-backdrop is-closed"}
+        onMouseDown={(event) => {
+          if (sheet && event.target === event.currentTarget) dismiss();
+        }}
+      >
+
+      {sheet === "places" ? (
+        <section className="office-panel office-sheet" aria-label="Places">
+          <CloseRow title="Places" onClose={dismiss} />
+          <table className="worlds-table">
+            <thead><tr><th>Place</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Office</td>
+                <td>{place === "office" ? "Here" : <Link href="/worlds">Enter</Link>}</td>
+              </tr>
+              <tr>
+                <td>City</td>
+                <td>{cityEnabled ? (place === "city" ? "Here" : <Link href="/worlds/city">Enter</Link>) : "Locked"}</td>
+              </tr>
+            </tbody>
+          </table>
+          {!cityEnabled ? <p className="worlds-lock-note">City stays locked until that flag is on.</p> : null}
+          <div className="office-actions">
+            <button type="button" onClick={() => setSheet("info")}>Team</button>
+            <button type="button" onClick={() => setSheet("achievements")}>Achievements</button>
+          </div>
+        </section>
+      ) : null}
+
+      {sheet === "tasks" ? (
+        <section className="office-panel office-sheet" aria-label="Tasks">
+          <CloseRow title="Tasks" onClose={dismiss} />
+          <table className="worlds-table">
+            <thead><tr><th>Task</th><th>Due</th></tr></thead>
+            <tbody>
+              {(status?.todos ?? []).filter((todo) => !todo.done).map((todo) => (
+                <tr key={todo.id}><td>{todo.task}</td><td>{todo.due}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          {(status?.todos ?? []).some((todo) => !todo.done) ? null : <p>No open tasks.</p>}
+          <button type="button" onClick={() => setSheet("log")}>Mission log</button>
+        </section>
+      ) : null}
+
+      {sheet === "settings" ? (
+        <section className="office-panel office-sheet worlds-card" aria-label="Settings">
+          <CloseRow title="Settings" onClose={dismiss} />
+          <div className="worlds-card-body">
+          <div className="worlds-section">
+            <h3>Audio</h3>
+            <label className="worlds-slider-row">
+              <span className="worlds-slider-ico" aria-hidden="true">♪</span>
+              <span className="worlds-slider-copy">
+                <span>Music</span>
+                <input className="worlds-slider" aria-label="Background music volume" type="range" min={0} max={100} value={music} onChange={(event) => {
+                  const next = clampVolume(Number(event.target.value));
+                  setMusic(next);
+                  savePref(MUSIC_KEY, String(next));
+                }} />
+              </span>
+              <span className="worlds-slider-pct">{music}%</span>
+            </label>
+            <label className="worlds-slider-row">
+              <span className="worlds-slider-ico" aria-hidden="true">🔊</span>
+              <span className="worlds-slider-copy">
+                <span>Sound Effects</span>
+                <input className="worlds-slider" aria-label="Sound effects volume" type="range" min={0} max={100} value={sfx} onChange={(event) => {
+                  const next = clampVolume(Number(event.target.value));
+                  setSfx(next);
+                  savePref(SFX_KEY, String(next));
+                }} />
+              </span>
+              <span className="worlds-slider-pct">{sfx}%</span>
+            </label>
+            <p className="office-kicker">Saved on this browser. {music}% music, {sfx}% effects.</p>
+          </div>
+          <div className="worlds-section">
+            <h3>General</h3>
+            <p className="worlds-row-label">Performance Mode</p>
+            <div className="office-actions" role="group" aria-label="Performance mode">
+              <button type="button" aria-pressed={qualityPref === "auto"} onClick={() => chooseQuality("auto")}>Auto</button>
+              <button type="button" aria-pressed={qualityPref === "fine"} onClick={() => chooseQuality("fine")}>Decent</button>
+              <button type="button" aria-pressed={qualityPref === "fast"} onClick={() => chooseQuality("fast")}>Potato</button>
+            </div>
+            <p className="office-kicker">Lower graphics for more FPS. This browser is using {quality === "fine" ? "Decent" : "Potato"}.</p>
+            <button type="button" className="worlds-toggle" aria-pressed={hideClicks} onClick={() => {
+              const next = !hideClicks;
+              setHideClicks(next);
+              savePref(HIDE_CLICKS_KEY, next ? "on" : "off");
+            }}>
+              <span>Hide clicks</span>
+              <span className={hideClicks ? "worlds-switch is-on" : "worlds-switch"}>{hideClicks ? "ON" : "OFF"}</span>
+            </button>
+            {place === "office" ? (
+              <div className="office-actions" role="group" aria-label="Camera">
+                <button type="button" aria-pressed={cameraMode === "follow"} onClick={() => chooseCamera("follow")}>Follow</button>
+                <button type="button" aria-pressed={cameraMode === "overview"} onClick={() => chooseCamera("overview")}>Overview</button>
+              </div>
+            ) : <p className="office-kicker">The city stays on the follow camera.</p>}
+            <p className="office-kicker">Follow keeps the camera on you. Right-drag, left-drag, or two fingers orbit. Scroll or pinch changes distance. WASD, arrows, or the joystick walk. Overview is the office map.</p>
+            <button type="button" aria-pressed={panelsEnabled} onClick={() => persistPanels(!panelsEnabled)}>Panels</button>
+            <div className="office-layers" role="group" aria-label="Map layers">
+              {(Object.keys(LAYER_LABEL) as (keyof OfficeLayers)[]).map((key) => (
+                <button key={key} type="button" aria-pressed={layers[key]} onClick={() => toggleLayer(key)}>{LAYER_LABEL[key]}</button>
+              ))}
+              <button type="button" aria-pressed={quality === "fine"} aria-label="Graphics quality" onClick={() => chooseQuality(quality === "fine" ? "fast" : "fine")}>{quality === "fine" ? "Fine" : "Fast"}</button>
+            </div>
             <div className="office-search">
               <input aria-label="Find a bot" placeholder="Find a bot" value={query} onChange={(event) => setQuery(event.target.value)} />
               {query.trim() ? (
@@ -776,17 +931,11 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
                 </ul>
               ) : null}
             </div>
-            <div className="office-layers" role="group" aria-label="Map layers">
-              {(Object.keys(LAYER_LABEL) as (keyof OfficeLayers)[]).map((key) => (
-                <button key={key} type="button" aria-pressed={layers[key]} onClick={() => toggleLayer(key)}>{LAYER_LABEL[key]}</button>
-              ))}
-              <button type="button" aria-pressed={quality === "fine"} aria-label="Graphics quality" onClick={toggleQuality}>{quality === "fine" ? "Fine" : "Fast"}</button>
-            </div>
-            {charactersEnabled ? <Link className="office-link" href="/worlds/create">Your character</Link> : null}
             <div className="office-nav">
               <button type="button" aria-label="Zoom in" onClick={() => cameraApiRef.current?.zoomBy(0.82)}>+</button>
               <button type="button" aria-label="Zoom out" onClick={() => cameraApiRef.current?.zoomBy(1.22)}>−</button>
               <button type="button" onClick={() => cameraApiRef.current?.reset()}>Recenter</button>
+              <button type="button" onClick={() => void toggleFullscreen()}>Fullscreen</button>
             </div>
             {layout && sim && status ? (
               <div className="office-minimap" aria-label="Office map">
@@ -812,19 +961,34 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
               </div>
             ) : null}
             <div className="office-actions">
-              <button type="button" aria-pressed={panelsEnabled} onClick={() => persistPanels(!panelsEnabled)}>Panels</button>
               <button type="button" disabled={!panelsEnabled} onClick={() => openSheet("info")}>Team</button>
-              <button type="button" disabled={!panelsEnabled} onClick={() => openSheet("achievements")}>Achievements</button>
               <button type="button" disabled={!panelsEnabled} onClick={() => openSheet("log")}>Mission log</button>
               <button type="button" disabled={!panelsEnabled} onClick={() => openVault(false)}>Vault {formatWalletMoney(wallets.total)}</button>
               <button type="button" disabled={!panelsEnabled} onClick={() => openCurrency()}>Currency</button>
-              <button type="button" onClick={() => void toggleFullscreen()}>Fullscreen</button>
             </div>
+            <p className="worlds-lock-note">Trades are locked. Nothing is sent to another player.</p>
+            {charactersEnabled ? <Link className="office-link" href="/worlds/create">Your character</Link> : null}
           </div>
-        ) : null}
-      </div>
+          </div>
+        </section>
+      ) : null}
 
-      <OfficeJoystick stickRef={stickRef} lifted={sheet !== null} />
+      {sheet === "inventory" ? (
+        <section className="office-panel office-sheet" aria-label="Inventory">
+          <CloseRow title="Inventory" onClose={dismiss} />
+          {charactersEnabled ? (
+            <>
+              <ul className="office-list">
+                {(gameWallet?.catalog ?? []).filter((item) => item.owned).map((item) => (
+                  <li key={item.sku}><b>{item.name}</b><div className="office-kicker">{item.category}</div></li>
+                ))}
+              </ul>
+              {(gameWallet?.catalog ?? []).some((item) => item.owned) ? null : <p>Your bag is empty. The shop spends Kash only.</p>}
+              <Link className="office-link" href="/worlds/create">Customize</Link>
+            </>
+          ) : <p className="worlds-lock-note">Locked. Inventory opens when characters are on.</p>}
+        </section>
+      ) : null}
 
       {sheet === "info" ? (
       <section className="office-panel office-sheet office-tools" aria-label="Office controls">
@@ -848,7 +1012,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
             <button type="button" onClick={() => openVault(true)}>Add wallet</button>
           ) : null}
         </div>
-        <p className="office-kicker">Drag the ground to pan. Right-drag or twist to rotate. Scroll, pinch, or the plus and minus buttons zoom. On a phone, the joystick moves the view. A drag does not open a panel.</p>
+        <p className="office-kicker">The camera follows you. Right-drag, left-drag, or two fingers orbit. Scroll or pinch changes distance. WASD, arrows, or the joystick walk. A drag does not open a panel.</p>
         <p className="office-kicker">{checkedAt ? `Live · checked ${checkedAt}` : "Checking the office…"} Polls every {Math.round(OFFICE_POLL_MS / 1000)}s.</p>
         <p className="office-kicker">{weather.label}. Roof fades as you zoom inside.</p>
         {error ? <p className="office-error">{error}</p> : null}
@@ -1094,9 +1258,10 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
         </section>
       ) : null}
 
-      {sheet === "currency" ? (
-        <section className="office-panel office-sheet office-vault" aria-label="Currency">
-          <CloseRow title="Currency" onClose={dismiss} />
+      {sheet === "shop" || sheet === "currency" ? (
+        <section className="office-panel office-sheet office-vault" aria-label="Shop">
+          <CloseRow title="Shop" onClose={dismiss} />
+          <h2>Currency</h2>
           <p className="office-vault-total">Wallet {gameWallet ? formatGameUnits(gameWallet.wallet.balance) : "…"}</p>
           <p className="office-kicker">Spendable at shops and stores.</p>
           <p className="office-vault-total">Bank {gameWallet ? formatGameUnits(gameWallet.wallet.bank) : "…"}</p>
@@ -1158,6 +1323,23 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
           <p><b>Wallet</b> {gameWallet ? formatGameUnits(gameWallet.wallet.balance) : "…"}</p>
           <p><b>Bank</b> {gameWallet ? formatGameUnits(gameWallet.wallet.bank) : "…"}</p>
           <p><b>Uncollected</b> {gameWallet ? formatGameUnits(gameWallet.wallet.uncollected) : "…"}</p>
+          <table className="worlds-table" aria-label="Kash balances">
+            <thead><tr><th>Name</th><th>Wallet</th><th>Bank</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>You</td>
+                <td>{gameWallet ? formatGameUnits(gameWallet.wallet.balance) : "…"}</td>
+                <td>{gameWallet ? formatGameUnits(gameWallet.wallet.bank) : "…"}</td>
+              </tr>
+              {(gameWallet?.bots ?? []).map((row) => (
+                <tr key={row.id}>
+                  <td>{row.name}</td>
+                  <td>{formatGameUnits(row.wallet)}</td>
+                  <td>{formatGameUnits(row.bank)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
           <p className="office-kicker">Interest {gameWallet ? gameWallet.wallet.interestWeeklyPercent : ECONOMY.interest.defaultWeeklyPercent}% a week, credited daily to the bank on balances up to the cap.</p>
           <label className="office-field"><span className="office-kicker">Amount</span>
             <input aria-label="Bank amount" inputMode="decimal" value={bankAmount} onChange={(event) => setBankAmount(event.target.value)} placeholder="All uncollected, or a deposit" />
@@ -1266,6 +1448,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
           </div>
         </section>
       ) : null}
+      </div>
     </div>
   );
 }

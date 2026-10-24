@@ -35,7 +35,7 @@ describe("Worlds camera move", () => {
     const down = renderToStaticMarkup(createElement(OfficeJoystick, { stickRef, lifted: false }));
     assert.match(down, /class="office-joystick"/);
     assert.equal(down.includes("is-lifted"), false);
-    assert.match(down, /aria-label="Move the camera"/);
+    assert.match(down, /aria-label="Move"/);
     assert.match(down, /office-joystick-base/);
     assert.match(down, /office-joystick-knob/);
     const up = renderToStaticMarkup(createElement(OfficeJoystick, { stickRef, lifted: true }));
@@ -99,14 +99,15 @@ describe("Worlds camera move", () => {
     const stick = source("src/components/worlds/office-joystick.tsx");
     assert.match(app, /<OfficeJoystick/);
     assert.match(app, /lifted=\{sheet !== null\}/);
-    assert.equal(app.includes("menuOpen ?") && app.indexOf("<OfficeJoystick") > app.indexOf("menuOpen ?"), true);
-    assert.match(stick, /aria-label="Move the camera"/);
+    assert.ok(app.indexOf("<WorldsHud") > 0 && app.indexOf("<OfficeJoystick") > app.indexOf("<WorldsHud"));
+    assert.match(stick, /aria-label=\{label\}/);
+    assert.match(stick, /label = "Move"/);
     assert.match(stick, /setPointerCapture/);
     assert.match(stick, /stopPropagation/);
     assert.match(stick, /stickRef\.current = \{ x: 0, y: 0 \}/);
     assert.match(css, /\.office-joystick \{[^}]*display: none/);
-    assert.match(css, /@media \(pointer: coarse\) \{\s*\.office-joystick \{ display: block; \}/);
-    assert.match(css, /\.office-joystick\.is-lifted \{[^}]*45vh/);
+    assert.match(css, /@media \(pointer: coarse\), \(max-width: 800px\) \{\s*\.office-joystick \{ display: block; \}/);
+    assert.match(css, /\.office-joystick\.is-lifted \{[^}]*safe-area-inset-left/);
     assert.match(css, /data-dragging="true"/);
     assert.match(canvas, /grabPanDelta/);
     assert.match(canvas, /rayGroundPoint/);

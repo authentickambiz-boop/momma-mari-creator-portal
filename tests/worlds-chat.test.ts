@@ -196,7 +196,7 @@ describe("Worlds object panels", () => {
     assert.match(app, /CHAT_POLL_MS/);
     assert.equal(CHAT_POLL_MS, 4000);
     assert.match(app, /setBoard\(null\)/);
-    assert.match(css, /max-height: 45vh/);
+    assert.match(css, /max-height: min\(78vh, 680px\)/);
     assert.match(css, /office-chat/);
     assert.match(css, /min-width: 801px/);
     assert.match(canvas, /setCanvasCursor\(event, "pointer"\)/);

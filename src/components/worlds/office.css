@@ -378,35 +378,34 @@
   user-select: none;
 }
 .office-joystick-base {
-  width: 96px;
-  height: 96px;
+  width: 108px;
+  height: 108px;
   padding: 0;
-  border: 1px solid rgba(214, 206, 193, 0.95);
+  border: 4px solid rgba(255, 255, 255, 0.92);
   border-radius: 50%;
-  background: rgba(251, 248, 243, 0.55);
-  box-shadow: 0 8px 20px rgba(22, 41, 31, 0.16);
+  background: rgba(18, 28, 42, 0.28);
+  box-shadow: inset 0 0 0 10px rgba(255, 255, 255, 0.14), 0 5px 0 rgba(12, 24, 40, 0.28);
   display: grid;
   place-items: center;
   touch-action: none;
 }
 .office-joystick-knob {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: #1f3b2d;
-  box-shadow: 0 2px 6px rgba(22, 41, 31, 0.3);
+  border: 3px solid #1b2430;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #d5dee8 70%);
+  box-shadow: 0 3px 0 rgba(12, 24, 40, 0.35);
   transition: transform 180ms cubic-bezier(0.2, 1.2, 0.4, 1);
 }
 .office-joystick-knob[data-dragging="true"] {
   transition: none;
 }
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 800px) {
   .office-joystick { display: block; }
 }
-@media (pointer: coarse) and (max-width: 800px) {
-  .office-joystick.is-lifted {
-    bottom: calc(45vh + 16px + env(safe-area-inset-bottom, 0px));
-  }
+.office-joystick.is-lifted {
+  left: calc(16px + env(safe-area-inset-left, 0px));
 }
 
 body:has(.bot-office) { overflow: hidden; background: #1b1714; }
@@ -417,6 +416,403 @@ body:has(.bot-office) .community-panel,
 body:has(.bot-office) .community-fab,
 body:has(.bot-office) .home-install,
 body:has(.bot-office) .home-bar { display: none; }
+
+.worlds-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  font-family: var(--body);
+}
+.worlds-hud button { pointer-events: auto; font-family: inherit; }
+.worlds-currencies {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: calc(10px + env(safe-area-inset-left, 0px));
+  display: grid;
+  gap: 6px;
+}
+.worlds-money {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  filter: drop-shadow(0 2px 0 rgba(12, 22, 36, 0.35));
+}
+.worlds-money-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 900;
+  font-size: 20px;
+  border: 3px solid #fff;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.22), 0 3px 0 rgba(12, 22, 36, 0.35);
+}
+.worlds-money-icon.is-wallet { background: linear-gradient(#46c56e, #1f8d42); }
+.worlds-money-icon.is-bank { background: linear-gradient(#ffe07a, #e2a31a); color: #3d2a04; }
+.worlds-money-copy { display: grid; text-align: left; line-height: 1; gap: 2px; }
+.worlds-money-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: 0 1px 0 #14202c, 1px 0 0 #14202c, -1px 0 0 #14202c, 0 -1px 0 #14202c;
+}
+.worlds-money-value {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #fff;
+  text-shadow: 0 2px 0 #14202c, 1px 1px 0 #14202c, -1px 0 0 #14202c, 0 -1px 0 #14202c, 1px -1px 0 #14202c;
+}
+.worlds-quest {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, calc(100vw - 300px));
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 22px 6px 8px;
+  border: 7px solid #2f9fe6;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 3px #145f96, 0 7px 0 #145f96, 0 16px 22px rgba(12, 36, 64, 0.28);
+  color: #1c2430;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.worlds-quest-mark {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(#ffe56a, #f0a400);
+  color: #7a4200;
+  flex: none;
+  border: 3px solid #fff;
+  box-shadow: inset 0 -4px 0 rgba(160, 90, 0, 0.35), 0 3px 0 rgba(20, 70, 120, 0.18);
+}
+.worlds-quest-mark svg { width: 30px; height: 30px; display: block; }
+.worlds-quest-copy { display: grid; min-width: 0; gap: 2px; }
+.worlds-quest-kicker { color: #f0a000; font-size: 16px; font-weight: 900; letter-spacing: 0.06em; line-height: 1; }
+.worlds-quest-text { color: #1276c4; font-size: 20px; font-weight: 900; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.worlds-rail {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  right: calc(10px + env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 10px;
+}
+.worlds-rail button {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: radial-gradient(circle at 32% 28%, #465264, #141a22 72%);
+  color: #fff;
+  box-shadow: 0 4px 0 rgba(8, 16, 28, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+}
+.worlds-rail-glyph { display: grid; place-items: center; }
+.worlds-rail button svg { width: 26px; height: 26px; display: block; }
+.worlds-rail button.is-active {
+  background: radial-gradient(circle at 32% 28%, #6ec4ff, #1568b0 74%);
+  box-shadow: 0 4px 0 #0e4e86, inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.worlds-rail button.is-locked { background: radial-gradient(circle at 32% 28%, #3a4554, #1a222c 74%); }
+.worlds-rail button.is-locked .worlds-rail-glyph { opacity: 0.72; }
+.worlds-lock {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #ffd24a;
+  color: #3d2a04;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 0 rgba(16, 40, 70, 0.35);
+}
+.worlds-lock svg { width: 14px; height: 14px; }
+.worlds-rail button:focus-visible,
+.worlds-money:focus-visible,
+.worlds-quest:focus-visible,
+.worlds-modal-x:focus-visible {
+  outline: 3px solid #1d6fb8;
+  outline-offset: 2px;
+}
+.worlds-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  padding: 28px 16px;
+  background: rgba(8, 20, 36, 0.42);
+  font-family: var(--body);
+}
+.worlds-backdrop.is-closed { display: none; }
+.worlds-backdrop .office-panel.office-sheet {
+  position: relative;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  transform: none;
+  width: min(460px, 100%);
+  max-height: min(78vh, 680px);
+  margin: 0;
+  padding: 12px 14px 14px;
+  border: 7px solid #3ec4ff;
+  border-radius: 26px;
+  background: linear-gradient(#ffffff, #f4fbff);
+  box-shadow: 0 8px 0 rgba(18, 96, 158, 0.28), 0 24px 40px rgba(8, 24, 48, 0.38);
+  color: #14324c;
+  font-family: var(--body);
+}
+.worlds-backdrop .office-panel.office-sheet.worlds-card {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  padding-top: 8px;
+}
+.worlds-card-body {
+  overflow: auto;
+  min-height: 0;
+  max-height: calc(min(78vh, 680px) - 64px);
+  padding-right: 2px;
+}
+.worlds-backdrop .office-row { position: relative; min-height: 52px; margin-bottom: 6px; justify-content: center; }
+.worlds-backdrop .office-panel h2 {
+  flex: none;
+  margin: 0;
+  padding: 0 36px;
+  text-align: center;
+  color: #1786d4;
+  font-family: var(--body);
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  text-shadow: 0 2px 0 #fff;
+}
+.worlds-backdrop .office-kicker { color: #4d7590; font-weight: 700; font-size: 12px; }
+.worlds-backdrop .office-actions button,
+.worlds-backdrop .office-layers button,
+.worlds-backdrop .office-chips button,
+.worlds-backdrop .office-nav button,
+.worlds-backdrop .office-form button,
+.worlds-backdrop .office-sheet > button,
+.worlds-backdrop .worlds-section > button:not(.worlds-toggle),
+.worlds-backdrop .office-list button:not(.office-resend) {
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 3px solid #7ec8f3;
+  border-radius: 999px;
+  background: #fff;
+  color: #176eab;
+  font-weight: 900;
+  box-shadow: 0 3px 0 #b7dff6;
+}
+.worlds-backdrop .office-actions button[aria-pressed="true"],
+.worlds-backdrop .office-layers button[aria-pressed="true"],
+.worlds-backdrop .office-chips button[aria-pressed="true"],
+.worlds-backdrop .worlds-section > button[aria-pressed="true"] {
+  background: #2fbe57;
+  border-color: #178a38;
+  color: #fff;
+  box-shadow: 0 3px 0 #178a38;
+}
+.worlds-backdrop .office-sheet button:disabled {
+  opacity: 0.5;
+  box-shadow: none;
+}
+.worlds-backdrop .office-minimap,
+.worlds-backdrop .office-nav {
+  position: relative;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+}
+.worlds-backdrop .office-minimap { width: 100%; height: 120px; margin-top: 8px; }
+.worlds-backdrop .office-close {
+  position: absolute;
+  top: 4px;
+  right: 0;
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  border-radius: 14px;
+  background: #ff3b3b;
+  color: #fff;
+  border: 4px solid #fff;
+  box-shadow: 0 4px 0 #c41616;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+}
+.worlds-backdrop .worlds-card .office-close {
+  top: -22px;
+  right: -22px;
+}
+.worlds-section {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 18px;
+  background: #e5f5ff;
+  border: 3px solid #8fd4fb;
+}
+.worlds-section h3 { margin: 0 4px 6px; color: #5d7e96; font-size: 13px; font-weight: 800; letter-spacing: 0.04em; }
+.worlds-row-label { margin: 4px 4px 6px; color: #176eab; font-size: 15px; font-weight: 900; }
+.worlds-slider-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 16px;
+  background: #fff;
+  border: 3px solid #d5efff;
+}
+.worlds-slider-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: #e7f6ff;
+  color: #1786d4;
+  font-size: 18px;
+  font-weight: 900;
+}
+.worlds-slider-copy { display: grid; gap: 2px; min-width: 0; font-weight: 900; color: #16324a; }
+.worlds-slider-pct { font-weight: 900; color: #176eab; min-width: 42px; text-align: right; }
+.worlds-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 16px;
+  margin: 4px 0 0;
+  border-radius: 999px;
+  border: 3px solid #1f9a45;
+  background: linear-gradient(#8af0a4, #2fbe57);
+  accent-color: #2fbe57;
+  cursor: pointer;
+}
+.worlds-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  border: 4px solid #1f9a45;
+  box-shadow: 0 2px 0 rgba(16, 70, 30, 0.35);
+  cursor: pointer;
+}
+.worlds-slider::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  border: 4px solid #1f9a45;
+  cursor: pointer;
+}
+.worlds-slider::-moz-range-track {
+  height: 14px;
+  border-radius: 999px;
+  background: #2fbe57;
+  border: 3px solid #1f9a45;
+}
+.worlds-toggle {
+  width: 100%;
+  margin-top: 8px;
+  min-height: 48px;
+  padding: 8px 8px 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 3px solid #d5efff;
+  border-radius: 16px;
+  background: #fff;
+  color: #16324a;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+.worlds-switch {
+  min-width: 64px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #d5e2ec;
+  color: #4d6274;
+  text-align: center;
+  box-shadow: inset 0 -2px 0 rgba(20, 40, 60, 0.15);
+}
+.worlds-switch.is-on { background: #2fbe57; color: #fff; }
+.worlds-table { width: 100%; border-collapse: collapse; }
+.worlds-table th { text-align: left; font-size: 12px; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; color: #5d7890; padding: 6px 4px; border-bottom: 3px solid #d5eafa; }
+.worlds-table td { padding: 8px 4px; border-bottom: 2px solid #e6f2fa; font-weight: 800; }
+.worlds-backdrop .office-list li,
+.worlds-backdrop .office-card {
+  border: 3px solid #d5efff;
+  border-radius: 14px;
+  background: #fff;
+}
+.worlds-lock-note { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+@media (max-width: 800px) {
+  .worlds-money { max-width: 108px; }
+  .worlds-money-value,
+  .worlds-money-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .worlds-money-icon { width: 38px; height: 38px; font-size: 18px; }
+  .worlds-money-value { font-size: 20px; }
+  .worlds-rail { gap: 8px; }
+  .worlds-rail button { width: 46px; height: 46px; }
+  .worlds-quest {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    left: 112px;
+    right: 62px;
+    transform: none;
+    width: auto;
+    min-height: 56px;
+    padding: 4px 10px 4px 4px;
+    border-width: 4px;
+    gap: 8px;
+  }
+  .worlds-quest-mark { width: 40px; height: 40px; }
+  .worlds-quest-mark svg { width: 22px; height: 22px; }
+  .worlds-quest-kicker { font-size: 11px; }
+  .worlds-quest-text { font-size: 14px; }
+  .worlds-backdrop .office-panel.office-sheet { max-height: min(70vh, 560px); }
+  .worlds-card-body { max-height: calc(min(70vh, 560px) - 64px); }
+  .worlds-backdrop .worlds-card .office-close { top: -14px; right: -10px; }
+}
+@media (pointer: fine) and (min-width: 801px) {
+  .worlds-rail button:hover,
+  .worlds-money:hover { transform: translateY(-1px); }
+  .worlds-quest:hover { transform: translateX(-50%) translateY(-1px); }
+}
 
 .office-you-tag {
   display: inline-block;
@@ -430,31 +826,7 @@ body:has(.bot-office) .home-bar { display: none; }
 }
 
 @media (min-width: 801px) {
-  .office-panel.office-sheet.office-chat,
-  .office-panel.office-sheet.office-board,
-  .office-panel.office-sheet.office-meet {
-    left: auto;
-    right: 12px;
-    top: 64px;
-    bottom: auto;
-    width: min(340px, calc(100vw - 24px));
-    max-height: min(420px, calc(100vh - 88px));
-    transform: none;
-  }
-}
-
-@media (max-width: 800px) {
-  .office-panel.office-sheet {
-    left: 0;
-    right: 0;
-    top: auto;
-    bottom: 0;
-    width: auto;
-    max-height: 45vh;
-    border-radius: 16px 16px 0 0;
-  }
-  .bot-office:has(.office-sheet) .office-minimap,
-  .bot-office:has(.office-sheet) .office-nav {
-    bottom: calc(45vh + 12px);
-  }
+  .worlds-rail button { min-height: 54px; }
+  .worlds-money { min-height: 46px; }
+  .worlds-quest { min-height: 68px; }
 }
