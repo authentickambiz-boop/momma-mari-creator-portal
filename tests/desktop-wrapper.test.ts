@@ -40,9 +40,12 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(main, /Updating…/);
     assert.match(main, /install_update/);
     assert.match(main, /tauri_plugin_updater/);
-    assert.match(main, /WORLDS_LAUNCH url=/);
+    assert.match(main, /WORLDS_LAUNCH version=/);
+    assert.match(main, /path=\{path\}/);
     assert.match(main, /updater=check/);
-    assert.match(main, /WORLDS_UPDATER result=/);
+    assert.match(main, /logfile=/);
+    assert.match(main, /WORLDS_UPDATER result=check path=/);
+    assert.match(main, /UPDATER_ENDPOINTS/);
     assert.match(main, /launch_url_from_assets/);
     assert.match(config, /"version": "0\.1\.3"/);
     assert.match(source("desktop/package.json"), /"version": "0\.1\.3"/);
@@ -96,6 +99,19 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(readme, /0\.1\.3/);
     assert.match(readme, /desktop\/assets\/game\.json/);
     assert.match(readme, /setup\.exe \/S/);
+    assert.match(readme, /Silent install \(`\/S`\)/);
+    assert.match(readme, /### First open/);
+    assert.match(readme, /path=\/portal\/worlds/);
+    assert.match(readme, /WORLDS_UPDATER result=check/);
+    assert.match(readme, /Quit from the \*\*Momma Mari Worlds\*\* menu/);
+    const githubEndpoint = config.indexOf("releases/latest/download/latest.json");
+    const portalEndpoint = config.indexOf("portal/api/desktop/latest.json");
+    assert.equal(githubEndpoint >= 0 && portalEndpoint > githubEndpoint, true);
+    const lockEndpoints = source("desktop/src-tauri/src/office_lock.rs");
+    assert.equal(
+      lockEndpoints.indexOf("releases/latest/download/latest.json") < lockEndpoints.indexOf("portal/api/desktop/latest.json"),
+      true,
+    );
     const game = JSON.parse(source("desktop/assets/game.json")) as { mode: string; url: string; ownerOnly: boolean; localGame: { ready: boolean; art: string } };
     assert.equal(game.mode, "webview");
     assert.equal(game.url, "https://www.mommamari.com/portal/worlds");

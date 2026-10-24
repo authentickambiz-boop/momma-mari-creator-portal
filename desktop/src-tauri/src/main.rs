@@ -17,8 +17,8 @@ use tauri_plugin_window_state::{Builder as WindowStateBuilder, StateFlags};
 mod office_lock;
 
 use office_lock::{
-    host_is_momma, host_name, launch_url_from_assets, navigation_allowed, updater_result_line,
-    worlds_launch_line, WORLDS_URL,
+    host_is_momma, host_name, launch_url_from_assets, navigation_allowed, updater_check_line,
+    updater_result_line, worlds_launch_line, WORLDS_URL,
 };
 
 static APP: OnceLock<AppHandle> = OnceLock::new();
@@ -203,7 +203,7 @@ fn check_for_update(app: AppHandle) {
 }
 
 async fn install_update(app: &AppHandle) -> tauri_plugin_updater::Result<()> {
-    note_launch(app, &updater_result_line("check"));
+    note_launch(app, &updater_check_line());
     let Some(update) = app.updater()?.check().await? else {
         note_launch(app, &updater_result_line("current"));
         return Ok(());
@@ -249,7 +249,14 @@ fn main() {
             let _ = APP.set(app.handle().clone());
             let (assets_path, manifest) = bundled_game_manifest(app.handle());
             let launch = launch_url_from_assets(manifest.as_deref().unwrap_or(""));
-            note_launch(app.handle(), &worlds_launch_line(launch, &assets_path));
+            let logfile = match app.path().app_log_dir() {
+                Ok(dir) => dir.join("worlds-launch.log").display().to_string(),
+                Err(_) => "missing".to_string(),
+            };
+            note_launch(
+                app.handle(),
+                &worlds_launch_line(env!("CARGO_PKG_VERSION"), launch, &assets_path, &logfile),
+            );
             let worlds: url::Url = launch.parse().expect("worlds url");
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(worlds))
                 .title("Momma Mari Worlds")

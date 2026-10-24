@@ -3,6 +3,12 @@
 
 pub const WORLDS_URL: &str = "https://www.mommamari.com/portal/worlds";
 
+/// Checked in this order. A 204 from the first address stops the search.
+pub const UPDATER_ENDPOINTS: [&str; 2] = [
+    "https://github.com/authentickambiz-boop/momma-mari-creator-portal/releases/latest/download/latest.json",
+    "https://www.mommamari.com/portal/api/desktop/latest.json",
+];
+
 pub fn json_string_field(manifest: &str, field: &str) -> Option<String> {
     let pattern = format!("\"{field}\"");
     let mut rest = manifest;
@@ -48,8 +54,20 @@ pub fn launch_url_from_assets(manifest: &str) -> &'static str {
     WORLDS_URL
 }
 
-pub fn worlds_launch_line(url: &str, assets: &str) -> String {
-    format!("WORLDS_LAUNCH url={url} assets={assets} updater=check")
+pub fn worlds_launch_line(version: &str, url: &str, assets: &str, logfile: &str) -> String {
+    let path = url::Url::parse(url)
+        .map(|parsed| parsed.path().to_string())
+        .unwrap_or_else(|_| "/portal/worlds".to_string());
+    format!(
+        "WORLDS_LAUNCH version={version} url={url} path={path} assets={assets} updater=check logfile={logfile}"
+    )
+}
+
+pub fn updater_check_line() -> String {
+    format!(
+        "WORLDS_UPDATER result=check path={} then {}",
+        UPDATER_ENDPOINTS[0], UPDATER_ENDPOINTS[1]
+    )
 }
 
 pub fn updater_result_line(result: &str) -> String {
@@ -189,11 +207,25 @@ mod tests {
             json_string_field(manifest, "mode").as_deref(),
             Some("webview")
         );
-        let line = worlds_launch_line(WORLDS_URL, "assets");
-        assert!(line.starts_with("WORLDS_LAUNCH url=https://www.mommamari.com/portal/worlds "));
+        let line = worlds_launch_line("0.1.3", WORLDS_URL, "assets", "worlds-launch.log");
+        assert!(line.contains("version=0.1.3"));
+        assert!(line.contains("url=https://www.mommamari.com/portal/worlds"));
+        assert!(line.contains("path=/portal/worlds"));
         assert!(line.contains("updater=check"));
-        assert!(!line.contains("/portal/deals"));
-        assert_eq!(updater_result_line("check"), "WORLDS_UPDATER result=check");
+        assert!(line.contains("logfile=worlds-launch.log"));
+        assert!(!line.contains("path=/portal/deals"));
+        assert!(!line.contains("/portal\""));
+        assert_eq!(
+            updater_check_line(),
+            format!(
+                "WORLDS_UPDATER result=check path={} then {}",
+                UPDATER_ENDPOINTS[0], UPDATER_ENDPOINTS[1]
+            )
+        );
+        assert!(
+            updater_check_line().find(UPDATER_ENDPOINTS[0]).unwrap()
+                < updater_check_line().find(UPDATER_ENDPOINTS[1]).unwrap()
+        );
         assert_eq!(
             updater_result_line("current"),
             "WORLDS_UPDATER result=current"

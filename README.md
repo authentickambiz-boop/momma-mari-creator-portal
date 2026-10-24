@@ -704,6 +704,23 @@ Installers are built by the Desktop installers workflow (`.github/workflows/desk
 3. The installer is per user, so it does not ask for an administrator password. Launch **Momma Mari Worlds** from the Start menu.
 4. Pin it to the taskbar: while the window is open, right-click its taskbar icon and choose **Pin to taskbar**. You can also open Start, right-click **Momma Mari Worlds**, and choose **Pin to taskbar**.
 
+### Silent install (`/S`)
+
+Use this on a PC running ESET. The `S` is uppercase. From the folder that contains the setup:
+
+```text
+Momma Mari Worlds_0.1.3_x64-setup.exe /S
+```
+
+The installer is per user, so `/S` does not ask for an administrator password. The updater's quiet mode passes that same `/S` when it installs a newer build.
+
+### First open
+
+1. Open **Momma Mari Worlds**.
+2. The address is `https://www.mommamari.com/portal/worlds` (`path=/portal/worlds`). It is not the creator portal.
+3. Open `%LOCALAPPDATA%\com.mommamari.worlds\logs\worlds-launch.log`. The `WORLDS_LAUNCH` line includes that URL, `path=/portal/worlds`, and `logfile=`. The next line is `WORLDS_UPDATER result=check` and names the GitHub manifest, then the portal address.
+4. Quit from the **Momma Mari Worlds** menu.
+
 ### macOS
 
 1. Download the `momma-mari-worlds-macos-latest` artifact (or the `.dmg` on a GitHub Release). The disk image is a universal build for Apple silicon and Intel.
