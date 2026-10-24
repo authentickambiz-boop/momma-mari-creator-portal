@@ -2,118 +2,83 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import type { Group } from "three";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { withBasePath } from "@/lib/format";
 import {
   applyPalette,
   BODY_SHAPES,
   BODY_SIZES,
   CHARACTER_PATH,
-  CHARACTER_SLOTS,
   CHARACTER_SWATCHES,
   characterSlotChoices,
   defaultCharacter,
   EXPRESSIONS,
   EYE_STYLES,
+  INNER_TOPS,
   MOUTH_STYLES,
   NAME_TAG_STYLES,
+  OUTERWEAR_ITEMS,
   randomCharacter,
-  type CharacterConfig,
   SHOP_CLOTHING,
+  slotMeshReady,
+  missingWornParts,
+  type CharacterConfig,
   type CharacterSlotName,
   type CharacterSubjectKind,
 } from "@/lib/worlds/character";
 import { formatGameUnits, GAME_CATALOG } from "@/lib/worlds/game-wallet";
-import { CharacterFigure } from "./character-figure";
+import { CharacterStage } from "./character-stage";
 import "./character.css";
 
-const TABS = [
+const CATEGORIES = [
   { id: "body", label: "Body" },
   { id: "face", label: "Face" },
   { id: "hair", label: "Hair" },
-  { id: "headwear", label: "Hat" },
   { id: "top", label: "Top" },
   { id: "bottom", label: "Bottom" },
   { id: "shoes", label: "Shoes" },
-  { id: "accessory", label: "Extra" },
+  { id: "outerwear", label: "Outerwear" },
+  { id: "accessories", label: "Accessories" },
   { id: "colors", label: "Colors" },
-  { id: "tag", label: "Tag" },
 ] as const;
 
-type TabId = (typeof TABS)[number]["id"];
+type CategoryId = (typeof CATEGORIES)[number]["id"];
+
+const SLOT_LABELS: Record<CharacterSlotName, string> = {
+  hair: "Hair",
+  headwear: "Headwear",
+  top: "Top",
+  bottom: "Bottom",
+  shoes: "Shoes",
+  accessory: "Accessory",
+};
 
 function label(value: string) {
   if (value === "tee") return "T-shirt";
+  if (value === "none") return "None";
   return value.slice(0, 1).toUpperCase() + value.slice(1);
 }
 
-function Aim() {
-  const camera = useThree((state) => state.camera);
-  useLayoutEffect(() => {
-    camera.position.set(1.7, 1.2, 2.55);
-    camera.lookAt(0, 0.85, 0);
-  }, [camera]);
-  return null;
+function sameLook(left: CharacterConfig, right: CharacterConfig) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function Turntable({
-  spinRef,
-  draggingRef,
-  children,
-}: {
-  spinRef: RefObject<number>;
-  draggingRef: RefObject<boolean>;
-  children: ReactNode;
-}) {
-  const groupRef = useRef<Group>(null);
-  useFrame((_, dt) => {
-    if (!groupRef.current) return;
-    if (!draggingRef.current) spinRef.current += dt * 0.45;
-    groupRef.current.rotation.y = spinRef.current;
-  });
-  return <group ref={groupRef}>{children}</group>;
+function locksFor(slot: CharacterSlotName, values: readonly string[], unlocked: readonly string[]) {
+  const locked: Record<string, string> = {};
+  const shop = SHOP_CLOTHING[slot] as readonly string[];
+  for (const item of values) {
+    if (!shop.includes(item) || unlocked.includes(item)) continue;
+    const product = GAME_CATALOG.find((row) => row.sku === item);
+    locked[item] = product ? formatGameUnits(product.priceCents / 100) : "Locked";
+  }
+  for (const item of values) {
+    if (item !== "none" && !slotMeshReady(slot, item) && !locked[item]) locked[item] = "Missing mesh";
+  }
+  return locked;
 }
 
-function Preview({ config }: { config: CharacterConfig }) {
-  const spinRef = useRef(0);
-  const draggingRef = useRef(false);
-  const lastXRef = useRef(0);
-  return (
-    <div
-      className="character-stage"
-      onPointerDown={(event) => {
-        draggingRef.current = true;
-        lastXRef.current = event.clientX;
-        if (event.currentTarget instanceof HTMLElement) event.currentTarget.setPointerCapture(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        if (!draggingRef.current) return;
-        spinRef.current += (event.clientX - lastXRef.current) * 0.01;
-        lastXRef.current = event.clientX;
-      }}
-      onPointerUp={() => { draggingRef.current = false; }}
-      onPointerCancel={() => { draggingRef.current = false; }}
-    >
-      <Canvas
-        camera={{ fov: 32, near: 0.1, far: 20 }}
-        dpr={[1, 1.5]}
-        gl={{ alpha: false, antialias: true, powerPreference: "default", failIfMajorPerformanceCaveat: false }}
-      >
-        <color attach="background" args={["#8ec4ea"]} />
-        <Aim />
-        <ambientLight intensity={0.65} />
-        <directionalLight position={[3, 5, 2]} intensity={1.15} />
-        <Turntable spinRef={spinRef} draggingRef={draggingRef}>
-          <group position={[0, -0.15, 0]}>
-            <CharacterFigure config={config} />
-          </group>
-        </Turntable>
-      </Canvas>
-      <p className="character-stage-note">Drag to turn</p>
-    </div>
-  );
+function meshedChoices(slot: CharacterSlotName, values: readonly string[]) {
+  return values.some((item) => item !== "none" && slotMeshReady(slot, item));
 }
 
 function Choices({
@@ -129,6 +94,14 @@ function Choices({
   labelText: string;
   locked?: Readonly<Record<string, string>>;
 }) {
+  if (values.length === 0) {
+    return (
+      <div className="character-empty" role="status">
+        <p className="character-kicker">{labelText}</p>
+        <p>No pieces in this category yet. The rest of the look still saves.</p>
+      </div>
+    );
+  }
   return (
     <div>
       <p className="character-kicker">{labelText}</p>
@@ -175,6 +148,18 @@ function Swatches({
   );
 }
 
+function Recolor({ labelText, before, after }: { labelText: string; before: string; after: string }) {
+  const changed = before.toLowerCase() !== after.toLowerCase();
+  return (
+    <p className="character-recolor">
+      <span>{labelText}</span>
+      <span className="character-recolor-chip" style={{ background: before }} aria-label={`${labelText} saved`} />
+      <span className="character-recolor-chip" style={{ background: after }} aria-label={`${labelText} now`} />
+      <span>{changed ? "Changed" : "Same"}</span>
+    </p>
+  );
+}
+
 export function CharacterCreator({
   subjectKind,
   subjectId,
@@ -193,13 +178,19 @@ export function CharacterCreator({
   unlocked?: readonly string[];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<TabId>("body");
+  const [category, setCategory] = useState<CategoryId>("body");
   const [config, setConfig] = useState(initial);
+  const [baseline, setBaseline] = useState(initial);
+  const [compare, setCompare] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [failed, setFailed] = useState(false);
   const savingRef = useRef(false);
   const leaveRef = useRef(false);
+  const categoryLabel = CATEGORIES.find((item) => item.id === category)?.label ?? "Body";
+  const dirty = !sameLook(config, baseline);
+  const you = subjectKind === "user";
 
   useEffect(() => {
     function onBeforeUnload(event: BeforeUnloadEvent) {
@@ -216,9 +207,25 @@ export function CharacterCreator({
       ...current,
       slots: { ...current.slots, [name]: { ...current.slots[name], ...patch } },
     }));
+    setMessage("");
+  }
+
+  function pickOuterwear(item: string) {
+    setConfig((current) => {
+      const worn = current.slots.top.item;
+      if (item === "none" && !(OUTERWEAR_ITEMS as readonly string[]).includes(worn)) return current;
+      return { ...current, slots: { ...current.slots, top: { ...current.slots.top, item } } };
+    });
+    setMessage("");
+  }
+
+  function paint(key: "primary" | "secondary" | "accent", color: string) {
+    setConfig((current) => applyPalette({ ...current, palette: { ...current.palette, [key]: color } }));
+    setMessage("");
   }
 
   async function save() {
+    const snapshot = config;
     savingRef.current = true;
     setSaving(true);
     setFailed(false);
@@ -228,7 +235,7 @@ export function CharacterCreator({
         method: "PUT",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ subjectKind, subjectId, config }),
+        body: JSON.stringify({ subjectKind, subjectId, config: snapshot }),
       });
       const body = await response.json().catch(() => null) as { error?: string } | null;
       if (!response.ok) {
@@ -237,12 +244,15 @@ export function CharacterCreator({
         setMessage(body?.error || "The character did not save.");
         return;
       }
+      setBaseline(snapshot);
       if (leaveRef.current) {
         leaveRef.current = false;
         router.push(backHref);
         return;
       }
-      setMessage("Saved. Other signed-in people can see this look.");
+      setMessage(you
+        ? "Saved. The office You character wears this look."
+        : "Saved. This bot wears the look in the office.");
     } catch {
       leaveRef.current = false;
       setFailed(true);
@@ -261,74 +271,198 @@ export function CharacterCreator({
     setMessage("Saving… this page will leave when the save finishes.");
   }
 
-  const slot = (CHARACTER_SLOTS as readonly string[]).includes(tab) ? tab as CharacterSlotName : null;
-  const slotChoices = slot ? characterSlotChoices(slot) : [];
-  const locked: Record<string, string> = {};
-  if (slot) {
-    for (const item of SHOP_CLOTHING[slot]) {
-      if (!unlocked.includes(item)) {
-        const product = GAME_CATALOG.find((row) => row.sku === item);
-        locked[item] = product ? formatGameUnits(product.priceCents / 100) : "Locked";
-      }
-    }
+  function openCategory(next: CategoryId) {
+    setCategory(next);
+    setSheetOpen(true);
   }
+
+  const topItem = config.slots.top.item;
+  const outerOn = topItem !== "none" && (OUTERWEAR_ITEMS as readonly string[]).includes(topItem);
+  const innerOn = topItem !== "none" && (INNER_TOPS as readonly string[]).includes(topItem);
+  const gaps = missingWornParts(config);
 
   return (
     <div className="character-studio">
-      <Preview config={config} />
-      <section className="character-panel" aria-label="Character creator">
+      <div className="character-stage-wrap">
+        <CharacterStage config={config} baseline={baseline} compare={compare} onCompare={() => setCompare((open) => !open)} />
+      </div>
+      <section className={sheetOpen ? "character-panel is-open" : "character-panel"} aria-label="Character creator">
+        <button
+          type="button"
+          className="character-sheet-handle"
+          aria-expanded={sheetOpen}
+          onClick={() => setSheetOpen((open) => !open)}
+        >
+          <span />
+          {sheetOpen ? "Hide options" : `${categoryLabel} options`}
+        </button>
         <div className="character-bar">
           <h1>{title}</h1>
           <Link href={backHref} onClick={onBack} aria-disabled={saving}>{saving ? "Saving…" : backLabel}</Link>
         </div>
         <div className="character-tabs" role="tablist" aria-label="Look categories">
-          {TABS.map((item) => (
-            <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} onClick={() => setTab(item.id)}>{item.label}</button>
+          {CATEGORIES.map((item) => (
+            <button key={item.id} type="button" role="tab" aria-selected={category === item.id} onClick={() => openCategory(item.id)}>
+              {item.label}
+            </button>
           ))}
         </div>
         <div className="character-scroll">
-          {tab === "body" ? (
+          {gaps.length ? (
+            <div className="character-empty" role="alert">
+              <p>Some pieces have no mesh yet.</p>
+              <ul>
+                {gaps.map((gap) => (
+                  <li key={`${gap.slot}-${gap.item}`}>
+                    {gap.slot === "top" && (OUTERWEAR_ITEMS as readonly string[]).includes(gap.item) ? "Outerwear" : SLOT_LABELS[gap.slot]}
+                    {" · "}
+                    {label(gap.item)} is missing. The office skips that piece.
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {category === "body" ? (
             <>
-              <Choices labelText="Shape" values={BODY_SHAPES} selected={config.body.shape} onPick={(shape) => setConfig((current) => ({ ...current, body: { ...current.body, shape: shape as CharacterConfig["body"]["shape"] } }))} />
-              <Choices labelText="Size" values={BODY_SIZES} selected={config.body.size} onPick={(size) => setConfig((current) => ({ ...current, body: { ...current.body, size: size as CharacterConfig["body"]["size"] } }))} />
-              <Swatches labelText="Skin" selected={config.body.color} onPick={(color) => setConfig((current) => ({ ...current, body: { ...current.body, color } }))} />
+              <Choices labelText="Shape" values={BODY_SHAPES} selected={config.body.shape} onPick={(shape) => { setConfig((current) => ({ ...current, body: { ...current.body, shape: shape as CharacterConfig["body"]["shape"] } })); setMessage(""); }} />
+              <Choices labelText="Size" values={BODY_SIZES} selected={config.body.size} onPick={(size) => { setConfig((current) => ({ ...current, body: { ...current.body, size: size as CharacterConfig["body"]["size"] } })); setMessage(""); }} />
+              <Swatches labelText="Skin" selected={config.body.color} onPick={(color) => { setConfig((current) => ({ ...current, body: { ...current.body, color } })); setMessage(""); }} />
+              <Recolor labelText="Skin" before={baseline.body.color} after={config.body.color} />
             </>
           ) : null}
-          {tab === "face" ? (
+          {category === "face" ? (
             <>
-              <Choices labelText="Eyes" values={EYE_STYLES} selected={config.face.eyes} onPick={(eyes) => setConfig((current) => ({ ...current, face: { ...current.face, eyes: eyes as CharacterConfig["face"]["eyes"] } }))} />
-              <Choices labelText="Mouth" values={MOUTH_STYLES} selected={config.face.mouth} onPick={(mouth) => setConfig((current) => ({ ...current, face: { ...current.face, mouth: mouth as CharacterConfig["face"]["mouth"] } }))} />
-              <Choices labelText="Expression" values={EXPRESSIONS} selected={config.face.expression} onPick={(expression) => setConfig((current) => ({ ...current, face: { ...current.face, expression: expression as CharacterConfig["face"]["expression"] } }))} />
+              <Choices labelText="Eyes" values={EYE_STYLES} selected={config.face.eyes} onPick={(eyes) => { setConfig((current) => ({ ...current, face: { ...current.face, eyes: eyes as CharacterConfig["face"]["eyes"] } })); setMessage(""); }} />
+              <Choices labelText="Mouth" values={MOUTH_STYLES} selected={config.face.mouth} onPick={(mouth) => { setConfig((current) => ({ ...current, face: { ...current.face, mouth: mouth as CharacterConfig["face"]["mouth"] } })); setMessage(""); }} />
+              <Choices labelText="Expression" values={EXPRESSIONS} selected={config.face.expression} onPick={(expression) => { setConfig((current) => ({ ...current, face: { ...current.face, expression: expression as CharacterConfig["face"]["expression"] } })); setMessage(""); }} />
+              <p className="character-note">Use Face on the preview to zoom in.</p>
             </>
           ) : null}
-          {slot ? (
-            <>
-              <Choices labelText="Style" values={slotChoices} selected={config.slots[slot].item} locked={locked} onPick={(item) => setSlot(slot, { item })} />
-              <Swatches labelText="Color" selected={config.slots[slot].color} onPick={(color) => setSlot(slot, { color })} />
-            </>
-          ) : null}
-          {tab === "colors" ? (
-            <>
-              <Swatches labelText="Primary" selected={config.palette.primary} onPick={(primary) => setConfig((current) => ({ ...current, palette: { ...current.palette, primary } }))} />
-              <Swatches labelText="Secondary" selected={config.palette.secondary} onPick={(secondary) => setConfig((current) => ({ ...current, palette: { ...current.palette, secondary } }))} />
-              <Swatches labelText="Accent" selected={config.palette.accent} onPick={(accent) => setConfig((current) => ({ ...current, palette: { ...current.palette, accent } }))} />
-              <div className="character-actions">
-                <button type="button" className="ghost" onClick={() => setConfig((current) => applyPalette(current))}>Apply palette to hair and outfit</button>
+          {category === "hair" ? (
+            meshedChoices("hair", characterSlotChoices("hair")) ? (
+              <>
+                <Choices labelText="Style" values={characterSlotChoices("hair")} selected={config.slots.hair.item} locked={locksFor("hair", characterSlotChoices("hair"), unlocked)} onPick={(item) => setSlot("hair", { item })} />
+                <Swatches labelText="Color" selected={config.slots.hair.color} onPick={(color) => setSlot("hair", { color })} />
+                <Recolor labelText="Hair" before={baseline.slots.hair.color} after={config.slots.hair.color} />
+              </>
+            ) : (
+              <div className="character-empty" role="status">
+                <p>No hair pieces yet.</p>
+                <p>This category stays empty until a mesh is added. The rest of the look still saves.</p>
               </div>
-            </>
+            )
           ) : null}
-          {tab === "tag" ? (
+          {category === "top" ? (
+            meshedChoices("top", INNER_TOPS) ? (
+              <>
+                <p className="character-note">Tops and outerwear share one piece. A shirt replaces a coat.</p>
+                {outerOn ? <p className="character-note">Outerwear is on. Choosing a top replaces it.</p> : null}
+                <Choices labelText="Style" values={INNER_TOPS} selected={innerOn || topItem === "none" ? topItem : ""} locked={locksFor("top", INNER_TOPS, unlocked)} onPick={(item) => setSlot("top", { item })} />
+                <Swatches labelText="Color" selected={config.slots.top.color} onPick={(color) => setSlot("top", { color })} />
+                <Recolor labelText="Top" before={baseline.slots.top.color} after={config.slots.top.color} />
+              </>
+            ) : (
+              <div className="character-empty" role="status">
+                <p>No tops yet.</p>
+                <p>This category stays empty until a mesh is added. The rest of the look still saves.</p>
+              </div>
+            )
+          ) : null}
+          {category === "bottom" ? (
+            meshedChoices("bottom", characterSlotChoices("bottom")) ? (
+              <>
+                <Choices labelText="Style" values={characterSlotChoices("bottom")} selected={config.slots.bottom.item} locked={locksFor("bottom", characterSlotChoices("bottom"), unlocked)} onPick={(item) => setSlot("bottom", { item })} />
+                <Swatches labelText="Color" selected={config.slots.bottom.color} onPick={(color) => setSlot("bottom", { color })} />
+                <Recolor labelText="Bottom" before={baseline.slots.bottom.color} after={config.slots.bottom.color} />
+              </>
+            ) : (
+              <div className="character-empty" role="status">
+                <p>No bottoms yet.</p>
+                <p>This category stays empty until a mesh is added. The rest of the look still saves.</p>
+              </div>
+            )
+          ) : null}
+          {category === "shoes" ? (
+            meshedChoices("shoes", characterSlotChoices("shoes")) ? (
+              <>
+                <Choices labelText="Style" values={characterSlotChoices("shoes")} selected={config.slots.shoes.item} locked={locksFor("shoes", characterSlotChoices("shoes"), unlocked)} onPick={(item) => setSlot("shoes", { item })} />
+                <Swatches labelText="Color" selected={config.slots.shoes.color} onPick={(color) => setSlot("shoes", { color })} />
+                <Recolor labelText="Shoes" before={baseline.slots.shoes.color} after={config.slots.shoes.color} />
+              </>
+            ) : (
+              <div className="character-empty" role="status">
+                <p>No shoes yet.</p>
+                <p>This category stays empty until a mesh is added. The rest of the look still saves.</p>
+              </div>
+            )
+          ) : null}
+          {category === "outerwear" ? (
+            meshedChoices("top", OUTERWEAR_ITEMS) ? (
+              <>
+                <p className="character-note">Outerwear uses the top slot. None keeps a shirt that is already on.</p>
+                {innerOn ? <p className="character-note">A top is on. A coat replaces it.</p> : null}
+                <Choices labelText="Style" values={OUTERWEAR_ITEMS} selected={outerOn ? topItem : "none"} locked={locksFor("top", OUTERWEAR_ITEMS, unlocked)} onPick={pickOuterwear} />
+                <Swatches labelText="Color" selected={config.slots.top.color} onPick={(color) => setSlot("top", { color })} />
+                <Recolor labelText="Outerwear" before={baseline.slots.top.color} after={config.slots.top.color} />
+              </>
+            ) : (
+              <div className="character-empty" role="status">
+                <p>No outerwear yet.</p>
+                <p>This category stays empty until a mesh is added. The rest of the look still saves.</p>
+              </div>
+            )
+          ) : null}
+          {category === "accessories" ? (
             <>
-              <Choices labelText="Name tag" values={NAME_TAG_STYLES} selected={config.nameTag.style} onPick={(style) => setConfig((current) => ({ ...current, nameTag: { ...current.nameTag, style: style as CharacterConfig["nameTag"]["style"] } }))} />
-              <Swatches labelText="Tag color" selected={config.nameTag.color} onPick={(color) => setConfig((current) => ({ ...current, nameTag: { ...current.nameTag, color } }))} />
+              {meshedChoices("headwear", characterSlotChoices("headwear")) ? (
+                <>
+                  <Choices labelText="Head" values={characterSlotChoices("headwear")} selected={config.slots.headwear.item} locked={locksFor("headwear", characterSlotChoices("headwear"), unlocked)} onPick={(item) => setSlot("headwear", { item })} />
+                  <Swatches labelText="Head color" selected={config.slots.headwear.color} onPick={(color) => setSlot("headwear", { color })} />
+                </>
+              ) : (
+                <div className="character-empty" role="status">
+                  <p>No head pieces yet.</p>
+                </div>
+              )}
+              {meshedChoices("accessory", characterSlotChoices("accessory")) ? (
+                <>
+                  <Choices labelText="Worn" values={characterSlotChoices("accessory")} selected={config.slots.accessory.item} locked={locksFor("accessory", characterSlotChoices("accessory"), unlocked)} onPick={(item) => setSlot("accessory", { item })} />
+                  <Swatches labelText="Worn color" selected={config.slots.accessory.color} onPick={(color) => setSlot("accessory", { color })} />
+                  <Recolor labelText="Accessory" before={baseline.slots.accessory.color} after={config.slots.accessory.color} />
+                </>
+              ) : (
+                <div className="character-empty" role="status">
+                  <p>No worn accessories yet.</p>
+                </div>
+              )}
             </>
           ) : null}
-          {message ? <p className={failed ? "character-note error" : "character-note"} role="status">{message}</p> : null}
+          {category === "colors" ? (
+            <>
+              <p className="character-note">Palette picks recolor hair, the top or coat, bottom, shoes, and accessories immediately. Compare shows the saved look beside this one.</p>
+              <Swatches labelText="Primary" selected={config.palette.primary} onPick={(primary) => paint("primary", primary)} />
+              <Swatches labelText="Secondary" selected={config.palette.secondary} onPick={(secondary) => paint("secondary", secondary)} />
+              <Swatches labelText="Accent" selected={config.palette.accent} onPick={(accent) => paint("accent", accent)} />
+              <Recolor labelText="Primary" before={baseline.palette.primary} after={config.palette.primary} />
+              <Recolor labelText="Hair" before={baseline.slots.hair.color} after={config.slots.hair.color} />
+              <Recolor labelText="Outfit" before={baseline.slots.top.color} after={config.slots.top.color} />
+              <Choices labelText="Name tag" values={NAME_TAG_STYLES} selected={config.nameTag.style} onPick={(style) => { setConfig((current) => ({ ...current, nameTag: { ...current.nameTag, style: style as CharacterConfig["nameTag"]["style"] } })); setMessage(""); }} />
+              <Swatches labelText="Tag color" selected={config.nameTag.color} onPick={(color) => { setConfig((current) => ({ ...current, nameTag: { ...current.nameTag, color } })); setMessage(""); }} />
+            </>
+          ) : null}
           <div className="character-actions">
             <button type="button" className="ghost" onClick={() => { setConfig(randomCharacter()); setMessage(""); }}>Randomize</button>
             <button type="button" className="ghost" onClick={() => { setConfig(defaultCharacter(subjectId)); setMessage(""); }}>Reset</button>
-            <button type="button" disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Save"}</button>
           </div>
+        </div>
+        <div className="character-apply-bar">
+          {message ? <p className={failed ? "character-note error" : "character-note"} role="status">{message}</p> : null}
+          {!message && dirty ? (
+            <p className="character-note">{you ? "Unsaved. Save look updates the office You character." : "Unsaved. Save look updates this bot in the office."}</p>
+          ) : null}
+          <button type="button" className="character-apply" disabled={saving} onClick={() => void save()}>
+            {saving ? "Saving…" : "Save look"}
+          </button>
         </div>
       </section>
     </div>

@@ -32,6 +32,11 @@ export const CHARACTER_ITEMS = {
 
 export const CHARACTER_SLOTS = ["hair", "headwear", "top", "bottom", "shoes", "accessory"] as const;
 
+/** Shirts stored in the top slot. A coat replaces the shirt, and the shirt replaces the coat. */
+export const INNER_TOPS = ["none", "tee", "vest", "collar"] as const;
+/** Coats stored in the top slot. Hoodie is free. Jacket is a shop item. */
+export const OUTERWEAR_ITEMS = ["none", "hoodie", "jacket"] as const;
+
 /** Shop clothes. They are not in the free starter set. */
 export const SHOP_CLOTHING = {
   hair: ["waves"],
@@ -99,7 +104,13 @@ export type CharacterPart = {
   animate: "none" | "arm-l" | "arm-r" | "leg-l" | "leg-r";
 };
 
-export type CharacterPose = { phase: number; moving: boolean; seated: boolean };
+export type CharacterPose = {
+  phase: number;
+  moving: boolean;
+  seated: boolean;
+  /** Studio wave. Office poses leave this unset. */
+  wave?: boolean;
+};
 
 export type CharacterResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -430,7 +441,7 @@ function hairPieces(style: string, color: string, headR: number, headY: number) 
       scale: [1.06, 0.9, 0.7],
       color,
     }));
-  } else {
+  } else if (style === "cap") {
     back.push(part({
       id: "hair-back",
       slot: "hair",
@@ -440,6 +451,8 @@ function hairPieces(style: string, color: string, headR: number, headY: number) 
       scale: [1.02, 0.52, 0.92],
       color,
     }));
+  } else {
+    return { back, front };
   }
   front.push(part({
     id: "hair-front",
@@ -551,6 +564,7 @@ function addBottom(parts: CharacterPart[], item: string, color: string, layout: 
     parts.push(part({ id: "overalls-strap", slot: "bottom", shape: "box", args: [bodyW * 0.62, 0.05, 0.04], position: [0, layout.bodyY + bodyH * 0.22, bodyD * 0.72], color }));
     return;
   }
+  if (item !== "pants") return;
   parts.push(part({ id: "bottom", slot: "bottom", shape: "box", args: [bodyW * 1.18, 0.16, bodyD * 1.26], position: [0, hipY, 0.04], color }));
   const legH = 0.34;
   const legY = hipY - 0.04 - legH / 2;
@@ -560,6 +574,7 @@ function addBottom(parts: CharacterPart[], item: string, color: string, layout: 
 
 function addShoes(parts: CharacterPart[], item: string, color: string, layout: ChibiLayout) {
   if (item === "none") return;
+  if (item !== "sneakers" && item !== "boots" && item !== "sandals" && item !== "heels") return;
   const height = item === "boots" ? 0.16 : item === "heels" ? 0.18 : item === "sandals" ? 0.045 : 0.09;
   const depth = item === "boots" ? 0.22 : 0.26;
   const width = item === "heels" ? 0.14 : 0.18;
@@ -732,7 +747,38 @@ export function characterFigure(config: CharacterConfig): { scale: number; parts
   };
 }
 
+const SLOT_MESHES: Record<CharacterSlotName, readonly string[]> = {
+  hair: ["cap", "bob", "spikes", "bun", "long", "waves"],
+  headwear: ["cap", "beanie", "bow", "crown", "headphones"],
+  top: ["tee", "hoodie", "vest", "collar", "jacket"],
+  bottom: ["shorts", "pants", "skirt", "overalls"],
+  shoes: ["sneakers", "boots", "sandals", "heels"],
+  accessory: ["glasses", "scarf", "bag", "badge", "watch"],
+};
+
+/** True when the item is empty or the chibi builder has a mesh for it. */
+export function slotMeshReady(slot: CharacterSlotName, item: string) {
+  if (item === "none") return true;
+  return SLOT_MESHES[slot].includes(item);
+}
+
+/** Worn items whose ids are allowed or typed in, but which this mesh cannot draw. */
+export function missingWornParts(config: CharacterConfig) {
+  const gaps: { slot: CharacterSlotName; item: string }[] = [];
+  for (const slot of CHARACTER_SLOTS) {
+    const item = config.slots[slot].item;
+    if (!slotMeshReady(slot, item)) gaps.push({ slot, item });
+  }
+  return gaps;
+}
+
 export function limbRotation(animate: CharacterPart["animate"], pose: CharacterPose): [number, number, number] {
+  if (pose.wave && !pose.seated && !pose.moving) {
+    const flap = Math.sin(pose.phase * 2.4) * 0.38;
+    if (animate === "arm-r") return [0.25, 0, 1.15 + flap];
+    if (animate === "arm-l") return [0.2, 0, -0.25];
+    if (animate === "leg-l" || animate === "leg-r") return [0, 0, 0];
+  }
   const swing = pose.moving ? Math.sin(pose.phase) * 0.65 : 0;
   if (animate === "arm-l") return [pose.seated ? 0.4 : -swing, 0, 0];
   if (animate === "arm-r") return [pose.seated ? 0.25 : swing, 0, 0];

@@ -72,7 +72,7 @@ function Limb({ part, poseRef }: { part: CharacterPart; poseRef?: RefObject<Char
   );
 }
 
-/** Chibi used by the creator preview and every office bot. */
+/** Chibi used by the creator preview and every office bot, including You. */
 export function CharacterFigure({
   config,
   poseRef,

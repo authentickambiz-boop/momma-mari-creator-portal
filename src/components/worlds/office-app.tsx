@@ -867,7 +867,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
       {sheet === "you" ? (
         <section className="office-panel office-sheet office-chat" aria-label="You">
           <CloseRow title="You" onClose={dismiss} />
-          <p>This is your character at the HQ desk.</p>
+          <p>This is your character at the HQ desk. It wears the look you save in the character creator.</p>
           {charactersEnabled ? <Link className="office-link" href="/worlds/create">Customize</Link> : null}
         </section>
       ) : null}
