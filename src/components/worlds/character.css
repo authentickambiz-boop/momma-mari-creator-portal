@@ -337,12 +337,9 @@
 }
 .character-tabs {
   display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 0 14px 10px;
-  scroll-snap-type: x mandatory;
-  scroll-padding-inline: 14px;
-  overscroll-behavior-x: contain;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 14px 12px;
 }
 .character-tabs button,
 .character-choices button,
@@ -360,9 +357,15 @@
 }
 .character-tabs button {
   flex: 0 0 auto;
-  padding: 0 14px;
-  scroll-snap-align: start;
+  min-height: 56px;
+  padding: 12px 20px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   color: #3d4d66;
+}
+.character-choices button {
+  font-size: 14px;
 }
 .character-tabs button[aria-selected="true"] {
   background: #1a6dff;
@@ -605,6 +608,15 @@
     border-radius: 22px;
   }
   .character-sheet-legend { font-size: 12px; }
+  .character-tabs {
+    gap: 8px;
+    padding-bottom: 10px;
+  }
+  .character-tabs button {
+    min-height: 52px;
+    padding: 10px 16px;
+    font-size: 16px;
+  }
   .character-choices button,
   .character-quiet,
   .character-apply {
