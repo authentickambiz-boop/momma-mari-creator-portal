@@ -23,8 +23,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const viewer = await currentViewer();
   const params = await searchParams;
   const db = await getDb();
-  const backToWorlds = worldsReturnPath(params.next) === "/worlds";
-  if (viewer) redirect(backToWorlds ? "/worlds" : await creatorStartPath(db, viewer));
+  const worldsNext = worldsReturnPath(params.next);
+  const backToWorlds = worldsNext === "/worlds";
+  const backToCity = worldsNext === "/worlds/city";
+  if (viewer) redirect(worldsNext ?? await creatorStartPath(db, viewer));
   const creators = devLoginEnabled() ? await listCreators(db) : [];
   const managers = devLoginEnabled() ? (await listManagers(db)).filter((manager) => manager.active) : [];
   const error = params.error ? ERRORS[params.error] ?? "Sign-in didn't finish. Try again. Nothing was changed." : null;
@@ -41,7 +43,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         {showApplyHint ? <p className="note">If you are new, apply to join Momma Mari. We review each application and reply within 5 business days.</p> : null}
         {backToWorlds ? null : <Link className="btn" href="/apply">New creator? Apply to join Momma Mari</Link>}
         {googleConfigured() ? (
-          <a className="btn google" href={backToWorlds ? `${base}/api/auth/google?next=/worlds` : `${base}/api/auth/google`}>Continue with Google</a>
+          <a className="btn google" href={backToCity ? `${base}/api/auth/google?next=/worlds/city` : backToWorlds ? `${base}/api/auth/google?next=/worlds` : `${base}/api/auth/google`}>Continue with Google</a>
         ) : (
           <p className="note">Google sign-in is waiting on a client id and secret. The steps are in the README.</p>
         )}
@@ -51,20 +53,20 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <p className="note">Local only. These buttons skip Google so you can click through the seed data. Turn AUTH_DEV_LOGIN off before this is on the real site.</p>
             <div className="people">
               <form action={devLoginAction}>
-                {backToWorlds ? <input type="hidden" name="next" value="/worlds" /> : null}
+                {worldsNext ? <input type="hidden" name="next" value={worldsNext} /> : null}
                 <input type="hidden" name="email" value="Kamron@mommamari.com" />
                 <button className="btn ghost" type="submit">Continue as Kamron (admin, sees everyone)</button>
               </form>
               {managers.map((manager) => (
                 <form key={manager.id} action={devLoginAction}>
-                  {backToWorlds ? <input type="hidden" name="next" value="/worlds" /> : null}
+                  {worldsNext ? <input type="hidden" name="next" value={worldsNext} /> : null}
                   <input type="hidden" name="email" value={manager.email} />
                   <button className="btn ghost" type="submit">Continue as {manager.name} (manager)</button>
                 </form>
               ))}
               {creators.map((creator) => (
                 <form key={creator.id} action={devLoginAction}>
-                  {backToWorlds ? <input type="hidden" name="next" value="/worlds" /> : null}
+                  {worldsNext ? <input type="hidden" name="next" value={worldsNext} /> : null}
                   <input type="hidden" name="email" value={creator.email} />
                   <button className="btn ghost" type="submit">Continue as {creator.name}</button>
                 </form>

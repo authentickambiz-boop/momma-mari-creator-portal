@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { withBasePath } from "@/lib/format";
 import { OWNER_ACTOR_ID, buildOfficeLayout } from "@/lib/worlds/office-layout";
 import {
@@ -41,6 +41,10 @@ import {
 } from "@/lib/worlds/office-wallets";
 import { formatGameUnits, GAME_WALLET_PATH } from "@/lib/worlds/game-wallet";
 import type { BoardOpen, OfficeCameraApi, OfficeLayers, OfficeQuality } from "./office-canvas";
+import { CityChrome } from "./city/city-panel";
+import { officeInteractables } from "@/lib/worlds/city/interactables";
+import { buildCityDistrict } from "@/lib/worlds/city/locations";
+import type { HomeTier } from "@/lib/worlds/economy";
 import { OfficeJoystick } from "./office-joystick";
 import { panelsEnabledFromStorage, panelsStorageValue } from "@/lib/worlds/office-chrome";
 import type { Stick } from "@/lib/worlds/office-move";
@@ -163,7 +167,7 @@ function dollars(amount: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
 }
 
-export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: boolean }) {
+export function OfficeApp({ charactersEnabled = false, cityMode = false }: { charactersEnabled?: boolean; cityMode?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const cameraApiRef = useRef<OfficeCameraApi | null>(null);
   const stickRef = useRef<Stick>({ x: 0, y: 0 });
@@ -201,6 +205,11 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
   const [gameRates, setGameRates] = useState<Record<string, string>>({});
   const [interestPercent, setInterestPercent] = useState("1");
   const [bankAmount, setBankAmount] = useState("");
+  const [cityLocation, setCityLocation] = useState<string | null>(null);
+  const [homeTier, setHomeTier] = useState<HomeTier>("studio");
+  const setTier = useCallback((tier: HomeTier) => {
+    setHomeTier((current) => (current === tier ? current : tier));
+  }, []);
   const bankKey = useRef("");
   const [savingGame, setSavingGame] = useState(false);
   const [savingWallet, setSavingWallet] = useState(false);
@@ -698,6 +707,21 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
     else await node.requestFullscreen();
   }
 
+  function openCity(id: string) {
+    setCityLocation(id);
+    setSheet(null);
+    setBoard(null);
+    setMenuOpen(false);
+    if (!layout) return;
+    const plot = buildCityDistrict(layout, homeTier).plots.find((item) => item.id === id);
+    if (plot) cameraApiRef.current?.focus(plot.entrance.x, plot.entrance.z);
+  }
+
+  const officeTaps = useMemo(
+    () => (cityMode && layout && status ? officeInteractables(layout, status.sections, status.bots) : []),
+    [cityMode, layout, status],
+  );
+
   const reviewCount = status ? notesForView(status.notes, "review").length : 0;
   const boardNotes = status && board ? status.notes.filter((note) => note.office === board.office) : [];
 
@@ -731,6 +755,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
             bankBalance={gameWallet?.wallet.bank ?? 0}
             onOpenBank={() => openBank()}
             stickRef={stickRef}
+            city={cityMode ? { homeTier, selectedId: cityLocation, onOpenLocation: openCity } : null}
           />
         ) : (
           <div className="office-loading">{error || "Opening the bot office…"}</div>
@@ -815,7 +840,19 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
         ) : null}
       </div>
 
-      <OfficeJoystick stickRef={stickRef} lifted={sheet !== null} />
+      <OfficeJoystick stickRef={stickRef} lifted={sheet !== null || cityLocation !== null} />
+
+      {cityMode ? (
+        <CityChrome
+          locationId={cityLocation}
+          officeTaps={officeTaps}
+          lifted={sheet !== null}
+          onOpenLocation={openCity}
+          onClose={() => setCityLocation(null)}
+          onOpenBank={() => openBank()}
+          onTier={setTier}
+        />
+      ) : null}
 
       {sheet === "info" ? (
       <section className="office-panel office-sheet office-tools" aria-label="Office controls">

@@ -15,7 +15,12 @@ import { BOT_CAPSULE_CENTER, BOT_CAPSULE_LENGTH, BOT_CAPSULE_RADIUS, pickBotCaps
 import { OWNER_LOOK_SEED, defaultCharacter, nameTagFrame, type CharacterConfig, type CharacterPose } from "@/lib/worlds/character";
 import { CharacterFigure } from "./character-figure";
 import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, type Stick } from "@/lib/worlds/office-move";
+import { cityOverviewHome, officeTargetBounds, poseInsideBounds, type TargetBounds } from "@/lib/worlds/city/scene-shell";
+import { buildCityDistrict } from "@/lib/worlds/city/locations";
+import type { HomeTier } from "@/lib/worlds/economy";
 import { OfficeSite } from "./office-grounds";
+import { WorldSceneShell } from "./city/scene-shell";
+import { CityLayer } from "./city/city-layer";
 
 export type BoardPanel = "calendar" | "todos" | "notes";
 export type BoardOpen = { office: OfficeKey; panel: BoardPanel };
@@ -23,6 +28,13 @@ export type BoardOpen = { office: OfficeKey; panel: BoardPanel };
 export type OfficeCameraApi = {
   reset: () => void;
   zoomBy: (factor: number) => void;
+  focus: (x: number, z: number) => void;
+};
+
+export type CitySceneMode = {
+  homeTier: HomeTier;
+  selectedId: string | null;
+  onOpenLocation: (id: string) => void;
 };
 
 export type OfficeLayers = {
@@ -43,14 +55,10 @@ function mapHome(layout: OfficeLayout) {
   return { position: home.position, target: home.target };
 }
 
-function clampMapTarget(orbit: OrbitControlsType, layout: OfficeLayout) {
-  const minX = -14;
-  const maxX = layout.width + 14;
-  const minZ = -14;
-  const maxZ = layout.depth + 28;
-  const x = THREE.MathUtils.clamp(orbit.target.x, minX, maxX);
-  const y = THREE.MathUtils.clamp(orbit.target.y, 0.4, 3.2);
-  const z = THREE.MathUtils.clamp(orbit.target.z, minZ, maxZ);
+function clampMapTarget(orbit: OrbitControlsType, bounds: TargetBounds) {
+  const x = THREE.MathUtils.clamp(orbit.target.x, bounds.minX, bounds.maxX);
+  const y = THREE.MathUtils.clamp(orbit.target.y, bounds.minY, bounds.maxY);
+  const z = THREE.MathUtils.clamp(orbit.target.z, bounds.minZ, bounds.maxZ);
   const dx = x - orbit.target.x;
   const dy = y - orbit.target.y;
   const dz = z - orbit.target.z;
@@ -1300,10 +1308,12 @@ function MapGestures({
   controls,
   layout,
   gesture,
+  boundsRef,
 }: {
   controls: React.RefObject<OrbitControlsType | null>;
   layout: OfficeLayout;
   gesture: React.MutableRefObject<MapGesture>;
+  boundsRef: React.MutableRefObject<TargetBounds>;
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -1383,7 +1393,7 @@ function MapGestures({
       if (button === 0) {
         const hit = groundAt(event);
         if (anchor && hit) {
-          nudgeTarget(orbit, grabPanDelta(anchor, hit), layout);
+          nudgeTarget(orbit, grabPanDelta(anchor, hit), boundsRef.current);
           anchor = groundAt(event) ?? hit;
         }
       } else if (button === 2) {
@@ -1429,27 +1439,27 @@ function MapGestures({
       window.removeEventListener("pointerup", finish);
       window.removeEventListener("pointercancel", finish);
     };
-  }, [camera, gl, controls, layout, gesture]);
+  }, [camera, gl, controls, layout, gesture, boundsRef]);
   return null;
 }
 
-function nudgeTarget(orbit: OrbitControlsType, delta: { x: number; z: number }, layout: OfficeLayout) {
+function nudgeTarget(orbit: OrbitControlsType, delta: { x: number; z: number }, bounds: TargetBounds) {
   orbit.target.x += delta.x;
   orbit.target.z += delta.z;
   orbit.object.position.x += delta.x;
   orbit.object.position.z += delta.z;
-  clampMapTarget(orbit, layout);
+  clampMapTarget(orbit, bounds);
   orbit.update();
 }
 
 function StickMover({
   stickRef,
   controls,
-  layout,
+  boundsRef,
 }: {
   stickRef: React.MutableRefObject<Stick>;
   controls: React.RefObject<OrbitControlsType | null>;
-  layout: OfficeLayout;
+  boundsRef: React.MutableRefObject<TargetBounds>;
 }) {
   // Stay on the default priority. A positive one makes React Three Fiber skip drawing the scene.
   useFrame((_, dt) => {
@@ -1465,7 +1475,7 @@ function StickMover({
       step,
     );
     if (delta.x === 0 && delta.z === 0) return;
-    nudgeTarget(orbit, delta, layout);
+    nudgeTarget(orbit, delta, boundsRef.current);
   });
   return null;
 }
@@ -1473,15 +1483,22 @@ function StickMover({
 function CameraGuard({
   controls,
   layout,
+  boundsRef,
+  home,
 }: {
   controls: React.RefObject<OrbitControlsType | null>;
   layout: OfficeLayout;
+  boundsRef: React.MutableRefObject<TargetBounds>;
+  home: { position: THREE.Vector3; target: THREE.Vector3 };
 }) {
-  const home = useMemo(() => mapHome(layout), [layout]);
   useFrame(() => {
     const orbit = controls.current;
     if (!orbit) return;
-    if (officeCameraPoseOk(orbit.object.position, orbit.target, layout)) return;
+    const bounds = boundsRef.current;
+    const ok = bounds.kind === "city"
+      ? poseInsideBounds(orbit.object.position, orbit.target, bounds)
+      : officeCameraPoseOk(orbit.object.position, orbit.target, layout);
+    if (ok) return;
     orbit.object.position.copy(home.position);
     orbit.target.copy(home.target);
     orbit.update();
@@ -1512,6 +1529,7 @@ function Scene({
   stickRef,
   gesture,
   detailed,
+  city = null,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1535,13 +1553,22 @@ function Scene({
   stickRef: React.MutableRefObject<Stick>;
   gesture: React.MutableRefObject<MapGesture>;
   detailed: boolean;
+  city?: CitySceneMode | null;
 }) {
   const mats = useOfficeMaterials(layout);
   const controls = useRef<OrbitControlsType>(null);
   const [hotId, setHotId] = useState<string | null>(null);
   const sky = skyColor(weather);
-  const fog = fogDistances(weather);
-  const home = useMemo(() => mapHome(layout), [layout]);
+  const baseFog = fogDistances(weather);
+  const fog = city ? { near: Math.max(baseFog.near, 48), far: Math.max(baseFog.far, 240) } : baseFog;
+  const tier = city?.homeTier ?? "studio";
+  const cityOn = city != null;
+  const district = useMemo(() => (cityOn ? buildCityDistrict(layout, tier) : null), [cityOn, layout, tier]);
+  const boundsRef = useRef<TargetBounds>(officeTargetBounds(layout));
+  useLayoutEffect(() => {
+    boundsRef.current = district?.bounds ?? officeTargetBounds(layout);
+  }, [district, layout]);
+  const home = useMemo(() => (cityOn ? cityOverviewHome(layout) : mapHome(layout)), [cityOn, layout]);
   useLayoutEffect(() => {
     cameraApiRef.current = {
       reset() {
@@ -1558,6 +1585,25 @@ function Scene({
         const next = THREE.MathUtils.clamp(offset.length() * factor, MAP_MIN_DISTANCE, MAP_MAX_DISTANCE);
         offset.setLength(next);
         orbit.object.position.copy(orbit.target).add(offset);
+        orbit.update();
+      },
+      focus(x: number, z: number) {
+        const orbit = controls.current;
+        if (!orbit) return;
+        const dx = x - orbit.target.x;
+        const dz = z - orbit.target.z;
+        const dy = 1.2 - orbit.target.y;
+        orbit.target.set(x, 1.2, z);
+        orbit.object.position.x += dx;
+        orbit.object.position.y += dy;
+        orbit.object.position.z += dz;
+        const offset = orbit.object.position.clone().sub(orbit.target);
+        const next = THREE.MathUtils.clamp(Math.min(offset.length(), 22), MAP_MIN_DISTANCE, MAP_MAX_DISTANCE);
+        if (offset.lengthSq() > 1e-8) {
+          offset.setLength(next);
+          orbit.object.position.copy(orbit.target).add(offset);
+        }
+        clampMapTarget(orbit, boundsRef.current);
         orbit.update();
       },
     };
@@ -1596,6 +1642,18 @@ function Scene({
           sim={sim}
         />
       )) : null}
+      {city && district ? (
+        <WorldSceneShell>
+          <CityLayer
+            district={district}
+            quality={quality}
+            detailed={detailed}
+            selectedId={city.selectedId}
+            canOpen={canOpen}
+            onEnter={city.onOpenLocation}
+          />
+        </WorldSceneShell>
+      ) : null}
       </MatsContext.Provider>
       </TapContext.Provider>
       </group>
@@ -1607,9 +1665,9 @@ function Scene({
         onSelect={onSelect}
         onHover={setHotId}
       />
-      <MapGestures controls={controls} layout={layout} gesture={gesture} />
-      <StickMover stickRef={stickRef} controls={controls} layout={layout} />
-      <CameraGuard controls={controls} layout={layout} />
+      <MapGestures controls={controls} layout={layout} gesture={gesture} boundsRef={boundsRef} />
+      <StickMover stickRef={stickRef} controls={controls} boundsRef={boundsRef} />
+      <CameraGuard controls={controls} layout={layout} boundsRef={boundsRef} home={home} />
       <MapControls
         ref={controls}
         makeDefault
@@ -1637,7 +1695,7 @@ function Scene({
         }}
         onChange={() => {
           const orbit = controls.current;
-          if (orbit) clampMapTarget(orbit, layout);
+          if (orbit) clampMapTarget(orbit, boundsRef.current);
         }}
       />
     </>
@@ -1696,6 +1754,7 @@ export default function OfficeCanvas({
   layers,
   quality,
   stickRef,
+  city = null,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1716,6 +1775,7 @@ export default function OfficeCanvas({
   layers: OfficeLayers;
   quality: OfficeQuality;
   stickRef: React.MutableRefObject<Stick>;
+  city?: CitySceneMode | null;
 }) {
   const meetingRef = useRef(meeting);
   const botsRef = useRef(bots);
@@ -1766,15 +1826,16 @@ export default function OfficeCanvas({
     meetingRef.current = meeting;
     botsRef.current = bots;
   }, [meeting, bots]);
+  const cityOn = city != null;
   const camera = useMemo(() => {
-    const home = mapHome(layout);
+    const home = cityOn ? cityOverviewHome(layout) : mapHome(layout);
     return {
       position: home.position.toArray() as [number, number, number],
       fov: OFFICE_FOV,
       near: 0.1,
       far: 800,
     };
-  }, [layout]);
+  }, [layout, cityOn]);
   if (failure) {
     return (
       <OfficeNotice
@@ -1863,10 +1924,11 @@ export default function OfficeCanvas({
         stickRef={stickRef}
         gesture={gesture}
         detailed={detailed}
+        city={city}
       />
     </Canvas>
     ) : null}
-    {presented ? null : <div className="office-loading" role="status">Opening the bot office…</div>}
+    {presented ? null : <div className="office-loading" role="status">{city ? "Opening the city…" : "Opening the bot office…"}</div>}
     </OfficeViewBoundary>
   );
 }
