@@ -11,6 +11,14 @@ export type StudioEmote = (typeof STUDIO_EMOTES)[number];
 
 type CameraFocus = "body" | "face";
 
+/** Office interior colors from Lights in office-canvas.tsx. Replace with a shared HUD light rig when that lands. */
+const STUDIO_SKY = "#fff7ee";
+const STUDIO_GROUND = "#6a5848";
+const STUDIO_SUN = "#fff3dd";
+const STUDIO_KEY = "#fff1d6";
+const STUDIO_LAMP = "#f6e2b8";
+const STUDIO_FILL = "#d5e4f4";
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -45,6 +53,7 @@ function OrbitRig({
   distanceRef,
   draggingRef,
   focusRef,
+  coverRef,
   compare,
 }: {
   yawRef: RefObject<number>;
@@ -52,6 +61,7 @@ function OrbitRig({
   distanceRef: RefObject<number>;
   draggingRef: RefObject<boolean>;
   focusRef: RefObject<CameraFocus>;
+  coverRef: RefObject<number>;
   compare: boolean;
 }) {
   const camera = useThree((state) => state.camera);
@@ -61,6 +71,7 @@ function OrbitRig({
     if (!draggingRef.current && !compare && !face) yawRef.current += dt * 0.32;
     const short = height < 460;
     const comparing = compare;
+    const cover = coverRef.current;
     let dist = distanceRef.current;
     let focusY = short ? 0.95 : 0.78;
     let pitch = pitchRef.current;
@@ -75,14 +86,22 @@ function OrbitRig({
     } else {
       dist = Math.max(dist, comparing ? (short ? 7.2 : 5.1) : (short ? 6.1 : 3.7));
     }
+    const topBand = cover > 0.02 ? Math.min(0.18, 72 / Math.max(height, 1)) : 0;
+    if (cover > 0.05) {
+      const band = Math.max(0.36, 1 - cover - topBand);
+      dist = Math.min(7.2, dist * Math.min(1.65, 0.78 / band));
+    }
+    const visibleMid = (topBand + (1 - cover)) / 2;
+    const shift = Math.max(0, 0.5 - visibleMid) * 2 * Math.tan((30 * Math.PI) / 360) * dist;
+    const lookY = focusY - shift;
     const yaw = yawRef.current;
     const horizontal = Math.cos(pitch) * dist;
     camera.position.set(
       Math.sin(yaw) * horizontal,
-      focusY + Math.sin(pitch) * dist * 0.45,
+      lookY + Math.sin(pitch) * dist * 0.45,
       Math.cos(yaw) * horizontal,
     );
-    camera.lookAt(0, focusY, 0);
+    camera.lookAt(0, lookY, 0);
   });
   return null;
 }
@@ -144,12 +163,18 @@ export function CharacterStage({
   config,
   baseline,
   compare,
+  sheetOpen,
+  coverRef,
   onCompare,
+  onHideSheet,
 }: {
   config: CharacterConfig;
   baseline: CharacterConfig;
   compare: boolean;
+  sheetOpen: boolean;
+  coverRef: RefObject<number>;
   onCompare: () => void;
+  onHideSheet: () => void;
 }) {
   const yawRef = useRef(0.5);
   const pitchRef = useRef(0.24);
@@ -266,14 +291,15 @@ export function CharacterStage({
               distanceRef={distanceRef}
               draggingRef={draggingRef}
               focusRef={focusRef}
+              coverRef={coverRef}
               compare={compare}
             />
             <PoseDriver emote={emote} poseRef={poseRef} />
-            <hemisphereLight args={["#fff7ee", "#c4b8aa", 0.7]} />
-            <ambientLight intensity={0.35} />
-            <directionalLight position={[2.2, 4.4, 3.1]} intensity={1.45} />
-            <directionalLight position={[-3.1, 2.1, 2.2]} intensity={0.55} color="#d5e4f5" />
-            <directionalLight position={[0.6, 2.6, -3.4]} intensity={0.8} color="#ffe0c2" />
+            <hemisphereLight args={[STUDIO_SKY, STUDIO_GROUND, 0.72]} />
+            <ambientLight intensity={0.28} color={STUDIO_SUN} />
+            <directionalLight position={[2.2, 4.4, 3.1]} intensity={1.35} color={STUDIO_KEY} />
+            <directionalLight position={[-3.1, 2.1, 2.2]} intensity={0.42} color={STUDIO_FILL} />
+            <directionalLight position={[0.6, 2.6, -3.4]} intensity={0.55} color={STUDIO_LAMP} />
             <mesh position={[0, 1.15, -1.7]}>
               <planeGeometry args={[8, 5]} />
               <meshStandardMaterial color="#e4ddd3" roughness={1} />
@@ -286,6 +312,9 @@ export function CharacterStage({
             <FigureAnchor config={config} poseRef={poseRef} x={compare ? spread : 0} />
           </Canvas>
         </PreviewBoundary>
+      ) : null}
+      {preview === "ready" && sheetOpen ? (
+        <button type="button" className="character-scrim" aria-label="Hide options" onClick={onHideSheet} onPointerDown={stopPointer} />
       ) : null}
       {preview === "ready" ? (
         <>

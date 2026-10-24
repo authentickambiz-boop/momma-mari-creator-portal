@@ -16,3 +16,11 @@ PR #210 (`cursor/worlds-humanoid-2ba0`) adds a skinned humanoid and `public/worl
 - Hair, hems, and trims do not spring.
 - The humanoid glTF is not in this branch. When #210 merges, the studio can swap `CharacterFigure` for the rig and keep these categories, the turntable, and the save path.
 - Every wearable id in the current catalog has a chibi mesh. A category with no meshed ids, a worn id the builder does not draw, or a failed WebGL context shows an empty or error state. The office skips a piece it cannot draw.
+
+## Studio light and the office HUD
+
+The turntable uses the office interior palette from `Lights` in `office-canvas.tsx`: sky `#fff7ee`, ground `#6a5848`, sun `#fff3dd`, key `#fff1d6`, lamp `#f6e2b8`. Stage pills use the same cream, `#d6cec1` border, and shadow as `.office-hud` and `.office-panel`.
+
+No separate HUD light rig has landed. When one does, replace the `STUDIO_*` constants in `character-stage.tsx` with that rig so the creator and the office stay on the same light.
+
+On a narrow viewport the picker is a bottom sheet over the full-bleed stage. Tapping the stage scrim hides it. The camera shifts the chibi into the band above the sheet.

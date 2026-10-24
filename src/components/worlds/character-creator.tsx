@@ -188,6 +188,9 @@ export function CharacterCreator({
   const [failed, setFailed] = useState(false);
   const savingRef = useRef(false);
   const leaveRef = useRef(false);
+  const studioRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const sheetCoverRef = useRef(0);
   const categoryLabel = CATEGORIES.find((item) => item.id === category)?.label ?? "Body";
   const dirty = !sameLook(config, baseline);
   const you = subjectKind === "user";
@@ -200,6 +203,31 @@ export function CharacterCreator({
     }
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
+  useEffect(() => {
+    const studio = studioRef.current;
+    const panel = panelRef.current;
+    if (!studio || !panel) return;
+    const sync = () => {
+      const studioBox = studio.getBoundingClientRect();
+      const panelBox = panel.getBoundingClientRect();
+      const narrow = window.matchMedia("(max-width: 800px)").matches;
+      const cover = narrow && studioBox.height > 0
+        ? Math.min(0.72, (panelBox.height + 56) / studioBox.height)
+        : 0;
+      sheetCoverRef.current = cover;
+      studio.style.setProperty("--sheet-lift", `${Math.ceil(narrow ? panelBox.height : 0)}px`);
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(panel);
+    const media = window.matchMedia("(max-width: 800px)");
+    media.addEventListener("change", sync);
+    return () => {
+      observer.disconnect();
+      media.removeEventListener("change", sync);
+    };
   }, []);
 
   function setSlot(name: CharacterSlotName, patch: Partial<CharacterConfig["slots"][CharacterSlotName]>) {
@@ -282,11 +310,19 @@ export function CharacterCreator({
   const gaps = missingWornParts(config);
 
   return (
-    <div className="character-studio">
+    <div className="character-studio" ref={studioRef}>
       <div className="character-stage-wrap">
-        <CharacterStage config={config} baseline={baseline} compare={compare} onCompare={() => setCompare((open) => !open)} />
+        <CharacterStage
+          config={config}
+          baseline={baseline}
+          compare={compare}
+          sheetOpen={sheetOpen}
+          coverRef={sheetCoverRef}
+          onCompare={() => setCompare((open) => !open)}
+          onHideSheet={() => setSheetOpen(false)}
+        />
       </div>
-      <section className={sheetOpen ? "character-panel is-open" : "character-panel"} aria-label="Character creator">
+      <section ref={panelRef} className={sheetOpen ? "character-panel is-open" : "character-panel"} aria-label="Character creator">
         <button
           type="button"
           className="character-sheet-handle"
@@ -307,7 +343,7 @@ export function CharacterCreator({
             </button>
           ))}
         </div>
-        <div className="character-scroll">
+        <div className="character-scroll" key={category}>
           {gaps.length ? (
             <div className="character-empty" role="alert">
               <p>Some pieces have no mesh yet.</p>
