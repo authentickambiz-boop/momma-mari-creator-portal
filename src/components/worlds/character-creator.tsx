@@ -81,12 +81,21 @@ function mannequin(base: CharacterConfig, slot: CharacterSlotName, item: string)
   };
 }
 
+function wornWith(base: CharacterConfig, slot: CharacterSlotName, item: string): CharacterConfig {
+  return {
+    ...base,
+    slots: { ...base.slots, [slot]: { ...base.slots[slot], item } },
+  };
+}
+
 type Arm = {
   id: string;
   name: string;
   wearing: boolean;
   lock: ItemLock | null;
   look: CharacterConfig;
+  onCharacter: CharacterConfig;
+  pinned: boolean;
   apply: () => void;
 };
 
@@ -130,6 +139,7 @@ function Choices({
   armed,
   onPreview,
   onCommit,
+  onLeave,
 }: {
   values: readonly string[];
   selected: string;
@@ -137,7 +147,8 @@ function Choices({
   labelText: string;
   locked?: Readonly<Record<string, ItemLock>>;
   armed?: string | null;
-  onPreview?: (value: string) => void;
+  onPreview?: (value: string, pinned: boolean) => void;
+  onLeave?: (value: string) => void;
   onCommit?: (value: string) => void;
 }) {
   if (values.length === 0) {
@@ -161,7 +172,8 @@ function Choices({
             <span
               key={value}
               className="character-choice"
-              onMouseEnter={() => onPreview?.(value)}
+              onMouseEnter={() => onPreview?.(value, false)}
+              onMouseLeave={() => onLeave?.(value)}
               onPointerDown={(event) => {
                 event.currentTarget.dataset.ready = previewing && !lock ? "1" : "0";
               }}
@@ -171,7 +183,7 @@ function Choices({
                   return;
                 }
                 if (event.currentTarget.dataset.ready === "1") onCommit?.(value);
-                else onPreview(value);
+                else onPreview(value, true);
               }}
             >
             <button
@@ -409,8 +421,21 @@ export function CharacterCreator({
     setArm(null);
   }
 
-  function showPiece(id: string, name: string, wearing: boolean, lock: ItemLock | null, look: CharacterConfig, apply: () => void) {
-    setArm({ id, name, wearing, lock, look, apply });
+  function showPiece(id: string, name: string, wearing: boolean, lock: ItemLock | null, look: CharacterConfig, onCharacter: CharacterConfig, apply: () => void, pinned: boolean) {
+    setArm((current) => ({
+      id,
+      name,
+      wearing,
+      lock,
+      look,
+      onCharacter,
+      apply,
+      pinned: pinned || Boolean(current?.id === id && current.pinned),
+    }));
+  }
+
+  function leavePiece(id: string) {
+    setArm((current) => (current && current.id === id && !current.pinned ? null : current));
   }
 
   function wearPiece(apply: () => void) {
@@ -425,7 +450,7 @@ export function CharacterCreator({
     values: readonly string[],
     selected: string,
     wear: (value: string) => void,
-    look: (value: string) => CharacterConfig,
+    preview: (value: string) => { mannequin: CharacterConfig; onCharacter: CharacterConfig },
     locked?: Readonly<Record<string, ItemLock>>,
   ) {
     const armed = arm?.id.startsWith(`${id}:`) ? arm.id.slice(id.length + 1) : null;
@@ -437,7 +462,11 @@ export function CharacterCreator({
         locked={locked}
         armed={armed}
         onPick={wear}
-        onPreview={(value) => showPiece(`${id}:${value}`, label(value), selected === value, locked?.[value] ?? null, look(value), () => wear(value))}
+        onPreview={(value, pinned) => {
+          const next = preview(value);
+          showPiece(`${id}:${value}`, label(value), selected === value, locked?.[value] ?? null, next.mannequin, next.onCharacter, () => wear(value), pinned);
+        }}
+        onLeave={(value) => leavePiece(`${id}:${value}`)}
         onCommit={(value) => {
           if (locked?.[value] || selected === value) return;
           wearPiece(() => wear(value));
@@ -451,15 +480,32 @@ export function CharacterCreator({
   const innerOn = topItem !== "none" && (INNER_TOPS as readonly string[]).includes(topItem);
   const gaps = missingWornParts(config);
 
+  function slotPreview(slot: CharacterSlotName, item: string) {
+    return { mannequin: mannequin(config, slot, item), onCharacter: wornWith(config, slot, item) };
+  }
+
+  function outerPreview(item: string) {
+    const keepsShirt = item === "none" && !(OUTERWEAR_ITEMS as readonly string[]).includes(config.slots.top.item);
+    return {
+      mannequin: mannequin(config, "top", item),
+      onCharacter: keepsShirt ? config : wornWith(config, "top", item),
+    };
+  }
+
+  function samePreview(onCharacter: CharacterConfig) {
+    return { mannequin: onCharacter, onCharacter };
+  }
+
   return (
     <div className="character-studio" ref={studioRef}>
       <div className="character-stage-wrap">
         <CharacterStage
-          config={config}
+          config={arm && !arm.wearing ? arm.onCharacter : config}
           baseline={baseline}
           compare={compare}
           sheetOpen={sheetOpen}
           name={title}
+          previewName={arm && !arm.wearing ? arm.name : null}
           onCompare={() => setCompare((open) => !open)}
           onHideSheet={() => setSheetOpen(false)}
         />
@@ -505,24 +551,24 @@ export function CharacterCreator({
           ) : null}
           {category === "body" ? (
             <>
-              {choicesFor("shape", "Shape", BODY_SHAPES, config.body.shape, (shape) => { setConfig((current) => ({ ...current, body: { ...current.body, shape: shape as CharacterConfig["body"]["shape"] } })); setMessage(""); }, (shape) => ({ ...config, body: { ...config.body, shape: shape as CharacterConfig["body"]["shape"] } }))}
-              {choicesFor("size", "Size", BODY_SIZES, config.body.size, (size) => { setConfig((current) => ({ ...current, body: { ...current.body, size: size as CharacterConfig["body"]["size"] } })); setMessage(""); }, (size) => ({ ...config, body: { ...config.body, size: size as CharacterConfig["body"]["size"] } }))}
+              {choicesFor("shape", "Shape", BODY_SHAPES, config.body.shape, (shape) => { setConfig((current) => ({ ...current, body: { ...current.body, shape: shape as CharacterConfig["body"]["shape"] } })); setMessage(""); }, (shape) => samePreview({ ...config, body: { ...config.body, shape: shape as CharacterConfig["body"]["shape"] } }))}
+              {choicesFor("size", "Size", BODY_SIZES, config.body.size, (size) => { setConfig((current) => ({ ...current, body: { ...current.body, size: size as CharacterConfig["body"]["size"] } })); setMessage(""); }, (size) => samePreview({ ...config, body: { ...config.body, size: size as CharacterConfig["body"]["size"] } }))}
               <Swatches labelText="Skin" selected={config.body.color} onPick={(color) => { setConfig((current) => ({ ...current, body: { ...current.body, color } })); setMessage(""); }} />
               <Recolor labelText="Skin" before={baseline.body.color} after={config.body.color} />
             </>
           ) : null}
           {category === "face" ? (
             <>
-              {choicesFor("eyes", "Eyes", EYE_STYLES, config.face.eyes, (eyes) => { setConfig((current) => ({ ...current, face: { ...current.face, eyes: eyes as CharacterConfig["face"]["eyes"] } })); setMessage(""); }, (eyes) => ({ ...config, face: { ...config.face, eyes: eyes as CharacterConfig["face"]["eyes"] } }))}
-              {choicesFor("mouth", "Mouth", MOUTH_STYLES, config.face.mouth, (mouth) => { setConfig((current) => ({ ...current, face: { ...current.face, mouth: mouth as CharacterConfig["face"]["mouth"] } })); setMessage(""); }, (mouth) => ({ ...config, face: { ...current.face, mouth: mouth as CharacterConfig["face"]["mouth"] } }))}
-              {choicesFor("expression", "Expression", EXPRESSIONS, config.face.expression, (expression) => { setConfig((current) => ({ ...current, face: { ...current.face, expression: expression as CharacterConfig["face"]["expression"] } })); setMessage(""); }, (expression) => ({ ...config, face: { ...config.face, expression: expression as CharacterConfig["face"]["expression"] } }))}
+              {choicesFor("eyes", "Eyes", EYE_STYLES, config.face.eyes, (eyes) => { setConfig((current) => ({ ...current, face: { ...current.face, eyes: eyes as CharacterConfig["face"]["eyes"] } })); setMessage(""); }, (eyes) => samePreview({ ...config, face: { ...config.face, eyes: eyes as CharacterConfig["face"]["eyes"] } }))}
+              {choicesFor("mouth", "Mouth", MOUTH_STYLES, config.face.mouth, (mouth) => { setConfig((current) => ({ ...current, face: { ...current.face, mouth: mouth as CharacterConfig["face"]["mouth"] } })); setMessage(""); }, (mouth) => samePreview({ ...config, face: { ...config.face, mouth: mouth as CharacterConfig["face"]["mouth"] } }))}
+              {choicesFor("expression", "Expression", EXPRESSIONS, config.face.expression, (expression) => { setConfig((current) => ({ ...current, face: { ...current.face, expression: expression as CharacterConfig["face"]["expression"] } })); setMessage(""); }, (expression) => samePreview({ ...config, face: { ...config.face, expression: expression as CharacterConfig["face"]["expression"] } }))}
               <p className="character-note">Hair, eyes, and expression read in the profile headshot.</p>
             </>
           ) : null}
           {category === "hair" ? (
             meshedChoices("hair", characterSlotChoices("hair")) ? (
               <>
-                {choicesFor("hair", "Style", characterSlotChoices("hair"), config.slots.hair.item, (item) => setSlot("hair", { item }), (item) => mannequin(config, "hair", item), locksFor("hair", characterSlotChoices("hair"), unlocked))}
+                {choicesFor("hair", "Style", characterSlotChoices("hair"), config.slots.hair.item, (item) => setSlot("hair", { item }), (item) => slotPreview("hair", item), locksFor("hair", characterSlotChoices("hair"), unlocked))}
                 <Swatches labelText="Color" selected={config.slots.hair.color} onPick={(color) => setSlot("hair", { color })} />
                 <Recolor labelText="Hair" before={baseline.slots.hair.color} after={config.slots.hair.color} />
               </>
@@ -538,7 +584,7 @@ export function CharacterCreator({
               <>
                 <p className="character-note">Tops and outerwear share one piece. A shirt replaces a coat.</p>
                 {outerOn ? <p className="character-note">Outerwear is on. Choosing a top replaces it.</p> : null}
-                {choicesFor("top", "Style", INNER_TOPS, innerOn || topItem === "none" ? topItem : "", (item) => setSlot("top", { item }), (item) => mannequin(config, "top", item), locksFor("top", INNER_TOPS, unlocked))}
+                {choicesFor("top", "Style", INNER_TOPS, innerOn || topItem === "none" ? topItem : "", (item) => setSlot("top", { item }), (item) => slotPreview("top", item), locksFor("top", INNER_TOPS, unlocked))}
                 <Swatches labelText="Color" selected={config.slots.top.color} onPick={(color) => setSlot("top", { color })} />
                 <Recolor labelText="Top" before={baseline.slots.top.color} after={config.slots.top.color} />
               </>
@@ -552,7 +598,7 @@ export function CharacterCreator({
           {category === "bottom" ? (
             meshedChoices("bottom", characterSlotChoices("bottom")) ? (
               <>
-                {choicesFor("bottom", "Style", characterSlotChoices("bottom"), config.slots.bottom.item, (item) => setSlot("bottom", { item }), (item) => mannequin(config, "bottom", item), locksFor("bottom", characterSlotChoices("bottom"), unlocked))}
+                {choicesFor("bottom", "Style", characterSlotChoices("bottom"), config.slots.bottom.item, (item) => setSlot("bottom", { item }), (item) => slotPreview("bottom", item), locksFor("bottom", characterSlotChoices("bottom"), unlocked))}
                 <Swatches labelText="Color" selected={config.slots.bottom.color} onPick={(color) => setSlot("bottom", { color })} />
                 <Recolor labelText="Bottom" before={baseline.slots.bottom.color} after={config.slots.bottom.color} />
               </>
@@ -566,7 +612,7 @@ export function CharacterCreator({
           {category === "shoes" ? (
             meshedChoices("shoes", characterSlotChoices("shoes")) ? (
               <>
-                {choicesFor("shoes", "Style", characterSlotChoices("shoes"), config.slots.shoes.item, (item) => setSlot("shoes", { item }), (item) => mannequin(config, "shoes", item), locksFor("shoes", characterSlotChoices("shoes"), unlocked))}
+                {choicesFor("shoes", "Style", characterSlotChoices("shoes"), config.slots.shoes.item, (item) => setSlot("shoes", { item }), (item) => slotPreview("shoes", item), locksFor("shoes", characterSlotChoices("shoes"), unlocked))}
                 <Swatches labelText="Color" selected={config.slots.shoes.color} onPick={(color) => setSlot("shoes", { color })} />
                 <Recolor labelText="Shoes" before={baseline.slots.shoes.color} after={config.slots.shoes.color} />
               </>
@@ -582,7 +628,7 @@ export function CharacterCreator({
               <>
                 <p className="character-note">Outerwear uses the top slot. None keeps a shirt that is already on.</p>
                 {innerOn ? <p className="character-note">A top is on. A coat replaces it.</p> : null}
-                {choicesFor("outer", "Style", OUTERWEAR_ITEMS, outerOn ? topItem : "none", pickOuterwear, (item) => mannequin(config, "top", item), locksFor("top", OUTERWEAR_ITEMS, unlocked))}
+                {choicesFor("outer", "Style", OUTERWEAR_ITEMS, outerOn ? topItem : "none", pickOuterwear, outerPreview, locksFor("top", OUTERWEAR_ITEMS, unlocked))}
                 <Swatches labelText="Color" selected={config.slots.top.color} onPick={(color) => setSlot("top", { color })} />
                 <Recolor labelText="Outerwear" before={baseline.slots.top.color} after={config.slots.top.color} />
               </>
@@ -597,7 +643,7 @@ export function CharacterCreator({
             <>
               {meshedChoices("headwear", characterSlotChoices("headwear")) ? (
                 <>
-                  {choicesFor("head", "Head", characterSlotChoices("headwear"), config.slots.headwear.item, (item) => setSlot("headwear", { item }), (item) => mannequin(config, "headwear", item), locksFor("headwear", characterSlotChoices("headwear"), unlocked))}
+                  {choicesFor("head", "Head", characterSlotChoices("headwear"), config.slots.headwear.item, (item) => setSlot("headwear", { item }), (item) => slotPreview("headwear", item), locksFor("headwear", characterSlotChoices("headwear"), unlocked))}
                   <Swatches labelText="Head color" selected={config.slots.headwear.color} onPick={(color) => setSlot("headwear", { color })} />
                 </>
               ) : (
@@ -607,7 +653,7 @@ export function CharacterCreator({
               )}
               {meshedChoices("accessory", characterSlotChoices("accessory")) ? (
                 <>
-                  {choicesFor("worn", "Worn", characterSlotChoices("accessory"), config.slots.accessory.item, (item) => setSlot("accessory", { item }), (item) => mannequin(config, "accessory", item), locksFor("accessory", characterSlotChoices("accessory"), unlocked))}
+                  {choicesFor("worn", "Worn", characterSlotChoices("accessory"), config.slots.accessory.item, (item) => setSlot("accessory", { item }), (item) => slotPreview("accessory", item), locksFor("accessory", characterSlotChoices("accessory"), unlocked))}
                   <Swatches labelText="Worn color" selected={config.slots.accessory.color} onPick={(color) => setSlot("accessory", { color })} />
                   <Recolor labelText="Accessory" before={baseline.slots.accessory.color} after={config.slots.accessory.color} />
                 </>
@@ -627,7 +673,7 @@ export function CharacterCreator({
               <Recolor labelText="Primary" before={baseline.palette.primary} after={config.palette.primary} />
               <Recolor labelText="Hair" before={baseline.slots.hair.color} after={config.slots.hair.color} />
               <Recolor labelText="Outfit" before={baseline.slots.top.color} after={config.slots.top.color} />
-              {choicesFor("tag", "Name tag", NAME_TAG_STYLES, config.nameTag.style, (style) => { setConfig((current) => ({ ...current, nameTag: { ...current.nameTag, style: style as CharacterConfig["nameTag"]["style"] } })); setMessage(""); }, (style) => ({ ...config, nameTag: { ...config.nameTag, style: style as CharacterConfig["nameTag"]["style"] } }))}
+              {choicesFor("tag", "Name tag", NAME_TAG_STYLES, config.nameTag.style, (style) => { setConfig((current) => ({ ...current, nameTag: { ...current.nameTag, style: style as CharacterConfig["nameTag"]["style"] } })); setMessage(""); }, (style) => samePreview({ ...config, nameTag: { ...config.nameTag, style: style as CharacterConfig["nameTag"]["style"] } }))}
               <Swatches labelText="Tag color" selected={config.nameTag.color} onPick={(color) => { setConfig((current) => ({ ...current, nameTag: { ...current.nameTag, color } })); setMessage(""); }} />
             </>
           ) : null}
@@ -641,7 +687,7 @@ export function CharacterCreator({
               <p className="character-kicker">Preview</p>
               <p className="character-preview-name">{arm.name}</p>
               <p className="character-note">
-                {arm.wearing ? "Already on the character." : arm.lock ? "Shop piece. Preview only until it is unlocked." : "Not on the character yet."}
+                {arm.wearing ? "Already on the character." : arm.lock ? "On the character as a preview. Shop piece — Apply stays locked." : "On the character as a preview. Apply keeps it."}
               </p>
             </div>
             {arm.lock ? (
@@ -653,11 +699,13 @@ export function CharacterCreator({
                   </>
                 ) : arm.lock.reason}
               </span>
-            ) : arm.wearing ? null : (
+            ) : null}
+            <button type="button" className="character-quiet" onClick={() => setArm(null)}>Cancel</button>
+            {!arm.lock && !arm.wearing ? (
               <button type="button" className="character-preview-apply" onClick={() => wearPiece(arm.apply)}>
                 Apply
               </button>
-            )}
+            ) : null}
           </div>
         ) : null}
         <div className="character-apply-bar">

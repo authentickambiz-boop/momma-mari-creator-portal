@@ -98,6 +98,7 @@ export function CharacterStage({
   compare,
   sheetOpen,
   name,
+  previewName,
   onCompare,
   onHideSheet,
 }: {
@@ -106,6 +107,7 @@ export function CharacterStage({
   compare: boolean;
   sheetOpen: boolean;
   name: string;
+  previewName?: string | null;
   onCompare: () => void;
   onHideSheet: () => void;
 }) {
@@ -115,7 +117,7 @@ export function CharacterStage({
   const expression = `${titleCase(config.face.expression)} · ${titleCase(config.face.eyes)} eyes · ${titleCase(config.face.mouth)}`;
 
   return (
-    <div className="character-stage" style={{ background: SHEET_GRAY }}>
+    <div className={previewName ? "character-stage is-previewing" : "character-stage"} style={{ background: SHEET_GRAY }}>
       <div className="character-sheet-bar">
         <div className="character-emotes" role="group" aria-label="Emotes" onPointerDown={stopPointer}>
           {STUDIO_EMOTES.map((item) => (
@@ -125,6 +127,7 @@ export function CharacterStage({
           ))}
         </div>
         <div className="character-stage-tools" role="group" aria-label="Concept sheet" onPointerDown={stopPointer}>
+          {previewName ? <p className="character-preview-flag">Preview · {previewName}</p> : null}
           <button type="button" aria-pressed={compare} onClick={onCompare}>Compare</button>
         </div>
       </div>
@@ -141,8 +144,8 @@ export function CharacterStage({
             const before = compare && item.id === "profile";
             return (
               <figure key={item.id} data-view={item.id}>
-                <FashionDoll config={before ? baseline : config} view={item.id} emote={pose} />
-                <figcaption>{before ? "Profile · Before" : compare && item.id === "front" ? "Front · After" : item.label}</figcaption>
+                <FashionDoll config={before ? baseline : config} view={item.id} emote={pose} forceDoll={Boolean(previewName) && !before} />
+                <figcaption>{before ? "Profile · Before" : previewName ? `${item.label} · Preview` : compare && item.id === "front" ? "Front · After" : item.label}</figcaption>
               </figure>
             );
           })}
