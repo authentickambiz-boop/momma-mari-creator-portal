@@ -4,7 +4,11 @@ import * as THREE from "three";
 export type Stick = { x: number; y: number };
 
 export const OFFICE_FOV = 38;
-export const MAP_MIN_DISTANCE = 3.2;
+/**
+ * Close enough to frame one character. At the office field of view this is
+ * about a metre and a half across, so a neighbor drops out of the picture.
+ */
+export const MAP_MIN_DISTANCE = 1.25;
 export const MAP_MAX_DISTANCE = 200;
 export const MAP_MIN_POLAR = 0.42;
 export const MAP_MAX_POLAR = Math.PI / 2.2;
@@ -130,6 +134,31 @@ export function officeCameraHome(width: number, depth: number) {
     else lo = mid;
   }
   return { position: target.clone().addScaledVector(aim, hi), target, distance: hi };
+}
+
+/**
+ * New camera offset for a zoom. Distance changes; azimuth and pitch stay on
+ * the default aim, so scrolling out cannot swing around to the far side.
+ */
+export function zoomOffset(
+  aim: { x: number; y: number; z: number },
+  distance: number,
+  factor: number,
+) {
+  const length = Math.hypot(aim.x, aim.y, aim.z);
+  const next = THREE.MathUtils.clamp(
+    (Number.isFinite(distance) ? distance : MAP_MIN_DISTANCE) * (Number.isFinite(factor) ? factor : 1),
+    MAP_MIN_DISTANCE,
+    MAP_MAX_DISTANCE,
+  );
+  if (length < 1e-8) return { x: 0, y: num(next), z: 0, distance: next };
+  const scale = next / length;
+  return {
+    x: num(aim.x * scale),
+    y: num(aim.y * scale),
+    z: num(aim.z * scale),
+    distance: next,
+  };
 }
 
 /**
