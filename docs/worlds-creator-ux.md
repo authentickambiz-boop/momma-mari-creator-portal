@@ -4,18 +4,17 @@ The creator at `/worlds/create` (production mount `/portal/worlds/create`) edits
 
 ## Mesh
 
-This studio uses the current chibi (`characterFigure`). That is the mesh the office draws for You, so a saved look matches the desk.
+The studio and the office both draw `CharacterFigure` from `public/worlds/humanoid.glb` (the full-body mesh on PR #210 after arm QC). Saving a look still writes version 1, and office You wears that same rig.
 
-PR #210 (`cursor/worlds-humanoid-2ba0`) has replaced the sphere rig with a full-body MakeHuman `humanoid.glb`. Owner QC failed: standing and sitting show missing or collapsed arms (stump shoulders, floating hands). This studio does not switch to that file. It stays on the office chibi until #210 posts new previews with continuous arms on stand, walk, and sit, and a clean collar.
+Arm QC passed for stand, walk, and sit with continuous arms. A jagged collar edge remains a follow-up polish and does not block this wire.
 
-## Gaps until those previews land
+## Gaps
 
-- Emotes are limb pivots on the chibi: idle, walk, wave, and sit. They are not skeletal clips. Cheer, dance, and think from #210 are not here.
-- Clothes do not deform with the body. Tops, coats, pants, and shoes are shells.
+- Studio emotes play the humanoid clips for idle, walk, wave, and sit. Cheer, dance, and think are on the rig and are not buttons here.
 - Top and outerwear share the `top` slot. A shirt replaces a coat, and a coat replaces a shirt. There is no second outerwear layer in version 1.
-- Hair, hems, and trims do not spring.
-- The current #210 GLB stays off this preview until stand, walk, and sit show continuous arms and a clean collar.
-- Every wearable id in the current catalog has a chibi mesh. A category with no meshed ids, a worn id the builder does not draw, or a failed WebGL context shows an empty or error state. The office skips a piece it cannot draw.
+- Several item ids share one garment mesh. Scarf, bag, badge, and watch have no mesh on this GLB.
+- The collar's jagged edge is polish for a later pass.
+- A category with no meshed ids, a worn id the builder does not draw, or a failed WebGL context shows an empty or error state. The office skips a piece it cannot draw.
 
 ## Studio light and the office HUD
 
@@ -23,4 +22,4 @@ The turntable uses the office interior palette from `Lights` in `office-canvas.t
 
 No separate HUD light rig has landed. When one does, replace the `STUDIO_*` constants in `character-stage.tsx` with that rig so the creator and the office stay on the same light.
 
-On a narrow viewport the picker is a bottom sheet over the full-bleed stage. Tapping the stage scrim hides it. The camera shifts the chibi into the band above the sheet.
+On a narrow viewport the picker is a bottom sheet over the full-bleed stage. Tapping the stage scrim hides it. The camera keeps the full body in the band above the sheet.

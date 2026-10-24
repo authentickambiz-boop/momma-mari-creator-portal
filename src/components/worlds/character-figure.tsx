@@ -1,93 +1,109 @@
 "use client";
 
-import { useMemo, useRef, type RefObject } from "react";
-import { useFrame } from "@react-three/fiber";
-import { BackSide, DataTexture, NearestFilter, NoColorSpace, RGBAFormat, type Texture } from "three";
-import type { Group } from "three";
+import { useEffect, useMemo, useRef, type RefObject } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
+import { useGLTF } from "@react-three/drei";
+import { AnimationMixer, LoopOnce, LoopRepeat, SkinnedMesh, Vector3, type AnimationAction } from "three";
+import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
+import { withBasePath } from "@/lib/format";
+import type { CharacterConfig, CharacterPose } from "@/lib/worlds/character";
 import {
-  characterFigure,
-  limbRotation,
-  type CharacterConfig,
-  type CharacterPart,
-  type CharacterPose,
-} from "@/lib/worlds/character";
+  bindHumanoid,
+  HUMANOID_CLIPS,
+  SPRING_DISTANCE,
+  stepSprings,
+  type HumanoidEmote,
+} from "@/lib/worlds/humanoid";
 
-const OUTLINE = "#1a1614";
+const HUMANOID_URL = withBasePath("/worlds/humanoid.glb");
+const DRACO_URL = withBasePath("/worlds/draco/");
+const BASIS_URL = withBasePath("/worlds/basis/");
+const _world = new Vector3();
+let ktx2: KTX2Loader | null = null;
 
-let sharedGradient: Texture | null = null;
-
-function toonGradient() {
-  if (sharedGradient) return sharedGradient;
-  const data = new Uint8Array([
-    70, 70, 70, 255,
-    150, 150, 150, 255,
-    255, 255, 255, 255,
-  ]);
-  const texture = new DataTexture(data, 3, 1, RGBAFormat);
-  texture.minFilter = NearestFilter;
-  texture.magFilter = NearestFilter;
-  texture.colorSpace = NoColorSpace;
-  texture.needsUpdate = true;
-  sharedGradient = texture;
-  return texture;
+function extendHumanoidLoader(gl: Parameters<KTX2Loader["detectSupport"]>[0]) {
+  return (loader: { setKTX2Loader: (transcoder: KTX2Loader) => void }) => {
+    if (!ktx2) ktx2 = new KTX2Loader().setTranscoderPath(BASIS_URL);
+    ktx2.detectSupport(gl);
+    loader.setKTX2Loader(ktx2);
+  };
 }
 
-function Geometry({ part }: { part: CharacterPart }) {
-  if (part.shape === "sphere") return <sphereGeometry args={part.args as [number, number, number]} />;
-  if (part.shape === "box") return <boxGeometry args={part.args as [number, number, number]} />;
-  if (part.shape === "capsule") return <capsuleGeometry args={part.args as [number, number, number, number]} />;
-  if (part.shape === "cylinder") return <cylinderGeometry args={part.args as [number, number, number, number]} />;
-  if (part.shape === "torus") return <torusGeometry args={part.args as [number, number, number, number]} />;
-  return <coneGeometry args={part.args as [number, number, number]} />;
-}
-
-function Solid({ part, position }: { part: CharacterPart; position: [number, number, number] }) {
-  const gradient = toonGradient();
-  return (
-    <group position={position} rotation={part.rotation} scale={part.scale}>
-      <mesh>
-        <Geometry part={part} />
-        <meshToonMaterial color={part.color} gradientMap={gradient} />
-      </mesh>
-      <mesh scale={1.12}>
-        <Geometry part={part} />
-        <meshBasicMaterial color={OUTLINE} side={BackSide} toneMapped={false} />
-      </mesh>
-    </group>
-  );
-}
-
-function Limb({ part, poseRef }: { part: CharacterPart; poseRef?: RefObject<CharacterPose | null> }) {
-  const pivot = useRef<Group>(null);
-  useFrame(() => {
-    if (!pivot.current) return;
-    const pose = poseRef?.current ?? { phase: 0, moving: false, seated: false };
-    const [x, y, z] = limbRotation(part.animate, pose);
-    pivot.current.rotation.set(x, y, z);
-  });
-  return (
-    <group ref={pivot} position={part.position}>
-      <Solid part={part} position={[0, -0.16, 0]} />
-    </group>
-  );
-}
-
-/** Chibi used by the creator preview and every office bot, including You. */
+/**
+ * The office and the creator studio share this rig, so a saved look matches You.
+ * Collar edge polish is a follow-up and does not block this mesh.
+ */
 export function CharacterFigure({
   config,
   poseRef,
+  emote,
+  studio = false,
 }: {
   config: CharacterConfig;
   poseRef?: RefObject<CharacterPose | null>;
+  emote?: HumanoidEmote;
+  studio?: boolean;
 }) {
-  const figure = useMemo(() => characterFigure(config), [config]);
-  return (
-    <group scale={figure.scale}>
-      {figure.parts.map((part) => (
-        part.animate === "none"
-          ? <Solid key={part.id} part={part} position={part.position} />
-          : <Limb key={part.id} part={part} poseRef={poseRef} />
-      ))}
-    </group>
-  );
+  const gl = useThree((state) => state.gl);
+  const gltf = useGLTF(HUMANOID_URL, DRACO_URL, false, extendHumanoidLoader(gl) as never);
+  const model = useMemo(() => bindHumanoid(gltf.scene, config), [gltf.scene, config]);
+  const mixer = useMemo(() => new AnimationMixer(model.rig), [model]);
+  const actions = useMemo(() => {
+    const map = new Map<string, AnimationAction>();
+    for (const clip of gltf.animations) {
+      if ((HUMANOID_CLIPS as readonly string[]).includes(clip.name)) map.set(clip.name, mixer.clipAction(clip));
+    }
+    return map;
+  }, [gltf.animations, mixer]);
+  const mode = useRef("");
+  const current = useRef<AnimationAction | null>(null);
+  const play = useRef<(name: string, loop: boolean) => void>(() => {});
+
+  useEffect(() => {
+    const onDone = (event: { action: AnimationAction }) => {
+      const name = event.action.getClip().name;
+      if (name === "sitDown" && mode.current === "sit") play.current("sitIdle", true);
+      if (name === "standUp" && mode.current !== "sit") play.current("idle", true);
+    };
+    mixer.addEventListener("finished", onDone);
+    return () => {
+      mixer.removeEventListener("finished", onDone);
+      mixer.stopAllAction();
+      model.dispose();
+    };
+  }, [mixer, model]);
+
+  useFrame(({ camera }, dt) => {
+    play.current = (name, loop) => {
+      const next = actions.get(name);
+      if (!next) return;
+      next.reset();
+      next.setLoop(loop ? LoopRepeat : LoopOnce, loop ? Infinity : 1);
+      next.clampWhenFinished = !loop;
+      next.enabled = true;
+      next.fadeIn(0.18).play();
+      const previous = current.current;
+      if (previous && previous !== next) previous.fadeOut(0.18);
+      current.current = next;
+    };
+    const pose = poseRef?.current;
+    const wanted = emote ?? (pose?.moving ? "walk" : pose?.seated ? "sit" : "idle");
+    if (wanted !== mode.current) {
+      const leavingSit = mode.current === "sit" && wanted !== "sit";
+      mode.current = wanted;
+      if (wanted === "sit") play.current("sitDown", false);
+      else if (leavingSit) play.current("standUp", false);
+      else play.current(wanted, true);
+    }
+    mixer.update(dt);
+    model.rig.getWorldPosition(_world);
+    const near = studio || camera.position.distanceTo(_world) < SPRING_DISTANCE;
+    stepSprings(model.springs, dt, near);
+    model.rig.traverse((node) => {
+      if (node.userData.lod === "trim") node.visible = near;
+      if (node instanceof SkinnedMesh) node.castShadow = true;
+    });
+  });
+
+  return <primitive object={model.rig} />;
 }

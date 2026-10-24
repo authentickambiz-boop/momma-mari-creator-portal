@@ -299,7 +299,7 @@ describe("bot office", () => {
     assert.match(canvas, /#d63384/);
     assert.match(canvas, /deskWhite/);
     assert.match(canvas, /CC0 low-poly/);
-    assert.match(canvas, /Chibi bot/);
+    assert.match(canvas, /Humanoid bot/);
     const grounds = source("src/components/worlds/office-grounds.tsx");
     assert.match(grounds, /Momma Mari/);
     assert.match(grounds, /showRoof/);

@@ -1,8 +1,7 @@
 "use client";
 
-import { Component, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
+import { Component, Suspense, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import type { Group } from "three";
 import type { CharacterConfig, CharacterPose } from "@/lib/worlds/character";
 import { CharacterFigure } from "./character-figure";
 
@@ -73,18 +72,18 @@ function OrbitRig({
     const comparing = compare;
     const cover = coverRef.current;
     let dist = distanceRef.current;
-    let focusY = short ? 0.95 : 0.78;
+    let focusY = short ? 1.05 : 0.9;
     let pitch = pitchRef.current;
     if (face && !comparing) {
-      dist = short ? 2.55 : 2.05;
-      focusY = short ? 1.28 : 1.12;
-      pitch = 0.08;
+      dist = short ? 2.35 : 1.9;
+      focusY = short ? 1.62 : 1.55;
+      pitch = 0.06;
     } else if (face && comparing) {
-      dist = short ? 3.5 : 2.9;
-      focusY = 1.12;
-      pitch = 0.08;
+      dist = short ? 3.2 : 2.6;
+      focusY = 1.55;
+      pitch = 0.06;
     } else {
-      dist = Math.max(dist, comparing ? (short ? 7.2 : 5.1) : (short ? 6.1 : 3.7));
+      dist = Math.max(dist, comparing ? (short ? 7.2 : 6.4) : (short ? 6.6 : 4.8));
     }
     const topBand = cover > 0.02 ? Math.min(0.18, 72 / Math.max(height, 1)) : 0;
     if (cover > 0.05) {
@@ -128,21 +127,17 @@ function PoseDriver({
 function FigureAnchor({
   config,
   poseRef,
+  emote,
   x,
 }: {
   config: CharacterConfig;
   poseRef: RefObject<CharacterPose | null>;
+  emote: StudioEmote;
   x: number;
 }) {
-  const group = useRef<Group>(null);
-  useFrame(() => {
-    if (!group.current) return;
-    const seated = poseRef.current?.seated ?? false;
-    group.current.position.set(x, seated ? -0.16 : 0, 0);
-  });
   return (
-    <group ref={group}>
-      <CharacterFigure config={config} poseRef={poseRef} />
+    <group position={[x, 0, 0]}>
+      <CharacterFigure config={config} poseRef={poseRef} emote={emote} studio />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0.04]}>
         <circleGeometry args={[0.42, 24]} />
         <meshBasicMaterial color="#1c211e" transparent opacity={0.16} />
@@ -156,9 +151,8 @@ function stopPointer(event: ReactPointerEvent) {
 }
 
 /**
- * Studio turntable for the office chibi. PR #210's humanoid.glb failed
- * owner QC (stump shoulders, floating hands). Keep CharacterFigure until
- * new previews show continuous arms on stand, walk, and sit, and a clean collar.
+ * Studio turntable. The preview is the same humanoid.glb the office draws
+ * for You. Arm QC passed stand, walk, and sit. The collar edge is polish.
  */
 export function CharacterStage({
   config,
@@ -309,8 +303,10 @@ export function CharacterStage({
               <circleGeometry args={[1.7, 48]} />
               <meshStandardMaterial color="#cfc6ba" roughness={0.92} />
             </mesh>
-            {compare ? <FigureAnchor config={baseline} poseRef={poseRef} x={-spread} /> : null}
-            <FigureAnchor config={config} poseRef={poseRef} x={compare ? spread : 0} />
+            <Suspense fallback={null}>
+              {compare ? <FigureAnchor config={baseline} poseRef={poseRef} emote={emote} x={-spread} /> : null}
+              <FigureAnchor config={config} poseRef={poseRef} emote={emote} x={compare ? spread : 0} />
+            </Suspense>
           </Canvas>
         </PreviewBoundary>
       ) : null}
