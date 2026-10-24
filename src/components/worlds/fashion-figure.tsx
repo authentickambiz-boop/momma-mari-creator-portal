@@ -3,6 +3,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import { CanvasTexture, DoubleSide, MeshBasicMaterial, PlaneGeometry, Quaternion, SRGBColorSpace, Vector3, type Mesh } from "three";
+import { withBasePath } from "@/lib/format";
 import type { CharacterConfig, CharacterPose } from "@/lib/worlds/character";
 import {
   FASHION_CANVAS,
@@ -11,10 +12,36 @@ import {
   paintFashionAvatar,
   type FashionPose,
 } from "@/lib/worlds/fashion-avatar";
+import { GLAM_LAYER_FILES, setGlamLayers, type GlamLayerName, type GlamLayers } from "@/lib/worlds/fashion-glam-lock";
 
 const WIDTH = FASHION_FIGURE_HEIGHT * (FASHION_CANVAS.width / FASHION_CANVAS.height);
 const _world = new Vector3();
 const _quat = new Quaternion();
+
+function loadGlamImage(file: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(file));
+    image.src = withBasePath(file);
+  });
+}
+
+let glamLoad: Promise<void> | null = null;
+
+function ensureGlamLayers() {
+  if (!glamLoad) {
+    const names = Object.keys(GLAM_LAYER_FILES) as GlamLayerName[];
+    glamLoad = Promise.all(names.map(async (name) => [name, await loadGlamImage(GLAM_LAYER_FILES[name])] as const))
+      .then((pairs) => {
+        setGlamLayers(Object.fromEntries(pairs) as GlamLayers);
+      })
+      .catch(() => {
+        glamLoad = null;
+      });
+  }
+  return glamLoad;
+}
 
 /**
  * Camera-facing fashion illustration. Office You and the creator studio both
@@ -34,6 +61,11 @@ export function FashionFigure({
   const material = useRef<MeshBasicMaterial>(null);
 
   useEffect(() => {
+    let cancel = false;
+    void ensureGlamLayers().then(() => {
+      if (cancel) return;
+      painted.current = "";
+    });
     const canvas = document.createElement("canvas");
     canvas.width = FASHION_CANVAS.width;
     canvas.height = FASHION_CANVAS.height;
@@ -56,6 +88,7 @@ export function FashionFigure({
     const current = mesh.current;
     if (current) current.userData.draw = draw;
     return () => {
+      cancel = true;
       texture.dispose();
       if (current) delete current.userData.draw;
     };
