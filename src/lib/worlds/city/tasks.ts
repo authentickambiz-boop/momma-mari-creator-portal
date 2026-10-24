@@ -22,6 +22,7 @@ import {
   type CityLocationId,
   type SkillId,
 } from "./locations";
+import { worldsTextRejection } from "../safety";
 
 export type CityTaskKind = "lesson" | "paid" | "visit" | "social";
 
@@ -933,6 +934,8 @@ export function submitCityTask(
     return { ok: false, error: "This task is optional. Check the box if you want to do it." };
   }
   const note = input.note.trim();
+  const blocked = worldsTextRejection(note);
+  if (blocked) return { ok: false, error: blocked };
   if (item.realWork && note.length < 3) {
     return { ok: false, error: "Add a short note. The submission stays in the city." };
   }

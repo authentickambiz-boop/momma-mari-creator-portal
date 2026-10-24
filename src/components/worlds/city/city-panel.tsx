@@ -57,9 +57,11 @@ export function CityChrome({
   });
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [optIns, setOptIns] = useState<Record<string, boolean>>({});
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [banner, setBanner] = useState<{ at: string | null; message: string; error: string }>({ at: null, message: "", error: "" });
+  const message = banner.at === locationId ? banner.message : "";
+  const error = banner.at === locationId ? banner.error : "";
   const [placesOpen, setPlacesOpen] = useState(false);
+  const [qc, setQc] = useState<Record<string, { auto: string; peer: string; owner: string; delivery: string }>>({});
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
@@ -80,15 +82,33 @@ export function CityChrome({
     : [];
   const shop = location ? shopItemsFor(location.id) : [];
 
-  function apply(result: { ok: true; session: CitySession; message: string } | { ok: false; error: string }) {
+  function apply(result: { ok: true; session: CitySession; message: string; score?: number | null; sent?: false } | { ok: false; error: string }, taskId?: string) {
     if (!result.ok) {
-      setError(result.error);
-      setMessage("");
+      if (taskId) {
+        setQc((current) => ({
+          ...current,
+          [taskId]: { auto: "Failed", peer: "Waiting", owner: "Waiting", delivery: "Not sent" },
+        }));
+      }
+      setBanner({ at: locationId, message: "", error: result.error });
       return;
     }
+    if (taskId) {
+      const held = /Held for Kamron/.test(result.message);
+      const posted = /Nothing was posted/.test(result.message);
+      const stayed = /Nothing was sent/.test(result.message);
+      setQc((current) => ({
+        ...current,
+        [taskId]: {
+          auto: "Passed",
+          peer: typeof result.score === "number" ? `Score ${result.score}` : "Not used",
+          owner: held ? "Held for Kamron" : posted ? "Practice only" : "Not used",
+          delivery: posted ? "Nothing posted" : stayed || held ? "Nothing sent" : "Stays in the city",
+        },
+      }));
+    }
     setSession(result.session);
-    setMessage(result.message);
-    setError("");
+    setBanner({ at: locationId, message: result.message, error: "" });
   }
 
   return (
@@ -199,11 +219,17 @@ export function CityChrome({
               className="city-task"
               onSubmit={(event) => {
                 event.preventDefault();
-                apply(submitCityTask(session, item.id, { optIn: optIns[item.id] === true, note: notes[item.id] ?? "", now: Date.now() }));
+                apply(submitCityTask(session, item.id, { optIn: optIns[item.id] === true, note: notes[item.id] ?? "", now: Date.now() }), item.id);
               }}
             >
               <h3>{item.name}</h3>
               <p className="city-disclosure">{item.disclosure}</p>
+              <ol className="city-qc" aria-label={`${item.name} quality checks`}>
+                <li data-state={qc[item.id]?.auto === "Passed" ? "pass" : qc[item.id]?.auto === "Failed" ? "fail" : "waiting"}>Auto check: {qc[item.id]?.auto ?? "Waiting"}</li>
+                <li data-state={qc[item.id]?.peer?.startsWith("Score") ? "pass" : "waiting"}>{item.pipeline.peerScore ? "Peer score" : "Peer score not used"}: {qc[item.id]?.peer ?? (item.pipeline.peerScore ? "Waiting" : "Not used")}</li>
+                <li data-state={qc[item.id]?.owner === "Held for Kamron" ? "held" : qc[item.id]?.owner === "Practice only" ? "pass" : qc[item.id] ? "clear" : "waiting"}>{item.pipeline.ownerGate ? "Owner gate" : "Owner gate not used"}: {qc[item.id]?.owner ?? (item.pipeline.ownerGate ? "Waiting for Kamron" : "Not used")}</li>
+                <li data-state={qc[item.id]?.delivery === "Nothing posted" || qc[item.id]?.delivery === "Nothing sent" ? "held" : qc[item.id] ? "clear" : "waiting"}>Delivery: {qc[item.id]?.delivery ?? (item.external === "social" ? "Practice only" : item.external === "email" ? "Draft only" : "Stays in the city")}</li>
+              </ol>
               <p className="office-kicker">{pipelineLabel(item)}. {item.pipeline.autoChecks.join(" ")}</p>
               <p className="office-kicker">{item.prompt}</p>
               {session.libraryTips.includes(item.id) ? (

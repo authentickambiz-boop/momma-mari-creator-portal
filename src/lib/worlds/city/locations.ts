@@ -141,11 +141,11 @@ const CITY_LOCATION_BASE: readonly Omit<CityLocationDef, "allowedRoles" | "enter
     id: "library",
     name: "Library",
     buildingModel: "library",
-    interior: "panel",
+    interior: "walk-in",
     taskTypes: ["summary", "test", "read", "story", "rate"],
     skills: ["writing"],
     realWorldCategory: "content summaries",
-    summary: "Tests, a reading shelf with hidden tips, short stories, ratings, and content summaries. This is the city library, separate from the office library room.",
+    summary: "Tests, a reading shelf with hidden tips, short stories, ratings, and content summaries. The room is walk-in. This is the city library, separate from the office library room.",
     interiorProps: ["Stacks", "Reading table", "Card catalog", "Lamp"],
   },
   {

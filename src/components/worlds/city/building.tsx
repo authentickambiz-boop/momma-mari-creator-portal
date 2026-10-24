@@ -444,6 +444,23 @@ function LearningRoom({ w, d }: { w: number; d: number }) {
   );
 }
 
+function LibraryRoom({ w, d }: { w: number; d: number }) {
+  const stacks = [-w * 0.28, -w * 0.1, w * 0.1];
+  return (
+    <group>
+      {stacks.map((x) => (
+        <group key={x} position={[x, 0, -d * 0.22]}>
+          <ToonBox position={[0, 0.7, 0]} args={[0.55, 1.35, 1.4]} color="#8d5524" finish="wood" />
+          <ToonBox position={[0, 1.15, 0.72]} args={[0.42, 0.28, 0.06]} color="#f2c14e" finish="paint" />
+        </group>
+      ))}
+      <ToonBox position={[w * 0.22, 0.42, d * 0.08]} args={[1.3, 0.08, 0.7]} color="#f7f1e4" finish="wood" />
+      <ToonBox position={[w * 0.22, 0.72, d * 0.08]} args={[0.16, 0.5, 0.16]} color="#6b4a32" finish="wood" />
+      <ToonSphere position={[w * 0.22, 1.05, d * 0.08]} radius={0.14} color="#f6e2a8" />
+    </group>
+  );
+}
+
 function HomeRoom({ w, d, tier }: { w: number; d: number; tier: HomeTier }) {
   const cook = tier !== "studio";
   const host = tier === "house" || tier === "creator-loft" || tier === "mansion";
@@ -889,7 +906,7 @@ export function CityBuilding({
   const neighborhood = model === "studio" || model === "apartment" || model === "houses" || model === "loft" || model === "mansion";
   const yard = plot.yard ?? "stoop";
   return (
-    <group ref={ref} position={[plot.x + plot.w / 2, 0, plot.z + plot.d / 2]} rotation={[0, plot.yaw, 0]}>
+    <group name={plot.id} ref={ref} position={[plot.x + plot.w / 2, 0, plot.z + plot.d / 2]} rotation={[0, plot.yaw, 0]}>
       {model === "hq" ? (
         <HqBody w={plot.w} h={height} d={plot.d} open={open} />
       ) : neighborhood ? (
@@ -903,6 +920,7 @@ export function CityBuilding({
           {mid ? <PorchLamp w={plot.w} d={plot.d} /> : null}
           {mid && yard !== "none" ? <YardTree w={plot.w} d={plot.d} canopy="#3e8a42" /> : null}
           {open && model === "learning" ? <LearningRoom w={plot.w} d={plot.d} /> : null}
+          {open && model === "library" ? <LibraryRoom w={plot.w} d={plot.d} /> : null}
           {open && model === "home" ? <HomeRoom w={plot.w} d={plot.d} tier={placeTier} /> : null}
           {open ? <pointLight position={[0, Math.min(2.4, height - 0.4), 0]} intensity={0.55} distance={14} decay={2} color="#fff1d6" /> : null}
         </>

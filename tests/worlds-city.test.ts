@@ -26,6 +26,7 @@ import {
 } from "../src/lib/worlds/city/locations";
 import { buildingInteractables, officeInteractables, worldInteractables } from "../src/lib/worlds/city/interactables";
 import { decideEnter } from "../src/lib/worlds/city/access";
+import { WORLDS_TEXT_REJECTION, worldsTextRejection } from "../src/lib/worlds/safety";
 import { insideOffice, roleMayStand } from "../src/lib/worlds/city/movement";
 import { runPracticeLocation, runPracticeTask } from "../src/lib/worlds/city/practice";
 import { createSimState, stepOfficeSim } from "../src/lib/worlds/office-sim";
@@ -79,7 +80,7 @@ test("every location has the city fields and the required real-world categories"
     assert.ok(location.name);
     assert.ok(location.buildingModel);
     assert.ok(Number.isFinite(location.entrance.x) && Number.isFinite(location.entrance.z));
-    if (location.id === "learning-center" || location.id === "home") assert.equal(location.interior, "walk-in");
+    if (location.id === "learning-center" || location.id === "home" || location.id === "library") assert.equal(location.interior, "walk-in");
     else assert.equal(location.interior, "panel");
     assert.ok(location.taskTypes.length > 0);
     assert.ok(Array.isArray(location.skills));
@@ -168,6 +169,8 @@ test("the office camera clamp is unchanged and the city view pulls back", () => 
   assert.match(layer, /Verges/);
   const panel = source("src/components/worlds/city/city-panel.tsx");
   assert.match(panel, /aria-label="Places"/);
+  assert.match(panel, /quality checks/);
+  assert.match(panel, /Auto check/);
   assert.equal(panel.includes("city-places"), false);
   const app = source("src/components/worlds/office-app.tsx");
   assert.match(app, /cityMode \? cityDayWeather/);
@@ -432,4 +435,25 @@ test("office roster bots stay inside the office until the city connects", () => 
   assert.equal(roleMayStand("user", layout, 4, 4), false);
   assert.equal(roleMayStand("user", layout, -30, -30), true);
   assert.equal(roleMayStand("owner", layout, -30, -30), true);
+});
+
+test("worlds has no adult copy and refuses that kind of note", () => {
+  const lines = [
+    ...CITY_LOCATIONS.flatMap((location) => [location.name, location.summary, location.realWorldCategory, ...location.interiorProps]),
+    ...CITY_TASKS.flatMap((item) => [item.name, item.prompt, item.disclosure, ...item.pipeline.autoChecks]),
+    ...CITY_SHOP.flatMap((item) => [item.name, item.note]),
+    "Sample: add a Friday gaming-sponsor check-in.",
+    "Look for the audience.",
+  ];
+  for (const line of lines) assert.equal(worldsTextRejection(line), null, line);
+  const session = emptyCitySession();
+  const refused = submitCityTask(session, "social-comment", { optIn: true, note: "n.s.f.w", now: 5_000 });
+  assert.equal(refused.ok, false);
+  if (!refused.ok) assert.equal(refused.error, WORLDS_TEXT_REJECTION);
+  assert.equal(session.submissions.length, 0);
+  assert.equal(session.kashCents, 0);
+  assert.equal(Object.keys(session.windows).length, 0);
+  const folded = submitCityTask(session, "social-like", { optIn: true, note: "s3x", now: 6_000 });
+  assert.equal(folded.ok, false);
+  if (!folded.ok) assert.equal(folded.error, WORLDS_TEXT_REJECTION);
 });

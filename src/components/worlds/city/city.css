@@ -79,6 +79,24 @@
   padding-top: 8px;
   border-top: 1px solid #e4dccd;
 }
+.city-qc {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+.city-qc li {
+  border-radius: 8px;
+  background: #efe6d6;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.city-qc li[data-state="pass"],
+.city-qc li[data-state="clear"] { background: #e7eee8; }
+.city-qc li[data-state="fail"],
+.city-qc li[data-state="held"] { background: #fff6df; }
 .city-disclosure {
   margin: 0 0 8px;
   padding: 8px 10px;

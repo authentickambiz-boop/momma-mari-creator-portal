@@ -542,4 +542,23 @@ describe("bot office", () => {
     assert.match(live.label, /Mooresville/);
     assert.match(live.label, /windy/);
   });
+
+  test("adult or explicit office text is refused and is not shown", () => {
+    const seed = seedOfficeRecord();
+    const refused = applyOfficeWrite(seed, {
+      actor: "mari",
+      notes: [{ office: "creators", date: "2026-10-23", idea: "nsfw draft", whyNow: "The Friday list is ready." }],
+    });
+    assert.equal(refused.ok, false);
+    if (!refused.ok) assert.match(refused.error, /stays out of Worlds/);
+    assert.equal(seed.notes.some((note) => note.idea === "nsfw draft"), false);
+
+    const shown = recordFromStored({
+      ...seed,
+      bots: seed.bots.map((bot) => (bot.id === "life" ? { ...bot, task: "n.s.f.w" } : bot)),
+    });
+    assert.equal(shown.bots.find((bot) => bot.id === "life")?.task, "");
+    const kept = recordFromStored(seed);
+    assert.match(kept.notes.map((note) => note.idea).join("\n"), /gaming-sponsor/);
+  });
 });

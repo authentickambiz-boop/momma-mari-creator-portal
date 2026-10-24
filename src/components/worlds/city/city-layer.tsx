@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { CanvasTexture, DoubleSide, SRGBColorSpace } from "three";
 import type { CityDistrict, Plot, Street } from "@/lib/worlds/city/locations";
 import type { HomeTier } from "@/lib/worlds/economy";
 import { FOLIAGE_COLORS, type OfficeWeather } from "@/lib/worlds/office-weather";
@@ -116,6 +117,78 @@ function Verges({ district, canopy }: { district: CityDistrict; canopy: string }
   );
 }
 
+function districtSign(label: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1024;
+  canvas.height = 220;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "#1f3b2d";
+    ctx.fillRect(0, 0, 1024, 220);
+    ctx.fillStyle = "#fbf8f3";
+    ctx.font = "700 92px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, 512, 116);
+  }
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  return texture;
+}
+
+function DistrictLabels({ plots }: { plots: readonly Plot[] }) {
+  const signs = useMemo(() => plots.filter((plot) => plot.district).map((plot) => ({
+    id: plot.id,
+    label: plot.district ?? "",
+    map: districtSign(plot.district ?? ""),
+    x: plot.x + plot.w / 2,
+    z: plot.z + plot.d + 1.2,
+    wide: Math.min(14, Math.max(8, plot.w * 0.62)),
+  })), [plots]);
+  return (
+    <group>
+      {signs.map((sign) => (
+        <mesh key={sign.id} position={[sign.x, 8.6, sign.z]}>
+          <planeGeometry args={[sign.wide, 2.2]} />
+          <meshBasicMaterial map={sign.map} toneMapped={false} side={DoubleSide} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function ParkedCars({ streets }: { streets: readonly Street[] }) {
+  const cars = useMemo(() => {
+    const colors = ["#c4564a", "#2f4f6f", "#e6d7b0", "#3d6b4f", "#6b4c7a", "#b4532f"];
+    return streets.filter((street) => street.kind === "road").flatMap((street, roadIndex) => {
+      const alongX = street.w >= street.d;
+      return [0.28, 0.62].map((t, index) => ({
+        id: `${street.id}-car-${index}`,
+        x: street.x + (alongX ? street.w * t : 1.15),
+        z: street.z + (alongX ? 1.15 : street.d * t),
+        yaw: alongX ? Math.PI / 2 : 0,
+        color: colors[(roadIndex + index) % colors.length] ?? "#c4564a",
+      }));
+    });
+  }, [streets]);
+  return (
+    <group>
+      {cars.map((car) => (
+        <group key={car.id} position={[car.x, 0.28, car.z]} rotation={[0, car.yaw, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[1.55, 0.42, 0.74]} />
+            <meshStandardMaterial color={car.color} roughness={0.42} metalness={0.4} />
+          </mesh>
+          <mesh position={[0.12, 0.36, 0]} castShadow>
+            <boxGeometry args={[0.72, 0.32, 0.64]} />
+            <meshStandardMaterial color="#d5e7f0" roughness={0.08} metalness={0.15} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 function DoorPaths({ plots }: { plots: readonly Plot[] }) {
   return (
     <group>
@@ -172,6 +245,8 @@ export function CityLayer({
       <Streets district={district} />
       <DoorPaths plots={district.plots} />
       <Lamps district={district} />
+      <ParkedCars streets={district.streets} />
+      <DistrictLabels plots={district.plots} />
       <Verges district={district} canopy={canopy} />
       {district.plots.map((plot) => (
         <CityBuilding

@@ -15,6 +15,7 @@ import {
   type CharacterSubject,
 } from "./character";
 import { findOfficeBot } from "./office-catalog";
+import { worldsTextRejection } from "./safety";
 
 export const GAME_WALLET_PATH = "/api/worlds/game-wallet";
 export const GAME_CURRENCY = "currency-dollars";
@@ -194,6 +195,8 @@ export function parseRewardGrant(body: unknown): GameResult<{ subject: Character
   if (typeof body.source !== "string" || !body.source.trim() || body.source.trim().length > 80) {
     return { ok: false, status: 400, error: "source is a short label." };
   }
+  const blocked = worldsTextRejection(body.source);
+  if (blocked) return { ok: false, status: 400, error: blocked };
   if (typeof body.idempotencyKey !== "string" || !/^[A-Za-z0-9:_-]{1,80}$/.test(body.idempotencyKey)) {
     return { ok: false, status: 400, error: "idempotencyKey is required." };
   }

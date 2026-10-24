@@ -4,9 +4,11 @@ The city is the bot office, pulled back so the streets show. It lives at `/world
 
 Drag the ground to pan. Right-drag or twist to rotate. Scroll, pinch, or the plus and minus buttons zoom. On a phone, the joystick moves the view. A drag does not open a panel. Tap a building to move the camera to its door and open its panel. The Places button in the corner lists every location. It stays closed, so the street is clear until you ask for the list.
 
-The city uses the office sun, sky, and shadows. It opens on a clear afternoon so the overview reads in daylight. The live office still follows the Mooresville clock. Learning center and personal home open a 3D room when you enter. The panel still holds the lessons, the home tiers, and the other actions.
+The city uses the office sun, sky, and shadows. It opens on a clear afternoon so the overview reads in daylight. The live office still follows the Mooresville clock. Learning center, the library, and personal home open a 3D room when you enter. The panel still holds the lessons, the shelf tasks, the home tiers, and the other actions. Each task shows auto check, peer score, owner gate, and delivery. Practice socials and email drafts stay unsent.
 
 Kash is the in-game currency in `src/lib/worlds/economy.ts`. There is no earnings cap. Each action has a limit and a cooldown. Social likes, comments, follows, and story drafts share one cap of 8 a day. Momma Mari owns the in-game assets. No real payment is sent. Paid tasks are opt-in, and the panel says they are real work for Momma Mari and what they earn. Learning center lessons teach a skill before the paid version unlocks.
+
+Worlds has no adult category and no explicit shop, task, or label. A note that reads that way is rejected and is not stored. The screen does not show it.
 
 Quality runs in order: an auto check, then a peer or bot score, then an owner gate when the work could leave the city. Social tasks stay in practice mode (`LIVE_SOCIAL_ACTIONS` is false) and only score a draft. Outreach email stays a draft (`LIVE_EMAIL_SEND` is false) and is never auto-sent. Kamron has to approve anything external. Submissions stay in the city. Nothing is posted to a webhook, a mailbox, or a social network.
 
@@ -34,4 +36,4 @@ The office, the bank, the bots, the calendar, the to-dos, Box, and the conferenc
 
 ## Art
 
-Buildings are original toon meshes in the same palette as the chibi figure. Each model keeps its own roof line: lab tanks, library pediment, call-center mast, shop awnings, and a home shape per tier. The HQ uses the office brick colors, flat roof, and Momma Mari sign. Windows, signs, porch lamps, and a yard tree stay on at mid distance. Only a far camera, or Fast quality at long range, drops those down to the silhouette. Streets reuse the office asphalt and sidewalk colors, with a path from each door. Licenses are in `LICENSES.md`.
+Buildings are original meshes in the office palette, with brick, wood, stone, glass, and metal textures drawn in the scene. Each model keeps its own roof line: lab tanks, library pediment, call-center mast, shop awnings, and a neighborhood shape per home tier. Studio row is the smallest plot. The apartment complex is a shared 1 bed, 1 bath building with no private yard. House lane, loft block, and mansion grounds grow from there. The HQ uses the office brick colors, flat roof, and Momma Mari sign. Windows, district signs, porch lamps, parked cars, and a yard tree stay on at mid distance. Only a far camera, or Fast quality at long range, drops those down to the silhouette. Streets reuse the office asphalt and sidewalk colors, with a path from each door. Licenses are in `LICENSES.md`. Furniture and clothing that need a yard stay locked until the home tier says so.

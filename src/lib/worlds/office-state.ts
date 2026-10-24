@@ -35,6 +35,7 @@ import {
   type OfficeSection,
   type Vec,
 } from "./office-layout";
+import { worldsTextRejection } from "./safety";
 
 export { containsPrivateOfficeDetail };
 
@@ -525,8 +526,12 @@ function mergeOverlay(record: OfficeRecord, raw: unknown): OfficeRecord {
     if (!isRecord(patch)) return bot;
     const next = { ...bot };
     if (typeof patch.status === "string" && BOT_STATUSES.includes(patch.status as BotStatus)) next.status = patch.status as BotStatus;
-    if (typeof patch.task === "string" && patch.task.trim() && !containsPrivateOfficeDetail(patch.task)) next.task = patch.task.trim().slice(0, 400);
-    if (typeof patch.update === "string" && patch.update.trim() && !containsPrivateOfficeDetail(patch.update)) next.update = patch.update.trim().slice(0, 400);
+    if (typeof patch.task === "string" && patch.task.trim() && !containsPrivateOfficeDetail(patch.task) && !worldsTextRejection(patch.task)) {
+      next.task = patch.task.trim().slice(0, 400);
+    }
+    if (typeof patch.update === "string" && patch.update.trim() && !containsPrivateOfficeDetail(patch.update) && !worldsTextRejection(patch.update)) {
+      next.update = patch.update.trim().slice(0, 400);
+    }
     if (typeof patch.room === "string") {
       const rooms = new Set(layoutFor(record).rooms.map((room) => room.id));
       if (rooms.has(patch.room)) next.room = patch.room;
@@ -536,14 +541,51 @@ function mergeOverlay(record: OfficeRecord, raw: unknown): OfficeRecord {
   return { ...record, bots };
 }
 
+function cleanCopy(value: string) {
+  return worldsTextRejection(value) ? "" : value;
+}
+
+/** Drop adult or explicit lines before they reach the office screen. */
+export function presentOfficeRecord(record: OfficeRecord): OfficeRecord {
+  return {
+    ...record,
+    bots: record.bots.map((bot) => ({ ...bot, task: cleanCopy(bot.task), update: cleanCopy(bot.update) })),
+    calendar: record.calendar.map((event) => ({ ...event, title: cleanCopy(event.title) })),
+    todos: record.todos.map((todo) => ({ ...todo, task: cleanCopy(todo.task) })),
+    notes: record.notes.map((note) => ({ ...note, idea: cleanCopy(note.idea), whyNow: cleanCopy(note.whyNow) })),
+    achievements: record.achievements.map((item) => ({
+      ...item,
+      title: cleanCopy(item.title),
+      detail: cleanCopy(item.detail),
+    })),
+    locked: record.locked.map((item) => ({ ...item, title: cleanCopy(item.title), goal: cleanCopy(item.goal) })),
+  };
+}
+
+export function officeCopyRejection(record: OfficeRecord): string | null {
+  const lines = [
+    ...record.bots.flatMap((bot) => [bot.task, bot.update]),
+    ...record.calendar.map((event) => event.title),
+    ...record.todos.map((todo) => todo.task),
+    ...record.notes.flatMap((note) => [note.idea, note.whyNow]),
+    ...record.achievements.flatMap((item) => [item.title, item.detail]),
+    ...record.locked.flatMap((item) => [item.title, item.goal]),
+  ];
+  for (const line of lines) {
+    const blocked = worldsTextRejection(line);
+    if (blocked) return blocked;
+  }
+  return null;
+}
+
 export function recordFromStored(raw: unknown): OfficeRecord {
   const seed = seedOfficeRecord();
-  if (!isRecord(raw)) return seed;
+  if (!isRecord(raw)) return presentOfficeRecord(seed);
   if (Array.isArray(raw.bots)) {
     const parsed = parseOfficeSnapshot(raw);
-    return parsed.ok ? parsed.value : seed;
+    return presentOfficeRecord(parsed.ok ? parsed.value : seed);
   }
-  return mergeOverlay(seed, raw);
+  return presentOfficeRecord(mergeOverlay(seed, raw));
 }
 
 function botPatch(record: OfficeRecord, body: Record<string, unknown>): OfficeResult<OfficeRecord> {
@@ -565,11 +607,15 @@ function botPatch(record: OfficeRecord, body: Record<string, unknown>): OfficeRe
     if (item.task !== undefined) {
       const parsed = text(item.task, "task");
       if (!parsed.ok) return parsed;
+      const blocked = worldsTextRejection(parsed.value);
+      if (blocked) return fail(400, blocked);
       stored.task = parsed.value;
     }
     if (item.update !== undefined) {
       const parsed = text(item.update, "update");
       if (!parsed.ok) return parsed;
+      const blocked = worldsTextRejection(parsed.value);
+      if (blocked) return fail(400, blocked);
       stored.update = parsed.value;
     }
     if (item.room !== undefined) {
@@ -609,6 +655,10 @@ function boardPatch(record: OfficeRecord, body: Record<string, unknown>): Office
     if (parsed.value.some((todo) => todo.office !== office.value)) return fail(400, "Those to-dos are for a different office.");
     todos = [...record.todos.filter((todo) => todo.office !== office.value), ...parsed.value];
   }
+  const blocked = [...calendar.map((event) => event.title), ...todos.map((todo) => todo.task)]
+    .map((line) => worldsTextRejection(line))
+    .find((line) => line != null);
+  if (blocked) return fail(400, blocked);
   return { ok: true, value: { ...record, calendar, todos } };
 }
 
@@ -643,6 +693,8 @@ function notePatch(record: OfficeRecord, body: Record<string, unknown>): OfficeR
     if (!idea.ok) return idea;
     const whyNow = text(item.whyNow, "why now");
     if (!whyNow.ok) return whyNow;
+    const blocked = worldsTextRejection(idea.value) ?? worldsTextRejection(whyNow.value);
+    if (blocked) return fail(400, blocked);
     const id = item.id === undefined ? { ok: true as const, value: `note-${crypto.randomUUID()}` } : idOf(item.id, "note id");
     if (!id.ok) return id;
     if (byId.has(id.value)) return fail(400, "That note id is already on the board.");

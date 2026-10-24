@@ -3,6 +3,7 @@ import type { PortalDb } from "@/db";
 import { officeWorldCommands } from "@/db/schema";
 import { nowIso, parseJson } from "@/lib/format";
 import { containsPrivateOfficeDetail } from "./office-catalog";
+import { worldsTextRejection } from "./safety";
 import {
   APPROVAL_PHRASE,
   COMMAND_STATUSES,
@@ -37,11 +38,11 @@ function rowToCommand(row: CommandRow): OfficeCommand {
     noteId: row.noteId,
     todoId: row.todoId,
     decision: row.decision === "approve" || row.decision === "hold" ? row.decision : null,
-    topic: row.topic,
-    body: row.body,
+    topic: row.topic && worldsTextRejection(row.topic) ? "" : row.topic,
+    body: worldsTextRejection(row.body) ? "" : row.body,
     due: row.due,
     impactDollars: row.impactDollars,
-    result: row.result,
+    result: row.result && worldsTextRejection(row.result) ? "" : row.result,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -132,6 +133,8 @@ export async function updateOfficeCommand(db: PortalDb, body: unknown) {
     if (containsPrivateOfficeDetail(trimmed)) {
       return { ok: false as const, status: 400, error: "result includes a private detail. Leave it out of the office." };
     }
+    const blocked = worldsTextRejection(trimmed);
+    if (blocked) return { ok: false as const, status: 400, error: blocked };
     result = trimmed || null;
   }
   const rows = await db.select().from(officeWorldCommands).where(eq(officeWorldCommands.id, body.id.trim()));
