@@ -6,6 +6,23 @@ export type InteriorZone = "entry" | "work" | "lounge" | "decor" | "path" | "obj
 
 export type InteriorFinish = "wood" | "metal" | "stone" | "plaster" | "glass" | "paint";
 
+export type InteriorProp =
+  | "plain"
+  | "sofa"
+  | "desk"
+  | "chair"
+  | "table"
+  | "shelf"
+  | "booth"
+  | "counter"
+  | "vault"
+  | "bed"
+  | "plant"
+  | "art"
+  | "window";
+
+export type InteriorFace = "left" | "right" | "back";
+
 export type InteriorBox = {
   id: string;
   zone: InteriorZone;
@@ -24,6 +41,10 @@ export type InteriorBox = {
   marker?: boolean;
   /** Ignore the room light so a floor stripe stays readable. */
   unlit?: boolean;
+  /** Composed mesh. Plain falls back to one box. */
+  prop?: InteriorProp;
+  /** Which way the front of the prop points. Left-wall props face into the room. */
+  face?: InteriorFace;
 };
 
 export type InteriorAisle = {
@@ -57,6 +78,8 @@ type Piece = {
   glass?: boolean;
   marker?: boolean;
   unlit?: boolean;
+  prop?: InteriorProp;
+  face?: InteriorFace;
 };
 
 const MODELS: readonly BuildingModel[] = [
@@ -109,49 +132,77 @@ function roomOf(w: number, d: number): Room {
 }
 
 function box(piece: Piece): InteriorBox {
-  return { finish: "wood", ...piece };
+  return { finish: "wood", prop: "plain", ...piece };
 }
 
-/** A block against the left or right wall, kept out of the aisle. */
-function side(room: Room, which: "left" | "right", id: string, z: number, wantW: number, h: number, wantD: number, color: string, zone: InteriorZone, finish: InteriorFinish = "wood", y = h / 2): InteriorBox {
-  const span = Math.max(0.28, room.halfW - room.aisle - 0.18);
+/** A prop against the left or right wall, kept out of the aisle. */
+function along(
+  room: Room,
+  which: "left" | "right",
+  id: string,
+  z: number,
+  wantW: number,
+  wantD: number,
+  h: number,
+  color: string,
+  zone: InteriorZone,
+  prop: InteriorProp,
+  finish: InteriorFinish = "wood",
+): InteriorBox {
+  const span = Math.max(0.36, room.halfW - room.aisle - 0.22);
   const w = Math.min(wantW, span);
-  const x = which === "left" ? -room.halfW + 0.14 + w / 2 : room.halfW - 0.14 - w / 2;
-  const depth = Math.min(wantD, Math.max(0.28, room.halfD * 0.55));
-  return box({ id, zone, x, y, z, w, h, d: depth, color, finish });
+  const depth = Math.min(wantD, Math.max(0.28, room.halfD * 0.7));
+  const x = which === "left" ? -room.halfW + 0.18 + w / 2 : room.halfW - 0.18 - w / 2;
+  return box({ id, zone, x, y: h / 2, z, w, h, d: depth, color, finish, prop, face: which });
 }
 
-/** Furniture on the back wall, behind the objective marker. */
-function back(room: Room, id: string, wantW: number, h: number, wantD: number, color: string, zone: InteriorZone, finish: InteriorFinish = "wood", y = h / 2): InteriorBox {
-  const w = Math.min(wantW, room.halfW * 2 - 0.5);
-  const depth = Math.min(wantD, 0.55);
-  const z = room.objectiveZ - depth * 0.35;
-  return box({ id, zone, x: 0, y, z, w, h, d: depth, color, finish });
+/** A prop on the back wall, behind the objective marker. */
+function alongBack(
+  room: Room,
+  id: string,
+  wantW: number,
+  wantD: number,
+  h: number,
+  color: string,
+  zone: InteriorZone,
+  prop: InteriorProp,
+  finish: InteriorFinish = "wood",
+): InteriorBox {
+  const w = Math.min(wantW, room.halfW * 2 - 0.7);
+  const depth = Math.min(wantD, 0.72);
+  const z = room.objectiveZ - depth * 0.5 - 0.1;
+  return box({ id, zone, x: 0, y: h / 2, z, w, h, d: depth, color, finish, prop, face: "back" });
 }
 
-function poster(room: Room, id: string, x: number, y: number, z: number, wide: number, tall: number, color: string, facing: "back" | "left" | "right"): InteriorBox {
-  if (facing === "back") {
-    return box({ id, zone: "decor", x, y, z: -room.halfD + 0.1, w: wide, h: tall, d: 0.05, color, finish: "paint" });
+function framed(room: Room, id: string, x: number, y: number, z: number, wide: number, tall: number, color: string, face: InteriorFace): InteriorBox {
+  if (face === "back") {
+    return box({ id, zone: "decor", x, y, z: -room.halfD + 0.14, w: wide, h: tall, d: 0.06, color, finish: "paint", prop: "art", face });
   }
-  const edge = facing === "left" ? -room.halfW + 0.1 : room.halfW - 0.1;
-  return box({ id, zone: "decor", x: edge, y, z, w: 0.05, h: tall, d: wide, color, finish: "paint" });
+  const edge = face === "left" ? -room.halfW + 0.14 : room.halfW - 0.14;
+  return box({ id, zone: "decor", x: edge, y, z, w: 0.06, h: tall, d: wide, color, finish: "paint", prop: "art", face });
 }
 
-function windowPane(room: Room, id: string, x: number, z: number, wide: number, tall: number, facing: "back" | "side"): InteriorBox {
-  if (facing === "back") {
-    return box({ id, zone: "decor", x, y: 1.45, z: -room.halfD + 0.12, w: wide, h: tall, d: 0.05, color: "#d7eef6", finish: "glass", glass: true });
+function windowPane(room: Room, id: string, x: number, z: number, wide: number, tall: number, face: InteriorFace): InteriorBox {
+  if (face === "back") {
+    return box({
+      id, zone: "decor", x, y: 1.42, z: -room.halfD + 0.16, w: wide, h: tall, d: 0.08,
+      color: "#d7eef6", finish: "glass", glass: true, prop: "window", face,
+    });
   }
-  const edge = x < 0 ? -room.halfW + 0.12 : room.halfW - 0.12;
-  return box({ id, zone: "decor", x: edge, y: 1.45, z, w: 0.05, h: tall, d: wide, color: "#d7eef6", finish: "glass", glass: true });
+  const edge = face === "left" ? -room.halfW + 0.16 : room.halfW - 0.16;
+  return box({
+    id, zone: "decor", x: edge, y: 1.42, z, w: 0.08, h: tall, d: wide,
+    color: "#d7eef6", finish: "glass", glass: true, prop: "window", face,
+  });
 }
 
-function windows(room: Room, prefix: string): InteriorBox[] {
-  const wide = Math.min(0.7, room.halfW * 0.4);
+function windows(room: Room): InteriorBox[] {
+  const wide = Math.min(0.95, Math.max(0.55, room.halfW * 0.42));
   return [
-    windowPane(room, `${prefix}-win-bl`, -room.halfW * 0.42, 0, wide, 0.72, "back"),
-    windowPane(room, `${prefix}-win-br`, room.halfW * 0.42, 0, wide, 0.72, "back"),
-    windowPane(room, `${prefix}-win-l`, -1, room.halfD * 0.15, wide, 0.72, "side"),
-    windowPane(room, `${prefix}-win-r`, 1, -room.halfD * 0.05, wide, 0.72, "side"),
+    windowPane(room, "win-bl", -room.halfW * 0.38, 0, wide, 0.85, "back"),
+    windowPane(room, "win-br", room.halfW * 0.38, 0, wide, 0.85, "back"),
+    windowPane(room, "win-l", 0, room.halfD * 0.05, wide, 0.85, "left"),
+    windowPane(room, "win-r", 0, -room.halfD * 0.12, wide, 0.85, "right"),
   ];
 }
 
@@ -189,199 +240,182 @@ function marker(room: Room, color: string): InteriorBox {
 }
 
 function plant(room: Room, which: "left" | "right"): InteriorBox {
-  const x = which === "left" ? -room.halfW + 0.32 : room.halfW - 0.32;
+  const x = which === "left" ? -room.halfW + 0.42 : room.halfW - 0.42;
   return box({
     id: "plant",
     zone: "entry",
     x,
-    y: 0.28,
-    z: room.halfD - 0.36,
-    w: 0.28,
-    h: 0.5,
-    d: 0.28,
+    y: 0.45,
+    z: room.halfD * 0.42,
+    w: 0.36,
+    h: 0.85,
+    d: 0.36,
     color: "#2f6d4f",
     finish: "plaster",
+    prop: "plant",
+    face: which,
   });
 }
 
 function shared(room: Room, path: string, mark: string): InteriorBox[] {
-  return [...windows(room, "room"), runner(room, path), marker(room, mark), plant(room, "right")];
+  return [...windows(room), runner(room, path), marker(room, mark), plant(room, "right")];
 }
 
 function layoutFor(model: BuildingModel, room: Room): InteriorBox[] {
+  const mid = room.halfD * 0.08;
   if (model === "library") {
     return [
       ...shared(room, "#6b4a32", "#f2c14e"),
-      side(room, "left", "stacks-a", -room.halfD * 0.15, 0.55, 1.45, 0.9, "#6b3a28", "work"),
-      side(room, "left", "stacks-b", room.halfD * 0.28, 0.55, 1.35, 0.8, "#8d5524", "work"),
-      side(room, "right", "reading-table", 0.05, 0.7, 0.08, 0.7, "#f7f1e4", "lounge", "wood", 0.42),
-      side(room, "right", "reading-leg", 0.05, 0.08, 0.36, 0.08, "#6b4a32", "lounge", "wood", 0.18),
-      side(room, "right", "lamp", 0.28, 0.14, 0.22, 0.14, "#f6e2a8", "lounge", "metal", 0.58),
-      back(room, "catalog", 1.1, 0.7, 0.4, "#4e3418", "work"),
-      poster(room, "tips", 0, 1.55, 0, 0.9, 0.55, "#1f3b2d", "back"),
+      along(room, "left", "stacks", -room.halfD * 0.02, 0.9, 0.42, 1.55, "#6b3a28", "work", "shelf"),
+      along(room, "left", "stacks-b", room.halfD * 0.38, 0.7, 0.4, 1.35, "#8d5524", "work", "shelf"),
+      along(room, "right", "reading", mid, 1.05, 0.85, 0.9, "#f7f1e4", "lounge", "desk"),
+      alongBack(room, "catalog", 1.15, 0.4, 1.45, "#4e3418", "work", "shelf"),
+      framed(room, "tips", 0, 1.7, 0, 0.7, 0.48, "#1f3b2d", "back"),
     ];
   }
   if (model === "call-center") {
     return [
       ...shared(room, "#8ec4ea", "#9dff6a"),
-      side(room, "left", "booth-desk", 0, 0.7, 0.08, 0.55, "#d7e7f2", "work", "paint", 0.42),
-      side(room, "left", "booth-screen", -0.08, 0.42, 0.32, 0.05, "#8ec4ea", "work", "glass", 0.66),
-      side(room, "left", "headset", 0.18, 0.1, 0.12, 0.1, "#243044", "work", "metal", 0.54),
-      side(room, "right", "queue-desk", 0.05, 0.7, 0.08, 0.55, "#d7e7f2", "work", "paint", 0.42),
-      side(room, "right", "queue-screen", 0, 0.4, 0.3, 0.05, "#1f3b2d", "work", "glass", 0.64),
-      side(room, "right", "coffee", room.halfD * 0.35, 0.35, 0.4, 0.35, "#6b3a28", "lounge"),
-      back(room, "script-board", 1.3, 0.7, 0.08, "#1f3b2d", "work", "paint", 1.25),
-      poster(room, "script-card", room.halfW * 0.35, 1.5, 0, 0.45, 0.35, "#f2c14e", "back"),
+      along(room, "left", "booth-a", mid, 1.05, 0.85, 1.15, "#d7e7f2", "work", "booth", "paint"),
+      along(room, "right", "booth-b", mid, 1.05, 0.85, 1.15, "#d7e7f2", "work", "booth", "paint"),
+      along(room, "right", "break", room.halfD * 0.4, 0.42, 0.42, 0.85, "#6b4a32", "lounge", "chair"),
+      framed(room, "script", 0, 1.65, 0, 0.85, 0.5, "#1f3b2d", "back"),
     ];
   }
   if (model === "learning") {
     return [
       ...shared(room, "#d7c4a3", "#f2c14e"),
-      side(room, "right", "lesson-desk", 0, 0.75, 0.08, 0.55, "#f7f1e4", "work", "wood", 0.42),
-      side(room, "right", "notebook", 0.08, 0.16, 0.05, 0.2, "#8ec4ea", "work", "paint", 0.5),
-      side(room, "left", "booth", -0.1, 0.55, 1.1, 0.4, "#243044", "lounge", "paint"),
-      back(room, "badge-wall", 1.4, 0.85, 0.08, "#1f3b2d", "work", "paint", 1.3),
-      poster(room, "badge", -0.35, 1.45, 0, 0.32, 0.32, "#f2c14e", "back"),
-      poster(room, "badge-b", 0.35, 1.45, 0, 0.32, 0.32, "#e07a5f", "back"),
+      along(room, "right", "lesson", mid, 1.05, 0.85, 0.9, "#f7f1e4", "work", "desk"),
+      along(room, "left", "seat", mid, 0.7, 0.7, 0.85, "#243044", "lounge", "sofa", "plaster"),
+      framed(room, "badge", -0.4, 1.55, 0, 0.4, 0.4, "#f2c14e", "back"),
+      framed(room, "badge-b", 0.4, 1.55, 0, 0.4, 0.4, "#e07a5f", "back"),
     ];
   }
   if (model === "art") {
     return [
       ...shared(room, "#f4efe4", "#e07a5f"),
-      side(room, "left", "easel-post", -0.05, 0.08, 1.25, 0.08, "#6b3a28", "work"),
-      side(room, "left", "canvas", 0.02, 0.5, 0.62, 0.05, "#f2b4c4", "work", "paint", 1.05),
-      side(room, "right", "drawing-table", 0, 0.8, 0.08, 0.6, "#f7f1e4", "work", "wood", 0.42),
-      side(room, "right", "paint-a", 0.15, 0.12, 0.14, 0.12, "#e07a5f", "lounge", "paint", 0.52),
-      side(room, "right", "paint-b", 0.32, 0.1, 0.12, 0.1, "#f2c14e", "lounge", "paint", 0.5),
-      back(room, "thumb-a", 0.4, 0.36, 0.05, "#e07a5f", "decor", "paint", 1.35),
-      poster(room, "thumb-b", -0.45, 1.4, 0, 0.4, 0.36, "#8ec4ea", "back"),
-      poster(room, "thumb-c", 0.45, 1.4, 0, 0.4, 0.36, "#f2c14e", "back"),
+      along(room, "left", "easel", mid, 0.7, 0.45, 1.35, "#f2b4c4", "work", "art", "paint"),
+      along(room, "right", "drawing", mid, 1.05, 0.85, 0.9, "#f7f1e4", "work", "desk"),
+      along(room, "right", "stool", room.halfD * 0.38, 0.4, 0.4, 0.8, "#6b4a32", "lounge", "chair"),
+      framed(room, "thumb-b", -0.45, 1.5, 0, 0.38, 0.38, "#8ec4ea", "back"),
+      framed(room, "thumb-c", 0.45, 1.5, 0, 0.38, 0.38, "#f2c14e", "back"),
     ];
   }
   if (model === "lab") {
     return [
       ...shared(room, "#d9d3c8", "#8ec4ea"),
-      back(room, "bench", 1.5, 0.85, 0.48, "#d9d3c8", "work", "metal"),
-      side(room, "left", "samples", 0, 0.4, 0.9, 0.35, "#8ec4ea", "work", "glass"),
-      side(room, "right", "scope-table", 0, 0.7, 0.08, 0.5, "#f7f1e4", "lounge", "metal", 0.42),
-      poster(room, "brief", room.halfW * 0.2, 1.5, 0, 0.7, 0.45, "#1f3b2d", "back"),
+      alongBack(room, "bench", 1.4, 0.55, 0.95, "#d9d3c8", "work", "counter", "metal"),
+      along(room, "left", "samples", mid, 0.7, 0.4, 1.2, "#8ec4ea", "work", "shelf", "glass"),
+      along(room, "right", "scope", mid, 1.0, 0.8, 0.9, "#f7f1e4", "lounge", "desk", "metal"),
+      framed(room, "brief", 0, 1.6, 0, 0.6, 0.4, "#1f3b2d", "back"),
     ];
   }
   if (model === "computers") {
     return [
       ...shared(room, "#1c3330", "#9dff6a"),
-      side(room, "left", "desk-a", 0, 0.75, 0.08, 0.5, "#1c3330", "work", "metal", 0.42),
-      side(room, "left", "screen-a", -0.06, 0.48, 0.34, 0.05, "#9dff6a", "work", "glass", 0.66),
-      side(room, "right", "desk-b", 0.05, 0.75, 0.08, 0.5, "#243044", "work", "metal", 0.42),
-      side(room, "right", "screen-b", 0, 0.46, 0.32, 0.05, "#9dff6a", "work", "glass", 0.64),
-      side(room, "right", "stool", room.halfD * 0.32, 0.32, 0.42, 0.32, "#6b4a32", "lounge"),
-      back(room, "rack", 0.55, 1.2, 0.4, "#1c3330", "work", "metal"),
-      poster(room, "qa", 0.55, 1.45, 0, 0.55, 0.4, "#f7f1e4", "back"),
+      along(room, "left", "desk-a", mid, 1.05, 0.85, 0.9, "#1c3330", "work", "desk", "metal"),
+      along(room, "right", "desk-b", -room.halfD * 0.05, 1.05, 0.85, 0.9, "#243044", "work", "desk", "metal"),
+      along(room, "right", "stool", room.halfD * 0.38, 0.4, 0.4, 0.8, "#6b4a32", "lounge", "chair"),
+      alongBack(room, "rack", 0.6, 0.4, 1.4, "#1c3330", "work", "shelf", "metal"),
+      framed(room, "qa", 0.55, 1.5, 0, 0.45, 0.36, "#f7f1e4", "back"),
     ];
   }
   if (model === "music") {
     return [
       ...shared(room, "#1c211e", "#f2c14e"),
-      back(room, "keys", 1.2, 0.7, 0.42, "#1c211e", "work"),
-      side(room, "left", "booth", 0, 0.4, 1.05, 0.35, "#243044", "lounge", "paint"),
-      side(room, "right", "speaker", 0, 0.28, 0.7, 0.28, "#f2c14e", "work", "metal"),
-      side(room, "right", "mixer", room.halfD * 0.32, 0.5, 0.1, 0.35, "#6b4a32", "work", "wood", 0.48),
-      poster(room, "poster", 0, 1.45, 0, 0.7, 0.45, "#e07a5f", "back"),
+      alongBack(room, "keys", 1.2, 0.5, 0.9, "#1c211e", "work", "desk"),
+      along(room, "left", "booth", mid, 0.7, 0.55, 1.05, "#243044", "lounge", "booth", "paint"),
+      along(room, "right", "speaker", mid, 0.45, 0.4, 0.9, "#f2c14e", "work", "shelf", "metal"),
+      framed(room, "poster", 0, 1.55, 0, 0.55, 0.4, "#e07a5f", "back"),
     ];
   }
   if (model === "club") {
     return [
       ...shared(room, "#3d2a48", "#f2c14e"),
-      back(room, "stage", 1.6, 0.28, 0.55, "#3d2a48", "work"),
-      side(room, "left", "booth-l", 0.1, 0.7, 0.4, 0.7, "#6b4c7a", "lounge"),
-      side(room, "right", "bar", 0, 0.9, 0.55, 0.4, "#2a2e33", "work", "wood"),
-      poster(room, "lights", 0, 1.55, 0, 0.8, 0.28, "#f6e2a8", "back"),
+      alongBack(room, "stage", 1.5, 0.55, 0.4, "#3d2a48", "work", "counter"),
+      along(room, "left", "booth-l", mid, 1.05, 0.7, 0.85, "#6b4c7a", "lounge", "sofa", "plaster"),
+      along(room, "right", "bar", mid, 1.0, 0.5, 1.05, "#2a2e33", "work", "counter"),
+      framed(room, "lights", 0, 1.6, 0, 0.7, 0.32, "#f6e2a8", "back"),
     ];
   }
   if (model === "bank") {
     return [
       ...shared(room, "#c6a15a", "#f2c14e"),
-      back(room, "teller", 1.6, 0.95, 0.42, "#243044", "work", "stone"),
-      side(room, "left", "vault", -0.05, 0.7, 1.15, 0.12, "#2a2e33", "work", "metal"),
-      side(room, "right", "ledger", 0.15, 0.55, 0.7, 0.35, "#f7f1e4", "lounge"),
-      side(room, "left", "chair-a", room.halfD * 0.32, 0.32, 0.42, 0.32, "#6b4a32", "lounge"),
-      side(room, "right", "chair-b", room.halfD * 0.32, 0.32, 0.42, 0.32, "#6b4a32", "lounge"),
-      poster(room, "rates", 0, 1.55, 0, 0.9, 0.32, "#c6a15a", "back"),
+      alongBack(room, "teller", 1.7, 0.55, 1.15, "#243044", "work", "counter", "stone"),
+      along(room, "left", "vault", -room.halfD * 0.05, 0.8, 0.28, 1.45, "#2a2e33", "work", "vault", "metal"),
+      along(room, "right", "ledger", mid, 1.0, 0.8, 0.9, "#f7f1e4", "lounge", "desk"),
+      along(room, "left", "wait", room.halfD * 0.38, 0.42, 0.42, 0.85, "#6b4a32", "lounge", "chair"),
+      framed(room, "rates", 0, 1.7, 0, 0.7, 0.36, "#c6a15a", "back"),
     ];
   }
   if (model === "clothing") {
     return [
       ...shared(room, "#f7e7ee", "#d4567a"),
-      side(room, "left", "rack-a", 0, 0.1, 1.3, 0.55, "#6a243c", "work", "metal"),
-      side(room, "left", "garment-a", 0.02, 0.45, 0.6, 0.12, "#f7e7ee", "work", "plaster"),
-      side(room, "right", "rack-b", -0.05, 0.1, 1.2, 0.5, "#6a243c", "work", "metal"),
-      side(room, "right", "counter", room.halfD * 0.3, 0.7, 0.5, 0.4, "#f4efe4", "lounge"),
-      back(room, "mirror", 0.7, 1.05, 0.06, "#d7eef6", "decor", "glass"),
+      along(room, "left", "rack", mid, 0.8, 0.45, 1.4, "#6a243c", "work", "shelf", "metal"),
+      along(room, "right", "counter", room.halfD * 0.2, 1.0, 0.55, 1.0, "#f4efe4", "lounge", "counter"),
+      alongBack(room, "mirror", 0.7, 0.12, 1.2, "#d7eef6", "decor", "art", "glass"),
     ];
   }
   if (model === "furniture") {
     return [
       ...shared(room, "#e7d3b0", "#f2c14e"),
-      side(room, "left", "sofa", 0, 0.9, 0.42, 0.5, "#8d5524", "lounge"),
-      side(room, "right", "chair", 0.05, 0.42, 0.46, 0.42, "#5c3c0c", "work"),
-      side(room, "right", "lamp", room.halfD * 0.32, 0.16, 0.55, 0.16, "#f6e2a8", "decor", "metal"),
-      back(room, "swatches", 1.1, 0.7, 0.08, "#e7ffc4", "work", "paint"),
-      poster(room, "swatch-b", -0.4, 1.15, 0, 0.28, 0.28, "#6b4c7a", "back"),
+      along(room, "left", "sofa", mid, 1.15, 0.7, 0.85, "#8d5524", "lounge", "sofa", "plaster"),
+      along(room, "right", "chair", mid, 0.48, 0.48, 0.9, "#5c3c0c", "work", "chair"),
+      alongBack(room, "swatches", 1.1, 0.2, 0.8, "#e7ffc4", "work", "art", "paint"),
+      framed(room, "swatch-b", -0.55, 1.35, 0, 0.32, 0.32, "#6b4c7a", "back"),
     ];
   }
   if (model === "studio" || model === "home") {
     return [
       ...shared(room, "#c4a574", "#e07a5f"),
-      back(room, "bed", 1.15, 0.34, 0.7, "#f4efe4", "lounge", "plaster"),
-      side(room, "right", "desk", 0, 0.6, 0.08, 0.42, "#c4a574", "work", "wood", 0.42),
-      poster(room, "print", -0.2, 1.35, 0, 0.45, 0.35, "#e07a5f", "back"),
+      alongBack(room, "bed", 1.15, 0.7, 0.7, "#f4efe4", "lounge", "bed", "plaster"),
+      along(room, "right", "desk", mid, 1.0, 0.85, 0.9, "#c4a574", "work", "desk"),
+      framed(room, "print", -0.15, 1.45, 0, 0.42, 0.34, "#e07a5f", "back"),
     ];
   }
   if (model === "apartment") {
     return [
       ...shared(room, "#d7c4a3", "#6b4c7a"),
-      side(room, "left", "bed", -0.05, 0.9, 0.34, 1.15, "#f4efe4", "lounge", "plaster"),
-      back(room, "kitchen", 1.15, 0.75, 0.4, "#efe6d6", "work", "plaster"),
-      side(room, "right", "sofa", 0.1, 0.7, 0.38, 0.45, "#6b4c7a", "lounge", "plaster"),
-      poster(room, "print", 0.3, 1.4, 0, 0.4, 0.3, "#8ec4ea", "back"),
+      along(room, "left", "bed", -room.halfD * 0.05, 1.05, 0.7, 0.7, "#f4efe4", "lounge", "bed", "plaster"),
+      alongBack(room, "kitchen", 1.25, 0.5, 0.95, "#efe6d6", "work", "counter", "plaster"),
+      along(room, "right", "sofa", mid, 1.1, 0.68, 0.85, "#6b4c7a", "lounge", "sofa", "plaster"),
+      framed(room, "print", 0.35, 1.5, 0, 0.4, 0.32, "#8ec4ea", "back"),
     ];
   }
   if (model === "houses") {
     return [
       ...shared(room, "#c4a574", "#e07a5f"),
-      side(room, "left", "sofa", 0.05, 1.05, 0.36, 0.48, "#6b4c7a", "lounge", "plaster"),
-      side(room, "right", "desk", 0, 0.7, 0.08, 0.5, "#8d5524", "work", "wood", 0.42),
-      side(room, "right", "chair", room.halfD * 0.28, 0.28, 0.42, 0.28, "#6b4a32", "work"),
-      back(room, "dining", 1.15, 0.08, 0.5, "#8d5524", "work", "wood", 0.42),
-      poster(room, "art", -room.halfW * 0.15, 1.4, 0, 0.5, 0.4, "#e07a5f", "left"),
+      along(room, "left", "sofa", mid, 1.2, 0.7, 0.86, "#6b4c7a", "lounge", "sofa", "plaster"),
+      along(room, "right", "desk", room.halfD * 0.12, 1.05, 0.88, 0.92, "#8d5524", "work", "desk"),
+      alongBack(room, "dining", 1.35, 0.78, 0.78, "#c4a574", "work", "table"),
+      framed(room, "art", 0, 1.55, 0, 0.55, 0.42, "#e07a5f", "left"),
     ];
   }
   if (model === "loft") {
     return [
       ...shared(room, "#d5e7f0", "#8ec4ea"),
-      side(room, "left", "work-table", 0, 0.9, 0.08, 0.55, "#f7f1e4", "work", "wood", 0.42),
-      side(room, "left", "monitor", -0.06, 0.6, 0.4, 0.05, "#d5e7f0", "work", "glass", 0.68),
-      side(room, "right", "daybed", 0.05, 1.0, 0.32, 0.5, "#8a4b3c", "lounge", "plaster"),
-      back(room, "backdrop", 1.2, 0.85, 0.06, "#f7f1e4", "decor", "paint"),
-      poster(room, "still", 0.4, 1.45, 0, 0.36, 0.36, "#e07a5f", "back"),
+      along(room, "left", "work-table", mid, 1.15, 0.88, 0.92, "#f7f1e4", "work", "desk"),
+      along(room, "right", "daybed", mid, 1.15, 0.7, 0.7, "#8a4b3c", "lounge", "bed", "plaster"),
+      alongBack(room, "backdrop", 1.2, 0.16, 1.05, "#f7f1e4", "decor", "art", "paint"),
+      framed(room, "still", 0.45, 1.55, 0, 0.38, 0.38, "#e07a5f", "back"),
     ];
   }
   if (model === "mansion") {
     return [
       ...shared(room, "#6b4c7a", "#c6a15a"),
-      back(room, "table", 1.7, 0.08, 0.55, "#8d5524", "work", "wood", 0.42),
-      side(room, "left", "settee", 0, 1.05, 0.38, 0.48, "#c6a15a", "lounge", "plaster"),
-      side(room, "right", "sideboard", 0, 1.0, 0.55, 0.4, "#4e3418", "work"),
-      poster(room, "gallery-a", -0.55, 1.5, 0, 0.36, 0.46, "#e07a5f", "back"),
-      poster(room, "gallery-b", 0, 1.55, 0, 0.36, 0.5, "#f2c14e", "back"),
-      poster(room, "gallery-c", 0.55, 1.5, 0, 0.36, 0.46, "#8ec4ea", "back"),
+      alongBack(room, "table", 1.6, 0.78, 0.78, "#8d5524", "work", "table"),
+      along(room, "left", "settee", mid, 1.2, 0.7, 0.86, "#c6a15a", "lounge", "sofa", "plaster"),
+      along(room, "right", "sideboard", mid, 1.05, 0.45, 0.9, "#4e3418", "work", "counter"),
+      framed(room, "gallery-a", -0.55, 1.55, 0, 0.36, 0.46, "#e07a5f", "back"),
+      framed(room, "gallery-b", 0, 1.6, 0, 0.36, 0.5, "#f2c14e", "back"),
+      framed(room, "gallery-c", 0.55, 1.55, 0, 0.36, 0.46, "#8ec4ea", "back"),
     ];
   }
   return [
     ...shared(room, "#c4a574", "#f2c14e"),
-    side(room, "left", "seat", 0, 0.7, 0.4, 0.45, "#6b4c7a", "lounge", "plaster"),
-      side(room, "right", "desk", 0, 0.7, 0.08, 0.45, "#f7f1e4", "work", "wood", 0.42),
-    back(room, "board", 1.0, 0.7, 0.08, "#1f3b2d", "work", "paint", 1.2),
+    along(room, "left", "seat", mid, 0.9, 0.65, 0.85, "#6b4c7a", "lounge", "sofa", "plaster"),
+    along(room, "right", "desk", mid, 1.0, 0.85, 0.9, "#f7f1e4", "work", "desk"),
+    framed(room, "board", 0, 1.5, 0, 0.7, 0.45, "#1f3b2d", "back"),
   ];
 }
 

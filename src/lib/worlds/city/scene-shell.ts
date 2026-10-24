@@ -100,13 +100,15 @@ export function interiorStand(
   const cz = plot.z + plot.d / 2;
   const sin = Math.sin(plot.yaw);
   const cos = Math.cos(plot.yaw);
-  const ox = local.x * cos + local.z * sin;
-  const oz = -local.x * sin + local.z * cos;
   const eyeReach = Math.min(Math.max(plot.d * 0.18, 1.2), 2.2);
   const aimReach = eyeReach - 4.6;
+  const eyeAcross = local.x + 0.7;
+  const aimAcross = local.x - 0.35;
+  const eyeForward = local.z + eyeReach;
+  const aimForward = local.z + aimReach;
   return {
-    eye: { x: cx + ox + sin * eyeReach, y: 2.05, z: cz + oz + cos * eyeReach },
-    aim: { x: cx + ox + sin * aimReach, y: 0.78, z: cz + oz + cos * aimReach },
+    eye: { x: cx + eyeAcross * cos + eyeForward * sin, y: 2.55, z: cz - eyeAcross * sin + eyeForward * cos },
+    aim: { x: cx + aimAcross * cos + aimForward * sin, y: 0.62, z: cz - aimAcross * sin + aimForward * cos },
   };
 }
 

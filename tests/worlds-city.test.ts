@@ -217,6 +217,15 @@ test("interior furniture stays on the walls and the aisle reaches the marker", (
       assert.ok(pieces.filter((piece) => piece.glass).length >= 2, model);
     }
   }
+  const house = interiorLayout("houses", 5.6, 6.2);
+  assert.ok(house.some((piece) => piece.prop === "sofa"));
+  assert.ok(house.some((piece) => piece.prop === "desk"));
+  assert.ok(house.some((piece) => piece.prop === "table"));
+  assert.ok(interiorLayout("library", 8.6, 5.6).some((piece) => piece.prop === "shelf"));
+  assert.ok(interiorLayout("call-center", 6.5, 6.2).some((piece) => piece.prop === "booth"));
+  const bank = interiorLayout("bank", 8.6, 5.6);
+  assert.ok(bank.some((piece) => piece.prop === "counter"));
+  assert.ok(bank.some((piece) => piece.prop === "vault"));
   const aisle = interiorAisle(8, 6);
   assert.ok(aisle.d > 1);
   assert.ok(aisle.objectiveZ < aisle.z);
