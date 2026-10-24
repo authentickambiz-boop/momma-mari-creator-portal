@@ -317,7 +317,6 @@ export function CharacterCreator({
           baseline={baseline}
           compare={compare}
           sheetOpen={sheetOpen}
-          coverRef={sheetCoverRef}
           onCompare={() => setCompare((open) => !open)}
           onHideSheet={() => setSheetOpen(false)}
         />
@@ -371,7 +370,7 @@ export function CharacterCreator({
               <Choices labelText="Eyes" values={EYE_STYLES} selected={config.face.eyes} onPick={(eyes) => { setConfig((current) => ({ ...current, face: { ...current.face, eyes: eyes as CharacterConfig["face"]["eyes"] } })); setMessage(""); }} />
               <Choices labelText="Mouth" values={MOUTH_STYLES} selected={config.face.mouth} onPick={(mouth) => { setConfig((current) => ({ ...current, face: { ...current.face, mouth: mouth as CharacterConfig["face"]["mouth"] } })); setMessage(""); }} />
               <Choices labelText="Expression" values={EXPRESSIONS} selected={config.face.expression} onPick={(expression) => { setConfig((current) => ({ ...current, face: { ...current.face, expression: expression as CharacterConfig["face"]["expression"] } })); setMessage(""); }} />
-              <p className="character-note">Use Face on the preview to zoom in.</p>
+              <p className="character-note">Hair, eyes, and expression read in the profile headshot.</p>
             </>
           ) : null}
           {category === "hair" ? (

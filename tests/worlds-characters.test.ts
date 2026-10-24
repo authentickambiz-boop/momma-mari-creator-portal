@@ -300,7 +300,11 @@ describe("Worlds characters", () => {
     assert.match(creator, /CHARACTER_PATH/);
     const stage = source("src/components/worlds/character-stage.tsx");
     assert.match(stage, /Idle/);
-    assert.match(stage, /Face/);
+    assert.match(stage, /Front/);
+    assert.match(stage, /Side/);
+    assert.match(stage, /Back/);
+    assert.match(stage, /Profile/);
+    assert.match(stage, /#e6e6e6/);
     assert.match(stage, /Compare/);
     assert.match(stage, /Preview unavailable/);
     assert.match(stage, /#fff1d6/);
@@ -308,7 +312,7 @@ describe("Worlds characters", () => {
     assert.match(stage, /#fff3dd/);
     assert.match(stage, /character-scrim/);
     assert.match(stage, /CharacterFigure/);
-    assert.match(stage, /humanoid\.glb|CharacterFigure/);
+    assert.match(stage, /humanoid\.glb/);
     assert.match(source("docs/worlds-creator-ux.md"), /continuous arms/);
     assert.match(source("docs/worlds-creator-ux.md"), /jagged collar/);
     assert.match(creator, /sheetCoverRef/);

@@ -1,14 +1,13 @@
 "use client";
 
-import { Component, Suspense, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
+import { Component, Suspense, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import type { CharacterConfig, CharacterPose } from "@/lib/worlds/character";
+import { Color, PerspectiveCamera, type Group, type Light } from "three";
+import type { CharacterConfig, CharacterPose, CharacterSlot, CharacterSlotName } from "@/lib/worlds/character";
 import { CharacterFigure } from "./character-figure";
 
 export const STUDIO_EMOTES = ["idle", "walk", "wave", "sit"] as const;
 export type StudioEmote = (typeof STUDIO_EMOTES)[number];
-
-type CameraFocus = "body" | "face";
 
 /** Office interior colors from Lights in office-canvas.tsx. Replace with a shared HUD light rig when that lands. */
 const STUDIO_SKY = "#fff7ee";
@@ -17,16 +16,69 @@ const STUDIO_SUN = "#fff3dd";
 const STUDIO_KEY = "#fff1d6";
 const STUDIO_LAMP = "#f6e2b8";
 const STUDIO_FILL = "#d5e4f4";
+const SHEET_GRAY = "#e6e6e6";
+const SHEET_CLEAR = new Color(SHEET_GRAY);
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
+const BODY_FOV = 26;
+const BODY_LOOK_Y = 1.0;
+const BODY_SPAN = 2.42;
+const HEAD_FOV = 24;
+const HEAD_LOOK_Y = 1.52;
+const HEAD_SPAN = 1.2;
+
+const SLOT_ORDER: CharacterSlotName[] = ["hair", "headwear", "top", "bottom", "shoes", "accessory"];
+
+/** Style and fabric names for the wardrobe that humanoid.glb actually draws. */
+const GARMENT_DETAIL: Record<string, string> = {
+  cap: "Cropped cut",
+  bob: "Bob",
+  spikes: "Spiked cut",
+  bun: "Hair buns",
+  long: "Long hair",
+  waves: "Waved hair",
+  beanie: "Knit beanie",
+  bow: "Hair bow",
+  headphones: "Headphones",
+  crown: "Crown",
+  tee: "Jersey tee",
+  vest: "Jersey vest",
+  collar: "Collared jersey",
+  hoodie: "Wool sweater",
+  jacket: "Wool coat",
+  shorts: "Denim shorts",
+  pants: "Wool trousers",
+  skirt: "Tiered skirt",
+  overalls: "Wool overalls",
+  sneakers: "Canvas sneakers",
+  boots: "Ankle boots",
+  sandals: "Strap sandals",
+  heels: "Heeled boots",
+  glasses: "Glasses",
+  scarf: "Scarf",
+  bag: "Bag",
+  badge: "Badge",
+  watch: "Watch",
+};
 
 function emoteLabel(emote: StudioEmote) {
   if (emote === "idle") return "Idle";
   if (emote === "walk") return "Walk";
   if (emote === "wave") return "Wave";
   return "Sit";
+}
+
+function titleCase(value: string) {
+  if (value === "tee") return "T-shirt";
+  if (value === "none") return "None";
+  return value.slice(0, 1).toUpperCase() + value.slice(1);
+}
+
+function garmentDetail(item: string) {
+  return GARMENT_DETAIL[item] ?? titleCase(item);
+}
+
+function frameDistance(fov: number, span: number) {
+  return (span / 2) / Math.tan((fov * Math.PI) / 360);
 }
 
 class PreviewBoundary extends Component<{ children: ReactNode; onFail: () => void }, { failed: boolean }> {
@@ -44,65 +96,6 @@ class PreviewBoundary extends Component<{ children: ReactNode; onFail: () => voi
     if (this.state.failed) return null;
     return this.props.children;
   }
-}
-
-function OrbitRig({
-  yawRef,
-  pitchRef,
-  distanceRef,
-  draggingRef,
-  focusRef,
-  coverRef,
-  compare,
-}: {
-  yawRef: RefObject<number>;
-  pitchRef: RefObject<number>;
-  distanceRef: RefObject<number>;
-  draggingRef: RefObject<boolean>;
-  focusRef: RefObject<CameraFocus>;
-  coverRef: RefObject<number>;
-  compare: boolean;
-}) {
-  const camera = useThree((state) => state.camera);
-  const height = useThree((state) => state.size.height);
-  useFrame((_, dt) => {
-    const face = focusRef.current === "face";
-    if (!draggingRef.current && !compare && !face) yawRef.current += dt * 0.32;
-    const short = height < 460;
-    const comparing = compare;
-    const cover = coverRef.current;
-    let dist = distanceRef.current;
-    let focusY = short ? 1.05 : 0.9;
-    let pitch = pitchRef.current;
-    if (face && !comparing) {
-      dist = short ? 2.35 : 1.9;
-      focusY = short ? 1.62 : 1.55;
-      pitch = 0.06;
-    } else if (face && comparing) {
-      dist = short ? 3.2 : 2.6;
-      focusY = 1.55;
-      pitch = 0.06;
-    } else {
-      dist = Math.max(dist, comparing ? (short ? 7.2 : 6.4) : (short ? 6.6 : 4.8));
-    }
-    const topBand = cover > 0.02 ? Math.min(0.18, 72 / Math.max(height, 1)) : 0;
-    if (cover > 0.05) {
-      const band = Math.max(0.36, 1 - cover - topBand);
-      dist = Math.min(7.2, dist * Math.min(1.65, 0.78 / band));
-    }
-    const visibleMid = (topBand + (1 - cover)) / 2;
-    const shift = Math.max(0, 0.5 - visibleMid) * 2 * Math.tan((30 * Math.PI) / 360) * dist;
-    const lookY = focusY - shift;
-    const yaw = yawRef.current;
-    const horizontal = Math.cos(pitch) * dist;
-    camera.position.set(
-      Math.sin(yaw) * horizontal,
-      lookY + Math.sin(pitch) * dist * 0.45,
-      Math.cos(yaw) * horizontal,
-    );
-    camera.lookAt(0, lookY, 0);
-  });
-  return null;
 }
 
 function PoseDriver({
@@ -128,38 +121,117 @@ function FigureAnchor({
   config,
   poseRef,
   emote,
-  x,
+  layer,
 }: {
   config: CharacterConfig;
   poseRef: RefObject<CharacterPose | null>;
   emote: StudioEmote;
-  x: number;
+  layer: number;
 }) {
+  const ref = useRef<Group>(null);
+  useFrame(() => {
+    ref.current?.traverse((node) => {
+      node.layers.set(layer);
+    });
+  });
   return (
-    <group position={[x, 0, 0]}>
+    <group ref={ref}>
       <CharacterFigure config={config} poseRef={poseRef} emote={emote} studio />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0.04]}>
-        <circleGeometry args={[0.42, 24]} />
-        <meshBasicMaterial color="#1c211e" transparent opacity={0.16} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0.04]} frustumCulled={false}>
+        <circleGeometry args={[0.46, 32]} />
+        <meshBasicMaterial color="#c4c4c4" transparent opacity={0.55} />
       </mesh>
     </group>
   );
+}
+
+type SheetView = {
+  yaw: number;
+  fov: number;
+  lookY: number;
+  span: number;
+  before: boolean;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+function ConceptCameras({ compare }: { compare: boolean }) {
+  const gl = useThree((state) => state.gl);
+  const scene = useThree((state) => state.scene);
+  const lens = useRef(new PerspectiveCamera(BODY_FOV, 1, 0.05, 40));
+  useFrame(() => {
+    const width = gl.domElement.width;
+    const height = gl.domElement.height;
+    if (width < 2 || height < 2) return;
+    const camera = lens.current;
+    scene.traverse((node) => {
+      if ((node as Light).isLight) node.layers.enable(1);
+    });
+    const col = Math.floor(width / 2);
+    const row = Math.floor(height / 2);
+    const views: SheetView[] = [
+      { yaw: 0, fov: BODY_FOV, lookY: BODY_LOOK_Y, span: BODY_SPAN, before: false, x: 0, y: height - row, width: col, height: row },
+      { yaw: Math.PI / 2, fov: BODY_FOV, lookY: BODY_LOOK_Y, span: BODY_SPAN, before: false, x: col, y: height - row, width: width - col, height: row },
+      { yaw: Math.PI, fov: BODY_FOV, lookY: BODY_LOOK_Y, span: BODY_SPAN, before: false, x: 0, y: 0, width: col, height: height - row },
+      { yaw: -Math.PI / 2, fov: HEAD_FOV, lookY: HEAD_LOOK_Y, span: HEAD_SPAN, before: true, x: col, y: 0, width: width - col, height: height - row },
+    ];
+    gl.setClearColor(SHEET_CLEAR, 1);
+    gl.setScissorTest(true);
+    for (const view of views) {
+      gl.setViewport(view.x, view.y, view.width, view.height);
+      gl.setScissor(view.x, view.y, view.width, view.height);
+      const dist = frameDistance(view.fov, view.span);
+      camera.fov = view.fov;
+      camera.aspect = view.width / Math.max(1, view.height);
+      camera.near = 0.05;
+      camera.far = 40;
+      camera.position.set(Math.sin(view.yaw) * dist, view.lookY + dist * 0.045, Math.cos(view.yaw) * dist);
+      camera.lookAt(0, view.lookY, 0);
+      camera.layers.set(compare && view.before ? 1 : 0);
+      camera.updateProjectionMatrix();
+      gl.render(scene, camera);
+    }
+    gl.setScissorTest(false);
+    gl.setViewport(0, 0, width, height);
+    camera.layers.set(0);
+  }, 1);
+  return null;
 }
 
 function stopPointer(event: ReactPointerEvent) {
   event.stopPropagation();
 }
 
+function wornSlots(config: CharacterConfig) {
+  const rows: { slot: CharacterSlotName; slotLabel: string; item: CharacterSlot }[] = [];
+  const labels: Record<CharacterSlotName, string> = {
+    hair: "Hair",
+    headwear: "Headwear",
+    top: "Top",
+    bottom: "Bottom",
+    shoes: "Shoes",
+    accessory: "Accessory",
+  };
+  for (const slot of SLOT_ORDER) {
+    const item = config.slots[slot];
+    if (item.item === "none") continue;
+    rows.push({ slot, slotLabel: labels[slot], item });
+  }
+  return rows;
+}
+
 /**
- * Studio turntable. The preview is the same humanoid.glb the office draws
- * for You. Arm QC passed stand, walk, and sit. The collar edge is polish.
+ * Concept sheet for the office humanoid. One humanoid.glb and one light rig,
+ * drawn four times: front, side, back, and a profile headshot.
+ * Compare keeps the current look on the body views and the saved look on the profile.
  */
 export function CharacterStage({
   config,
   baseline,
   compare,
   sheetOpen,
-  coverRef,
   onCompare,
   onHideSheet,
 }: {
@@ -167,175 +239,100 @@ export function CharacterStage({
   baseline: CharacterConfig;
   compare: boolean;
   sheetOpen: boolean;
-  coverRef: RefObject<number>;
   onCompare: () => void;
   onHideSheet: () => void;
 }) {
-  const yawRef = useRef(0.5);
-  const pitchRef = useRef(0.24);
-  const distanceRef = useRef(3.8);
-  const draggingRef = useRef(false);
-  const lastRef = useRef({ x: 0, y: 0 });
-  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
-  const pinchRef = useRef<number | null>(null);
   const poseRef = useRef<CharacterPose | null>({ phase: 0, moving: false, seated: false, wave: false });
-  const focusRef = useRef<CameraFocus>("body");
-  const stageRef = useRef<HTMLDivElement>(null);
   const [emote, setEmote] = useState<StudioEmote>("idle");
-  const [focus, setFocus] = useState<CameraFocus>("body");
   const [preview, setPreview] = useState<"ready" | "missing">("ready");
-  const spread = !compare ? 0 : focus === "face" ? 0.4 : 0.82;
-
-  function showFocus(next: CameraFocus) {
-    focusRef.current = next;
-    if (next === "face") yawRef.current = 0.55;
-    setFocus((current) => (current === next ? current : next));
-  }
-
-  useEffect(() => {
-    const node = stageRef.current;
-    if (!node || preview !== "ready") return;
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      distanceRef.current = clamp(distanceRef.current + event.deltaY * 0.0032, 2.4, 7.2);
-      focusRef.current = "body";
-      setFocus("body");
-    };
-    node.addEventListener("wheel", onWheel, { passive: false });
-    return () => node.removeEventListener("wheel", onWheel);
-  }, [preview]);
-
-  function pointSpan() {
-    const points = [...pointersRef.current.values()];
-    if (points.length < 2) return null;
-    const first = points[0];
-    const second = points[1];
-    if (!first || !second) return null;
-    return Math.hypot(first.x - second.x, first.y - second.y);
-  }
-
-  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    if (pointersRef.current.size === 1) {
-      draggingRef.current = true;
-      lastRef.current = { x: event.clientX, y: event.clientY };
-      event.currentTarget.setPointerCapture(event.pointerId);
-    }
-    pinchRef.current = pointSpan();
-  }
-
-  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!pointersRef.current.has(event.pointerId)) return;
-    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    const span = pointSpan();
-    if (span && pinchRef.current) {
-      const ratio = pinchRef.current / span;
-      distanceRef.current = clamp(distanceRef.current * ratio, 2.4, 7.2);
-      pinchRef.current = span;
-      showFocus("body");
-      return;
-    }
-    if (!draggingRef.current) return;
-    const dx = event.clientX - lastRef.current.x;
-    const dy = event.clientY - lastRef.current.y;
-    lastRef.current = { x: event.clientX, y: event.clientY };
-    yawRef.current += dx * 0.01;
-    pitchRef.current = clamp(pitchRef.current + dy * 0.004, 0.02, 0.85);
-    showFocus("body");
-  }
-
-  function endPointer(event: ReactPointerEvent<HTMLDivElement>) {
-    pointersRef.current.delete(event.pointerId);
-    pinchRef.current = pointSpan();
-    if (pointersRef.current.size === 0) draggingRef.current = false;
-  }
+  const build = `${titleCase(config.body.shape)} · ${titleCase(config.body.size)}`;
+  const expression = `${titleCase(config.face.expression)} · ${titleCase(config.face.eyes)} eyes · ${titleCase(config.face.mouth)}`;
+  const clothes = wornSlots(config);
 
   return (
-    <div
-      className="character-stage"
-      ref={stageRef}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endPointer}
-      onPointerCancel={endPointer}
-    >
+    <div className="character-stage">
+      <div className="character-sheet-bar">
+        <div className="character-emotes" role="group" aria-label="Emotes" onPointerDown={stopPointer}>
+          {STUDIO_EMOTES.map((item) => (
+            <button key={item} type="button" aria-pressed={emote === item} onClick={() => setEmote(item)}>
+              {emoteLabel(item)}
+            </button>
+          ))}
+        </div>
+        <div className="character-stage-tools" role="group" aria-label="Concept sheet" onPointerDown={stopPointer}>
+          <button type="button" aria-pressed={compare} onClick={onCompare}>Compare</button>
+        </div>
+      </div>
       {preview === "missing" ? (
         <div className="character-stage-fallback" role="alert">
           <p className="character-kicker">Preview unavailable</p>
           <p>This browser could not start the 3D view. Your choices still save, and the office You character uses that saved look.</p>
         </div>
-      ) : null}
-      {preview === "ready" ? (
-        <PreviewBoundary onFail={() => setPreview("missing")}>
-          <Canvas
-            camera={{ fov: 30, near: 0.05, far: 30, position: [1.4, 1.3, 2.8] }}
-            dpr={[1, 1.5]}
-            gl={{ alpha: false, antialias: true, powerPreference: "default", failIfMajorPerformanceCaveat: false }}
-            onCreated={({ gl }) => {
-              const fail = (event: Event) => {
-                event.preventDefault();
-                setPreview("missing");
-              };
-              gl.domElement.addEventListener("webglcontextlost", fail);
-            }}
-          >
-            <color attach="background" args={["#d9d3cb"]} />
-            <OrbitRig
-              yawRef={yawRef}
-              pitchRef={pitchRef}
-              distanceRef={distanceRef}
-              draggingRef={draggingRef}
-              focusRef={focusRef}
-              coverRef={coverRef}
-              compare={compare}
-            />
-            <PoseDriver emote={emote} poseRef={poseRef} />
-            <hemisphereLight args={[STUDIO_SKY, STUDIO_GROUND, 0.72]} />
-            <ambientLight intensity={0.28} color={STUDIO_SUN} />
-            <directionalLight position={[2.2, 4.4, 3.1]} intensity={1.35} color={STUDIO_KEY} />
-            <directionalLight position={[-3.1, 2.1, 2.2]} intensity={0.42} color={STUDIO_FILL} />
-            <directionalLight position={[0.6, 2.6, -3.4]} intensity={0.55} color={STUDIO_LAMP} />
-            <mesh position={[0, 1.15, -1.7]}>
-              <planeGeometry args={[8, 5]} />
-              <meshStandardMaterial color="#e4ddd3" roughness={1} />
-            </mesh>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-              <circleGeometry args={[1.7, 48]} />
-              <meshStandardMaterial color="#cfc6ba" roughness={0.92} />
-            </mesh>
-            <Suspense fallback={null}>
-              {compare ? <FigureAnchor config={baseline} poseRef={poseRef} emote={emote} x={-spread} /> : null}
-              <FigureAnchor config={config} poseRef={poseRef} emote={emote} x={compare ? spread : 0} />
-            </Suspense>
-          </Canvas>
-        </PreviewBoundary>
-      ) : null}
-      {preview === "ready" && sheetOpen ? (
-        <button type="button" className="character-scrim" aria-label="Hide options" onClick={onHideSheet} onPointerDown={stopPointer} />
-      ) : null}
-      {preview === "ready" ? (
-        <>
-          <div className="character-emotes" role="group" aria-label="Emotes" onPointerDown={stopPointer}>
-            {STUDIO_EMOTES.map((item) => (
-              <button key={item} type="button" aria-pressed={emote === item} onClick={() => setEmote(item)}>
-                {emoteLabel(item)}
-              </button>
-            ))}
-          </div>
-          <div className="character-stage-tools" role="group" aria-label="Camera" onPointerDown={stopPointer}>
-            <button type="button" aria-pressed={focus === "body"} onClick={() => showFocus("body")}>Body</button>
-            <button type="button" aria-pressed={focus === "face"} onClick={() => showFocus("face")}>Face</button>
-            <button type="button" aria-pressed={compare} onClick={onCompare}>Compare</button>
-          </div>
-          {compare ? (
-            <div className="character-compare-labels">
-              <span>Before</span>
-              <span>After</span>
-            </div>
+      ) : (
+        <div className="character-sheet-view">
+          <PreviewBoundary onFail={() => setPreview("missing")}>
+            <Canvas
+              camera={{ fov: BODY_FOV, near: 0.05, far: 40, position: [0, 1.05, 4.4] }}
+              dpr={[1, 2]}
+              gl={{ alpha: false, antialias: true, powerPreference: "default", failIfMajorPerformanceCaveat: false }}
+              onCreated={({ gl }) => {
+                const fail = (event: Event) => {
+                  event.preventDefault();
+                  setPreview("missing");
+                };
+                gl.domElement.addEventListener("webglcontextlost", fail);
+                gl.toneMappingExposure = 1.2;
+                gl.setClearColor(SHEET_CLEAR, 1);
+              }}
+            >
+              <color attach="background" args={[SHEET_GRAY]} />
+              <ConceptCameras compare={compare} />
+              <PoseDriver emote={emote} poseRef={poseRef} />
+              <hemisphereLight args={[STUDIO_SKY, STUDIO_GROUND, 0.95]} />
+              <ambientLight intensity={0.45} color={STUDIO_SUN} />
+              <directionalLight position={[2.2, 4.4, 3.1]} intensity={1.85} color={STUDIO_KEY} />
+              <directionalLight position={[-3.1, 2.1, 2.2]} intensity={0.7} color={STUDIO_FILL} />
+              <directionalLight position={[0.6, 2.6, -3.4]} intensity={0.8} color={STUDIO_LAMP} />
+              <Suspense fallback={null}>
+                <FigureAnchor config={config} poseRef={poseRef} emote={emote} layer={0} />
+                {compare ? <FigureAnchor config={baseline} poseRef={poseRef} emote={emote} layer={1} /> : null}
+              </Suspense>
+            </Canvas>
+          </PreviewBoundary>
+          {sheetOpen ? (
+            <button type="button" className="character-scrim" aria-label="Hide options" onClick={onHideSheet} onPointerDown={stopPointer} />
           ) : null}
-          <p className="character-stage-note">Drag to orbit. Scroll or pinch to zoom.</p>
-        </>
-      ) : null}
+          <div className="character-sheet-grid" aria-hidden="true">
+            <span>{compare ? "Front · After" : "Front"}</span>
+            <span>Side</span>
+            <span>Back</span>
+            <span>{compare ? "Profile · Before" : "Profile"}</span>
+          </div>
+        </div>
+      )}
+      <dl className="character-sheet-legend">
+        <div>
+          <dt>Archetype</dt>
+          <dd>Adult woman · content creator</dd>
+        </div>
+        <div>
+          <dt>Build</dt>
+          <dd>{build}</dd>
+        </div>
+        <div>
+          <dt>Expression</dt>
+          <dd>{expression}</dd>
+        </div>
+        {clothes.map((row) => (
+          <div key={row.slot}>
+            <dt>{row.slotLabel}</dt>
+            <dd>
+              <i className="character-sheet-dot" style={{ background: row.item.color }} />
+              {garmentDetail(row.item.item)}
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

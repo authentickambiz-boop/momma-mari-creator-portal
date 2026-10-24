@@ -15,11 +15,90 @@
 }
 .character-stage {
   position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 240px;
-  background: #d9d3cb;
-  touch-action: none;
+  background: #e6e6e6;
+  touch-action: manipulation;
   overflow: hidden;
+}
+.character-sheet-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 10px 8px;
+  z-index: 2;
+}
+.character-sheet-view {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  box-shadow: inset 0 0 0 1px rgba(28, 33, 30, 0.16);
+}
+.character-sheet-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  pointer-events: none;
+  z-index: 2;
+}
+.character-sheet-grid span {
+  display: flex;
+  align-items: flex-end;
+  padding: 8px;
+  color: #1c211e;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.character-sheet-grid span:nth-child(odd) {
+  border-right: 1px solid rgba(28, 33, 30, 0.16);
+}
+.character-sheet-grid span:nth-child(-n + 2) {
+  border-bottom: 1px solid rgba(28, 33, 30, 0.16);
+}
+.character-sheet-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  margin: 0;
+  padding: 8px 12px 10px;
+  background: #e6e6e6;
+  color: #1c211e;
+  font-size: 13px;
+}
+.character-sheet-legend div {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.character-sheet-legend dt {
+  margin: 0;
+  color: #5c564e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.character-sheet-legend dd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-weight: 650;
+}
+.character-sheet-dot {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(28, 33, 30, 0.28);
+  border-radius: 3px;
 }
 .character-stage canvas {
   display: block;
@@ -28,9 +107,10 @@
 }
 .character-stage-fallback {
   display: grid;
+  flex: 1 1 auto;
   align-content: center;
   gap: 8px;
-  height: 100%;
+  min-height: 0;
   padding: 24px;
 }
 .character-stage-fallback p {
@@ -57,15 +137,10 @@
 }
 .character-emotes,
 .character-stage-tools {
-  position: absolute;
-  left: 10px;
-  right: 10px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
-.character-emotes { top: 10px; }
-.character-stage-tools { bottom: 34px; }
 .character-emotes button,
 .character-stage-tools button {
   min-width: 44px;
@@ -310,7 +385,11 @@
   .character-studio { display: block; }
   .character-stage-wrap {
     position: absolute;
-    inset: 0;
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: var(--sheet-lift, 200px);
+    height: auto;
   }
   .character-stage { min-height: 0; height: 100%; }
   .character-scrim {
@@ -331,17 +410,7 @@
     z-index: 3;
     max-height: min(58vh, 480px);
   }
-  .character-stage-tools {
-    bottom: calc(var(--sheet-lift, 200px) + 10px);
-  }
-  .character-stage-note {
-    bottom: calc(var(--sheet-lift, 200px) + 62px);
-    max-width: 46%;
-  }
-  .character-compare-labels {
-    align-items: flex-start;
-    padding-top: 64px;
-  }
+  .character-sheet-legend { font-size: 12px; }
   .character-choices button,
   .character-swatch,
   .character-actions button {
