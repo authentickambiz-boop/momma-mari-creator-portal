@@ -51,6 +51,14 @@ function IconLock() {
   );
 }
 
+function QuestMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="currentColor" d="M6.2 3.2h2.1V20.8H6.2V3.2Zm2.1 1.3h10.2L15.2 8.4l3.3 3.9H8.3V4.5Z" />
+    </svg>
+  );
+}
+
 function RailIcon({ id }: { id: WorldsRailId }) {
   if (id === "places") return <IconPin />;
   if (id === "shop") return <IconBag />;
@@ -100,7 +108,7 @@ export function WorldsHud({
       </div>
 
       <button type="button" className="worlds-quest" onClick={onQuest}>
-        <span className="worlds-quest-mark" aria-hidden="true">↑</span>
+        <span className="worlds-quest-mark" aria-hidden="true"><QuestMark /></span>
         <span className="worlds-quest-copy">
           <span className="worlds-quest-kicker">NEXT UP!</span>
           <span className="worlds-quest-text">{quest}</span>

@@ -859,39 +859,54 @@ export function OfficeApp({
       ) : null}
 
       {sheet === "settings" ? (
-        <section className="office-panel office-sheet" aria-label="Settings">
+        <section className="office-panel office-sheet worlds-card" aria-label="Settings">
           <CloseRow title="Settings" onClose={dismiss} />
+          <div className="worlds-card-body">
           <div className="worlds-section">
             <h3>Audio</h3>
-            <label className="office-field">Music
-              <input className="worlds-slider" aria-label="Background music volume" type="range" min={0} max={100} value={music} onChange={(event) => {
-                const next = clampVolume(Number(event.target.value));
-                setMusic(next);
-                savePref(MUSIC_KEY, String(next));
-              }} />
+            <label className="worlds-slider-row">
+              <span className="worlds-slider-ico" aria-hidden="true">♪</span>
+              <span className="worlds-slider-copy">
+                <span>Music</span>
+                <input className="worlds-slider" aria-label="Background music volume" type="range" min={0} max={100} value={music} onChange={(event) => {
+                  const next = clampVolume(Number(event.target.value));
+                  setMusic(next);
+                  savePref(MUSIC_KEY, String(next));
+                }} />
+              </span>
+              <span className="worlds-slider-pct">{music}%</span>
             </label>
-            <label className="office-field">Sound Effects
-              <input className="worlds-slider" aria-label="Sound effects volume" type="range" min={0} max={100} value={sfx} onChange={(event) => {
-                const next = clampVolume(Number(event.target.value));
-                setSfx(next);
-                savePref(SFX_KEY, String(next));
-              }} />
+            <label className="worlds-slider-row">
+              <span className="worlds-slider-ico" aria-hidden="true">🔊</span>
+              <span className="worlds-slider-copy">
+                <span>Sound Effects</span>
+                <input className="worlds-slider" aria-label="Sound effects volume" type="range" min={0} max={100} value={sfx} onChange={(event) => {
+                  const next = clampVolume(Number(event.target.value));
+                  setSfx(next);
+                  savePref(SFX_KEY, String(next));
+                }} />
+              </span>
+              <span className="worlds-slider-pct">{sfx}%</span>
             </label>
             <p className="office-kicker">Saved on this browser. {music}% music, {sfx}% effects.</p>
           </div>
           <div className="worlds-section">
             <h3>General</h3>
+            <p className="worlds-row-label">Performance Mode</p>
             <div className="office-actions" role="group" aria-label="Performance mode">
               <button type="button" aria-pressed={qualityPref === "auto"} onClick={() => chooseQuality("auto")}>Auto</button>
               <button type="button" aria-pressed={qualityPref === "fine"} onClick={() => chooseQuality("fine")}>Decent</button>
               <button type="button" aria-pressed={qualityPref === "fast"} onClick={() => chooseQuality("fast")}>Potato</button>
             </div>
             <p className="office-kicker">Lower graphics for more FPS. This browser is using {quality === "fine" ? "Decent" : "Potato"}.</p>
-            <button type="button" aria-pressed={hideClicks} onClick={() => {
+            <button type="button" className="worlds-toggle" aria-pressed={hideClicks} onClick={() => {
               const next = !hideClicks;
               setHideClicks(next);
               savePref(HIDE_CLICKS_KEY, next ? "on" : "off");
-            }}>Hide clicks {hideClicks ? "ON" : "OFF"}</button>
+            }}>
+              <span>Hide clicks</span>
+              <span className={hideClicks ? "worlds-switch is-on" : "worlds-switch"}>{hideClicks ? "ON" : "OFF"}</span>
+            </button>
             {place === "office" ? (
               <div className="office-actions" role="group" aria-label="Camera">
                 <button type="button" aria-pressed={cameraMode === "follow"} onClick={() => chooseCamera("follow")}>Follow</button>
@@ -953,6 +968,7 @@ export function OfficeApp({
             </div>
             <p className="worlds-lock-note">Trades are locked. Nothing is sent to another player.</p>
             {charactersEnabled ? <Link className="office-link" href="/worlds/create">Your character</Link> : null}
+          </div>
           </div>
         </section>
       ) : null}
