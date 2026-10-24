@@ -104,6 +104,8 @@ describe("Worlds HUD and follow camera", () => {
     assert.match(html, /NEXT UP!/);
     assert.match(html, /Open the shop/);
     assert.match(html, /Kash/);
+    assert.match(html, /₭/);
+    assert.equal(html.includes(">$<"), false);
     assert.match(html, /Bank/);
     assert.match(html, /aria-label="Places"/);
     assert.match(html, /aria-label="Shop"/);

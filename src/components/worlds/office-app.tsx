@@ -131,12 +131,6 @@ const MUSIC_KEY = "mm-worlds-music";
 const SFX_KEY = "mm-worlds-sfx";
 const HIDE_CLICKS_KEY = "mm-worlds-hide-clicks";
 
-function kashAmount(amount: number | null | undefined) {
-  if (amount == null || !Number.isFinite(amount)) return "…";
-  const whole = Math.abs(amount - Math.round(amount)) < 0.001;
-  return whole ? String(Math.round(amount)) : amount.toFixed(2);
-}
-
 function clampVolume(value: number) {
   if (!Number.isFinite(value)) return 0;
   return Math.min(100, Math.max(0, Math.round(value)));
@@ -794,8 +788,8 @@ export function OfficeApp({
       </div>
 
       <WorldsHud
-        walletText={kashAmount(gameWallet?.wallet.balance)}
-        bankText={kashAmount(gameWallet?.wallet.bank)}
+        walletText={gameWallet ? formatGameUnits(gameWallet.wallet.balance) : "…"}
+        bankText={gameWallet ? formatGameUnits(gameWallet.wallet.bank) : "…"}
         onWallet={() => openBank()}
         onBank={() => openBank()}
         quest={nextUpLine({ todos: status?.todos ?? [], charactersEnabled, place })}

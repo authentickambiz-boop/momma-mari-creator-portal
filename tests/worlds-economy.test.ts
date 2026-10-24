@@ -46,7 +46,9 @@ describe("Worlds Kash economy", { concurrency: false }, () => {
   test("the config is the only price list and every price fits its tier", () => {
     assert.equal(CURRENCY.code, "KASH");
     assert.equal(CURRENCY.label, "Kash $");
-    assert.equal(formatKash(10), "10 Kash $");
+    assert.equal(CURRENCY.mark, "₭");
+    assert.equal(formatKash(10), "₭10");
+    assert.equal(formatKash(-2.5), "-₭2.50");
     assert.equal(catalogPricesFitTiers(), true);
     assert.equal(botLevelMultiplier("content"), ECONOMY.botLevelMultiplier);
     assert.equal(findEconomyItem("studio-lot"), null);

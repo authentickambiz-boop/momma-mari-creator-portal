@@ -1,5 +1,6 @@
 "use client";
 
+import { KASH_MARK } from "@/lib/worlds/economy";
 import { WORLDS_RAIL, type WorldsRailId } from "@/lib/worlds/worlds-hud";
 
 function IconPin() {
@@ -83,7 +84,7 @@ export function WorldsHud({
     <div className="worlds-hud" data-worlds-hud="">
       <div className="worlds-currencies" aria-label="Kash">
         <button type="button" className="worlds-money" onClick={onWallet}>
-          <span className="worlds-money-icon is-wallet" aria-hidden="true">$</span>
+          <span className="worlds-money-icon is-wallet" aria-hidden="true">{KASH_MARK}</span>
           <span className="worlds-money-copy">
             <span className="worlds-money-label">Kash</span>
             <span className="worlds-money-value">{walletText}</span>
