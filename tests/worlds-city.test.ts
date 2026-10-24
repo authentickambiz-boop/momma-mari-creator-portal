@@ -72,7 +72,8 @@ test("every location has the city fields and the required real-world categories"
     assert.ok(location.name);
     assert.ok(location.buildingModel);
     assert.ok(Number.isFinite(location.entrance.x) && Number.isFinite(location.entrance.z));
-    assert.equal(location.interior, "panel");
+    if (location.id === "learning-center" || location.id === "home") assert.equal(location.interior, "walk-in");
+    else assert.equal(location.interior, "panel");
     assert.ok(location.taskTypes.length > 0);
     assert.ok(Array.isArray(location.skills));
     assert.ok(Array.isArray(location.shop));
@@ -88,6 +89,12 @@ test("every location has the city fields and the required real-world categories"
   assert.equal(byId["learning-center"]?.name, "Learning center");
   assert.match(byId["learning-center"]?.summary ?? "", /not a school/i);
   assert.equal(byId.office?.usesOfficeScene, true);
+  assert.equal(byId.office?.buildingModel, "hq");
+  const hq = placed.find((item) => item.id === "office");
+  assert.ok(hq && hq.plot.w > 8 && hq.plot.d > 5);
+  for (const street of buildCityDistrict(layout).streets) {
+    assert.equal(boxesOverlap(hq?.plot ?? { x: 0, z: 0, w: 0, d: 0 }, street, 0.05), false);
+  }
   assert.equal(byId.bank?.reusesBank, true);
   assert.deepEqual(HOME_TIERS, ["studio", "apartment", "house", "creator-loft", "mansion"]);
 });
@@ -135,6 +142,17 @@ test("the office camera clamp is unchanged and the city view pulls back", () => 
   assert.match(canvas, /city \?/);
   assert.match(canvas, /WorldSceneShell/);
   assert.match(canvas, /CityLayer/);
+  const layer = source("src/components/worlds/city/city-layer.tsx");
+  assert.equal(layer.includes("hemisphereLight"), false);
+  assert.equal(layer.includes("directionalLight"), false);
+  assert.match(layer, /DoorPaths/);
+  assert.match(layer, /Verges/);
+  const panel = source("src/components/worlds/city/city-panel.tsx");
+  assert.match(panel, /aria-label="Places"/);
+  assert.equal(panel.includes("city-places"), false);
+  const app = source("src/components/worlds/office-app.tsx");
+  assert.match(app, /cityMode \? cityDayWeather/);
+  assert.match(app, /if \(cityMode\) return/);
 });
 
 test("office taps and city buildings share one registry", () => {

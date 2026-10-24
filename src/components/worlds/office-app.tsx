@@ -43,7 +43,8 @@ import { formatGameUnits, GAME_WALLET_PATH } from "@/lib/worlds/game-wallet";
 import type { BoardOpen, OfficeCameraApi, OfficeLayers, OfficeQuality } from "./office-canvas";
 import { CityChrome } from "./city/city-panel";
 import { officeInteractables } from "@/lib/worlds/city/interactables";
-import { buildCityDistrict } from "@/lib/worlds/city/locations";
+import { buildCityDistrict, locationById } from "@/lib/worlds/city/locations";
+import { cityDayWeather } from "@/lib/worlds/city/scene-shell";
 import type { HomeTier } from "@/lib/worlds/economy";
 import { OfficeJoystick } from "./office-joystick";
 import { panelsEnabledFromStorage, panelsStorageValue } from "@/lib/worlds/office-chrome";
@@ -193,7 +194,7 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
   const [todoDue, setTodoDue] = useState("2026-10-24");
   const [todoImpact, setTodoImpact] = useState("0");
   const [todoOwner, setTodoOwner] = useState("kash");
-  const [weather, setWeather] = useState<OfficeWeather>(() => weatherFromClock(new Date()));
+  const [weather, setWeather] = useState<OfficeWeather>(() => (cityMode ? cityDayWeather(new Date()) : weatherFromClock(new Date())));
   const [wallets, setWallets] = useState<WalletList>({ wallets: [], total: 0, currency: "USD" });
   const [addingWallet, setAddingWallet] = useState(false);
   const [walletName, setWalletName] = useState("");
@@ -410,6 +411,7 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
   }, []);
 
   useEffect(() => {
+    if (cityMode) return;
     let stop = false;
     async function loadWeather() {
       try {
@@ -427,7 +429,7 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
       stop = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [cityMode]);
 
   const layoutKey = status ? layoutHold(status).key : "";
   const [hold, setHold] = useState<LayoutHold | null>(null);
@@ -714,7 +716,9 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
     setMenuOpen(false);
     if (!layout) return;
     const plot = buildCityDistrict(layout, homeTier).plots.find((item) => item.id === id);
-    if (plot) cameraApiRef.current?.focus(plot.entrance.x, plot.entrance.z);
+    if (!plot) return;
+    const inside = locationById(id)?.interior === "walk-in";
+    cameraApiRef.current?.focus(inside ? plot.x + plot.w / 2 : plot.entrance.x, inside ? plot.z + plot.d / 2 : plot.entrance.z);
   }
 
   const officeTaps = useMemo(
@@ -846,7 +850,6 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
         <CityChrome
           locationId={cityLocation}
           officeTaps={officeTaps}
-          lifted={sheet !== null}
           onOpenLocation={openCity}
           onClose={() => setCityLocation(null)}
           onOpenBank={() => openBank()}

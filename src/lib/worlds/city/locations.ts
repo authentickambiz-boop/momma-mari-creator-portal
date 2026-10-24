@@ -30,7 +30,7 @@ export const CITY_LOCATION_IDS = [
 export type CityLocationId = (typeof CITY_LOCATION_IDS)[number];
 
 export type BuildingModel =
-  | "hq-marker"
+  | "hq"
   | "home"
   | "club"
   | "lab"
@@ -69,14 +69,15 @@ export type CityLocationDef = {
   id: CityLocationId;
   name: string;
   buildingModel: BuildingModel;
-  interior: "panel";
+  /** Walk-in rooms are a 3D interior. The panel still holds the actions. */
+  interior: "panel" | "walk-in";
   taskTypes: readonly string[];
   skills: readonly SkillId[];
   /** Real-world task category this building stands in for. */
   realWorldCategory: string;
   summary: string;
   interiorProps: readonly string[];
-  /** The mesh is a marker. The rooms are the existing office scene. */
+  /** The rooms are the existing office scene. This plot is the street-facing HQ. */
   usesOfficeScene?: boolean;
   /** Money movement opens the existing vault bank. */
   reusesBank?: boolean;
@@ -86,7 +87,7 @@ export const CITY_LOCATIONS: readonly CityLocationDef[] = [
   {
     id: "office",
     name: "Office",
-    buildingModel: "hq-marker",
+    buildingModel: "hq",
     interior: "panel",
     taskTypes: ["bots", "calendar", "todos", "box", "conference"],
     skills: [],
@@ -99,7 +100,7 @@ export const CITY_LOCATIONS: readonly CityLocationDef[] = [
     id: "home",
     name: "Personal home",
     buildingModel: "home",
-    interior: "panel",
+    interior: "walk-in",
     taskTypes: ["rest", "journal", "cook", "host", "idea", "gallery"],
     skills: ["hospitality"],
     realWorldCategory: "home life",
@@ -154,7 +155,7 @@ export const CITY_LOCATIONS: readonly CityLocationDef[] = [
     id: "learning-center",
     name: "Learning center",
     buildingModel: "learning",
-    interior: "panel",
+    interior: "walk-in",
     taskTypes: ["lesson", "skill-badge"],
     skills: ["research", "writing", "outreach", "design", "audio", "data"],
     realWorldCategory: "skill lessons",
@@ -377,22 +378,22 @@ export function buildCityDistrict(layout: { width: number; depth: number }, tier
     return plot(item.id, eastX0, z, eastW, d, -Math.PI / 2, { x: eastX0 - 0.9, z: z + d / 2 }, item.floors, item.wall, item.roof, item.accent);
   });
 
-  const markerW = 2.4;
-  const markerD = 1.5;
-  const markerX = 1.2;
-  const markerZ = depth + 5.2;
+  const hqW = 16;
+  const hqD = 6.6;
+  const hqX = width / 2 - hqW / 2;
+  const hqZ = depth + 21.6;
   const officePlot = plot(
     "office",
-    markerX,
-    markerZ,
-    markerW,
-    markerD,
+    hqX,
+    hqZ,
+    hqW,
+    hqD,
     0,
-    { x: width / 2, z: depth + 1.6 },
+    { x: hqX + hqW / 2, z: hqZ + hqD + 0.9 },
     1,
+    "#c4846a",
+    "#4e463f",
     "#1f3b2d",
-    "#14261e",
-    "#fbf8f3",
   );
 
   const plots = [...northPlots, ...eastPlots, ...southPlots, ...westPlots, officePlot];

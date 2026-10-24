@@ -21,7 +21,6 @@ const STORAGE_KEY = "mm-worlds-city";
 export function CityChrome({
   locationId,
   officeTaps,
-  lifted,
   onOpenLocation,
   onClose,
   onOpenBank,
@@ -29,7 +28,6 @@ export function CityChrome({
 }: {
   locationId: string | null;
   officeTaps: readonly CityInteractable[];
-  lifted: boolean;
   onOpenLocation: (id: string) => void;
   onClose: () => void;
   onOpenBank: () => void;
@@ -43,6 +41,7 @@ export function CityChrome({
   const [optIns, setOptIns] = useState<Record<string, boolean>>({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [placesOpen, setPlacesOpen] = useState(false);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
@@ -69,18 +68,34 @@ export function CityChrome({
 
   return (
     <>
-      <nav className={lifted || location ? "city-places is-lifted" : "city-places"} aria-label="City places">
-        {CITY_LOCATIONS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            aria-pressed={locationId === item.id}
-            onClick={() => onOpenLocation(item.id)}
-          >
-            {item.name}
-          </button>
-        ))}
-      </nav>
+      <div className="city-map-anchor">
+        <button
+          type="button"
+          className="city-map-button"
+          aria-label="Places"
+          aria-expanded={placesOpen}
+          onClick={() => setPlacesOpen((open) => !open)}
+        >
+          Places
+        </button>
+        {placesOpen ? (
+          <nav className="city-map" aria-label="City places">
+            {CITY_LOCATIONS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={locationId === item.id}
+                onClick={() => {
+                  setPlacesOpen(false);
+                  onOpenLocation(item.id);
+                }}
+              >
+                {item.name}
+              </button>
+            ))}
+          </nav>
+        ) : null}
+      </div>
       {location ? (
         <section className="office-panel office-sheet city-sheet" aria-label={`${location.name} interior`} data-location={location.id}>
           <button className="office-close" type="button" aria-label="Close" onClick={onClose}>×</button>

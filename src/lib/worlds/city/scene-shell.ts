@@ -5,6 +5,7 @@
  */
 
 import { MAP_MAX_DISTANCE, MAP_MIN_DISTANCE, officeCameraHome } from "../office-move";
+import { sunElevation, weatherFromClock, type OfficeWeather } from "../office-weather";
 
 export type TargetBounds = {
   kind: "office" | "city";
@@ -43,6 +44,26 @@ export function poseInsideBounds(
   if (distance < MAP_MIN_DISTANCE - 0.05 || distance > MAP_MAX_DISTANCE + 0.05) return false;
   if (position.y < 0.15) return false;
   return true;
+}
+
+/**
+ * The office sun and sky, held at a clear afternoon.
+ * The live office keeps the real Mooresville clock. The city starts in daylight
+ * so the streets read, and the same lighting math still goes dark at night.
+ */
+export function cityDayWeather(date = new Date()): OfficeWeather {
+  const hour = 14;
+  const elevation = sunElevation(hour);
+  const weather = weatherFromClock(date, { kind: "clear", cloud: 0.1, wind: 1.5, tempC: 22 });
+  return {
+    ...weather,
+    hour,
+    sunElevation: elevation,
+    isDay: elevation > 0,
+    kind: "clear",
+    cloud: 0.1,
+    label: "Mooresville · 72°F · Clear",
+  };
 }
 
 /** Same aim as the office, pulled back so the streets around HQ fit in frame. */

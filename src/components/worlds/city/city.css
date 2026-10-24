@@ -1,32 +1,55 @@
-.city-places {
+.city-map-anchor {
   position: absolute;
   z-index: 5;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 2px;
+  top: 12px;
+  left: 108px;
 }
-.city-places button {
-  flex: 0 0 auto;
+.city-map-button {
   min-height: 44px;
+  min-width: 44px;
   border: 1px solid #d6cec1;
   border-radius: 999px;
   background: rgba(251, 248, 243, 0.94);
   color: #1c211e;
-  padding: 8px 12px;
+  padding: 8px 14px;
   font: inherit;
   font-size: 14px;
   cursor: pointer;
 }
-.city-places button[aria-pressed="true"] {
+.city-map-button[aria-expanded="true"] {
   background: #1f3b2d;
   color: #fbf8f3;
   border-color: #1f3b2d;
 }
-.city-places.is-lifted { bottom: 86px; }
+.city-map {
+  margin-top: 8px;
+  display: grid;
+  gap: 4px;
+  width: 220px;
+  max-height: min(70vh, 560px);
+  overflow: auto;
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(251, 248, 243, 0.96);
+  border: 1px solid #d6cec1;
+  box-shadow: 0 12px 32px rgba(22, 41, 31, 0.16);
+}
+.city-map button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #1c211e;
+  text-align: left;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.city-map button[aria-pressed="true"] {
+  background: #1f3b2d;
+  color: #fbf8f3;
+}
 .city-sheet { z-index: 4; }
 .city-balance { font-weight: 700; }
 .city-room {

@@ -96,7 +96,7 @@ describe("Worlds camera move", () => {
     const canvas = source("src/components/worlds/office-canvas.tsx");
     const stick = source("src/components/worlds/office-joystick.tsx");
     assert.match(app, /<OfficeJoystick/);
-    assert.match(app, /lifted=\{sheet !== null\}/);
+    assert.match(app, /lifted=\{sheet !== null \|\| cityLocation !== null\}/);
     assert.equal(app.includes("menuOpen ?") && app.indexOf("<OfficeJoystick") > app.indexOf("menuOpen ?"), true);
     assert.match(stick, /aria-label="Move the camera"/);
     assert.match(stick, /setPointerCapture/);

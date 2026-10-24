@@ -1100,7 +1100,7 @@ function Robot({
   );
 }
 
-function Lights({ layout, weather, quality }: { layout: OfficeLayout; weather: OfficeWeather; quality: OfficeQuality }) {
+function Lights({ layout, weather, quality, city = false }: { layout: OfficeLayout; weather: OfficeWeather; quality: OfficeQuality; city?: boolean }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const sun = sunPosition(weather.hour, layout);
   const day = THREE.MathUtils.clamp((weather.sunElevation + 0.08) / 1.05, 0, 1);
@@ -1127,11 +1127,11 @@ function Lights({ layout, weather, quality }: { layout: OfficeLayout; weather: O
         shadow-mapSize-height={quality === "fast" ? 1024 : 2048}
         shadow-bias={-0.0004}
         shadow-camera-near={2}
-        shadow-camera-far={140}
-        shadow-camera-left={-(layout.width + 24)}
-        shadow-camera-right={layout.width + 24}
-        shadow-camera-top={layout.depth + 30}
-        shadow-camera-bottom={-(layout.depth + 20)}
+        shadow-camera-far={city ? 220 : 140}
+        shadow-camera-left={-(layout.width + (city ? 78 : 24))}
+        shadow-camera-right={layout.width + (city ? 78 : 24)}
+        shadow-camera-top={layout.depth + (city ? 70 : 30)}
+        shadow-camera-bottom={-(layout.depth + (city ? 64 : 20))}
       />
       {weather.sunElevation > 0.05 && weather.kind === "clear" ? (
         <mesh position={[sun.x, sun.y, sun.z]}>
@@ -1616,7 +1616,7 @@ function Scene({
       <color attach="background" args={[sky]} />
       {layers.weather ? <fog attach="fog" args={[sky, fog.near, fog.far]} /> : null}
       <StudioEnv enabled={detailed} />
-      <Lights layout={layout} weather={weather} quality={quality} />
+      <Lights layout={layout} weather={weather} quality={quality} city={cityOn} />
       <group>
       <OfficeSite layout={layout} weather={weather} showGrounds={layers.outdoor} showRoof={layers.roof} showWeather={layers.weather} />
       <TapContext.Provider value={canOpen}>
@@ -1651,6 +1651,8 @@ function Scene({
             selectedId={city.selectedId}
             canOpen={canOpen}
             onEnter={city.onOpenLocation}
+            tier={tier}
+            weather={weather}
           />
         </WorldSceneShell>
       ) : null}
