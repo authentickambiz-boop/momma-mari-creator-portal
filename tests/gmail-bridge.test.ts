@@ -22,6 +22,7 @@ import {
   syncConnectedMailboxes,
   type BridgeMessage,
 } from "../src/lib/gmail-bridge";
+import { onCreatorPortalLogin } from "../src/lib/gmail-bridge-start";
 import { clearCreatorGmail, ingestGmailPush, renewGmailWatches, type GmailHistoryMessage } from "../src/lib/gmail-push";
 import { GMAIL_READONLY_SCOPE } from "../src/lib/google-oauth";
 import { addManager, assignCreatorManagers } from "../src/lib/managers";
@@ -120,6 +121,8 @@ describe("gmail bridge", { concurrency: 1 }, () => {
 
       process.env.GMAIL_SYNC_ENABLED = "true";
       assert.equal(gmailSyncEnabled(), true);
+      const bridgeStart = await onCreatorPortalLogin(db, abby);
+      assert.equal(bridgeStart.started, true);
       const personal: BridgeMessage = {
         id: "personal-1",
         threadId: "personal-thread",

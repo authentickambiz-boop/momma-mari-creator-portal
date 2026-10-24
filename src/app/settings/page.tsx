@@ -5,6 +5,7 @@ import { driveConnectionState, driveConnectHref, gmailConnectHref } from "@/lib/
 import { canManageCreatorAccounts, storedConnectionStatus } from "@/lib/account-connection-status";
 import { readOwnAccount } from "@/lib/creator-home";
 import { loadPortal } from "@/lib/current-user";
+import { gmailBridgeFirstLoginPrompt } from "@/lib/gmail-bridge-start";
 import { emailSetupFor, gmailConnectionState } from "@/lib/onboarding";
 import { settingsErrorNote } from "@/lib/account-notes";
 import { SeasonalThemeSettings } from "@/components/seasonal-theme-settings";
@@ -18,6 +19,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const connection = creator ? await gmailConnectionState(portal.db, creator.id) : null;
   const drive = creator ? await driveConnectionState(portal.db, creator.id) : null;
   const setup = creator ? await emailSetupFor(portal.db, creator.id) : null;
+  const gmailPrompt = creator ? await gmailBridgeFirstLoginPrompt(portal.db, creator.id) : null;
   const settingsError = settingsErrorNote(params.settingsError);
   const themeError = themeErrorNote(params.themeError);
   return (
@@ -28,6 +30,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {themeError ? <p className="private-note">{themeError}</p> : null}
       <div className="card stack">
         <div className="sec-title">Connected accounts</div>
+        {gmailPrompt ? <p className="callout">{gmailPrompt}</p> : null}
         {creator ? (
           <ConnectPanel
             creator={creator}

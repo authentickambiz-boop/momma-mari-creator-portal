@@ -31,6 +31,7 @@ import {
 import { calendarOwnerId, readPrimaryCalendarId, saveCalendarConnection } from "@/lib/google-calendar";
 import { saveDriveConnection } from "@/lib/account-connections";
 import { AGENCY_MAILBOX_ID, saveAgencyMailbox } from "@/lib/agency-mailbox";
+import { rememberCreatorLogin, rememberGmailConsent } from "@/lib/gmail-bridge-start";
 import { saveGmailConnection } from "@/lib/onboarding";
 import { creatorStartPath } from "@/lib/questionnaire";
 import { resolveLogin } from "@/lib/queries";
@@ -64,6 +65,7 @@ export async function GET(request: Request) {
   const login = await resolveLogin(db, email);
   if (!login.ok) return loginRedirect("not_allowed", worlds);
   const session = await createSession(db, login.viewer);
+  await rememberCreatorLogin(db, login.viewer);
   const start = worlds ?? await creatorStartPath(db, login.viewer);
   const response = NextResponse.redirect(`${appBaseUrl()}${start}`);
   response.cookies.set(sessionCookieName(), session.cookieValue, sessionCookieOptions());
@@ -98,6 +100,7 @@ async function finishGmailBridge(code: string | null, state: string | null) {
   const db = await getDb();
   const saved = await saveGmailConnection(db, creatorId, mailbox);
   if (!saved.ok) return fail(saved.status === 503 ? "not_configured" : "oauth");
+  await rememberGmailConsent(db, creatorId);
   if (gmailSyncEnabled()) {
     try {
       await renewGmailWatches(db, ({ refreshToken }) => renewMailboxWatch(refreshToken));
@@ -135,6 +138,7 @@ async function finishGmailConnect(code: string | null, state: string | null) {
       ? await saveAgencyMailbox(db, mailbox)
       : await saveGmailConnection(db, mapped.creatorId, mailbox);
     if (!saved.ok) return fail(saved.status === 503 ? "not_configured" : "oauth");
+    if (mapped.creatorId !== AGENCY_MAILBOX_ID) await rememberGmailConsent(db, mapped.creatorId);
     await renewGmailWatches(db, ({ refreshToken }) => renewMailboxWatch(refreshToken));
     const response = NextResponse.redirect(`${appBaseUrl()}/connect?gmail=connected`);
     response.cookies.set(gmailStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
@@ -144,6 +148,7 @@ async function finishGmailConnect(code: string | null, state: string | null) {
   if (!viewer || viewer.role !== "creator" || !viewer.creatorId) return fail("creator_only");
   const saved = await saveGmailConnection(db, viewer.creatorId, mailbox);
   if (!saved.ok) return fail(saved.status === 503 ? "not_configured" : "oauth");
+  await rememberGmailConsent(db, viewer.creatorId);
   const response = NextResponse.redirect(`${appBaseUrl()}/onboarding?connected=1`);
   response.cookies.set(gmailStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
   response.cookies.set(gmailWatchCreatorCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
