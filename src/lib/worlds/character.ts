@@ -746,6 +746,17 @@ export function nameTagFrame(style: NameTagStyle) {
   return { width: 1.45, height: 0.36, radius: 18, filled: true };
 }
 
+/** Dark ink on a light tag, light ink on a dark tag, so the name stays readable. */
+export function nameTagInk(color: string) {
+  const hex = color.trim().replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return "#1c211e";
+  const r = Number.parseInt(hex.slice(0, 2), 16);
+  const g = Number.parseInt(hex.slice(2, 4), 16);
+  const b = Number.parseInt(hex.slice(4, 6), 16);
+  const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luma > 0.62 ? "#1c211e" : "#fbf8f3";
+}
+
 export function rosterBotIds() {
   return OFFICE_BOTS.map((bot) => bot.id);
 }

@@ -11,6 +11,14 @@ export const BOT_CAPSULE_RADIUS = 2.5;
 export const BOT_CAPSULE_LENGTH = 0.4;
 /** Local offset. +Z points at the desk when a seated bot faces -Z. */
 export const BOT_CAPSULE_CENTER: [number, number, number] = [0, 1.6, 0.35];
+/**
+ * Drawn marker only. The hit capsule stays wide so a desk bot is easy to tap.
+ * The ring stays under one bot: the closest desks are about 2.7 apart.
+ */
+export const BOT_HOVER_RING_INNER = 0.5;
+export const BOT_HOVER_RING_OUTER = 0.68;
+export const BOT_HOVER_BODY_RADIUS = 0.4;
+export const BOT_HOVER_BODY_LENGTH = 0.95;
 
 export type BotHitPose = {
   id: string;
@@ -22,6 +30,8 @@ export type BotHitPose = {
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const center = new THREE.Vector3();
+const gapCenter = new THREE.Vector3();
+const gapPoint = new THREE.Vector3();
 const caster = new THREE.Raycaster();
 const capsule = new THREE.Mesh(
   new THREE.CapsuleGeometry(BOT_CAPSULE_RADIUS, BOT_CAPSULE_LENGTH, 4, 8),
@@ -64,21 +74,39 @@ export function rayFromClient(
   return raycaster.ray.clone();
 }
 
+/** Distance from the ray to the capsule center. Smaller means the pointer is aimed at that bot. */
+export function botCapsuleCenterGap(ray: THREE.Ray, pose: BotHitPose) {
+  botCapsuleWorldCenter(pose, gapCenter);
+  gapPoint.copy(gapCenter).sub(ray.origin);
+  const along = Math.max(0, gapPoint.dot(ray.direction));
+  gapPoint.copy(ray.origin).addScaledVector(ray.direction, along);
+  return gapPoint.distanceTo(gapCenter);
+}
+
 /**
- * Closest bot capsule the ray hits. Only capsules are tested, so a wall,
- * window, roof, floor, or desk in front of the bot cannot win.
+ * Bot the pointer is aimed at. Only capsules are tested, so a wall, window,
+ * roof, floor, or desk in front of the bot cannot win. Overlapping capsules
+ * resolve to the center nearest the ray, so a neighbor closer to the camera
+ * does not steal the highlight.
  */
 export function pickBotCapsule(ray: THREE.Ray, poses: readonly BotHitPose[]) {
+  if (ray.direction.lengthSq() === 0) return null;
   caster.ray.origin.copy(ray.origin);
-  caster.ray.direction.copy(ray.direction);
+  caster.ray.direction.copy(ray.direction).normalize();
   let bestId: string | null = null;
+  let bestGap = Infinity;
   let bestDistance = Infinity;
   for (const pose of poses) {
     botCapsuleWorldCenter(pose, capsule.position);
     capsule.rotation.set(0, pose.yaw, 0);
     capsule.updateMatrixWorld(true);
     const hit = caster.intersectObject(capsule, false)[0];
-    if (hit && hit.distance < bestDistance) {
+    if (!hit) continue;
+    const gap = botCapsuleCenterGap(caster.ray, pose);
+    const nearerCenter = gap < bestGap - 1e-4;
+    const tie = Math.abs(gap - bestGap) <= 1e-4 && hit.distance < bestDistance;
+    if (nearerCenter || tie) {
+      bestGap = gap;
       bestDistance = hit.distance;
       bestId = pose.id;
     }

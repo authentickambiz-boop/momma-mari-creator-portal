@@ -30,8 +30,18 @@ function repeated(tex: THREE.Texture, x: number, y: number) {
   return clone;
 }
 
-function useSiteMaterials(layout: OfficeLayout) {
+function useSiteMaterials(layout: OfficeLayout, detailed: boolean) {
   return useMemo(() => {
+    if (!detailed) {
+      return {
+        grass: new THREE.MeshStandardMaterial({ color: "#5f8a46", roughness: 0.96 }),
+        asphalt: new THREE.MeshStandardMaterial({ color: "#3a3d42", roughness: 0.92, metalness: 0.04 }),
+        walk: new THREE.MeshStandardMaterial({ color: "#c8c2b6", roughness: 0.88 }),
+        bark: new THREE.MeshStandardMaterial({ color: "#6b4a32", roughness: 0.92 }),
+        trim: new THREE.MeshStandardMaterial({ color: "#d9d3c8", roughness: 0.7 }),
+        sign: new THREE.MeshStandardMaterial({ color: "#1f3b2d", roughness: 0.55 }),
+      };
+    }
     const grassTex = canvasMap((ctx, size) => {
       ctx.fillStyle = "#5f8a46";
       ctx.fillRect(0, 0, size, size);
@@ -70,7 +80,7 @@ function useSiteMaterials(layout: OfficeLayout) {
       trim: new THREE.MeshStandardMaterial({ color: "#d9d3c8", roughness: 0.7 }),
       sign: new THREE.MeshStandardMaterial({ color: "#1f3b2d", roughness: 0.55 }),
     };
-  }, [layout.width]);
+  }, [layout.width, detailed]);
 }
 
 function Tree({
@@ -351,14 +361,17 @@ export function OfficeSite({
   showGrounds = true,
   showRoof = true,
   showWeather = true,
+  detailed = true,
 }: {
   layout: OfficeLayout;
   weather: OfficeWeather;
   showGrounds?: boolean;
   showRoof?: boolean;
   showWeather?: boolean;
+  /** Trees, cars, and painted ground textures wait until the building is on screen. */
+  detailed?: boolean;
 }) {
-  const mats = useSiteMaterials(layout);
+  const mats = useSiteMaterials(layout, detailed);
   const pad = 2.15;
   const lotW = 22;
   const lotD = 13;
@@ -425,17 +438,19 @@ export function OfficeSite({
         <boxGeometry args={[lotW - 0.6, 0.01, 0.1]} />
         <meshStandardMaterial color="#f4f1ea" roughness={0.55} />
       </mesh>
-      {cars.map((car) => (
+      {detailed ? cars.map((car) => (
         <Car key={`${car.x}-${car.z}`} {...car} />
-      ))}
-      {trees.map((tree) => (
+      )) : null}
+      {detailed ? trees.map((tree) => (
         <Tree key={`${tree.x}-${tree.z}`} {...tree} weather={weather} />
-      ))}
-      {shrubs.map((shrub, index) => (
+      )) : null}
+      {detailed ? shrubs.map((shrub, index) => (
         <Shrub key={`${shrub.x}-${shrub.z}`} {...shrub} weather={weather} tint={index} />
-      ))}
-      <FlowerBed x={doorX - 3.5} z={layout.depth + 3.3} weather={weather} />
-      <FlowerBed x={doorX + 3.4} z={layout.depth + 3.3} weather={weather} />
+      )) : null}
+      {detailed ? <FlowerBed x={doorX - 3.5} z={layout.depth + 3.3} weather={weather} /> : null}
+      {detailed ? <FlowerBed x={doorX + 3.4} z={layout.depth + 3.3} weather={weather} /> : null}
+      {detailed ? (
+        <>
       <group position={[doorX, 0, layout.depth]}>
         <mesh position={[0, 1.15, 0.16]} castShadow material={mats.trim}>
           <boxGeometry args={[1.7, 2.2, 0.08]} />
@@ -466,11 +481,13 @@ export function OfficeSite({
           <EntranceSign />
         </group>
       </group>
+        </>
+      ) : null}
     </group>
     <group visible={showRoof}>
       <Roof layout={layout} />
     </group>
-    <group visible={showWeather}>
+    <group visible={showWeather && detailed}>
       <Clouds layout={layout} weather={weather} />
       <Precipitation layout={layout} weather={weather} />
     </group>

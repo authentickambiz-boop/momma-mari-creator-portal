@@ -7,12 +7,14 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import type { BotStatus } from "@/lib/worlds/office-catalog";
 import { OWNER_ACTOR_ID, type OfficeLayout, type OfficeRoom, type OfficeSection } from "@/lib/worlds/office-layout";
-import { deskFacing, isSeated, yawToward, type OfficeSimStore } from "@/lib/worlds/office-sim";
+import { deskFacing, isSeated, presentedBotYaw, type OfficeSimStore } from "@/lib/worlds/office-sim";
 import { boardStations, type OfficeKey } from "@/lib/worlds/office-state";
 import { vaultPilePlan } from "@/lib/worlds/office-wallets";
 import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/worlds/office-weather";
-import { BOT_CAPSULE_CENTER, BOT_CAPSULE_LENGTH, BOT_CAPSULE_RADIUS, pickBotCapsule, rayFromClient, type BotHitPose } from "@/lib/worlds/bot-hit";
-import { OWNER_LOOK_SEED, defaultCharacter, nameTagFrame, type CharacterConfig, type CharacterPose } from "@/lib/worlds/character";
+import { BOT_CAPSULE_CENTER, BOT_CAPSULE_LENGTH, BOT_CAPSULE_RADIUS, BOT_HOVER_BODY_LENGTH, BOT_HOVER_BODY_RADIUS, BOT_HOVER_RING_INNER, BOT_HOVER_RING_OUTER, pickBotCapsule, rayFromClient, type BotHitPose } from "@/lib/worlds/bot-hit";
+import { OWNER_LOOK_SEED, defaultCharacter, nameTagFrame, nameTagInk, type CharacterConfig, type CharacterPose } from "@/lib/worlds/character";
+import { officeBootStep } from "@/lib/worlds/office-boot";
+import { OfficeBoot } from "./office-boot";
 import { CharacterFigure } from "./character-figure";
 import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, zoomOffset, type Stick } from "@/lib/worlds/office-move";
 import { OfficeSite } from "./office-grounds";
@@ -144,8 +146,43 @@ function repeated(tex: THREE.Texture, x: number, y: number) {
   return clone;
 }
 
-function useOfficeMaterials(layout: OfficeLayout) {
+function flatOfficeMaterials() {
+  const paint = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...extra });
+  return {
+    wood: paint("#8d5a32"),
+    woodFloor: paint("#6a432c"),
+    deskWhite: paint("#f4f1ea", { roughness: 0.4, metalness: 0.02 }),
+    chairGrey: paint("#8e949b", { roughness: 0.62 }),
+    tealChair: paint("#2a9d8f", { roughness: 0.7 }),
+    magentaChair: paint("#d63384", { roughness: 0.7 }),
+    poufPink: paint("#f3c7b8", { roughness: 0.88 }),
+    poufBlue: paint("#d5e2f4", { roughness: 0.88 }),
+    carpets: [paint("#6d7d62"), paint("#7a6a52"), paint("#6e5c62")],
+    tile: paint("#cfc8bb", { roughness: 0.72 }),
+    woodDark: paint("#c8a27a"),
+    paneling: paint("#efe6d6", { roughness: 0.78 }),
+    brick: paint("#b56a52", { roughness: 0.86 }),
+    glass: paint("#d5e7f0", { transparent: true, opacity: 0.45, roughness: 0.05, metalness: 0 }),
+    metal: paint("#e7eef2", { metalness: 0.8, roughness: 0.38 }),
+    joint: paint("#4e575e", { metalness: 0.72, roughness: 0.38 }),
+    fabric: paint("#8d4d3c", { roughness: 0.9 }),
+    fabricAlt: paint("#3f5e4c", { roughness: 0.9 }),
+    plant: paint("#2f6b3a", { roughness: 0.72 }),
+    plantLite: paint("#4e8f52", { roughness: 0.68 }),
+    pot: paint("#6b4428", { roughness: 0.8 }),
+    rug: paint("#7a3040", { roughness: 0.9 }),
+    frame: paint("#3d2a1c", { roughness: 0.6 }),
+    trim: paint("#5c4632", { roughness: 0.7 }),
+    vaultFloor: paint("#2c3238", { roughness: 0.82, metalness: 0.22 }),
+    steel: paint("#9aa3ab", { metalness: 0.85, roughness: 0.34 }),
+    cash: paint("#1f7a3c", { roughness: 0.72 }),
+    gold: paint("#e2b227", { metalness: 0.82, roughness: 0.28, emissive: "#8a6410", emissiveIntensity: 0.18 }),
+  };
+}
+
+function useOfficeMaterials(layout: OfficeLayout, detailed: boolean) {
   return useMemo(() => {
+    if (!detailed) return flatOfficeMaterials();
     const woodAlbedo = canvasTex((ctx, size) => {
       ctx.fillStyle = "#8d5a32";
       ctx.fillRect(0, 0, size, size);
@@ -375,7 +412,7 @@ function useOfficeMaterials(layout: OfficeLayout) {
       cash: new THREE.MeshStandardMaterial({ color: "#1f7a3c", roughness: 0.72 }),
       gold: new THREE.MeshStandardMaterial({ color: "#e2b227", metalness: 0.82, roughness: 0.28, emissive: "#8a6410", emissiveIntensity: 0.18 }),
     };
-  }, [layout.width, layout.depth]);
+  }, [layout.width, layout.depth, detailed]);
 }
 
 function FloorLabel({ text, x, z }: { text: string; x: number; z: number }) {
@@ -430,7 +467,7 @@ function useMats() {
   return mats;
 }
 
-function Shell({ layout }: { layout: OfficeLayout }) {
+function Shell({ layout, detailed }: { layout: OfficeLayout; detailed: boolean }) {
   const mats = useMats();
   return (
     <group>
@@ -442,9 +479,9 @@ function Shell({ layout }: { layout: OfficeLayout }) {
           </mesh>
         );
       })}
-      {layout.rooms.map((room) => (
+      {detailed ? layout.rooms.map((room) => (
         <FloorLabel key={`label-${room.id}`} text={room.label} x={room.x + 1.7} z={room.z + (room.id === "hall" ? room.d / 2 : 0.7)} />
-      ))}
+      )) : null}
       {layout.walls.map((wall, index) => {
         const height = wall.exterior || wall.full ? EXTERIOR_H : INTERIOR_H;
         return (
@@ -540,12 +577,12 @@ function Desk({ x, z, accent }: { x: number; z: number; accent: string }) {
   );
 }
 
-function Shelf({ x, z, w, d }: { x: number; z: number; w: number; d: number }) {
+function Shelf({ x, z, w, d, showBooks }: { x: number; z: number; w: number; d: number; showBooks: boolean }) {
   const mats = useMats();
-  const books = useMemo(() => Array.from({ length: Math.max(6, Math.floor(w / 0.16)) }, (_, index) => ({
+  const books = useMemo(() => showBooks ? Array.from({ length: Math.max(6, Math.floor(w / 0.16)) }, (_, index) => ({
     color: ACCENTS[index % ACCENTS.length],
     h: 0.28 + (index % 4) * 0.04,
-  })), [w]);
+  })) : [], [w, showBooks]);
   return (
     <group position={[x, 0, z]}>
       <mesh position={[0, 0.85, 0]} castShadow receiveShadow material={mats.woodDark}>
@@ -579,6 +616,23 @@ function setCanvasCursor(event: { stopPropagation: () => void; nativeEvent: Even
   event.stopPropagation();
   const node = event.nativeEvent.target;
   if (node instanceof HTMLCanvasElement) node.style.cursor = cursor;
+}
+
+const EmptyTapContext = createContext<() => void>(() => {});
+
+/** Clicks on the lawn, floor, walls, or roof close the open panel. Bots and boards stop the bubble. */
+function SceneryTap({ children }: { children: ReactNode }) {
+  const onEmpty = useContext(EmptyTapContext);
+  return (
+    <group
+      onClick={(event) => {
+        event.stopPropagation();
+        onEmpty();
+      }}
+    >
+      {children}
+    </group>
+  );
 }
 
 const pointerCursor = {
@@ -622,7 +676,7 @@ function WingStations({
               <boxGeometry args={[0.6, 0.12, 0.01]} />
               <meshStandardMaterial color="#1f3b2d" />
             </mesh>
-            <HitPad args={[1.4, 1.6, 0.7]} position={[0, 0, 0.2]} />
+            <HitPad args={[2.8, 2.4, 0.9]} position={[0, 0, 0.2]} />
           </group>
           <group
             position={[station.whiteboard.x, 1.4, station.whiteboard.z]}
@@ -636,7 +690,7 @@ function WingStations({
               <planeGeometry args={[1.02, 0.64]} />
               <meshStandardMaterial color="#f4f7f2" />
             </mesh>
-            <HitPad args={[1.8, 1.4, 0.7]} position={[0, 0, 0.2]} />
+            <HitPad args={[3.2, 2.4, 0.9]} position={[0, 0, 0.2]} />
           </group>
           <group
             position={[station.inbox.x, 0, station.inbox.z]}
@@ -653,7 +707,7 @@ function WingStations({
               <boxGeometry args={[0.28, 0.02, 0.2]} />
               <meshStandardMaterial color="#f7f1e4" />
             </mesh>
-            <HitPad args={[1.4, 1.4, 1.1]} position={[0, 0.7, 0]} />
+            <HitPad args={[2.8, 2.4, 1.3]} position={[0, 0.7, 0]} />
           </group>
         </group>
       ))}
@@ -846,7 +900,7 @@ function Pouf({ x, z, material }: { x: number; z: number; material: THREE.Materi
 }
 
 /** CC0 low-poly props. Desks, monitors, poufs, rugs, plants, and chairs are original geometry. */
-function Furniture({ layout, onOpenMeet }: { layout: OfficeLayout; onOpenMeet: () => void }) {
+function Furniture({ layout, onOpenMeet, detailed }: { layout: OfficeLayout; onOpenMeet: () => void; detailed: boolean }) {
   const mats = useMats();
   const canOpen = useContext(TapContext);
   const rooms = Object.fromEntries(layout.rooms.map((room) => [room.id, room])) as Record<string, OfficeRoom>;
@@ -866,7 +920,7 @@ function Furniture({ layout, onOpenMeet }: { layout: OfficeLayout; onOpenMeet: (
           <mesh position={[table.x, 0.74, table.z]} castShadow receiveShadow material={mats.woodDark}>
             <boxGeometry args={[table.w, 0.08, table.d]} />
           </mesh>
-          <HitPad args={[Math.max(table.w + 0.6, 2.4), 1.6, Math.max(table.d + 0.6, 2)]} position={[table.x, 0.9, table.z]} />
+          <HitPad args={[Math.max(table.w + 0.8, 3.2), 2.2, Math.max(table.d + 0.8, 2.8)]} position={[table.x, 0.9, table.z]} />
           {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], index) => (
             <mesh key={index} position={[table.x + sx * (table.w / 2 - 0.4), 0.36, table.z + sz * (table.d / 2 - 0.35)]} castShadow material={mats.trim}>
               <boxGeometry args={[0.1, 0.7, 0.1]} />
@@ -887,8 +941,8 @@ function Furniture({ layout, onOpenMeet }: { layout: OfficeLayout; onOpenMeet: (
       ))}
       {library ? (
         <group>
-          <Shelf x={library.x + 0.45} z={library.z + library.d * 0.55} w={0.4} d={library.d * 0.62} />
-          <Shelf x={library.x + library.w / 2} z={library.z + library.d - 0.45} w={library.w - 1.4} d={0.4} />
+          <Shelf x={library.x + 0.45} z={library.z + library.d * 0.55} w={0.4} d={library.d * 0.62} showBooks={detailed} />
+          <Shelf x={library.x + library.w / 2} z={library.z + library.d - 0.45} w={library.w - 1.4} d={0.4} showBooks={detailed} />
           <mesh position={[library.x + library.w * 0.55, 0.74, library.z + library.d * 0.48]} castShadow receiveShadow material={mats.wood}>
             <boxGeometry args={[2.4, 0.08, 1.1]} />
           </mesh>
@@ -996,37 +1050,21 @@ function SpeechBubble({ text }: { text: string }) {
 
 function NameTag({ name, status, look }: { name: string; status: BotStatus; look: CharacterConfig["nameTag"] }) {
   const frame = nameTagFrame(look.style);
-  const map = useMemo(() => {
-    const drawn = nameTagFrame(look.style);
-    const canvas = document.createElement("canvas");
-    canvas.width = 512;
-    canvas.height = 128;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      if (drawn.filled) {
-        ctx.fillStyle = look.color;
-        ctx.beginPath();
-        ctx.roundRect(8, 16, 496, 96, drawn.radius);
-        ctx.fill();
-      }
-      ctx.fillStyle = STATUS_COLOR[status];
-      ctx.beginPath();
-      ctx.arc(48, 64, 12, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#1c211e";
-      ctx.font = "700 42px sans-serif";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      ctx.fillText(name, 76, 66);
-    }
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    return tex;
-  }, [name, status, look.color, look.style]);
+  const ink = nameTagInk(frame.filled ? look.color : "#fbf8f3");
   return (
-    <sprite position={[0, 2.05, 0]} scale={[frame.width, frame.height, 1]}>
-      <spriteMaterial map={map} transparent depthTest={false} />
-    </sprite>
+    <Html position={[0, 2.25, 0]} center zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
+      <span
+        className={`office-name-tag is-${look.style}`}
+        style={{
+          background: frame.filled ? look.color : "rgba(251, 248, 243, 0.94)",
+          color: ink,
+          borderRadius: frame.filled ? frame.radius : 0,
+        }}
+      >
+        <i style={{ background: STATUS_COLOR[status] }} />
+        {name}
+      </span>
+    </Html>
   );
 }
 
@@ -1067,9 +1105,7 @@ function Robot({
     if (!bot || !root.current) return;
     root.current.position.set(bot.x, 0, bot.z);
     const moving = bot.path.length > 0;
-    root.current.rotation.y = moving
-      ? bot.yaw
-      : yawToward({ x: bot.x, z: bot.z }, { x: camera.position.x, z: camera.position.z });
+    root.current.rotation.y = presentedBotYaw(bot, { x: camera.position.x, z: camera.position.z });
     const seated = isSeated(bot, layout.homes[id]);
     poseRef.current = { phase: bot.phase, moving, seated };
     if (bob.current) bob.current.position.y = seated ? -0.32 : 0;
@@ -1083,16 +1119,16 @@ function Robot({
       {...pointerCursor}
       onClick={(event) => { event.stopPropagation(); if (canOpen()) onSelect(id); }}
     >
-      <mesh name="bot-capsule" position={BOT_CAPSULE_CENTER}>
+      <mesh name="bot-capsule" position={BOT_CAPSULE_CENTER} raycast={skipPointer}>
         <capsuleGeometry args={[BOT_CAPSULE_RADIUS, BOT_CAPSULE_LENGTH, 4, 8]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
-      <mesh name="bot-hover" position={BOT_CAPSULE_CENTER} visible={hot}>
-        <capsuleGeometry args={[BOT_CAPSULE_RADIUS, BOT_CAPSULE_LENGTH, 5, 10]} />
-        <meshBasicMaterial color="#f2c14e" transparent opacity={0.22} depthWrite={false} side={THREE.DoubleSide} />
+      <mesh name="bot-hover" position={[0, 1.05, 0]} visible={hot} raycast={skipPointer}>
+        <capsuleGeometry args={[BOT_HOVER_BODY_RADIUS, BOT_HOVER_BODY_LENGTH, 5, 10]} />
+        <meshBasicMaterial color="#f2c14e" transparent opacity={0.28} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
-      <mesh name="bot-hover-ring" visible={hot} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.07, 0]}>
-        <ringGeometry args={[BOT_CAPSULE_RADIUS * 0.72, BOT_CAPSULE_RADIUS * 0.9, 40]} />
+      <mesh name="bot-hover-ring" visible={hot} raycast={skipPointer} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.07, 0]}>
+        <ringGeometry args={[BOT_HOVER_RING_INNER, BOT_HOVER_RING_OUTER, 40]} />
         <meshBasicMaterial color="#f2c14e" depthTest={false} />
       </mesh>
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
@@ -1101,7 +1137,7 @@ function Robot({
       </mesh>
       <group ref={bob}>
         <CharacterFigure config={look} poseRef={poseRef} />
-        <NameTag name={`${name}`} status={status} look={look.nameTag} />
+        {id === OWNER_ACTOR_ID ? null : <NameTag name={`${name}`} status={status} look={look.nameTag} />}
         {id === OWNER_ACTOR_ID ? (
           <Html position={[0, 2.35, 0]} center zIndexRange={[40, 0]} style={{ pointerEvents: "none" }}>
             <span className="office-you-tag">You</span>
@@ -1117,7 +1153,7 @@ function Robot({
   );
 }
 
-function Lights({ layout, weather, quality }: { layout: OfficeLayout; weather: OfficeWeather; quality: OfficeQuality }) {
+function Lights({ layout, weather, quality, detailed }: { layout: OfficeLayout; weather: OfficeWeather; quality: OfficeQuality; detailed: boolean }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const sun = sunPosition(weather.hour, layout);
   const day = THREE.MathUtils.clamp((weather.sunElevation + 0.08) / 1.05, 0, 1);
@@ -1156,7 +1192,7 @@ function Lights({ layout, weather, quality }: { layout: OfficeLayout; weather: O
           <meshBasicMaterial color="#ffe7a3" />
         </mesh>
       ) : null}
-      {layout.rooms.map((room) => (
+      {detailed ? layout.rooms.map((room) => (
         <group key={`light-${room.id}`}>
           <mesh position={[room.x + room.w / 2, 2.35, room.z + room.d / 2]}>
             <boxGeometry args={[0.7, 0.05, 0.28]} />
@@ -1170,7 +1206,7 @@ function Lights({ layout, weather, quality }: { layout: OfficeLayout; weather: O
             color="#fff1d6"
           />
         </group>
-      ))}
+      )) : null}
     </>
   );
 }
@@ -1261,12 +1297,13 @@ function BotPicker({
     let hovered: string | null = null;
 
     function poses(): BotHitPose[] {
+      const cameraFlat = { x: camera.position.x, z: camera.position.z };
       return Object.values(sim.state.bots).map((bot) => ({
         id: bot.id,
         x: bot.x,
         y: 0,
         z: bot.z,
-        yaw: bot.yaw,
+        yaw: presentedBotYaw(bot, cameraFlat),
       }));
     }
 
@@ -1533,6 +1570,7 @@ function Scene({
   stickRef,
   gesture,
   detailed,
+  onClear,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1556,8 +1594,9 @@ function Scene({
   stickRef: React.MutableRefObject<Stick>;
   gesture: React.MutableRefObject<MapGesture>;
   detailed: boolean;
+  onClear: () => void;
 }) {
-  const mats = useOfficeMaterials(layout);
+  const mats = useOfficeMaterials(layout, detailed);
   const controls = useRef<OrbitControlsType>(null);
   const [hotId, setHotId] = useState<string | null>(null);
   const sky = skyColor(weather);
@@ -1587,13 +1626,16 @@ function Scene({
       <color attach="background" args={[sky]} />
       {layers.weather ? <fog attach="fog" args={[sky, fog.near, fog.far]} /> : null}
       <StudioEnv enabled={detailed} />
-      <Lights layout={layout} weather={weather} quality={quality} />
+      <Lights layout={layout} weather={weather} quality={quality} detailed={detailed} />
       <group>
-      <OfficeSite layout={layout} weather={weather} showGrounds={layers.outdoor} showRoof={layers.roof} showWeather={layers.weather} />
-      <TapContext.Provider value={canOpen}>
+      <EmptyTapContext.Provider value={() => { if (canOpen()) onClear(); }}>
       <MatsContext.Provider value={mats}>
-      {layers.offices ? <Shell layout={layout} /> : null}
-      {layers.offices ? <Furniture layout={layout} onOpenMeet={onOpenMeet} /> : null}
+      <SceneryTap>
+      <OfficeSite layout={layout} weather={weather} showGrounds={layers.outdoor} showRoof={layers.roof} showWeather={layers.weather} detailed={detailed} />
+      {layers.offices ? <Shell layout={layout} detailed={detailed} /> : null}
+      </SceneryTap>
+      <TapContext.Provider value={canOpen}>
+      {layers.offices ? <Furniture layout={layout} onOpenMeet={onOpenMeet} detailed={detailed} /> : null}
       <VaultDoor layout={layout} bankBalance={bankBalance} onOpen={onOpenBank} />
       {layers.offices ? <WingStations layout={layout} sections={sections} onOpen={onOpenBoard} /> : null}
       <SimDriver sim={sim} meetingRef={meetingRef} botsRef={botsRef} />
@@ -1613,8 +1655,9 @@ function Scene({
           sim={sim}
         />
       )) : null}
-      </MatsContext.Provider>
       </TapContext.Provider>
+      </MatsContext.Provider>
+      </EmptyTapContext.Provider>
       </group>
       <BotPicker
         sim={sim}
@@ -1759,9 +1802,10 @@ export default function OfficeCanvas({
     presentedRef.current = true;
     drawn.current = true;
     setPresented(true);
-    // Shadows and the environment map wait until the building has been drawn.
-    window.cancelAnimationFrame(detailFrame.current);
-    detailFrame.current = window.requestAnimationFrame(() => setDetailed(true));
+    // Flat materials paint first. Grounds, books, and the environment map follow
+    // after the first frames so the graphics context is not rebuilt mid-draw.
+    window.clearTimeout(detailFrame.current);
+    detailFrame.current = window.setTimeout(() => setDetailed(true), 700);
   }
   useEffect(() => {
     presentedRef.current = false;
@@ -1769,7 +1813,7 @@ export default function OfficeCanvas({
     const id = window.requestAnimationFrame(() => setMountScene(true));
     return () => {
       window.cancelAnimationFrame(id);
-      window.cancelAnimationFrame(detailFrame.current);
+      window.clearTimeout(detailFrame.current);
     };
   }, [watchKey]);
   useEffect(() => {
@@ -1813,9 +1857,9 @@ export default function OfficeCanvas({
     <Canvas
       key={`${quality}-${attempt}`}
       frameloop="always"
-      shadows={detailed && quality !== "fast"}
+      shadows={quality !== "fast"}
       camera={camera}
-      dpr={detailed ? (quality === "fast" ? [1, 1.15] : [1, 1.75]) : 1}
+      dpr={quality === "fast" ? [1, 1.15] : [1, 1.5]}
       gl={{
         alpha: false,
         antialias: quality !== "fast",
@@ -1850,9 +1894,18 @@ export default function OfficeCanvas({
         gl.render(scene, view);
         invalidate();
         if (width > 1 && height > 1) reveal();
+        let lostTimer = 0;
         gl.domElement.addEventListener("webglcontextlost", (event) => {
           event.preventDefault();
-          setFailure("The 3D office lost its graphics context.");
+          window.clearTimeout(lostTimer);
+          lostTimer = window.setTimeout(() => {
+            const context = gl.getContext();
+            if (context.isContextLost()) setFailure("The 3D office lost its graphics context.");
+          }, 1500);
+        });
+        gl.domElement.addEventListener("webglcontextrestored", () => {
+          window.clearTimeout(lostTimer);
+          reveal();
         });
       }}
     >
@@ -1880,10 +1933,20 @@ export default function OfficeCanvas({
         stickRef={stickRef}
         gesture={gesture}
         detailed={detailed}
+        onClear={onClear}
       />
     </Canvas>
     ) : null}
-    {presented ? null : <div className="office-loading" role="status">Opening the bot office…</div>}
+    {presented ? null : (
+      <div className="office-loading" role="status" aria-live="polite">
+        <OfficeBoot stage={mountScene ? "bots" : "shell"} rooms={layout.rooms} message="Opening the bot office…" />
+      </div>
+    )}
+    {presented && !detailed ? (
+      <div className="office-boot-pending" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={officeBootStep("bots").progress} aria-valuetext={officeBootStep("detail").label}>
+        <span style={{ width: `${officeBootStep("bots").progress}%` }} />
+      </div>
+    ) : null}
     </OfficeViewBoundary>
   );
 }
