@@ -1786,3 +1786,46 @@ export const officeCharacters = sqliteTable("office_characters", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+/** One delivered sponsored post. Archive hides it. Rows are not deleted from this log. */
+export const sponsoredPosts = sqliteTable("sponsored_posts", {
+  id: text("id").primaryKey(),
+  brand: text("brand").notNull(),
+  creatorId: text("creator_id").notNull(),
+  dealId: text("deal_id"),
+  campaignId: text("campaign_id"),
+  platform: text("platform").notNull(),
+  postUrl: text("post_url").notNull(),
+  postedOn: text("posted_on").notNull(),
+  deliverableTerms: text("deliverable_terms").notNull(),
+  archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+  createdBy: text("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** One checkpoint for a sponsored post. A later window is another row, not a new column. */
+export const sponsoredPostSnapshots = sqliteTable(
+  "sponsored_post_snapshots",
+  {
+    id: text("id").primaryKey(),
+    postId: text("post_id").notNull(),
+    checkpoint: text("checkpoint").notNull(),
+    /** Views or reach, whichever count the platform showed. */
+    views: integer("views"),
+    likes: integer("likes"),
+    comments: integer("comments"),
+    shares: integer("shares"),
+    saves: integer("saves"),
+    clicks: integer("clicks"),
+    promoCodeUses: integer("promo_code_uses"),
+    installs: integer("installs"),
+    note: text("note"),
+    enteredBy: text("entered_by").notNull(),
+    enteredByName: text("entered_by_name").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("sponsored_post_snapshots_post_checkpoint").on(table.postId, table.checkpoint)],
+);

@@ -104,6 +104,18 @@ export const PAGE_GUIDES: { [K in PortalTab]: PageGuide } = {
       "Leave a blank blank. Do not guess.",
     ],
   },
+  "sponsored-posts": {
+    id: "sponsored-posts",
+    who: "The owner logs every sponsored post. A creator can read only her own posts.",
+    purpose: "Log each sponsored post and the counts at 24 hours, 7 days, and 30 days.",
+    principle: "These counts can be copied into a brand recap later. Nothing is emailed from this page.",
+    steps: [
+      "Add the brand, the creator, the platform, the live link, and what was promised.",
+      "Enter 24 hours, 7 days, or 30 days when those counts are in. Leave a box empty when a count was not available.",
+      "Read average 7-day views by brand and by creator. Open a brand recap to copy the summary.",
+      "Archive hides a post from the list and the averages. The row stays in the log.",
+    ],
+  },
   connect: {
     id: "connect",
     who: "Everyone signed in. You connect your own accounts. A manager can see the status, not the login.",
