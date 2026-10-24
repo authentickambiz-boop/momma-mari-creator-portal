@@ -362,7 +362,7 @@ function Envelope({
         <DoorWall w={w} h={h} d={d} color={color} openDoor={open && southFace(yaw) === "pz"} outline={outline} />
       )}
       <ToonBox position={[0, 0.18, 0]} args={[w + 0.16, 0.12, d + 0.16]} color="#f4efe4" finish="paint" />
-      <ToonBox position={[0, h - 0.08, 0]} args={[w + 0.22, 0.18, d + 0.22]} color="#f7f1e4" finish="paint" />
+      <ToonBox position={[0, h - 0.08, 0]} args={[Math.max(0.4, w - 0.08), 0.14, Math.max(0.4, d - 0.08)]} color="#f7f1e4" finish="paint" />
       <ToonBox position={[0, h * 0.58, d / 2 + 0.02]} args={[w + 0.08, 0.14, 0.1]} color="#f7f1e4" finish="paint" />
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
         <ToonBox key={`${sx}-${sz}`} position={[(w / 2) * sx, h / 2, (d / 2) * sz]} args={[0.16, h, 0.16]} color="#f4efe4" finish="paint" />
@@ -567,7 +567,7 @@ function StoryBox({
         <ToonBox position={[0, h / 2, d / 2]} args={[w, h, 0.22]} color={color} finish="brick" cast />
       )}
       <ToonBox position={[0, 0.1, 0]} args={[w + 0.28, 0.18, d + 0.28]} color="#cfc8bb" finish="stone" />
-      <ToonBox position={[0, h - 0.08, 0]} args={[w + 0.42, 0.2, d + 0.42]} color="#f7f1e4" finish="paint" />
+      <ToonBox position={[0, h - 0.06, 0]} args={[Math.max(0.4, w - 0.06), 0.12, Math.max(0.4, d - 0.06)]} color="#f7f1e4" finish="paint" />
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
         <ToonBox key={`${sx}-${sz}`} position={[(w / 2) * sx, h / 2, (d / 2) * sz]} args={[0.18, h, 0.18]} color="#f4efe4" finish="paint" />
       ))}
@@ -596,13 +596,12 @@ function RisingStory({
   return <group ref={ref}>{children}</group>;
 }
 
-function FlatRoof({ w, h, d, color, lip = "#6a625a", finish = "shingle" }: { w: number; h: number; d: number; color: string; lip?: string; finish?: Finish }) {
+function FlatRoof({ w, h, d, color, finish = "shingle" }: { w: number; h: number; d: number; color: string; finish?: Finish }) {
   const thickness = 0.2;
   const seat = h + 0.18;
   return (
     <group>
-      <ToonBox position={[0, seat + thickness / 2, 0]} args={[w + 0.62, thickness, d + 0.62]} color={color} finish={finish} cast />
-      <ToonBox position={[0, seat + thickness + 0.05, 0]} args={[w + 0.16, 0.08, d + 0.16]} color={lip} finish="metal" />
+      <ToonBox position={[0, seat + thickness / 2, 0]} args={[w + 0.36, thickness, d + 0.36]} color={color} finish={finish} cast />
     </group>
   );
 }
@@ -946,7 +945,7 @@ function Extras({
   if (model === "call-center") {
     return (
       <group>
-        <FlatRoof w={w} h={h} d={d} color={roof} lip="#243044" />
+        <FlatRoof w={w} h={h} d={d} color={roof} />
         <ToonCylinder position={[0, h + 1.35, 0]} args={[0.06, 0.08, 2.4, 6]} color="#1c211e" />
         <ToonBox position={[0.45, h + 2.15, 0]} args={[0.9, 0.08, 0.08]} color="#1c211e" />
         <mesh position={[0.7, h + 1.55, 0.2]} rotation={[0.4, 0, 0.6]}>
@@ -960,7 +959,7 @@ function Extras({
   if (model === "art") {
     return (
       <group>
-        <ShedRoof w={w * 0.86} h={h} d={d * 0.86} color="#d7e7f2" finish="glass" pitch={0.28} />
+        <ShedRoof w={w} h={h} d={d} color="#d7e7f2" finish="glass" pitch={0.2} />
         <ToonBox position={[0, h * 0.55, d / 2 + 0.14]} args={[w * 0.55, 0.16, 0.06]} color={accent} />
         {close ? (
           <group position={[w * 0.36, 0, d / 2 + 0.7]}>
@@ -1010,7 +1009,7 @@ function Extras({
   if (model === "bank") {
     return (
       <group>
-        <FlatRoof w={w} h={h} d={d} color={roof} lip="#c6a15a" />
+        <FlatRoof w={w} h={h} d={d} color={roof} />
         <ToonSphere position={[0, h + 0.85, 0]} radius={0.7} color="#c6a15a" />
         <Pediment w={w * 0.62} h={h} color="#c6a15a" />
         <Columns w={w * 0.72} h={h * 0.7} d={d} color="#f7f1e4" />

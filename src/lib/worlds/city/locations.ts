@@ -310,12 +310,13 @@ const HALF = ROAD / 2;
 function addRoad(streets: Street[], id: string, x: number, z: number, w: number, d: number) {
   streets.push({ id, x, z, w, d, kind: "road" });
   const alongX = w >= d;
+  const span = 1.2;
   if (alongX) {
-    streets.push({ id: `${id}-walk-a`, x, z: z - 1.55, w, d: 1.3, kind: "walk" });
-    streets.push({ id: `${id}-walk-b`, x, z: z + d + 0.25, w, d: 1.3, kind: "walk" });
+    streets.push({ id: `${id}-walk-a`, x, z: z - span, w, d: span, kind: "walk" });
+    streets.push({ id: `${id}-walk-b`, x, z: z + d, w, d: span, kind: "walk" });
   } else {
-    streets.push({ id: `${id}-walk-a`, x: x - 1.55, z, w: 1.3, d, kind: "walk" });
-    streets.push({ id: `${id}-walk-b`, x: x + w + 0.25, z, w: 1.3, d, kind: "walk" });
+    streets.push({ id: `${id}-walk-a`, x: x - span, z, w: span, d, kind: "walk" });
+    streets.push({ id: `${id}-walk-b`, x: x + w, z, w: span, d, kind: "walk" });
   }
 }
 
@@ -419,16 +420,20 @@ export function buildCityDistrict(
   const spanX = eastX - westX;
   const spanZ = southZ - northZ;
 
-  const northRoadX = -86;
+  const northRoadX = -84.2;
+  const ringWest = westX - HALF;
+  const ringEast = eastX + HALF;
+  const ringNorth = northZ - HALF;
+  const ringSouth = southZ + HALF;
   const streets: Street[] = [
-    { id: "road-north", x: northRoadX, z: northZ - HALF, w: eastX - northRoadX, d: ROAD, kind: "road" },
-    { id: "road-south", x: westX, z: southZ - HALF, w: spanX, d: ROAD, kind: "road" },
-    { id: "road-west", x: westX - HALF, z: northZ, w: ROAD, d: spanZ, kind: "road" },
-    { id: "road-east", x: eastX - HALF, z: northZ, w: ROAD, d: spanZ, kind: "road" },
-    { id: "walk-north", x: northRoadX, z: northZ - HALF - 1.5, w: eastX - northRoadX, d: 1.4, kind: "walk" },
-    { id: "walk-south", x: westX, z: southZ + HALF + 0.1, w: spanX, d: 1.4, kind: "walk" },
-    { id: "walk-west", x: westX - HALF - 1.5, z: northZ, w: 1.4, d: spanZ, kind: "walk" },
-    { id: "walk-east", x: eastX + HALF + 0.1, z: northZ, w: 1.4, d: spanZ, kind: "walk" },
+    { id: "road-north", x: northRoadX, z: ringNorth, w: ringEast - northRoadX, d: ROAD, kind: "road" },
+    { id: "road-south", x: ringWest, z: southZ - HALF, w: ringEast - ringWest, d: ROAD, kind: "road" },
+    { id: "road-west", x: ringWest, z: ringNorth, w: ROAD, d: ringSouth - ringNorth, kind: "road" },
+    { id: "road-east", x: eastX - HALF, z: ringNorth, w: ROAD, d: ringSouth - ringNorth, kind: "road" },
+    { id: "walk-north", x: northRoadX, z: ringNorth - 1.2, w: ringEast - northRoadX, d: 1.2, kind: "walk" },
+    { id: "walk-south", x: ringWest, z: southZ + HALF, w: ringEast - ringWest, d: 1.2, kind: "walk" },
+    { id: "walk-west", x: ringWest - 1.2, z: ringNorth, w: 1.2, d: ringSouth - ringNorth, kind: "walk" },
+    { id: "walk-east", x: eastX + HALF, z: ringNorth, w: 1.2, d: ringSouth - ringNorth, kind: "walk" },
   ];
 
   const northIds: CityLocationId[] = ["social-club", "research-lab", "library", "learning-center"];
@@ -480,15 +485,14 @@ export function buildCityDistrict(
   const studioZ = rowSouth - 7.2;
   const apartmentZ = rowSouth - 12;
   const apartmentFloorCount = Math.min(APARTMENT_MAX_FLOORS, apartmentFloors(apartmentUnits));
-  addRoad(streets, "road-studio-row", northRoadX, frontRoadZ, 94, ROAD);
+  addRoad(streets, "road-studio-row", northRoadX, frontRoadZ, 12 - northRoadX, ROAD);
   addRoad(streets, "road-apartment", 8, frontRoadZ, 28, ROAD);
-  addRoad(streets, "road-studio-link", -84.2, frontRoadZ, ROAD, northZ - HALF + ROAD - frontRoadZ);
+  addRoad(streets, "road-studio-link", northRoadX, frontRoadZ, ROAD, ringNorth + ROAD - frontRoadZ);
   addRoad(streets, "road-mansion", -41.8, -44, ROAD, 84);
-  addRoad(streets, "road-mansion-link", -41.8, -22.4, 16.6, ROAD);
-  addRoad(streets, "road-house", 84.2, -28, ROAD, 64);
-  addRoad(streets, "road-house-link", eastX - HALF, -27.6, 84.2 + ROAD - (eastX - HALF), 9.2);
+  addRoad(streets, "road-house", 84.2, ringNorth, ROAD, 36 - ringNorth);
+  addRoad(streets, "road-house-link", eastX + HALF - 1, ringNorth, 84.2 + ROAD - (eastX + HALF - 1), ROAD);
   addRoad(streets, "road-loft", -18, 71.4, 96, ROAD);
-  addRoad(streets, "road-loft-link", 66.4, southZ - HALF, ROAD, 71.4 + ROAD - (southZ - HALF));
+  addRoad(streets, "road-loft-link", eastX - HALF, southZ + HALF - 1, ROAD, 71.4 + ROAD - (southZ + HALF - 1));
 
   const neighborhoods = [
     homeDistrict("studio-row", "studio", -32, studioZ, 18, 7.2, 0, HOME_TIER_FLOORS.studio, "#c68642", "#6b3a28", "#f4efe4", "stoop", "STUDIO ROW", "studio"),

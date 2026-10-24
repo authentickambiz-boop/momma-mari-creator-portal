@@ -2,35 +2,52 @@
 
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { CanvasTexture, DoubleSide, SRGBColorSpace, Vector3, type Group, type Mesh } from "three";
+import { BufferGeometry, CanvasTexture, DoubleSide, Float32BufferAttribute, SRGBColorSpace, Vector3, type Group, type Mesh } from "three";
 import type { CityDistrict, CityLot, Plot, Street } from "@/lib/worlds/city/locations";
 import { boxesOverlap } from "@/lib/worlds/city/locations";
 import type { HomeTier } from "@/lib/worlds/economy";
 import { districtBillboard } from "@/lib/worlds/city/scene-shell";
-import { CITY_PARK, CURB_RADIUS, MANSION_FOUNTAIN, WALK_BAND, curbReturns, roadPieces, type RoadRect, type RoadSegment } from "@/lib/worlds/city/streets";
+import { CITY_PARK, MANSION_FOUNTAIN, WALK_WIDTH, curbOuterRadius, paveCity, type CurbReturn, type RoadCap, type RoadRect } from "@/lib/worlds/city/streets";
 import { FOLIAGE_COLORS, type OfficeWeather } from "@/lib/worlds/office-weather";
 import { CityBuilding, Gable } from "./building";
 
-function sidewalks(segment: RoadSegment): RoadRect[] {
-  const inset = CURB_RADIUS + WALK_BAND;
-  const insetStart = segment.roundStart ? inset : 0;
-  const insetEnd = segment.roundEnd ? inset : 0;
-  if (segment.alongX) {
-    const x = segment.x + insetStart;
-    const w = segment.w - insetStart - insetEnd;
-    if (w < 0.8) return [];
-    return [
-      { id: `${segment.id}-walk-n`, x, z: segment.z - 1.45, w, d: 1.2 },
-      { id: `${segment.id}-walk-s`, x, z: segment.z + segment.d + 0.25, w, d: 1.2 },
-    ];
+/** Sector in the same space as CylinderGeometry: angle 0 is +Z, opening toward +X. */
+function sectorGeometry(outer: number, length: number, segments: number, inner = 0) {
+  const geometry = new BufferGeometry();
+  const positions: number[] = [];
+  const indices: number[] = [];
+  for (let index = 0; index <= segments; index += 1) {
+    const theta = (index / segments) * length;
+    const sin = Math.sin(theta);
+    const cos = Math.cos(theta);
+    positions.push(inner * sin, 0, inner * cos, outer * sin, 0, outer * cos);
   }
-  const z = segment.z + insetStart;
-  const d = segment.d - insetStart - insetEnd;
-  if (d < 0.8) return [];
-  return [
-    { id: `${segment.id}-walk-w`, x: segment.x - 1.45, z, w: 1.2, d },
-    { id: `${segment.id}-walk-e`, x: segment.x + segment.w + 0.25, z, w: 1.2, d },
-  ];
+  for (let index = 0; index < segments; index += 1) {
+    const base = index * 2;
+    indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+  }
+  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function Asphalt({ rect }: { rect: RoadRect }) {
+  return (
+    <mesh position={[rect.x + rect.w / 2, 0.03, rect.z + rect.d / 2]} receiveShadow>
+      <boxGeometry args={[rect.w, 0.04, rect.d]} />
+      <meshStandardMaterial color="#3a3d42" roughness={0.92} />
+    </mesh>
+  );
+}
+
+function Walk({ rect }: { rect: RoadRect }) {
+  return (
+    <mesh position={[rect.x + rect.w / 2, 0.055, rect.z + rect.d / 2]} receiveShadow>
+      <boxGeometry args={[rect.w, 0.028, rect.d]} />
+      <meshStandardMaterial color="#cfc8bb" roughness={0.86} />
+    </mesh>
+  );
 }
 
 function Streets({ district }: { district: CityDistrict }) {
@@ -38,36 +55,50 @@ function Streets({ district }: { district: CityDistrict }) {
     () => district.streets.filter((street) => street.kind === "road"),
     [district.streets],
   );
-  const laid = useMemo(() => roadPieces(roads), [roads]);
-  const turns = useMemo(() => curbReturns(laid.crossings), [laid.crossings]);
-  const walks = useMemo(() => laid.segments.flatMap(sidewalks), [laid.segments]);
+  const paved = useMemo(() => paveCity(roads), [roads]);
+  const capAsphalt = useMemo(() => sectorGeometry(1, Math.PI, 20), []);
   return (
     <group>
-      {[...laid.segments, ...laid.crossings].map((road) => (
-        <mesh key={road.id} name={road.id} position={[road.x + road.w / 2, 0.04, road.z + road.d / 2]} receiveShadow>
-          <boxGeometry args={[road.w, 0.05, road.d]} />
-          <meshStandardMaterial color="#3a3d42" roughness={0.92} />
-        </mesh>
-      ))}
-      {turns.map((turn) => (
-        <mesh key={`${turn.id}-walk`} position={[turn.x, 0.062, turn.z]} rotation={[0, turn.theta, 0]} receiveShadow>
-          <cylinderGeometry args={[turn.radius + WALK_BAND, turn.radius + WALK_BAND, 0.02, 32, 1, false, 0, Math.PI / 2]} />
-          <meshStandardMaterial color="#cfc8bb" roughness={0.86} />
-        </mesh>
-      ))}
-      {turns.map((turn) => (
-        <mesh key={turn.id} position={[turn.x, 0.095, turn.z]} rotation={[0, turn.theta, 0]} receiveShadow>
-          <cylinderGeometry args={[turn.radius, turn.radius, 0.04, 32, 1, false, 0, Math.PI / 2]} />
+      {paved.asphalt.map((road) => <Asphalt key={road.id} rect={road} />)}
+      {paved.caps.map((cap) => (
+        <mesh key={cap.id} position={[cap.x, 0.05, cap.z]} rotation={[0, cap.theta, 0]} scale={cap.radius} receiveShadow geometry={capAsphalt}>
           <meshStandardMaterial color="#3a3d42" roughness={0.92} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
         </mesh>
       ))}
-      {walks.map((walk) => (
-        <mesh key={walk.id} position={[walk.x + walk.w / 2, 0.055, walk.z + walk.d / 2]} receiveShadow>
-          <boxGeometry args={[walk.w, 0.04, walk.d]} />
-          <meshStandardMaterial color="#cfc8bb" roughness={0.86} />
-        </mesh>
+      {paved.walks.map((walk) => <Walk key={walk.id} rect={walk} />)}
+      {paved.rounds.map((turn) => (
+        <CurbRing key={turn.id} turn={turn} />
+      ))}
+      {paved.caps.map((cap) => (
+        <CapWalk key={`${cap.id}-walk`} cap={cap} />
       ))}
     </group>
+  );
+}
+
+/** Sidewalk ring outside the curb arc. The square asphalt tip stays underneath. */
+function CurbRing({ turn }: { turn: CurbReturn }) {
+  const outer = curbOuterRadius(turn.radius);
+  const geometry = useMemo(
+    () => sectorGeometry(outer, Math.PI / 2, 18, turn.radius),
+    [outer, turn.radius],
+  );
+  return (
+    <mesh position={[turn.x, 0.09, turn.z]} rotation={[0, turn.theta, 0]} receiveShadow geometry={geometry}>
+      <meshStandardMaterial color="#cfc8bb" roughness={0.86} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
+    </mesh>
+  );
+}
+
+function CapWalk({ cap }: { cap: RoadCap }) {
+  const geometry = useMemo(
+    () => sectorGeometry(cap.radius + WALK_WIDTH, Math.PI, 20, cap.radius),
+    [cap.radius],
+  );
+  return (
+    <mesh position={[cap.x, 0.09, cap.z]} rotation={[0, cap.theta, 0]} receiveShadow geometry={geometry}>
+      <meshStandardMaterial color="#cfc8bb" roughness={0.86} />
+    </mesh>
   );
 }
 

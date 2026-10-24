@@ -18,7 +18,7 @@ import {
 import { worldsCityEnabled } from "../src/lib/worlds/city/flag";
 import { cityNightWeather, cityOverviewHome, districtBillboard, interiorStand, officeTargetBounds, poseInsideBounds } from "../src/lib/worlds/city/scene-shell";
 import { HOUSE_ROW_GAP, STUDIO_ROW_GAP, gableSlabs, rowRoofClearance, shedSlab, slabPoint } from "../src/lib/worlds/city/roofs";
-import { CITY_PARK, MANSION_FOUNTAIN, curbReturns, roadPieces } from "../src/lib/worlds/city/streets";
+import { CITY_PARK, MANSION_FOUNTAIN, curbOuterRadius, curbReturns, paveCity, roadPieces } from "../src/lib/worlds/city/streets";
 import { officeCameraHome, officeCameraPoseOk } from "../src/lib/worlds/office-move";
 import {
   CITY_LOCATION_IDS,
@@ -599,7 +599,47 @@ test("ownable roofs sit on the walls and roads are not drawn twice", () => {
   }
   const turns = curbReturns(crossings);
   assert.ok(turns.length >= 4);
-  assert.ok(turns.some((turn) => turn.radius >= 2.5), "wide junctions keep a curb large enough to read");
+  const paved = paveCity(roads);
+  for (let i = 0; i < paved.asphalt.length; i += 1) {
+    for (let j = i + 1; j < paved.asphalt.length; j += 1) {
+      assert.equal(boxesOverlap(paved.asphalt[i], paved.asphalt[j], -0.04), false, `${paved.asphalt[i].id} ${paved.asphalt[j].id}`);
+    }
+  }
+  for (let i = 0; i < paved.walks.length; i += 1) {
+    for (let j = i + 1; j < paved.walks.length; j += 1) {
+      assert.equal(boxesOverlap(paved.walks[i], paved.walks[j], -0.04), false, `${paved.walks[i].id} ${paved.walks[j].id}`);
+    }
+  }
+  const north = roads.find((road) => road.id === "road-north");
+  assert.ok(north);
+  const northWalk = paved.walks.some((walk) => walk.z + walk.d <= north.z + 0.05 && walk.z + walk.d >= north.z - 0.08 && walk.x < north.x + north.w / 2 && walk.x + walk.w > north.x + north.w / 2);
+  assert.equal(northWalk, true, "sidewalk sits on the curb with no grass gap");
+  assert.ok(paved.rounds.length >= 8, `rounded curbs ${paved.rounds.length}`);
+  assert.ok(paved.caps.length >= 4, `dead-end caps ${paved.caps.length}`);
+  assert.ok(paved.rounds.every((turn) => turn.radius >= 0.7 && turn.radius <= 2.5));
+  for (const id of ["road-north", "road-south", "road-east", "road-west"]) {
+    assert.equal(paved.caps.some((cap) => cap.id.startsWith(id)), false, `${id} is a through road`);
+  }
+  const south = roads.find((road) => road.id === "road-south");
+  const east = roads.find((road) => road.id === "road-east");
+  assert.ok(south && east);
+  const seamX = Math.max(south.x, east.x);
+  const seamZ = Math.max(south.z, east.z);
+  const seam = paved.rounds.find((turn) => turn.x > seamX - 2 && turn.z > seamZ - 2 && turn.x < seamX + east.w && turn.z < seamZ + south.d);
+  assert.ok(seam, "southeast corner has a rounded return");
+  const outer = curbOuterRadius(seam.radius);
+  const centerX = east.x + east.w / 2;
+  const centerZ = south.z + south.d / 2;
+  const dist = Math.hypot(centerX - seam.x, centerZ - seam.z);
+  assert.ok(dist < seam.radius - 0.05 || dist > outer, `junction center stays asphalt (${dist.toFixed(2)})`);
+  assert.ok(paved.walks.some((walk) => walk.id.includes("corner")), "sidewalk fills the corner");
+  for (let i = 0; i < paved.rounds.length; i += 1) {
+    for (let j = i + 1; j < paved.rounds.length; j += 1) {
+      const a = paved.rounds[i];
+      const b = paved.rounds[j];
+      assert.ok(Math.hypot(a.x - b.x, a.z - b.z) > 0.4, `${a.id} ${b.id} are stacked`);
+    }
+  }
   const houseClearance = rowRoofClearance(28 * 0.92, 3, HOUSE_ROW_GAP);
   const studioClearance = rowRoofClearance(18 * 0.92, 4, STUDIO_ROW_GAP);
   assert.ok(houseClearance > 1.6, `house roof gap ${houseClearance}`);
