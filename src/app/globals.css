@@ -1305,6 +1305,12 @@ p.note.empty, .empty-state {
 .member-crop img { width: 120px; height: 120px; object-fit: cover; object-position: center center; border-radius: 16px; }
 .member-crop-avatar canvas, .member-crop-avatar img { width: 160px; height: 160px; border-radius: 50%; }
 .member-crop input[type="range"] { padding: 0; min-height: 44px; border: 0; background: transparent; }
+.sponsored-log > summary, .sponsored-log details > summary { cursor: pointer; }
+.sponsored-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 8px; margin: 10px 0; }
+.sponsored-metrics div { background: var(--sand); border-radius: 12px; padding: 8px 10px; }
+.sponsored-metrics b { display: block; font-size: 16px; }
+.sponsored-recap { width: 100%; max-width: 720px; min-height: 280px; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.sponsored-log caption, .card:has(.sponsored-metrics) caption, table:has(caption) caption { caption-side: bottom; text-align: left; padding-top: 8px; }
 
 @media (max-width: 820px) {
   .pipeline-swipe { display: block; }

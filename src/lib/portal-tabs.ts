@@ -9,6 +9,7 @@ export const PORTAL_TABS = [
   { id: "earnings", href: "/earnings", label: "Earnings & payouts" },
   { id: "report", href: "/report", label: "Report" },
   { id: "analytics", href: "/analytics", label: "Analytics" },
+  { id: "sponsored-posts", href: "/sponsored-posts", label: "Sponsored posts" },
   { id: "connect", href: "/connect", label: "Connect accounts" },
   { id: "calendar", href: "/calendar", label: "Calendar" },
   { id: "kit", href: "/media-kit", label: "Media kit" },
@@ -65,6 +66,7 @@ export function visiblePortalTabs(viewer: Viewer) {
     if (item.id === "prospects" || item.id === "dashboard" || item.id === "ranking" || item.id === "reports" || item.id === "bench") return viewer.role === "admin";
     if (item.id === "pipeline") return viewer.role === "admin";
     if (item.id === "kit") return viewer.role === "creator";
+    if (item.id === "sponsored-posts") return viewer.role === "admin" || viewer.role === "creator";
     return true;
   });
 }
