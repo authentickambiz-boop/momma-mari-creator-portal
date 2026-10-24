@@ -316,10 +316,13 @@ describe("Worlds characters", () => {
     const starter = defaultCharacter("owner");
     assert.equal(starter.slots.top.item, "collar");
     assert.equal(starter.slots.hair.item, "long");
-    assert.equal(starter.slots.headwear.item, "headphones");
+    assert.equal(starter.slots.headwear.item, "none");
     assert.equal(starter.slots.bottom.item, "skirt");
     assert.equal(starter.slots.shoes.item, "boots");
-    assert.equal(starter.slots.accessory.item, "bag");
+    assert.equal(starter.slots.shoes.color, "#b24669");
+    assert.equal(starter.slots.accessory.item, "none");
+    assert.match(source("src/components/worlds/fashion-doll.tsx"), /GlamPortrait/);
+    assert.match(source("src/components/worlds/glam-portrait.tsx"), /glam-front\.png/);
     assert.equal(starter.face.eyes, "wide");
     assert.equal(parseCharacter(starter).ok, true);
     assert.notDeepEqual(defaultCharacter("content"), starter);

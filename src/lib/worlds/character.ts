@@ -225,22 +225,26 @@ export function buildCharacter(rng: () => number): CharacterConfig {
 /** Saved looks for the signed-in owner use subject id "owner", not the office actor id. */
 export const OWNER_LOOK_SEED = "owner";
 
-/** Trendy starter for a new player. Bots keep a seeded mix. Shop pieces stay locked. */
+/**
+ * Trendy starter for a new player. Colors match the locked glam portrait.
+ * Headwear and the handheld accessory stay off so that portrait can draw.
+ * Shop pieces stay locked. Bots keep a seeded mix.
+ */
 export function starterFashionLook(): CharacterConfig {
   return {
     version: 1,
-    body: { shape: "tall", size: "medium", color: "#e0b08a" },
+    body: { shape: "tall", size: "medium", color: "#e5ae8a" },
     face: { eyes: "wide", mouth: "smile", expression: "smile" },
     slots: {
-      hair: { item: "long", color: "#6b4c7a" },
-      headwear: { item: "headphones", color: "#f2c14e" },
-      top: { item: "collar", color: "#d4567a" },
-      bottom: { item: "skirt", color: "#2f6283" },
-      shoes: { item: "boots", color: "#1c211e" },
-      accessory: { item: "bag", color: "#f2c14e" },
+      hair: { item: "long", color: "#6e4c77" },
+      headwear: { item: "none", color: "#f2c14e" },
+      top: { item: "collar", color: "#c75075" },
+      bottom: { item: "skirt", color: "#416681" },
+      shoes: { item: "boots", color: "#b24669" },
+      accessory: { item: "none", color: "#f2c14e" },
     },
-    palette: { primary: "#d4567a", secondary: "#2f6283", accent: "#f2c14e" },
-    nameTag: { style: "pill", color: "#d4567a" },
+    palette: { primary: "#c75075", secondary: "#416681", accent: "#b24669" },
+    nameTag: { style: "pill", color: "#c75075" },
   };
 }
 

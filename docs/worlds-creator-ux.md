@@ -8,13 +8,14 @@ Player-facing avatars are a layered 2D fashion paper doll (`FashionDoll`). The c
 
 Office bots still use `CharacterFigure` and `public/worlds/humanoid.glb`. The player default is the paper doll.
 
-A new owner look starts as a trendy content-creator outfit: long hair, studio headphones, a collared blouse, an A-line skirt, ankle boots, and a shoulder bag. Hair, clothing, and accessory colors tint the matching layer. Shop items stay locked.
+A new owner look is the locked glam portrait: long plum hair, no headwear, a fitted pink blouse, a teal pencil skirt, and pink heeled boots. Earrings and the pendant are painted into that portrait. Hair, blouse, skirt, boots, and skin colors tint the matching region. A different piece (headphones, a bag, another haircut) falls back to the simpler paper doll so the choice still shows. Shop items stay locked.
 
 ## Gaps
 
 - Top and outerwear share the `top` slot. A shirt replaces a coat, and a coat replaces a shirt. There is no second outerwear layer in version 1.
 - Office bots are still the 3D humanoid. The creator and office You are the 2D doll.
-- Emotes idle, walk, wave, and sit pose the paper doll. They do not play humanoid clips.
+- Emotes nudge the locked portrait (a bob, a lean, a lower sit). They do not redraw that pose, and they do not play humanoid clips. The simpler paper doll still changes pose.
+- The glam portrait is the default silhouette only. Other shop and starter pieces stay on the simpler doll.
 
 ## Concept sheet
 

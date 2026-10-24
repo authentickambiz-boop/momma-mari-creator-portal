@@ -2,6 +2,7 @@
 
 import { useId, type ReactNode } from "react";
 import type { CharacterConfig } from "@/lib/worlds/character";
+import { GlamPortrait, isGlamSilhouette } from "./glam-portrait";
 
 export type FashionView = "front" | "side" | "back" | "profile";
 export type FashionEmote = "idle" | "walk" | "wave" | "sit";
@@ -495,6 +496,9 @@ export function FashionDoll({
   emote?: FashionEmote;
 }) {
   const gid = useId().replace(/:/g, "");
+  if (isGlamSilhouette(config)) {
+    return <GlamPortrait config={config} view={view} emote={emote} />;
+  }
   const paint = paints(config);
   const tall = config.body.shape === "tall" ? 1.04 : config.body.shape === "compact" ? 0.92 : 1;
   const wide = config.body.shape === "wide" ? 1.08 : config.body.shape === "round" ? 1.04 : config.body.shape === "compact" ? 0.96 : 1;
