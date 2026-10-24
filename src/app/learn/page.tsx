@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { saveSkillLessonAction } from "@/app/learn-actions";
 import { PortalFrame } from "@/components/portal-frame";
 import { loadPortal } from "@/lib/current-user";
+import { roadmapPath } from "@/lib/program-roadmaps";
 import { SKILL_TOPICS, listSkillLessons, type SkillLessonView } from "@/lib/skill-lessons";
 import type { CreatorProfile } from "@/lib/types";
 
@@ -33,6 +35,11 @@ export default async function LearnPage({ searchParams }: { searchParams: Promis
     >
       {note ? <p className="note">{note}</p> : null}
       <div className="stack">
+        <section className="card">
+          <div className="sec-title">Program roadmaps</div>
+          <p>Planning guides for creators in any niche: beauty content, home projects, and retailer programs.</p>
+          <p><Link href={roadmapPath(null, portal.viewer.role === "creator" ? null : portal.viewedId)}>Open program roadmaps</Link></p>
+        </section>
         {SKILL_TOPICS.map((topic) => {
           const items = library.lessons.filter((lesson) => lesson.topic === topic.id);
           return (
