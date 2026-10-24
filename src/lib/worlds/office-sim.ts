@@ -11,6 +11,15 @@ export function yawToward(from: { x: number; z: number }, to: { x: number; z: nu
   return Math.atan2(to.x - from.x, to.z - from.z);
 }
 
+/** Idle bots turn toward the camera. A walking bot keeps the way it is stepping. */
+export function presentedBotYaw(
+  bot: { x: number; z: number; yaw: number; path: readonly unknown[] },
+  camera: { x: number; z: number },
+) {
+  if (bot.path.length > 0) return bot.yaw;
+  return yawToward({ x: bot.x, z: bot.z }, camera);
+}
+
 /**
  * Chair in front of the desk from a southern camera.
  * The monitor sits beside the desk, not between the face and the camera.

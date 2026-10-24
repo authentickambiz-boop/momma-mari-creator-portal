@@ -42,6 +42,7 @@ import {
 import { ECONOMY } from "@/lib/worlds/economy";
 import { formatGameUnits, GAME_WALLET_PATH } from "@/lib/worlds/game-wallet";
 import type { BoardOpen, OfficeCameraApi, OfficeLayers, OfficeQuality } from "./office-canvas";
+import { OfficeBoot } from "./office-boot";
 import { OfficeJoystick } from "./office-joystick";
 import { panelsEnabledFromStorage, panelsStorageValue } from "@/lib/worlds/office-chrome";
 import type { Stick } from "@/lib/worlds/office-move";
@@ -106,7 +107,11 @@ function layoutHold(status: OfficeStatusResponse): LayoutHold {
 
 const OfficeCanvas = dynamic(() => import("./office-canvas"), {
   ssr: false,
-  loading: () => <div className="office-loading">Opening the bot office…</div>,
+  loading: () => (
+    <div className="office-loading" role="status">
+      <OfficeBoot stage="plan" message="Opening the bot office…" />
+    </div>
+  ),
 });
 
 const PANELS_KEY = "mm-worlds-panels";
@@ -742,7 +747,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
             stickRef={stickRef}
           />
         ) : (
-          <div className="office-loading">{error || "Opening the bot office…"}</div>
+          <div className="office-loading" role="status">{error || <OfficeBoot stage="plan" message="Opening the bot office…" />}</div>
         )}
       </div>
 

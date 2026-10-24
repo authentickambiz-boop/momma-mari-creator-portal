@@ -43,7 +43,7 @@ describe("desk bots face the default camera", () => {
       assert.ok(Math.abs(sx * mz - sz * mx) > 0.15, id);
     }
     assert.match(source("src/components/worlds/office-canvas.tsx"), /deskFacing/);
-    assert.match(source("src/components/worlds/office-canvas.tsx"), /yawToward/);
+    assert.match(source("src/components/worlds/office-canvas.tsx"), /presentedBotYaw/);
     assert.match(source("src/components/worlds/office-canvas.tsx"), /camera\.position/);
     assert.match(source("src/components/worlds/office-canvas.tsx"), /office-you-tag">You</);
   });
