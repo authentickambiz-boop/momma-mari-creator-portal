@@ -1,6 +1,6 @@
 import { asc, eq, gt } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { creators, deals, gmailSeenMessages, gmailWatches, inboxEvents } from "@/db/schema";
+import { creators, deals, gmailBridgeStarts, gmailSeenMessages, gmailWatches, inboxEvents } from "@/db/schema";
 import { setDealStage } from "./deal-stage";
 import { normalizeEmail, nowIso, safeEqual } from "./format";
 import { clearMailboxReconnect, gmailConnectionState, mailboxReconnectReason, markMailboxNeedsReconnect } from "./onboarding";
@@ -885,10 +885,11 @@ export async function renewGmailWatches(
   const boxes: { email: string; creatorId: string }[] = WATCH_MAILBOXES.map((box) => ({ email: box.email, creatorId: box.creatorId }));
   if (gmailSyncEnabled()) {
     const watched = new Set<string>(WATCH_MAILBOXES.map((box) => box.email));
+    const started = new Set((await db.select({ creatorId: gmailBridgeStarts.creatorId }).from(gmailBridgeStarts)).map((row) => row.creatorId));
     const rows = await db.select().from(creators);
     for (const row of rows) {
       const email = normalizeEmail(row.gmailEmail ?? "");
-      if (!email || !row.gmailRefreshToken || watched.has(email)) continue;
+      if (!email || !row.gmailRefreshToken || watched.has(email) || !started.has(row.id)) continue;
       boxes.push({ email, creatorId: row.id });
     }
   }

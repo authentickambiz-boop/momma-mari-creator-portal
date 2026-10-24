@@ -35,6 +35,7 @@ import { onboardingPlatformId } from "@/lib/onboarding-fields";
 import { creatorStartPath, saveQuestionnaireStep } from "@/lib/questionnaire";
 import { worldsReturnPath } from "@/lib/worlds/office-return";
 import { resolveLogin } from "@/lib/queries";
+import { rememberCreatorLogin } from "@/lib/gmail-bridge-start";
 import { createSession, destroySession, sessionCookieName, sessionCookieOptions } from "@/lib/session";
 import { requestClientIp } from "@/lib/request-ip";
 
@@ -644,6 +645,7 @@ export async function devLoginAction(formData: FormData) {
   const result = await resolveLogin(db, email);
   if (!result.ok) redirect("/login?error=not_allowed");
   const session = await createSession(db, result.viewer);
+  await rememberCreatorLogin(db, result.viewer);
   const jar = await cookies();
   jar.set(sessionCookieName(), session.cookieValue, sessionCookieOptions());
   const next = worldsReturnPath(String(formData.get("next") ?? ""));

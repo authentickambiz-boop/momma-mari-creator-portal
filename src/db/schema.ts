@@ -1153,6 +1153,20 @@ export const gmailBridgeAudit = sqliteTable("gmail_bridge_audit", {
   createdAt: text("created_at").notNull(),
 });
 
+/** One row the first time a creator signs in. Later sign-ins raise login_count. */
+export const creatorPortalLogins = sqliteTable("creator_portal_logins", {
+  creatorId: text("creator_id").primaryKey(),
+  firstLoginAt: text("first_login_at").notNull(),
+  loginCount: integer("login_count").notNull(),
+});
+
+/** One row when that creator's Gmail bridge starts. The start time is not rewritten. */
+export const gmailBridgeStarts = sqliteTable("gmail_bridge_starts", {
+  creatorId: text("creator_id").primaryKey(),
+  startedAt: text("started_at").notNull(),
+  mailbox: text("mailbox").notNull(),
+});
+
 export const inboxEvents = sqliteTable("inbox_events", {
   id: text("id").primaryKey(),
   mailbox: text("mailbox").notNull(),
