@@ -5,15 +5,18 @@
  * procedural fashion painter.
  */
 
-import type { CharacterConfig } from "./character";
+import { starterFashionLook, type CharacterConfig } from "./character";
 import type { FashionPose } from "./fashion-avatar";
 
+const baked = starterFashionLook();
+
+/** Colors of the baked portrait. Recoloring leaves this plate and uses the doll. */
 export const GLAM_LOCK = {
-  skin: "#e8b48c",
-  hair: "#65446f",
-  top: "#de668a",
-  skirt: "#4e7894",
-  boots: "#b54269",
+  skin: baked.body.color,
+  hair: baked.slots.hair.color,
+  top: baked.slots.top.color,
+  skirt: baked.slots.bottom.color,
+  boots: baked.slots.shoes.color,
 } as const;
 
 /** Same-size plates. Feet in the source sit at y=1068 so the billboard stands on the floor. */
@@ -41,24 +44,28 @@ export function glamLayersReady() {
   return layers !== null;
 }
 
+function sameColor(a: string, b: string) {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
 /** True when the saved look is the approved default, so the plate can replace the painter. */
 export function isLockedGlam(config: CharacterConfig) {
   const slots = config.slots;
   return (
-    config.body.color === GLAM_LOCK.skin &&
-    config.body.shape === "tall" &&
-    config.face.eyes === "wide" &&
-    config.face.mouth === "smile" &&
-    config.face.expression === "smile" &&
-    slots.hair.item === "long" &&
-    slots.hair.color === GLAM_LOCK.hair &&
+    sameColor(config.body.color, GLAM_LOCK.skin) &&
+    config.body.shape === baked.body.shape &&
+    config.face.eyes === baked.face.eyes &&
+    config.face.mouth === baked.face.mouth &&
+    config.face.expression === baked.face.expression &&
+    slots.hair.item === baked.slots.hair.item &&
+    sameColor(slots.hair.color, GLAM_LOCK.hair) &&
     slots.headwear.item === "none" &&
-    slots.top.item === "collar" &&
-    slots.top.color === GLAM_LOCK.top &&
-    slots.bottom.item === "skirt" &&
-    slots.bottom.color === GLAM_LOCK.skirt &&
-    slots.shoes.item === "boots" &&
-    slots.shoes.color === GLAM_LOCK.boots &&
+    slots.top.item === baked.slots.top.item &&
+    sameColor(slots.top.color, GLAM_LOCK.top) &&
+    slots.bottom.item === baked.slots.bottom.item &&
+    sameColor(slots.bottom.color, GLAM_LOCK.skirt) &&
+    slots.shoes.item === baked.slots.shoes.item &&
+    sameColor(slots.shoes.color, GLAM_LOCK.boots) &&
     slots.accessory.item === "none"
   );
 }

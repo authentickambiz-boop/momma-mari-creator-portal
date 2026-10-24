@@ -12,7 +12,7 @@ import {
   paintFashionAvatar,
   type FashionPose,
 } from "@/lib/worlds/fashion-avatar";
-import { GLAM_LAYER_FILES, setGlamLayers, type GlamLayerName, type GlamLayers } from "@/lib/worlds/fashion-glam-lock";
+import { GLAM_LAYER_FILES, glamLayersReady, setGlamLayers, type GlamLayerName, type GlamLayers } from "@/lib/worlds/fashion-glam-lock";
 
 const WIDTH = FASHION_FIGURE_HEIGHT * (FASHION_CANVAS.width / FASHION_CANVAS.height);
 const _world = new Vector3();
@@ -29,7 +29,7 @@ function loadGlamImage(file: string) {
 
 let glamLoad: Promise<void> | null = null;
 
-function ensureGlamLayers() {
+export function ensureGlamLayers() {
   if (!glamLoad) {
     const names = Object.keys(GLAM_LAYER_FILES) as GlamLayerName[];
     glamLoad = Promise.all(names.map(async (name) => [name, await loadGlamImage(GLAM_LAYER_FILES[name])] as const))
@@ -130,3 +130,96 @@ export function FashionFigure({
 }
 
 export const fashionPlane = { width: WIDTH, height: FASHION_FIGURE_HEIGHT };
+
+type Crop = { x: number; y: number; w: number; h: number };
+
+/** Stable crop so a stride does not resize the doll under the follow camera. */
+function contentCrop(ctx: CanvasRenderingContext2D): Crop | null {
+  const { width, height } = ctx.canvas;
+  const data = ctx.getImageData(0, 0, width, height).data;
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+  for (let y = 0; y < height; y += 2) {
+    for (let x = 0; x < width; x += 2) {
+      if ((data[(y * width + x) * 4 + 3] ?? 0) < 24) continue;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+  if (maxX <= minX || maxY <= minY) return null;
+  const padX = 36;
+  const padY = 18;
+  const x = Math.max(0, minX - padX);
+  const y = Math.max(0, minY - padY);
+  return {
+    x,
+    y,
+    w: Math.min(width - x, maxX - minX + padX * 2),
+    h: Math.min(height - y, maxY - minY + padY * 2),
+  };
+}
+
+/**
+ * Follow-camera doll. The HTML plate uses the same close distance as the HUD
+ * (distanceFactor 3.2) and this crop fills that frame, so You is not the tiny
+ * map-distance sprite.
+ */
+export function OfficeGlamPlate({
+  config,
+  emote,
+  step = 0,
+}: {
+  config: CharacterConfig;
+  emote: FashionPose;
+  step?: number;
+}) {
+  const view = useRef<HTMLCanvasElement>(null);
+  const scratch = useRef<HTMLCanvasElement | null>(null);
+  const crop = useRef<Crop | null>(null);
+
+  useEffect(() => {
+    let cancel = false;
+    const paint = () => {
+      if (cancel) return;
+      const canvas = view.current;
+      if (!canvas || !glamLayersReady()) return;
+      if (!scratch.current) {
+        scratch.current = document.createElement("canvas");
+        scratch.current.width = FASHION_CANVAS.width;
+        scratch.current.height = FASHION_CANVAS.height;
+      }
+      const plate = scratch.current;
+      const source = plate.getContext("2d");
+      const dest = canvas.getContext("2d");
+      if (!source || !dest) return;
+      if (!crop.current) {
+        paintFashionAvatar(source, config, "idle", 0);
+        crop.current = contentCrop(source);
+      }
+      paintFashionAvatar(source, config, emote, step);
+      const frame = crop.current;
+      if (!frame) return;
+      if (canvas.width !== frame.w || canvas.height !== frame.h) {
+        canvas.width = frame.w;
+        canvas.height = frame.h;
+      }
+      dest.clearRect(0, 0, canvas.width, canvas.height);
+      dest.drawImage(plate, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+    };
+    paint();
+    void ensureGlamLayers().then(paint);
+    return () => {
+      cancel = true;
+    };
+  }, [config, emote, step]);
+
+  return (
+    <div className="fashion-doll fashion-glam-frame" data-glam="office">
+      <canvas ref={view} className="fashion-glam-media" />
+    </div>
+  );
+}

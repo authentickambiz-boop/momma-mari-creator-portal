@@ -31,6 +31,7 @@ import { OFFICE_POLL_MS } from "../src/lib/worlds/office-state";
 import { isBotOfficePath } from "../src/lib/worlds/office-path";
 import { worldsReturnPath } from "../src/lib/worlds/office-return";
 import { admin, mariclare, openTestDb } from "./harness";
+import { isLockedGlam } from "../src/lib/worlds/fashion-glam-lock";
 
 function source(file: string) {
   return readFileSync(path.join(process.cwd(), file), "utf8");
@@ -336,6 +337,13 @@ describe("Worlds characters", () => {
     assert.match(app, /CharacterFigure|looks/);
     assert.match(canvas, /CharacterFigure/);
     assert.match(canvas, /FashionDoll/);
+    assert.match(canvas, /OfficeGlamPlate/);
+    assert.match(canvas, /distanceFactor=\{3\.2\}/);
+    assert.match(canvas, /step=\{step\}/);
+    const plate = source("src/components/worlds/fashion-figure.tsx").split("export function OfficeGlamPlate")[1] ?? "";
+    assert.equal(plate.includes("useFrame"), false);
+    assert.equal(isLockedGlam(starter), true);
+    assert.equal(isLockedGlam({ ...starter, slots: { ...starter.slots, headwear: { item: "headphones", color: starter.slots.hair.color } } }), false);
     assert.match(canvas, /OWNER_ACTOR_ID/);
     assert.match(canvas, /characterFigure|defaultCharacter/);
     assert.match(onboarding, /Create your character/);

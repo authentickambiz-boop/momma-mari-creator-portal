@@ -226,7 +226,6 @@ export function buildCharacter(rng: () => number): CharacterConfig {
 export const OWNER_LOOK_SEED = "owner";
 
 /**
-<<<<<<< HEAD
  * Trendy starter for a new player. Colors match the locked glam portrait.
  * Headwear and the handheld accessory stay off so that portrait can draw.
  * Shop pieces stay locked. Bots keep a seeded mix.
@@ -246,41 +245,11 @@ export function starterFashionLook(): CharacterConfig {
     },
     palette: { primary: "#c75075", secondary: "#416681", accent: "#b24669" },
     nameTag: { style: "pill", color: "#c75075" },
-=======
- * Office You's saved default: the locked glam plate. Long plum hair, no
- * headphones, a fitted pink top, a teal pencil skirt, and pink ankle boots.
- * Every piece is in the free set.
- */
-export function ownerGlamCharacter(): CharacterConfig {
-  const skin = "#e8b48c";
-  const pink = "#de668a";
-  const teal = "#4e7894";
-  const plum = "#65446f";
-  const boot = "#b54269";
-  return {
-    version: 1,
-    body: { shape: "tall", size: "medium", color: skin },
-    face: { eyes: "wide", mouth: "smile", expression: "smile" },
-    slots: {
-      hair: slot("long", plum),
-      headwear: slot("none", plum),
-      top: slot("collar", pink),
-      bottom: slot("skirt", teal),
-      shoes: slot("boots", boot),
-      accessory: slot("none", pink),
-    },
-    palette: { primary: pink, secondary: teal, accent: plum },
-    nameTag: { style: "pill", color: pink },
->>>>>>> bc9bbd3 (Lock Office You to the approved glam fashion plate.)
   };
 }
 
 export function defaultCharacter(seed = "bot"): CharacterConfig {
-<<<<<<< HEAD
   if (seed === OWNER_LOOK_SEED) return starterFashionLook();
-=======
-  if (seed === OWNER_LOOK_SEED) return ownerGlamCharacter();
->>>>>>> bc9bbd3 (Lock Office You to the approved glam fashion plate.)
   return buildCharacter(mix(seed));
 }
 
