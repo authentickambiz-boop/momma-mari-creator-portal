@@ -1,9 +1,15 @@
 /**
- * Worlds fashion avatar. The office and the creator draw this illustration
- * onto a camera-facing plane. `public/worlds/humanoid.glb` stays in the repo
- * for reference and loads only when NEXT_PUBLIC_WORLDS_HUMANOID=true.
+ * Worlds fashion avatar. Office You and the creator draw this illustration
+ * onto a camera-facing plane. Roster bots keep the rigged humanoid.
+ * `public/worlds/humanoid.glb` is the hero only when NEXT_PUBLIC_WORLDS_HUMANOID=true.
  * Share this module and `src/components/worlds/fashion-figure.tsx` with the
- * creator studio (PR #214) instead of mounting the realistic mesh.
+ * creator studio (PR #214) instead of mounting the realistic mesh as You.
+ *
+ * The face is cute Y2K glam, not oversized doll eyes: smaller almond eyes,
+ * lashes, a soft catchlight, a frosted glossy lid, a thin arched brow, warm
+ * blush, and glossy lips. Headphones sit beside the head so they do not cover
+ * the eyes. There is no shared face component with the SVG doll on PR #214,
+ * so this canvas face carries that same look.
  *
  * Coordinates below are in a 560×1120 design space. The bitmap is 2× so the
  * lashes and lip highlight stay sharp on a close camera.
@@ -34,9 +40,10 @@ export function fashionPoseFrom(emote: string | undefined, moving: boolean, seat
 }
 
 const OUTLINE = "#2a1c24";
-const LIP = "#d23d66";
-const LIP_DEEP = "#8e2344";
-const LIP_LIGHT = "#ffd0dc";
+const LIP = "#ee86a4";
+const LIP_DEEP = "#d56b8c";
+const LIP_LIGHT = "#fff0f4";
+const LASH = "#2a1c24";
 const CAMI = "#f4efe6";
 
 type Rgb = { r: number; g: number; b: number };
@@ -87,8 +94,8 @@ function layoutFor(pose: FashionPose, step: number, shape: CharacterConfig["body
   return {
     cx: 280,
     head: { x: 280, y: 236 + drop },
-    rx: 124,
-    ry: 146,
+    rx: 140,
+    ry: 142,
     neck: 392 + drop,
     shoulder: 448 + drop,
     waist: 668 + drop - tall,
@@ -149,6 +156,7 @@ function drawHand(ctx: CanvasRenderingContext2D, at: Point, from: Point, skin: s
   ctx.restore();
 }
 
+/** Almond eye with a frosted lid. Sized under the head so it stays expressive, not a saucer. */
 function eye(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -159,108 +167,124 @@ function eye(
 ) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.strokeStyle = "#1c1210";
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
+  const wide = style === "wide";
+  const rx = style === "dot" ? 11 : wide ? 18 : 16;
+  const ry = style === "sleepy" ? 5 : style === "dot" ? 8 : wide ? 9 : 8;
+  glossyLid(ctx, rx, ry);
   if (shut) {
+    ctx.strokeStyle = LASH;
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
-    ctx.moveTo(-32, 4);
-    ctx.quadraticCurveTo(0, 16, 32, 2);
-    ctx.lineWidth = 3.4;
+    ctx.moveTo(-rx, 2);
+    ctx.quadraticCurveTo(0, 8, rx + 2, 0);
+    ctx.quadraticCurveTo(rx + 7, -5, rx + 9, -7);
     ctx.stroke();
-    for (const [x1, y1, x2, y2] of [
-      [-24, 2, -34, -14],
-      [-12, 6, -14, -16],
-      [0, 6, 2, -18],
-      [12, 5, 16, -14],
-      [24, 2, 34, -10],
-    ] as const) {
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.quadraticCurveTo((x1 + x2) / 2, y1 - 6, x2, y2);
-      ctx.lineWidth = 2.4;
-      ctx.stroke();
-    }
+    y2kLashes(ctx, rx, 8);
     ctx.restore();
     return;
   }
-  const open = style === "sleepy" ? 0.66 : 1;
   ctx.beginPath();
-  ctx.moveTo(-34, 4);
-  ctx.quadraticCurveTo(-8, -22 * open, 8, -18 * open);
-  ctx.quadraticCurveTo(28, -12 * open, 34, 2);
-  ctx.quadraticCurveTo(8, 20 * open, -34, 4);
-  ctx.fillStyle = "#fffdfb";
+  ctx.moveTo(-rx, 0.4);
+  ctx.quadraticCurveTo(-rx * 0.4, -ry, rx * 0.05, -ry * 0.55);
+  ctx.quadraticCurveTo(rx * 0.72, -ry * 0.08, rx, -1);
+  ctx.quadraticCurveTo(rx * 0.2, ry * 0.7, -rx * 0.2, ry * 0.4);
+  ctx.quadraticCurveTo(-rx * 0.75, ry * 0.1, -rx, 0.4);
+  ctx.closePath();
+  ctx.fillStyle = "#fffaf8";
   ctx.fill();
-  ctx.lineWidth = 2.6;
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "#3d282c";
   ctx.stroke();
   ctx.save();
   ctx.clip();
-  const irisR = style === "dot" ? 10 : 16;
-  const iris = ctx.createRadialGradient(-4, -5, 2, 2, 2, irisR);
-  iris.addColorStop(0, "#c4845a");
-  iris.addColorStop(0.35, "#5a3824");
-  iris.addColorStop(1, "#1a100c");
+  const irisR = style === "dot" ? rx * 0.38 : ry * 0.55;
+  const iris = ctx.createRadialGradient(-irisR * 0.3, -irisR * 0.35, 1, 0, 1, irisR);
+  iris.addColorStop(0, "#f6d8ec");
+  iris.addColorStop(0.35, "#9a648c");
+  iris.addColorStop(0.78, "#5c3458");
+  iris.addColorStop(1, "#3a2038");
   ctx.beginPath();
-  ctx.arc(3, 3, irisR, 0, Math.PI * 2);
+  ctx.arc(0.5, 1.2, irisR, 0, Math.PI * 2);
   ctx.fillStyle = iris;
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(3, 3, style === "star" ? 4.5 : 6.5, 0, Math.PI * 2);
-  ctx.fillStyle = "#100c0a";
+  ctx.arc(0.6, 1.6, style === "star" ? irisR * 0.34 : irisR * 0.42, 0, Math.PI * 2);
+  ctx.fillStyle = "#1a1216";
   ctx.fill();
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.ellipse(-5, -6, 6.5, 4, -0.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 0.95;
-  ctx.beginPath();
-  ctx.arc(9, 6, 2.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
   if (style === "star") {
     ctx.fillStyle = "#f2c14e";
     ctx.beginPath();
-    ctx.moveTo(3, -8);
-    ctx.lineTo(4.6, -3);
-    ctx.lineTo(9.4, -3);
-    ctx.lineTo(5.4, 0.4);
-    ctx.lineTo(7, 5.2);
-    ctx.lineTo(3, 2.2);
-    ctx.lineTo(-1, 5.2);
-    ctx.lineTo(0.4, 0.4);
-    ctx.lineTo(-3.4, -3);
-    ctx.lineTo(1.2, -3);
-    ctx.closePath();
+    ctx.arc(0.4, 1.2, irisR * 0.28, 0, Math.PI * 2);
     ctx.fill();
   }
+  const glow = ctx.createRadialGradient(-rx * 0.22, -ry * 0.28, 0.4, -rx * 0.16, -ry * 0.18, rx * 0.28);
+  glow.addColorStop(0, "rgba(255,255,255,0.95)");
+  glow.addColorStop(0.5, "rgba(255,255,255,0.45)");
+  glow.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(-rx * 0.16, -ry * 0.16, rx * 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.beginPath();
+  ctx.arc(rx * 0.16, ry * 0.22, 1.5, 0, Math.PI * 2);
+  ctx.fill();
   if (style === "sleepy") {
     ctx.fillStyle = skin;
-    ctx.fillRect(-40, -28, 80, 18);
+    ctx.fillRect(-rx - 4, -ry - 8, rx * 2 + 10, ry + 6);
   }
   ctx.restore();
-  const lashes = [
-    [-28, -2, -40, -18],
-    [-16, -12, -20, -30],
-    [-2, -16, -2, -34],
-    [12, -14, 16, -30],
-    [24, -6, 36, -20],
-    [32, 0, 44, -12],
+  ctx.strokeStyle = LASH;
+  ctx.lineWidth = 1.45;
+  ctx.beginPath();
+  ctx.moveTo(-rx + 1, 0);
+  ctx.quadraticCurveTo(-rx * 0.1, -ry * 0.9, rx * 0.35, -ry * 0.4);
+  ctx.quadraticCurveTo(rx * 0.8, -1.2, rx, -1);
+  ctx.quadraticCurveTo(rx + 4, -4, rx + 6.5, -5.5);
+  ctx.stroke();
+  y2kLashes(ctx, rx, ry);
+  ctx.restore();
+}
+
+/** A thin pearl sheen on the lid. It stays above the opening so the eye does not grow. */
+function glossyLid(ctx: CanvasRenderingContext2D, rx: number, ry: number) {
+  const frost = ctx.createLinearGradient(0, -ry - 7, 0, -ry * 0.2);
+  frost.addColorStop(0, "rgba(255,255,255,0.05)");
+  frost.addColorStop(0.5, "rgba(255, 232, 240, 0.82)");
+  frost.addColorStop(1, "rgba(255, 186, 206, 0)");
+  ctx.fillStyle = frost;
+  ctx.beginPath();
+  ctx.moveTo(-rx * 0.72, -ry * 0.2);
+  ctx.quadraticCurveTo(-rx * 0.05, -ry - 6, rx * 0.42, -ry - 4);
+  ctx.quadraticCurveTo(rx * 0.85, -ry * 0.45, rx * 0.55, -ry * 0.15);
+  ctx.quadraticCurveTo(rx * 0.05, -ry * 0.7, -rx * 0.72, -ry * 0.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.beginPath();
+  ctx.ellipse(rx * 0.02, -ry - 1.2, rx * 0.28, 1.05, -0.16, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function y2kLashes(ctx: CanvasRenderingContext2D, rx: number, ry: number) {
+  ctx.save();
+  ctx.strokeStyle = LASH;
+  ctx.lineCap = "round";
+  const fans = [
+    [-0.5, -0.65, -0.62, -1.35],
+    [-0.05, -0.85, -0.02, -1.6],
+    [0.38, -0.5, 0.52, -1.3],
+    [0.72, -0.18, 0.95, -0.95],
   ] as const;
-  ctx.strokeStyle = "#1c1210";
-  ctx.lineWidth = 2.8;
-  for (const [x1, y1, x2, y2] of lashes) {
+  ctx.lineWidth = 1.2;
+  for (const [ax, ay, bx, by] of fans) {
     ctx.beginPath();
-    ctx.moveTo(x1, y1 * open);
-    ctx.quadraticCurveTo((x1 + x2) / 2 + 1, (y1 * open + y2 * open) / 2 - 2, x2, y2 * open);
+    ctx.moveTo(ax * rx, ay * ry);
+    ctx.quadraticCurveTo(((ax + bx) / 2) * rx, ((ay + by) / 2) * ry - 1.5, bx * rx, by * ry);
     ctx.stroke();
   }
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(-32, 3);
-  ctx.quadraticCurveTo(-4, -16 * open, 26, -2);
-  ctx.lineTo(42, -14 * open);
-  ctx.stroke();
   ctx.restore();
 }
 
@@ -272,36 +296,87 @@ function lips(
   mouth: CharacterConfig["face"]["mouth"],
 ) {
   const open = mouth === "open" || expression === "surprised";
-  const smile = expression === "smile" || mouth === "smile" || mouth === "grin" ? -6 : expression === "focused" ? 2 : 0;
+  const grin = mouth === "grin" || expression === "smile";
+  const flat = (mouth === "flat" || expression === "focused") && !grin && !open;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  if (flat) {
+    const width = expression === "focused" ? 14 : 18;
+    ctx.strokeStyle = LIP_DEEP;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x - width, y + 1);
+    ctx.quadraticCurveTo(x, y + 4, x + width, y + 1);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.75)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x - width * 0.4, y);
+    ctx.quadraticCurveTo(x - 2, y - 1, x + width * 0.15, y);
+    ctx.stroke();
+    return;
+  }
+  const half = grin ? 32 : 24;
+  const lift = grin ? 8 : 5;
+  const bow = 3.2;
+  const lower = open ? 15 : grin ? 11 : 8;
   ctx.beginPath();
-  ctx.moveTo(x - 26, y + smile);
-  ctx.quadraticCurveTo(x - 14, y - 10, x - 4, y - 4);
-  ctx.quadraticCurveTo(x, y - 8, x + 4, y - 4);
-  ctx.quadraticCurveTo(x + 14, y - 10, x + 26, y + smile);
-  ctx.quadraticCurveTo(x + 16, y + (open ? 20 : 14), x, y + (open ? 22 : 16));
-  ctx.quadraticCurveTo(x - 16, y + (open ? 20 : 14), x - 26, y + smile);
-  const gloss = ctx.createLinearGradient(x, y - 12, x, y + 22);
+  ctx.moveTo(x - half, y - lift);
+  ctx.quadraticCurveTo(x - half * 0.28, y - bow - 1, x, y - bow);
+  ctx.quadraticCurveTo(x + half * 0.28, y - bow - 1, x + half, y - lift);
+  ctx.quadraticCurveTo(x + half * 0.58, y + lower, x, y + lower + 3);
+  ctx.quadraticCurveTo(x - half * 0.58, y + lower, x - half, y - lift);
+  ctx.closePath();
+  const gloss = ctx.createLinearGradient(x, y - bow - 4, x, y + lower + 4);
   gloss.addColorStop(0, LIP_LIGHT);
-  gloss.addColorStop(0.38, LIP);
+  gloss.addColorStop(0.45, LIP);
   gloss.addColorStop(1, LIP_DEEP);
-  fillStroke(ctx, gloss, 2.4);
+  fillStroke(ctx, gloss, 2);
   ctx.beginPath();
-  ctx.moveTo(x - 18, y + smile + 1);
-  ctx.quadraticCurveTo(x, y + smile + 5, x + 18, y + smile + 1);
-  ctx.strokeStyle = ink(LIP_DEEP, 0.55);
-  ctx.lineWidth = 1.4;
+  ctx.moveTo(x - half * 0.5, y - lift * 0.2);
+  ctx.quadraticCurveTo(x, y + 1.5, x + half * 0.5, y - lift * 0.2);
+  ctx.strokeStyle = ink(LIP_DEEP, 0.28);
+  ctx.lineWidth = 1.15;
   ctx.stroke();
   if (open) {
     ctx.beginPath();
-    ctx.ellipse(x, y + 6, 9, 7, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "#6e2438";
+    ctx.ellipse(x, y + 3, 6.5, 5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#b85a74";
     ctx.fill();
-    ctx.fillStyle = "#fff6f2";
-    ctx.fillRect(x - 7, y + 2, 14, 3);
+    ctx.fillStyle = "#fff7f5";
+    ctx.beginPath();
+    ctx.ellipse(x, y + 1.2, 5, 1.6, 0, 0, Math.PI * 2);
+    ctx.fill();
   }
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.beginPath();
-  ctx.ellipse(x - 6, y - 1, 10, 3.2, -0.3, 0, Math.PI * 2);
+  ctx.ellipse(x - half * 0.02, y + lower * 0.28, half * 0.4, 2.6, -0.08, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.beginPath();
+  ctx.ellipse(x - half * 0.12, y - bow * 0.35, half * 0.22, 1.4, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Round cheeks and a short soft chin, inside the hair's head box. */
+function softHead(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number) {
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - ry);
+  ctx.bezierCurveTo(cx + rx * 0.55, cy - ry, cx + rx * 0.96, cy - ry * 0.48, cx + rx * 1.02, cy + ry * 0.02);
+  ctx.bezierCurveTo(cx + rx * 1.05, cy + ry * 0.5, cx + rx * 0.58, cy + ry * 0.98, cx, cy + ry * 0.96);
+  ctx.bezierCurveTo(cx - rx * 0.58, cy + ry * 0.98, cx - rx * 1.05, cy + ry * 0.5, cx - rx * 1.02, cy + ry * 0.02);
+  ctx.bezierCurveTo(cx - rx * 0.96, cy - ry * 0.48, cx - rx * 0.55, cy - ry, cx, cy - ry);
+  ctx.closePath();
+}
+
+function warmBlush(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  const glow = ctx.createRadialGradient(x, y, 2, x, y, 26);
+  glow.addColorStop(0, "rgba(236, 120, 98, 0.4)");
+  glow.addColorStop(0.55, "rgba(242, 156, 116, 0.2)");
+  glow.addColorStop(1, "rgba(242, 156, 116, 0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(x, y, 26, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -700,17 +775,25 @@ function headwear(ctx: CanvasRenderingContext2D, layout: Layout, item: string, c
   if (item === "headphones") {
     ctx.strokeStyle = color;
     ctx.lineWidth = 10;
+    ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.arc(cx, head.y - 8, rx + 6, Math.PI * 1.12, Math.PI * 1.88);
+    ctx.moveTo(cx - rx - 26, head.y - 4);
+    ctx.quadraticCurveTo(cx, head.y - ry - 8, cx + rx + 26, head.y - 4);
     ctx.stroke();
     ctx.strokeStyle = OUTLINE;
     ctx.lineWidth = 3;
     ctx.fillStyle = color;
+    const cupY = head.y + 6;
     ctx.beginPath();
-    ctx.roundRect(cx - rx - 18, head.y - 18, 24, 44, 8);
-    ctx.roundRect(cx + rx - 6, head.y - 18, 24, 44, 8);
+    ctx.roundRect(cx - rx - 40, cupY - 18, 28, 42, 12);
+    ctx.roundRect(cx + rx + 12, cupY - 18, 28, 42, 12);
     ctx.fill();
     ctx.stroke();
+    ctx.fillStyle = mix(color, 0.28);
+    ctx.beginPath();
+    ctx.roundRect(cx - rx - 33, cupY - 8, 14, 22, 7);
+    ctx.roundRect(cx + rx + 19, cupY - 8, 14, 22, 7);
+    ctx.fill();
     return;
   }
   if (item === "crown") {
@@ -732,22 +815,17 @@ function accessory(ctx: CanvasRenderingContext2D, layout: Layout, item: string, 
   const { cx, shoulder, waist, hip, shoulderW } = layout;
   if (item === "glasses") {
     ctx.strokeStyle = color;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3.6;
     ctx.lineJoin = "round";
-    const lens = (x: number, outer: number) => {
-      ctx.beginPath();
-      ctx.moveTo(x, eyeY + 12);
-      ctx.quadraticCurveTo(x + 18, eyeY + 20, x + 40, eyeY + 8);
-      ctx.quadraticCurveTo(x + 52, eyeY - 4, x + 46 + outer, eyeY - 16);
-      ctx.quadraticCurveTo(x + 20, eyeY - 22, x + 4, eyeY - 8);
-      ctx.quadraticCurveTo(x - 4, eyeY + 4, x, eyeY + 12);
-      ctx.stroke();
-    };
-    lens(cx - 86, 0);
-    lens(cx + 6, 4);
     ctx.beginPath();
-    ctx.moveTo(cx - 46, eyeY - 2);
-    ctx.quadraticCurveTo(cx, eyeY + 4, cx + 10, eyeY - 2);
+    ctx.ellipse(cx - 40, eyeY, 24, 13, -0.08, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(cx + 42, eyeY, 24, 13, 0.08, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - 10, eyeY - 1);
+    ctx.quadraticCurveTo(cx + 1, eyeY + 2, cx + 12, eyeY - 1);
     ctx.stroke();
     return;
   }
@@ -822,42 +900,38 @@ export function paintFashionAvatar(
   ctx.quadraticCurveTo(layout.cx, layout.head.y + layout.ry - 8, layout.cx - 16, layout.head.y + layout.ry - 28);
   ctx.closePath();
   fillStroke(ctx, skin, 4);
-  const cheek = ctx.createRadialGradient(layout.head.x - 20, layout.head.y - 24, 20, layout.head.x, layout.head.y + 10, layout.ry);
-  cheek.addColorStop(0, mix(skin, 0.14));
-  cheek.addColorStop(0.7, skin);
-  cheek.addColorStop(1, mix(skin, -0.08));
-  ctx.beginPath();
-  ctx.ellipse(layout.head.x, layout.head.y, layout.rx, layout.ry, 0, 0, Math.PI * 2);
+  const cheek = ctx.createRadialGradient(layout.head.x - 16, layout.head.y - 30, 28, layout.head.x, layout.head.y + 12, layout.ry);
+  cheek.addColorStop(0, mix(skin, 0.18));
+  cheek.addColorStop(0.58, skin);
+  cheek.addColorStop(1, mix(skin, -0.03));
+  softHead(ctx, layout.head.x, layout.head.y, layout.rx, layout.ry);
   fillStroke(ctx, cheek, 5);
-  ctx.fillStyle = ink("#e3788a", 0.34);
-  ctx.beginPath();
-  ctx.ellipse(layout.cx - 62, layout.head.y + 36, 26, 14, -0.2, 0, Math.PI * 2);
-  ctx.ellipse(layout.cx + 64, layout.head.y + 36, 26, 14, 0.2, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.save();
+  softHead(ctx, layout.head.x, layout.head.y, layout.rx * 0.92, layout.ry * 0.92);
+  ctx.clip();
+  warmBlush(ctx, layout.cx - 72, layout.head.y + 32);
+  warmBlush(ctx, layout.cx + 74, layout.head.y + 32);
+  ctx.restore();
   hairFront(ctx, layout, hairItem, hair);
   headwear(ctx, layout, config.slots.headwear.item, config.slots.headwear.color);
-  const eyeY = layout.head.y - 16;
-  eye(ctx, layout.cx - 50, eyeY, skin, config.face.eyes, layout.wink);
-  eye(ctx, layout.cx + 52, eyeY, skin, config.face.eyes, false);
-  ctx.strokeStyle = "#3a241c";
-  ctx.lineWidth = 3.2;
+  const eyeY = layout.head.y - 10;
+  eye(ctx, layout.cx - 40, eyeY, skin, config.face.eyes, layout.wink);
+  eye(ctx, layout.cx + 42, eyeY, skin, config.face.eyes, false);
+  ctx.strokeStyle = "#6a4036";
+  ctx.lineWidth = 1.65;
+  ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(layout.cx - 28, eyeY - 30);
-  ctx.quadraticCurveTo(layout.cx - 50, eyeY - 44, layout.cx - 78, eyeY - 26);
-  ctx.moveTo(layout.cx + 26, eyeY - 30);
-  ctx.quadraticCurveTo(layout.cx + 52, eyeY - 46, layout.cx + 80, eyeY - 24);
+  ctx.moveTo(layout.cx - 56, eyeY - 14);
+  ctx.quadraticCurveTo(layout.cx - 40, eyeY - 26, layout.cx - 22, eyeY - 13);
+  ctx.moveTo(layout.cx + 24, eyeY - 13);
+  ctx.quadraticCurveTo(layout.cx + 42, eyeY - 26, layout.cx + 58, eyeY - 14);
   ctx.stroke();
-  ctx.strokeStyle = ink(mix(skin, -0.45), 0.55);
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = ink(mix(skin, -0.28), 0.55);
+  ctx.lineWidth = 1.7;
   ctx.beginPath();
-  ctx.moveTo(layout.cx, layout.head.y + 18);
-  ctx.quadraticCurveTo(layout.cx + 2, layout.head.y + 32, layout.cx + 1, layout.head.y + 40);
+  ctx.moveTo(layout.cx + 1, layout.head.y + 28);
+  ctx.quadraticCurveTo(layout.cx + 6, layout.head.y + 36, layout.cx + 1, layout.head.y + 42);
   ctx.stroke();
-  ctx.fillStyle = ink(mix(skin, -0.45), 0.4);
-  ctx.beginPath();
-  ctx.ellipse(layout.cx - 5, layout.head.y + 44, 2.4, 1.6, 0, 0, Math.PI * 2);
-  ctx.ellipse(layout.cx + 6, layout.head.y + 44, 2.4, 1.6, 0, 0, Math.PI * 2);
-  ctx.fill();
-  lips(ctx, layout.cx, layout.head.y + 74, config.face.expression, config.face.mouth);
+  lips(ctx, layout.cx, layout.head.y + 68, config.face.expression, config.face.mouth);
   accessory(ctx, layout, config.slots.accessory.item, config.slots.accessory.color, eyeY);
 }
