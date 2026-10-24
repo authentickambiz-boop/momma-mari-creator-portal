@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { EARNINGS_CAP_CENTS, REAL_PAYMENTS } from "../src/lib/worlds/economy";
 import { CITY_LOCATION_IDS } from "../src/lib/worlds/city/locations";
@@ -63,12 +63,16 @@ test("worlds QC passes every building task and the negative checks", () => {
 
   assert.deepEqual(report.negatives.map((item) => item.id), [
     "spam-comment",
-    "nsfw",
+    "disallowed-note",
     "apartment-yard",
     "non-owner-office",
     "office-bot-leave",
   ]);
   for (const item of report.negatives) assert.equal(item.pass, true, item.detail);
+  const disallowed = report.negatives.find((item) => item.id === "disallowed-note");
+  assert.equal(disallowed?.name, "Disallowed note rejected");
+  assert.match(disallowed?.detail ?? "", /not stored/);
+  assert.equal(/\bnsfw\b/i.test(JSON.stringify(report)), false);
 
   const summary = renderQcSummary(report);
   for (const path of ["README.md", "src/lib/worlds/city/README.md"]) {
@@ -76,6 +80,11 @@ test("worlds QC passes every building task and the negative checks", () => {
     assert.ok(source.includes(summary.trim()), path);
     assert.match(source, /LIVE_SOCIAL_ACTIONS/);
     assert.match(source, /LIVE_EMAIL_SEND/);
+    assert.equal(/\bnsfw\b/i.test(source), false, path);
+  }
+  for (const file of readdirSync("src/lib/worlds/city/qc-reports")) {
+    const source = readFileSync(`src/lib/worlds/city/qc-reports/${file}`, "utf8");
+    assert.equal(/\bnsfw\b/i.test(source), false, file);
   }
   assert.match(formatQcTable(report), /\nPASS$/);
 });

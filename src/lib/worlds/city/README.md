@@ -14,7 +14,7 @@ Quality runs in order: an auto check, then a peer or bot score, then an owner ga
 
 `npm run worlds:smoke` opens `/worlds/city/smoke` in Playwright as the owner and checks every building panel: the task list and a **Submit in the city** button, or the shop's **Buy with Kash** button when the building has no scored tasks. That page 404s unless `WORLDS_CITY` and `WORLDS_CITY_SMOKE` are both exactly `true`. It is not a login return path. `tests/worlds-city-shop.test.ts` walks Studio, Apartment, House, Creator loft, and Mansion against every clothing and furniture item.
 
-`npm run worlds:qc` runs that harness for every building. Each task has to pass the auto check, the peer or bot score path, the owner gate when the work is external, `sent: false`, the Kash payout, and the daily cap. The command prints a pass/fail table and writes `src/lib/worlds/city/qc-reports/<building>.json` and `.md`. Spam comments are rejected, NSFW notes are blocked, an apartment cannot buy a yard item, a non-owner cannot enter the office, and an office roster bot cannot leave HQ. `LIVE_SOCIAL_ACTIONS` and `LIVE_EMAIL_SEND` stay false.
+`npm run worlds:qc` runs that harness for every building. Each task has to pass the auto check, the peer or bot score path, the owner gate when the work is external, `sent: false`, the Kash payout, and the daily cap. The command prints a pass/fail table and writes `src/lib/worlds/city/qc-reports/<building>.json` and `.md`. Spam comments are rejected, a note the city does not allow is rejected and not stored, an apartment cannot buy a yard item, a non-owner cannot enter the office, and an office roster bot cannot leave HQ. `LIVE_SOCIAL_ACTIONS` and `LIVE_EMAIL_SEND` stay false.
 
 ## Task QC
 
@@ -38,7 +38,7 @@ Quality runs in order: an auto check, then a peer or bot score, then an owner ga
 | Furniture shop | 0 | 0 | PASS |
 | Negative checks | 5 | 5 | PASS |
 
-Negative checks: spam comment rejected, NSFW blocked, apartment buying a yard item rejected, non-owner office enter rejected, office bot leave blocked.
+Negative checks: spam comment rejected, disallowed note rejected and not stored, apartment buying a yard item rejected, non-owner office enter rejected, office bot leave blocked.
 
 Per-building JSON and markdown reports: `src/lib/worlds/city/qc-reports/`.
 <!-- worlds-qc:end -->

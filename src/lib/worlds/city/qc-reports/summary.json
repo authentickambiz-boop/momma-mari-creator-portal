@@ -631,11 +631,11 @@
           "detail": "Spam comment rejected. Nothing was posted."
         },
         {
-          "id": "nsfw",
-          "name": "NSFW blocked",
+          "id": "disallowed-note",
+          "name": "Disallowed note rejected",
           "locationId": "social-club",
           "pass": true,
-          "detail": "NSFW is blocked on the comment and the short story. Nothing was posted or sent."
+          "detail": "A disallowed note was rejected and was not stored. Nothing was posted or sent."
         }
       ],
       "note": "Each task ran on a throwaway owner session. Nothing was posted or sent."
@@ -2157,11 +2157,11 @@
       "detail": "Spam comment rejected. Nothing was posted."
     },
     {
-      "id": "nsfw",
-      "name": "NSFW blocked",
+      "id": "disallowed-note",
+      "name": "Disallowed note rejected",
       "locationId": "social-club",
       "pass": true,
-      "detail": "NSFW is blocked on the comment and the short story. Nothing was posted or sent."
+      "detail": "A disallowed note was rejected and was not stored. Nothing was posted or sent."
     },
     {
       "id": "apartment-yard",

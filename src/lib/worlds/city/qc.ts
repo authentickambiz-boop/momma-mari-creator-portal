@@ -54,7 +54,7 @@ export type SharedCapQc = {
 };
 
 export type NegativeQc = {
-  id: "spam-comment" | "nsfw" | "apartment-yard" | "non-owner-office" | "office-bot-leave";
+  id: "spam-comment" | "disallowed-note" | "apartment-yard" | "non-owner-office" | "office-bot-leave";
   name: string;
   locationId: string;
   pass: boolean;
@@ -296,24 +296,31 @@ function negativeSpam(): NegativeQc {
   };
 }
 
-function negativeNsfw(): NegativeQc {
-  const comment = submitCityTask(practiceOwnerSession(), "social-comment", {
-    optIn: true,
-    note: "This comment is NSFW.",
-    now: 20_100_000,
+function negativeDisallowed(): NegativeQc {
+  const probe = "nsfw";
+  const checks = [
+    { taskId: "social-comment", now: 20_100_000 },
+    { taskId: "library-story", now: 20_200_000 },
+  ];
+  const pass = checks.every(({ taskId, now }) => {
+    const before = practiceOwnerSession();
+    const result = submitCityTask(before, taskId, { optIn: true, note: probe, now });
+    const stored = JSON.stringify(before).toLowerCase().includes(probe);
+    return !result.ok
+      && result.error === "That note is not allowed in the city. Nothing was stored, posted, or sent."
+      && !result.error.toLowerCase().includes(probe)
+      && !stored
+      && before.submissions.length === 0
+      && before.kashCents === 0;
   });
-  const story = submitCityTask(practiceOwnerSession(), "library-story", {
-    optIn: true,
-    note: "A Friday drop turned NSFW on the shelf before anyone pressed play.",
-    now: 20_200_000,
-  });
-  const pass = !comment.ok && /NSFW is blocked/.test(comment.error) && !story.ok && /NSFW is blocked/.test(story.error);
   return {
-    id: "nsfw",
-    name: "NSFW blocked",
+    id: "disallowed-note",
+    name: "Disallowed note rejected",
     locationId: "social-club",
     pass,
-    detail: pass ? "NSFW is blocked on the comment and the short story. Nothing was posted or sent." : "An NSFW note was accepted.",
+    detail: pass
+      ? "A disallowed note was rejected and was not stored. Nothing was posted or sent."
+      : "A disallowed note was accepted or stored.",
   };
 }
 
@@ -380,7 +387,7 @@ function negativeOfficeBotLeave(): NegativeQc {
 }
 
 function runNegatives(): NegativeQc[] {
-  return [negativeSpam(), negativeNsfw(), negativeYard(), negativeOfficeEnter(), negativeOfficeBotLeave()];
+  return [negativeSpam(), negativeDisallowed(), negativeYard(), negativeOfficeEnter(), negativeOfficeBotLeave()];
 }
 
 function buildingNote(locationId: string, taskCount: number) {
@@ -495,7 +502,7 @@ export function renderQcSummary(report: WorldsQcReport) {
   const passedNegatives = report.negatives.filter((item) => item.pass).length;
   lines.push(`| Negative checks | ${report.negatives.length} | ${passedNegatives} | ${report.negatives.every((item) => item.pass) ? "PASS" : "FAIL"} |`);
   lines.push("");
-  lines.push("Negative checks: spam comment rejected, NSFW blocked, apartment buying a yard item rejected, non-owner office enter rejected, office bot leave blocked.");
+  lines.push("Negative checks: spam comment rejected, disallowed note rejected and not stored, apartment buying a yard item rejected, non-owner office enter rejected, office bot leave blocked.");
   lines.push("");
   lines.push("Per-building JSON and markdown reports: `src/lib/worlds/city/qc-reports/`.");
   lines.push("");

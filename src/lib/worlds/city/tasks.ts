@@ -874,13 +874,13 @@ function peerScore(note: string) {
   return Math.max(55, Math.min(98, 58 + words * 4));
 }
 
-const NSFW_NOTE = /\b(nsfw|porn|xxx|nude|nudes|naked|hentai)\b/i;
+const DISALLOWED_NOTE = /\b(nsfw|porn|xxx|nude|nudes|naked|hentai)\b/i;
 const SPAM_PHRASE = /\b(buy now|click here|free followers|act now|limited offer)\b/i;
 const SPAM_URL = /https?:\/\/|www\./i;
 
-/** City notes stay suitable for a public practice draft. */
-export function noteIsNsfw(note: string) {
-  return NSFW_NOTE.test(note);
+/** Hard block. This is not a Worlds task, category, or product. The note is not stored. */
+function noteIsDisallowed(note: string) {
+  return DISALLOWED_NOTE.test(note);
 }
 
 /** Repeated pitches, links, and stuffed words are spam comments. */
@@ -905,7 +905,7 @@ export function taskWindow(item: Pick<CityTask, "id" | "kind" | "dailyLimit">) {
 }
 
 function autoFail(item: CityTask, note: string) {
-  if (noteIsNsfw(note)) return "NSFW is blocked. Nothing was posted or sent.";
+  if (noteIsDisallowed(note)) return "That note is not allowed in the city. Nothing was stored, posted, or sent.";
   if (item.taskType === "comment" && commentIsSpam(note)) return "Spam comments are rejected. Nothing was posted.";
   if (item.external === "email") {
     if (note.length < 24) return "The auto check wants a full draft: greeting, reason, and a close.";

@@ -709,7 +709,7 @@ curl -sS -X POST \
 | Furniture shop | 0 | 0 | PASS |
 | Negative checks | 5 | 5 | PASS |
 
-Negative checks: spam comment rejected, NSFW blocked, apartment buying a yard item rejected, non-owner office enter rejected, office bot leave blocked.
+Negative checks: spam comment rejected, disallowed note rejected and not stored, apartment buying a yard item rejected, non-owner office enter rejected, office bot leave blocked.
 
 Per-building JSON and markdown reports: `src/lib/worlds/city/qc-reports/`.
 <!-- worlds-qc:end -->

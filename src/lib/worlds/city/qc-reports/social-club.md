@@ -22,4 +22,4 @@ Each task ran on a throwaway owner session. Nothing was posted or sent.
 ## Negative checks
 
 - PASS: Spam comment rejected. Nothing was posted.
-- PASS: NSFW is blocked on the comment and the short story. Nothing was posted or sent.
+- PASS: A disallowed note was rejected and was not stored. Nothing was posted or sent.
