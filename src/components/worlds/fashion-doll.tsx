@@ -490,13 +490,16 @@ export function FashionDoll({
   config,
   view,
   emote = "idle",
+  forceDoll = false,
 }: {
   config: CharacterConfig;
   view: FashionView;
   emote?: FashionEmote;
+  /** Preview mannequin. Skips the locked glam portrait. */
+  forceDoll?: boolean;
 }) {
   const gid = useId().replace(/:/g, "");
-  if (isGlamSilhouette(config)) {
+  if (!forceDoll && isGlamSilhouette(config)) {
     return <GlamPortrait config={config} view={view} emote={emote} />;
   }
   const paint = paints(config);

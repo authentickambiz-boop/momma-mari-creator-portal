@@ -23,4 +23,4 @@ The preview is a two-by-two sheet on neutral light gray `#e6e6e6`: front, side, 
 
 On a narrow viewport the picker is a bottom sheet. The concept sheet sits in the band above it. Tapping the sheet scrim hides the picker.
 
-The selection panel is a dresser: category pills, item chips, grouped color swatches, and a sticky footer with Randomize, Reset, and Save look. Shop pieces stay locked and show a Kash price with a K crossed by a horizontal line.
+The selection panel is a dresser: category pills, item chips, grouped color swatches, and a sticky footer with Randomize, Reset, and Save look. Hover or tap a piece to preview it on a mannequin. Apply, or a second tap, puts it on the character. The concept sheet stays on the worn look until then. Shop pieces stay locked and show a Kash price with a K crossed by a horizontal line.

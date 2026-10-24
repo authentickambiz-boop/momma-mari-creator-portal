@@ -498,6 +498,66 @@
   border: 1px solid rgba(23, 32, 51, 0.35);
   border-radius: 999px;
 }
+.character-choice {
+  display: inline-flex;
+}
+.character-choice:has(button:disabled) {
+  cursor: not-allowed;
+}
+.character-choices button:disabled {
+  pointer-events: none;
+}
+.character-choices button.is-preview:not([aria-pressed="true"]) {
+  background: #eef4ff;
+  color: #17315c;
+  border-color: #1a6dff;
+  box-shadow: 0 0 0 2px rgba(26, 109, 255, 0.28);
+}
+.character-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 12px 8px;
+  padding: 8px;
+  border: 1px solid #c5d4ea;
+  border-radius: 16px;
+  background: #fff;
+}
+.character-preview-stage {
+  width: 84px;
+  height: 116px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #e6e6e6;
+}
+.character-preview-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.character-preview-copy .character-kicker,
+.character-preview-copy .character-note {
+  margin: 0;
+}
+.character-preview-name {
+  margin: 2px 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.character-preview-apply {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: #1a6dff;
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
 .character-apply-bar {
   display: flex;
   flex-direction: column;

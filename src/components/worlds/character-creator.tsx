@@ -28,6 +28,7 @@ import {
 } from "@/lib/worlds/character";
 import { GAME_CATALOG } from "@/lib/worlds/game-wallet";
 import { CharacterStage } from "./character-stage";
+import { FashionDoll } from "./fashion-doll";
 import "./character.css";
 
 const CATEGORIES = [
@@ -58,6 +59,36 @@ function label(value: string) {
   if (value === "none") return "None";
   return value.slice(0, 1).toUpperCase() + value.slice(1);
 }
+
+const GHOST_SKIN = "#f4e6da";
+
+/** One piece on a plain figure, so the preview is not the worn portrait. */
+function mannequin(base: CharacterConfig, slot: CharacterSlotName, item: string): CharacterConfig {
+  const slots: CharacterConfig["slots"] = {
+    hair: { item: "none", color: base.slots.hair.color },
+    headwear: { item: "none", color: base.slots.headwear.color },
+    top: { item: "none", color: base.slots.top.color },
+    bottom: { item: "none", color: base.slots.bottom.color },
+    shoes: { item: "none", color: base.slots.shoes.color },
+    accessory: { item: "none", color: base.slots.accessory.color },
+  };
+  slots[slot] = { item, color: base.slots[slot].color };
+  return {
+    ...base,
+    body: { shape: "tall", size: "medium", color: GHOST_SKIN },
+    face: { eyes: "wide", mouth: "smile", expression: "smile" },
+    slots,
+  };
+}
+
+type Arm = {
+  id: string;
+  name: string;
+  wearing: boolean;
+  lock: ItemLock | null;
+  look: CharacterConfig;
+  apply: () => void;
+};
 
 function sameLook(left: CharacterConfig, right: CharacterConfig) {
   return JSON.stringify(left) === JSON.stringify(right);
@@ -96,12 +127,18 @@ function Choices({
   onPick,
   labelText,
   locked,
+  armed,
+  onPreview,
+  onCommit,
 }: {
   values: readonly string[];
   selected: string;
   onPick: (value: string) => void;
   labelText: string;
   locked?: Readonly<Record<string, ItemLock>>;
+  armed?: string | null;
+  onPreview?: (value: string) => void;
+  onCommit?: (value: string) => void;
 }) {
   if (values.length === 0) {
     return (
@@ -119,15 +156,30 @@ function Choices({
           const lock = locked?.[value];
           const name = label(value);
           const price = lock?.price;
+          const previewing = armed === value;
           return (
-            <button
+            <span
               key={value}
+              className="character-choice"
+              onMouseEnter={() => onPreview?.(value)}
+              onPointerDown={(event) => {
+                event.currentTarget.dataset.ready = previewing && !lock ? "1" : "0";
+              }}
+              onClick={(event) => {
+                if (!onPreview) {
+                  onPick(value);
+                  return;
+                }
+                if (event.currentTarget.dataset.ready === "1") onCommit?.(value);
+                else onPreview(value);
+              }}
+            >
+            <button
               type="button"
-              className={lock ? "is-locked" : undefined}
+              className={lock ? "is-locked" : previewing ? "is-preview" : undefined}
               aria-pressed={selected === value}
               aria-label={lock ? `${name}, ${price != null ? `${kashAmount(price)} Kash` : lock.reason}, locked` : name}
               disabled={Boolean(lock)}
-              onClick={() => onPick(value)}
             >
               {lock ? (
                 <>
@@ -147,6 +199,7 @@ function Choices({
                 </>
               ) : name}
             </button>
+            </span>
           );
         })}
       </div>
@@ -238,6 +291,7 @@ export function CharacterCreator({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [failed, setFailed] = useState(false);
+  const [arm, setArm] = useState<Arm | null>(null);
   const savingRef = useRef(false);
   const leaveRef = useRef(false);
   const studioRef = useRef<HTMLDivElement>(null);
@@ -352,6 +406,44 @@ export function CharacterCreator({
   function openCategory(next: CategoryId) {
     setCategory(next);
     setSheetOpen(true);
+    setArm(null);
+  }
+
+  function showPiece(id: string, name: string, wearing: boolean, lock: ItemLock | null, look: CharacterConfig, apply: () => void) {
+    setArm({ id, name, wearing, lock, look, apply });
+  }
+
+  function wearPiece(apply: () => void) {
+    apply();
+    setArm(null);
+    setMessage("");
+  }
+
+  function choicesFor(
+    id: string,
+    labelText: string,
+    values: readonly string[],
+    selected: string,
+    wear: (value: string) => void,
+    look: (value: string) => CharacterConfig,
+    locked?: Readonly<Record<string, ItemLock>>,
+  ) {
+    const armed = arm?.id.startsWith(`${id}:`) ? arm.id.slice(id.length + 1) : null;
+    return (
+      <Choices
+        labelText={labelText}
+        values={values}
+        selected={selected}
+        locked={locked}
+        armed={armed}
+        onPick={wear}
+        onPreview={(value) => showPiece(`${id}:${value}`, label(value), selected === value, locked?.[value] ?? null, look(value), () => wear(value))}
+        onCommit={(value) => {
+          if (locked?.[value] || selected === value) return;
+          wearPiece(() => wear(value));
+        }}
+      />
+    );
   }
 
   const topItem = config.slots.top.item;
@@ -413,24 +505,24 @@ export function CharacterCreator({
           ) : null}
           {category === "body" ? (
             <>
-              <Choices labelText="Shape" values={BODY_SHAPES} selected={config.body.shape} onPick={(shape) => { setConfig((current) => ({ ...current, body: { ...current.body, shape: shape as CharacterConfig["body"]["shape"] } })); setMessage(""); }} />
-              <Choices labelText="Size" values={BODY_SIZES} selected={config.body.size} onPick={(size) => { setConfig((current) => ({ ...current, body: { ...current.body, size: size as CharacterConfig["body"]["size"] } })); setMessage(""); }} />
+              {choicesFor("shape", "Shape", BODY_SHAPES, config.body.shape, (shape) => { setConfig((current) => ({ ...current, body: { ...current.body, shape: shape as CharacterConfig["body"]["shape"] } })); setMessage(""); }, (shape) => ({ ...config, body: { ...config.body, shape: shape as CharacterConfig["body"]["shape"] } }))}
+              {choicesFor("size", "Size", BODY_SIZES, config.body.size, (size) => { setConfig((current) => ({ ...current, body: { ...current.body, size: size as CharacterConfig["body"]["size"] } })); setMessage(""); }, (size) => ({ ...config, body: { ...config.body, size: size as CharacterConfig["body"]["size"] } }))}
               <Swatches labelText="Skin" selected={config.body.color} onPick={(color) => { setConfig((current) => ({ ...current, body: { ...current.body, color } })); setMessage(""); }} />
               <Recolor labelText="Skin" before={baseline.body.color} after={config.body.color} />
             </>
           ) : null}
           {category === "face" ? (
             <>
-              <Choices labelText="Eyes" values={EYE_STYLES} selected={config.face.eyes} onPick={(eyes) => { setConfig((current) => ({ ...current, face: { ...current.face, eyes: eyes as CharacterConfig["face"]["eyes"] } })); setMessage(""); }} />
-              <Choices labelText="Mouth" values={MOUTH_STYLES} selected={config.face.mouth} onPick={(mouth) => { setConfig((current) => ({ ...current, face: { ...current.face, mouth: mouth as CharacterConfig["face"]["mouth"] } })); setMessage(""); }} />
-              <Choices labelText="Expression" values={EXPRESSIONS} selected={config.face.expression} onPick={(expression) => { setConfig((current) => ({ ...current, face: { ...current.face, expression: expression as CharacterConfig["face"]["expression"] } })); setMessage(""); }} />
+              {choicesFor("eyes", "Eyes", EYE_STYLES, config.face.eyes, (eyes) => { setConfig((current) => ({ ...current, face: { ...current.face, eyes: eyes as CharacterConfig["face"]["eyes"] } })); setMessage(""); }, (eyes) => ({ ...config, face: { ...config.face, eyes: eyes as CharacterConfig["face"]["eyes"] } }))}
+              {choicesFor("mouth", "Mouth", MOUTH_STYLES, config.face.mouth, (mouth) => { setConfig((current) => ({ ...current, face: { ...current.face, mouth: mouth as CharacterConfig["face"]["mouth"] } })); setMessage(""); }, (mouth) => ({ ...config, face: { ...current.face, mouth: mouth as CharacterConfig["face"]["mouth"] } }))}
+              {choicesFor("expression", "Expression", EXPRESSIONS, config.face.expression, (expression) => { setConfig((current) => ({ ...current, face: { ...current.face, expression: expression as CharacterConfig["face"]["expression"] } })); setMessage(""); }, (expression) => ({ ...config, face: { ...config.face, expression: expression as CharacterConfig["face"]["expression"] } }))}
               <p className="character-note">Hair, eyes, and expression read in the profile headshot.</p>
             </>
           ) : null}
           {category === "hair" ? (
             meshedChoices("hair", characterSlotChoices("hair")) ? (
               <>
-                <Choices labelText="Style" values={characterSlotChoices("hair")} selected={config.slots.hair.item} locked={locksFor("hair", characterSlotChoices("hair"), unlocked)} onPick={(item) => setSlot("hair", { item })} />
+                {choicesFor("hair", "Style", characterSlotChoices("hair"), config.slots.hair.item, (item) => setSlot("hair", { item }), (item) => mannequin(config, "hair", item), locksFor("hair", characterSlotChoices("hair"), unlocked))}
                 <Swatches labelText="Color" selected={config.slots.hair.color} onPick={(color) => setSlot("hair", { color })} />
                 <Recolor labelText="Hair" before={baseline.slots.hair.color} after={config.slots.hair.color} />
               </>
@@ -446,7 +538,7 @@ export function CharacterCreator({
               <>
                 <p className="character-note">Tops and outerwear share one piece. A shirt replaces a coat.</p>
                 {outerOn ? <p className="character-note">Outerwear is on. Choosing a top replaces it.</p> : null}
-                <Choices labelText="Style" values={INNER_TOPS} selected={innerOn || topItem === "none" ? topItem : ""} locked={locksFor("top", INNER_TOPS, unlocked)} onPick={(item) => setSlot("top", { item })} />
+                {choicesFor("top", "Style", INNER_TOPS, innerOn || topItem === "none" ? topItem : "", (item) => setSlot("top", { item }), (item) => mannequin(config, "top", item), locksFor("top", INNER_TOPS, unlocked))}
                 <Swatches labelText="Color" selected={config.slots.top.color} onPick={(color) => setSlot("top", { color })} />
                 <Recolor labelText="Top" before={baseline.slots.top.color} after={config.slots.top.color} />
               </>
@@ -460,7 +552,7 @@ export function CharacterCreator({
           {category === "bottom" ? (
             meshedChoices("bottom", characterSlotChoices("bottom")) ? (
               <>
-                <Choices labelText="Style" values={characterSlotChoices("bottom")} selected={config.slots.bottom.item} locked={locksFor("bottom", characterSlotChoices("bottom"), unlocked)} onPick={(item) => setSlot("bottom", { item })} />
+                {choicesFor("bottom", "Style", characterSlotChoices("bottom"), config.slots.bottom.item, (item) => setSlot("bottom", { item }), (item) => mannequin(config, "bottom", item), locksFor("bottom", characterSlotChoices("bottom"), unlocked))}
                 <Swatches labelText="Color" selected={config.slots.bottom.color} onPick={(color) => setSlot("bottom", { color })} />
                 <Recolor labelText="Bottom" before={baseline.slots.bottom.color} after={config.slots.bottom.color} />
               </>
@@ -474,7 +566,7 @@ export function CharacterCreator({
           {category === "shoes" ? (
             meshedChoices("shoes", characterSlotChoices("shoes")) ? (
               <>
-                <Choices labelText="Style" values={characterSlotChoices("shoes")} selected={config.slots.shoes.item} locked={locksFor("shoes", characterSlotChoices("shoes"), unlocked)} onPick={(item) => setSlot("shoes", { item })} />
+                {choicesFor("shoes", "Style", characterSlotChoices("shoes"), config.slots.shoes.item, (item) => setSlot("shoes", { item }), (item) => mannequin(config, "shoes", item), locksFor("shoes", characterSlotChoices("shoes"), unlocked))}
                 <Swatches labelText="Color" selected={config.slots.shoes.color} onPick={(color) => setSlot("shoes", { color })} />
                 <Recolor labelText="Shoes" before={baseline.slots.shoes.color} after={config.slots.shoes.color} />
               </>
@@ -490,7 +582,7 @@ export function CharacterCreator({
               <>
                 <p className="character-note">Outerwear uses the top slot. None keeps a shirt that is already on.</p>
                 {innerOn ? <p className="character-note">A top is on. A coat replaces it.</p> : null}
-                <Choices labelText="Style" values={OUTERWEAR_ITEMS} selected={outerOn ? topItem : "none"} locked={locksFor("top", OUTERWEAR_ITEMS, unlocked)} onPick={pickOuterwear} />
+                {choicesFor("outer", "Style", OUTERWEAR_ITEMS, outerOn ? topItem : "none", pickOuterwear, (item) => mannequin(config, "top", item), locksFor("top", OUTERWEAR_ITEMS, unlocked))}
                 <Swatches labelText="Color" selected={config.slots.top.color} onPick={(color) => setSlot("top", { color })} />
                 <Recolor labelText="Outerwear" before={baseline.slots.top.color} after={config.slots.top.color} />
               </>
@@ -505,7 +597,7 @@ export function CharacterCreator({
             <>
               {meshedChoices("headwear", characterSlotChoices("headwear")) ? (
                 <>
-                  <Choices labelText="Head" values={characterSlotChoices("headwear")} selected={config.slots.headwear.item} locked={locksFor("headwear", characterSlotChoices("headwear"), unlocked)} onPick={(item) => setSlot("headwear", { item })} />
+                  {choicesFor("head", "Head", characterSlotChoices("headwear"), config.slots.headwear.item, (item) => setSlot("headwear", { item }), (item) => mannequin(config, "headwear", item), locksFor("headwear", characterSlotChoices("headwear"), unlocked))}
                   <Swatches labelText="Head color" selected={config.slots.headwear.color} onPick={(color) => setSlot("headwear", { color })} />
                 </>
               ) : (
@@ -515,7 +607,7 @@ export function CharacterCreator({
               )}
               {meshedChoices("accessory", characterSlotChoices("accessory")) ? (
                 <>
-                  <Choices labelText="Worn" values={characterSlotChoices("accessory")} selected={config.slots.accessory.item} locked={locksFor("accessory", characterSlotChoices("accessory"), unlocked)} onPick={(item) => setSlot("accessory", { item })} />
+                  {choicesFor("worn", "Worn", characterSlotChoices("accessory"), config.slots.accessory.item, (item) => setSlot("accessory", { item }), (item) => mannequin(config, "accessory", item), locksFor("accessory", characterSlotChoices("accessory"), unlocked))}
                   <Swatches labelText="Worn color" selected={config.slots.accessory.color} onPick={(color) => setSlot("accessory", { color })} />
                   <Recolor labelText="Accessory" before={baseline.slots.accessory.color} after={config.slots.accessory.color} />
                 </>
@@ -535,11 +627,39 @@ export function CharacterCreator({
               <Recolor labelText="Primary" before={baseline.palette.primary} after={config.palette.primary} />
               <Recolor labelText="Hair" before={baseline.slots.hair.color} after={config.slots.hair.color} />
               <Recolor labelText="Outfit" before={baseline.slots.top.color} after={config.slots.top.color} />
-              <Choices labelText="Name tag" values={NAME_TAG_STYLES} selected={config.nameTag.style} onPick={(style) => { setConfig((current) => ({ ...current, nameTag: { ...current.nameTag, style: style as CharacterConfig["nameTag"]["style"] } })); setMessage(""); }} />
+              {choicesFor("tag", "Name tag", NAME_TAG_STYLES, config.nameTag.style, (style) => { setConfig((current) => ({ ...current, nameTag: { ...current.nameTag, style: style as CharacterConfig["nameTag"]["style"] } })); setMessage(""); }, (style) => ({ ...config, nameTag: { ...config.nameTag, style: style as CharacterConfig["nameTag"]["style"] } }))}
               <Swatches labelText="Tag color" selected={config.nameTag.color} onPick={(color) => { setConfig((current) => ({ ...current, nameTag: { ...current.nameTag, color } })); setMessage(""); }} />
             </>
           ) : null}
         </div>
+        {arm ? (
+          <div className="character-preview" role="region" aria-label="Item preview">
+            <div className="character-preview-stage">
+              <FashionDoll config={arm.look} view="front" emote="idle" forceDoll />
+            </div>
+            <div className="character-preview-copy">
+              <p className="character-kicker">Preview</p>
+              <p className="character-preview-name">{arm.name}</p>
+              <p className="character-note">
+                {arm.wearing ? "Already on the character." : arm.lock ? "Shop piece. Preview only until it is unlocked." : "Not on the character yet."}
+              </p>
+            </div>
+            {arm.lock ? (
+              <span className="character-price">
+                {arm.lock.price != null ? (
+                  <>
+                    <span className="kash-mark" aria-hidden="true">K</span>
+                    {kashAmount(arm.lock.price)}
+                  </>
+                ) : arm.lock.reason}
+              </span>
+            ) : arm.wearing ? null : (
+              <button type="button" className="character-preview-apply" onClick={() => wearPiece(arm.apply)}>
+                Apply
+              </button>
+            )}
+          </div>
+        ) : null}
         <div className="character-apply-bar">
           {message ? <p className={failed ? "character-note error" : "character-note"} role="status">{message}</p> : null}
           {!message && dirty ? (
@@ -547,8 +667,8 @@ export function CharacterCreator({
           ) : null}
           {!message && !dirty ? <p className="character-note">Matches the saved look.</p> : null}
           <div className="character-footer-actions">
-            <button type="button" className="character-quiet" onClick={() => { setConfig(randomCharacter()); setMessage(""); }}>Randomize</button>
-            <button type="button" className="character-quiet" onClick={() => { setConfig(defaultCharacter(subjectId)); setMessage(""); }}>Reset</button>
+            <button type="button" className="character-quiet" onClick={() => { setArm(null); setConfig(randomCharacter()); setMessage(""); }}>Randomize</button>
+            <button type="button" className="character-quiet" onClick={() => { setArm(null); setConfig(defaultCharacter(subjectId)); setMessage(""); }}>Reset</button>
             <button type="button" className="character-apply" disabled={saving} onClick={() => void save()}>
               {saving ? "Saving…" : "Save look"}
             </button>
