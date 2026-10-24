@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { describe, test } from "node:test";
-import { compareVersions, desktopDownloadUrl, newestWorldsRelease, rewriteUpdaterManifest, safeAssetName, worldsReleaseVersion } from "../src/lib/desktop-update";
+import { compareVersions, desktopDownloadUrl, githubAssetIsPublic, newestWorldsRelease, publicLatestJsonUrl, rewriteUpdaterManifest, safeAssetName, worldsReleaseVersion, worldsTagFromGithubLocation, worldsTagsFromAtom } from "../src/lib/desktop-update";
 import { worldsReturnCookie, worldsReturnPath } from "../src/lib/worlds/office-return";
 
 function source(file: string) {
@@ -11,7 +11,11 @@ function source(file: string) {
 
 describe("Momma Mari Worlds desktop", () => {
   test("the Tauri window opens the live office, remembers its place, and sends grokbot links out", () => {
-    const main = source("desktop/src-tauri/src/main.rs");
+    const main = [
+      source("desktop/src-tauri/src/main.rs"),
+      source("desktop/src-tauri/src/office_lock.rs"),
+    ].join("\n");
+    assert.match(source("desktop/src-tauri/src/main.rs"), /mod office_lock/);
     const config = source("desktop/src-tauri/tauri.conf.json");
     const workflow = source(".github/workflows/desktop.yml");
     const readme = source("README.md");
@@ -36,9 +40,13 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(main, /Updating…/);
     assert.match(main, /install_update/);
     assert.match(main, /tauri_plugin_updater/);
-    assert.match(config, /"version": "0\.1\.2"/);
-    assert.match(source("desktop/package.json"), /"version": "0\.1\.2"/);
-    assert.match(source("desktop/src-tauri/Cargo.toml"), /version = "0\.1\.2"/);
+    assert.match(main, /WORLDS_LAUNCH url=/);
+    assert.match(main, /updater=check/);
+    assert.match(main, /WORLDS_UPDATER result=/);
+    assert.match(main, /launch_url_from_assets/);
+    assert.match(config, /"version": "0\.1\.3"/);
+    assert.match(source("desktop/package.json"), /"version": "0\.1\.3"/);
+    assert.match(source("desktop/src-tauri/Cargo.toml"), /version = "0\.1\.3"/);
     assert.match(main, /accounts\.google\.com/);
     assert.match(main, /host_is_google_auth/);
     assert.equal(main.includes("host_is(host, \"google.com\")"), false);
@@ -46,6 +54,9 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(config, /"productName": "Momma Mari Worlds"/);
     assert.match(config, /createUpdaterArtifacts": true/);
     assert.match(config, /https:\/\/www\.mommamari\.com\/portal\/api\/desktop\/latest\.json/);
+    assert.match(config, /releases\/latest\/download\/latest\.json/);
+    assert.match(config, /"\.\.\/assets\/": "assets\/"/);
+    assert.match(config, /assets\/building\.png/);
     assert.match(config, /"installMode": "quiet"/);
     assert.match(config, /dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6/);
     assert.equal(config.includes("minisign secret key"), false);
@@ -82,7 +93,17 @@ describe("Momma Mari Worlds desktop", () => {
     assert.match(readme, /Updating…/);
     assert.match(readme, /portal\/api\/desktop\/latest\.json/);
     assert.match(readme, /0\.1\.2/);
+    assert.match(readme, /0\.1\.3/);
+    assert.match(readme, /desktop\/assets\/game\.json/);
     assert.match(readme, /setup\.exe \/S/);
+    const game = JSON.parse(source("desktop/assets/game.json")) as { mode: string; url: string; ownerOnly: boolean; localGame: { ready: boolean; art: string } };
+    assert.equal(game.mode, "webview");
+    assert.equal(game.url, "https://www.mommamari.com/portal/worlds");
+    assert.equal(game.ownerOnly, true);
+    assert.equal(game.localGame.ready, false);
+    assert.equal(game.localGame.art, "building.png");
+    assert.equal(source("desktop/dist/index.html").includes("https://mommamari.com/worlds"), false);
+    assert.match(source("desktop/dist/index.html"), /https:\/\/www\.mommamari\.com\/portal\/worlds/);
     assert.match(source("src/app/api/desktop/latest/route.ts"), /loadUpdaterManifest/);
     assert.match(source("src/app/api/desktop/download/[name]/route.ts"), /fetchReleaseAsset/);
     assert.match(source("next.config.ts"), /\/api\/desktop\/latest\.json/);
@@ -149,5 +170,21 @@ describe("Momma Mari Worlds desktop", () => {
       version: "0.1.2",
       platforms: { "windows-x86_64": { signature: "sig", url: "http://example.com/setup.exe" } },
     }), null);
+
+    const repo = "https://github.com/authentickambiz-boop/momma-mari-creator-portal";
+    assert.equal(worldsTagFromGithubLocation(`${repo}/releases/tag/worlds-v0.1.3`), "worlds-v0.1.3");
+    assert.equal(worldsTagFromGithubLocation(`${repo}/releases/tag/v0.1.3`), null);
+    assert.equal(worldsTagFromGithubLocation("https://evil.example/authentickambiz-boop/momma-mari-creator-portal/releases/tag/worlds-v0.1.3"), null);
+    assert.equal(publicLatestJsonUrl("worlds-v0.1.3"), `${repo}/releases/download/worlds-v0.1.3/latest.json`);
+    assert.equal(publicLatestJsonUrl("worlds-v0.1.3-beta"), null);
+    assert.deepEqual(worldsTagsFromAtom(`
+      <entry><link href="${repo}/releases/tag/worlds-v0.1.2"/></entry>
+      <entry><link href="${repo}/releases/tag/v9.0.0"/></entry>
+      <entry><link href="${repo}/releases/tag/worlds-v0.1.3"/></entry>
+    `), ["worlds-v0.1.3", "worlds-v0.1.2"]);
+    assert.equal(githubAssetIsPublic(302, false), true);
+    assert.equal(githubAssetIsPublic(404, false), false);
+    assert.equal(githubAssetIsPublic(403, false), true);
+    assert.equal(githubAssetIsPublic(403, true), false);
   });
 });

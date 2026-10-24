@@ -5,6 +5,8 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::io::Write;
+use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
@@ -12,9 +14,46 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_updater::UpdaterExt;
 use tauri_plugin_window_state::{Builder as WindowStateBuilder, StateFlags};
 
-const WORLDS_URL: &str = "https://www.mommamari.com/portal/worlds";
+mod office_lock;
+
+use office_lock::{
+    host_is_momma, host_name, launch_url_from_assets, navigation_allowed, updater_result_line,
+    worlds_launch_line, WORLDS_URL,
+};
 
 static APP: OnceLock<AppHandle> = OnceLock::new();
+
+fn note_launch(app: &AppHandle, line: &str) {
+    eprintln!("{line}");
+    let Ok(dir) = app.path().app_log_dir() else {
+        return;
+    };
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join("worlds-launch.log"))
+    else {
+        return;
+    };
+    let _ = writeln!(file, "{line}");
+}
+
+fn bundled_game_manifest(app: &AppHandle) -> (String, Option<String>) {
+    let mut candidates = Vec::new();
+    if let Ok(dir) = app.path().resource_dir() {
+        candidates.push(dir.join("assets"));
+    }
+    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../assets"));
+    for assets in candidates {
+        if let Ok(text) = std::fs::read_to_string(assets.join("game.json")) {
+            return (assets.display().to_string(), Some(text));
+        }
+    }
+    ("missing".into(), None)
+}
 
 const DESKTOP_LOCK: &str = r#"
 (() => {
@@ -117,68 +156,17 @@ fn open_grokbot(url: &url::Url) {
     }
 }
 
-fn host_name(url: &url::Url) -> String {
-    url.host_str().unwrap_or("").trim_end_matches('.').to_ascii_lowercase()
-}
-
-/// Sign-in hosts only. Gmail, Drive, Docs, and Calendar are not in this list.
-fn host_is_google_auth(host: &str) -> bool {
-    matches!(
-        host,
-        "accounts.google.com"
-            | "accounts.youtube.com"
-            | "myaccount.google.com"
-            | "www.google.com"
-            | "oauth2.googleapis.com"
-            | "www.googleapis.com"
-            | "apis.google.com"
-            | "ssl.gstatic.com"
-            | "www.gstatic.com"
-            | "fonts.gstatic.com"
-            | "lh3.googleusercontent.com"
-    )
-}
-
-fn host_is_momma(host: &str) -> bool {
-    host == "mommamari.com" || host == "www.mommamari.com"
-}
-
-fn portal_path_allowed(path: &str) -> bool {
-    let bare = if path.len() > 1 { path.trim_end_matches('/') } else { path };
-    bare == "/portal/worlds"
-        || bare.starts_with("/portal/worlds/")
-        || bare == "/portal/login"
-        || bare == "/portal/api/auth"
-        || bare.starts_with("/portal/api/auth/")
-        || bare == "/portal/api/worlds"
-        || bare.starts_with("/portal/api/worlds/")
-        || bare == "/api/worlds"
-        || bare.starts_with("/api/worlds/")
-        || bare == "/api/auth"
-        || bare.starts_with("/api/auth/")
-}
-
-fn navigation_allowed(url: &url::Url) -> bool {
-    if url.scheme() == "about" {
-        return url.path() == "blank" || url.path() == "srcdoc";
-    }
-    let host = host_name(url);
-    if host_is_google_auth(&host) {
-        return url.scheme() == "https";
-    }
-    if host_is_momma(&host) {
-        return url.scheme() == "https" && portal_path_allowed(url.path());
-    }
-    false
-}
-
 fn send_back_to_worlds() {
     let Some(app) = APP.get() else { return };
     let app = app.clone();
     let window_app = app.clone();
     let _ = app.run_on_main_thread(move || {
-        let Some(window) = window_app.get_webview_window("main") else { return };
-        let Ok(worlds) = WORLDS_URL.parse() else { return };
+        let Some(window) = window_app.get_webview_window("main") else {
+            return;
+        };
+        let Ok(worlds) = WORLDS_URL.parse() else {
+            return;
+        };
         let _ = window.navigate(worlds);
     });
 }
@@ -196,7 +184,9 @@ const UPDATING_NOTICE: &str = r#"
 "#;
 
 fn show_updating(app: &AppHandle) {
-    let Some(window) = app.get_webview_window("main") else { return };
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
     let _ = window.eval(UPDATING_NOTICE);
     let _ = window.set_title("Updating…");
 }
@@ -204,17 +194,32 @@ fn show_updating(app: &AppHandle) {
 fn check_for_update(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         if let Err(error) = install_update(&app).await {
-            eprintln!("Worlds updater skipped: {error}");
+            note_launch(
+                &app,
+                &format!("{} error={error}", updater_result_line("skip")),
+            );
         }
     });
 }
 
 async fn install_update(app: &AppHandle) -> tauri_plugin_updater::Result<()> {
+    note_launch(app, &updater_result_line("check"));
     let Some(update) = app.updater()?.check().await? else {
+        note_launch(app, &updater_result_line("current"));
         return Ok(());
     };
+    note_launch(
+        app,
+        &format!(
+            "{} version={}",
+            updater_result_line("update"),
+            update.version
+        ),
+    );
     show_updating(app);
-    update.download_and_install(|_chunk, _total| {}, || {}).await?;
+    update
+        .download_and_install(|_chunk, _total| {}, || {})
+        .await?;
     app.restart();
 }
 
@@ -242,7 +247,10 @@ fn main() {
         )
         .setup(|app| {
             let _ = APP.set(app.handle().clone());
-            let worlds: url::Url = WORLDS_URL.parse().expect("worlds url");
+            let (assets_path, manifest) = bundled_game_manifest(app.handle());
+            let launch = launch_url_from_assets(manifest.as_deref().unwrap_or(""));
+            note_launch(app.handle(), &worlds_launch_line(launch, &assets_path));
+            let worlds: url::Url = launch.parse().expect("worlds url");
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(worlds))
                 .title("Momma Mari Worlds")
                 .inner_size(1440.0, 900.0)
@@ -280,7 +288,8 @@ fn main() {
                 .build()?;
 
             // Quit and fullscreen only. No item opens the creator portal.
-            let fullscreen = MenuItem::with_id(app, "fullscreen", "Toggle Fullscreen", true, Some("F11"))?;
+            let fullscreen =
+                MenuItem::with_id(app, "fullscreen", "Toggle Fullscreen", true, Some("F11"))?;
             let view = Submenu::with_items(app, "View", true, &[&fullscreen])?;
             let quit = PredefinedMenuItem::quit(app, Some("Quit Momma Mari Worlds"))?;
             let app_menu = Submenu::with_items(app, "Momma Mari Worlds", true, &[&quit])?;
