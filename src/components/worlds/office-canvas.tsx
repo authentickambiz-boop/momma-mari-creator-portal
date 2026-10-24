@@ -15,7 +15,7 @@ import { BOT_CAPSULE_CENTER, BOT_CAPSULE_LENGTH, BOT_CAPSULE_RADIUS, pickBotCaps
 import { OWNER_LOOK_SEED, defaultCharacter, nameTagFrame, type CharacterConfig, type CharacterPose } from "@/lib/worlds/character";
 import { CharacterFigure } from "./character-figure";
 import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, type Stick } from "@/lib/worlds/office-move";
-import { cityOverviewHome, officeTargetBounds, poseInsideBounds, type TargetBounds } from "@/lib/worlds/city/scene-shell";
+import { cityOverviewHome, interiorStand, officeTargetBounds, poseInsideBounds, type TargetBounds } from "@/lib/worlds/city/scene-shell";
 import { buildCityDistrict } from "@/lib/worlds/city/locations";
 import type { HomeTier } from "@/lib/worlds/economy";
 import { OfficeSite } from "./office-grounds";
@@ -29,10 +29,13 @@ export type OfficeCameraApi = {
   reset: () => void;
   zoomBy: (factor: number) => void;
   focus: (x: number, z: number) => void;
+  stand: (eyeX: number, eyeY: number, eyeZ: number, aimX: number, aimY: number, aimZ: number) => void;
 };
 
 export type CitySceneMode = {
   homeTier: HomeTier;
+  apartmentUnits: number;
+  claimedLotIds: readonly string[];
   selectedId: string | null;
   interiorOpen: boolean;
   locked: boolean;
@@ -1564,8 +1567,12 @@ function Scene({
   const baseFog = fogDistances(weather);
   const fog = city ? { near: Math.max(baseFog.near, 48), far: Math.max(baseFog.far, 240) } : baseFog;
   const tier = city?.homeTier ?? "studio";
+  const apartmentUnits = city?.apartmentUnits ?? 0;
   const cityOn = city != null;
-  const district = useMemo(() => (cityOn ? buildCityDistrict(layout, tier) : null), [cityOn, layout, tier]);
+  const district = useMemo(
+    () => (cityOn ? buildCityDistrict(layout, tier, apartmentUnits) : null),
+    [cityOn, layout, tier, apartmentUnits],
+  );
   const boundsRef = useRef<TargetBounds>(officeTargetBounds(layout));
   useLayoutEffect(() => {
     boundsRef.current = district?.bounds ?? officeTargetBounds(layout);
@@ -1605,6 +1612,14 @@ function Scene({
           offset.setLength(next);
           orbit.object.position.copy(orbit.target).add(offset);
         }
+        clampMapTarget(orbit, boundsRef.current);
+        orbit.update();
+      },
+      stand(eyeX: number, eyeY: number, eyeZ: number, aimX: number, aimY: number, aimZ: number) {
+        const orbit = controls.current;
+        if (!orbit) return;
+        orbit.target.set(aimX, aimY, aimZ);
+        orbit.object.position.set(eyeX, eyeY, eyeZ);
         clampMapTarget(orbit, boundsRef.current);
         orbit.update();
       },
@@ -1657,6 +1672,7 @@ function Scene({
             onEnter={city.onOpenLocation}
             tier={tier}
             weather={weather}
+            claimedLotIds={city.claimedLotIds}
           />
         </WorldSceneShell>
       ) : null}

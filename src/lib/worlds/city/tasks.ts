@@ -7,10 +7,13 @@ import {
   ACTION_LIMITS,
   ASSET_OWNER,
   EARNINGS_CAP_CENTS,
+  APARTMENT_MAX_FLOORS,
+  APARTMENT_UNIT_PRICE_CENTS,
   HOME_TIER_LABEL,
   HOME_TIER_PRICE_CENTS,
   HOME_TIERS,
   REAL_PAYMENTS,
+  apartmentFloors,
   findCityShopItem,
   formatKash,
   homeTierRank,
@@ -85,6 +88,10 @@ export type CitySession = {
   officeCheckedIn: boolean;
   /** Task ids whose library tip has been read. */
   libraryTips: string[];
+  /** Empty lots claimed in practice. Momma Mari still owns the land. */
+  claimedLotIds: string[];
+  /** Extra floors added to the apartment complex. There are no apartment yard lots. */
+  apartmentUnits: number;
 };
 
 export type CitySuccess = { ok: true; session: CitySession; message: string; sent?: false; score?: number | null };
@@ -803,6 +810,8 @@ export function emptyCitySession(): CitySession {
     submissions: [],
     officeCheckedIn: false,
     libraryTips: [],
+    claimedLotIds: [],
+    apartmentUnits: 0,
   };
 }
 
@@ -840,6 +849,8 @@ function clone(session: CitySession): CitySession {
     submissions: [...session.submissions],
     officeCheckedIn: session.officeCheckedIn === true,
     libraryTips: [...session.libraryTips],
+    claimedLotIds: [...session.claimedLotIds],
+    apartmentUnits: session.apartmentUnits,
   };
 }
 
@@ -1043,6 +1054,50 @@ export function unlockHomeTier(session: CitySession, tier: HomeTier, now: number
   };
 }
 
+export function claimCityLot(
+  session: CitySession,
+  lot: { id: string; number: string; priceCents: number },
+  role: string,
+  now: number,
+): CityResult {
+  if (role !== "owner") return { ok: false, error: "Only the owner can claim a lot in this practice build." };
+  if (session.claimedLotIds.includes(lot.id)) return { ok: false, error: `Lot ${lot.number} is already claimed.` };
+  const cooled = onCooldown(session, `lot:${lot.id}`, ACTION_LIMITS.shop.cooldownMs, now);
+  if (cooled) return { ok: false, error: cooled };
+  if (session.kashCents < lot.priceCents) {
+    return { ok: false, error: `Lot ${lot.number} costs ${formatKash(lot.priceCents)}. You have ${formatKash(session.kashCents)}.` };
+  }
+  const next = pay(session, -lot.priceCents);
+  next.lastAt[`lot:${lot.id}`] = now;
+  next.claimedLotIds.push(lot.id);
+  return {
+    ok: true,
+    session: next,
+    sent: false,
+    message: `${ASSET_OWNER} still owns lot ${lot.number}. You can build on it later. Spent ${formatKash(lot.priceCents)}. No real payment was made.`,
+  };
+}
+
+export function claimApartmentUnit(session: CitySession, role: string, now: number): CityResult {
+  if (role !== "owner") return { ok: false, error: "Only the owner can claim a unit in this practice build." };
+  const floors = apartmentFloors(session.apartmentUnits + 1);
+  if (floors > APARTMENT_MAX_FLOORS) return { ok: false, error: "The complex is at its tallest for this practice build." };
+  const cooled = onCooldown(session, "lot:apartment-unit", ACTION_LIMITS.shop.cooldownMs, now);
+  if (cooled) return { ok: false, error: cooled };
+  if (session.kashCents < APARTMENT_UNIT_PRICE_CENTS) {
+    return { ok: false, error: `A new floor costs ${formatKash(APARTMENT_UNIT_PRICE_CENTS)}. You have ${formatKash(session.kashCents)}.` };
+  }
+  const next = pay(session, -APARTMENT_UNIT_PRICE_CENTS);
+  next.lastAt["lot:apartment-unit"] = now;
+  next.apartmentUnits += 1;
+  return {
+    ok: true,
+    session: next,
+    sent: false,
+    message: `${ASSET_OWNER} still owns the complex. It now has ${apartmentFloors(next.apartmentUnits)} floors. No empty yard was added. Spent ${formatKash(APARTMENT_UNIT_PRICE_CENTS)}. No real payment was made.`,
+  };
+}
+
 const SKILLS: readonly SkillId[] = ["research", "writing", "outreach", "design", "audio", "data", "hospitality", "finance"];
 
 export function parseCitySession(raw: string): CitySession | null {
@@ -1082,6 +1137,8 @@ export function parseCitySession(raw: string): CitySession | null {
       submissions: [],
       officeCheckedIn: value.officeCheckedIn === true,
       libraryTips: Array.isArray(value.libraryTips) ? value.libraryTips.filter((item): item is string => typeof item === "string") : [],
+      claimedLotIds: Array.isArray(value.claimedLotIds) ? value.claimedLotIds.filter((item): item is string => typeof item === "string") : [],
+      apartmentUnits: typeof value.apartmentUnits === "number" && Number.isFinite(value.apartmentUnits) ? Math.max(0, Math.trunc(value.apartmentUnits)) : 0,
     };
   } catch {
     return null;

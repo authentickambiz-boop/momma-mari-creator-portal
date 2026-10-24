@@ -66,6 +66,28 @@ export function cityDayWeather(date = new Date()): OfficeWeather {
   };
 }
 
+/** Billboard size for a district name. Tall enough to read from the city overview. */
+export function districtBillboard(label: string) {
+  const wide = Math.max(18, Math.min(34, label.length * 1.7));
+  return { wide, tall: 6.4 };
+}
+
+/**
+ * Eye just inside a walk-in, aimed across the room.
+ * The office polar limit still applies, so the eye stays a little above the aim.
+ */
+export function interiorStand(plot: { x: number; z: number; w: number; d: number; yaw: number }) {
+  const cx = plot.x + plot.w / 2;
+  const cz = plot.z + plot.d / 2;
+  const ox = Math.sin(plot.yaw);
+  const oz = Math.cos(plot.yaw);
+  const reach = Math.max(2.4, Math.min(plot.d * 0.28, 4.2));
+  return {
+    eye: { x: cx + ox * reach, y: 2.15, z: cz + oz * reach },
+    aim: { x: cx - ox * 0.6, y: 1.2, z: cz - oz * 0.6 },
+  };
+}
+
 /** Same aim as the office, pulled back so the streets around HQ fit in frame. */
 export function cityOverviewHome(layout: { width: number; depth: number }) {
   const office = officeCameraHome(layout.width, layout.depth);

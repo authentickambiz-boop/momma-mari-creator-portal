@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
-import { CanvasTexture, DoubleSide, SRGBColorSpace } from "three";
-import type { CityDistrict, Plot, Street } from "@/lib/worlds/city/locations";
+import { useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import { CanvasTexture, DoubleSide, SRGBColorSpace, Vector3, type Mesh } from "three";
+import type { CityDistrict, CityLot, Plot, Street } from "@/lib/worlds/city/locations";
 import type { HomeTier } from "@/lib/worlds/economy";
+import { districtBillboard } from "@/lib/worlds/city/scene-shell";
 import { FOLIAGE_COLORS, type OfficeWeather } from "@/lib/worlds/office-weather";
 import { CityBuilding } from "./building";
 
@@ -13,6 +15,7 @@ function Streets({ district }: { district: CityDistrict }) {
       {district.streets.map((street) => (
         <mesh
           key={street.id}
+          name={street.id}
           position={[street.x + street.w / 2, street.kind === "road" ? 0.03 : 0.05, street.z + street.d / 2]}
           receiveShadow
         >
@@ -117,19 +120,28 @@ function Verges({ district, canopy }: { district: CityDistrict; canopy: string }
   );
 }
 
-function districtSign(label: string) {
+function paintSign(label: string, sub: string, width: number, height: number) {
   const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 220;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (ctx) {
     ctx.fillStyle = "#1f3b2d";
-    ctx.fillRect(0, 0, 1024, 220);
+    ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = "#c6a15a";
+    ctx.lineWidth = Math.max(12, Math.round(width / 70));
+    ctx.strokeRect(18, 18, width - 36, height - 36);
     ctx.fillStyle = "#fbf8f3";
-    ctx.font = "700 92px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(label, 512, 116);
+    const size = Math.max(72, Math.min(sub ? 148 : 200, Math.floor((width - 80) / (label.length * 0.62))));
+    ctx.font = `700 ${size}px sans-serif`;
+    ctx.fillText(label, width / 2, sub ? height * 0.38 : height / 2);
+    if (sub) {
+      ctx.font = "700 120px sans-serif";
+      ctx.fillStyle = "#f2c14e";
+      ctx.fillText(sub, width / 2, height * 0.72);
+    }
   }
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
@@ -137,22 +149,158 @@ function districtSign(label: string) {
 }
 
 function DistrictLabels({ plots }: { plots: readonly Plot[] }) {
-  const signs = useMemo(() => plots.filter((plot) => plot.district).map((plot) => ({
-    id: plot.id,
-    label: plot.district ?? "",
-    map: districtSign(plot.district ?? ""),
-    x: plot.x + plot.w / 2,
-    z: plot.z + plot.d + 1.2,
-    wide: Math.min(14, Math.max(8, plot.w * 0.62)),
-  })), [plots]);
+  const signs = useMemo(() => plots.filter((plot) => plot.district).map((plot, index) => {
+    const size = districtBillboard(plot.district ?? "");
+    return {
+      id: plot.id,
+      map: paintSign(plot.district ?? "", "", 2048, 420),
+      x: plot.x + plot.w / 2,
+      y: 12.5 + (index % 3) * 2.4,
+      z: plot.z + plot.d / 2,
+      wide: size.wide,
+      tall: size.tall,
+    };
+  }), [plots]);
   return (
     <group>
       {signs.map((sign) => (
-        <mesh key={sign.id} position={[sign.x, 8.6, sign.z]}>
-          <planeGeometry args={[sign.wide, 2.2]} />
-          <meshBasicMaterial map={sign.map} toneMapped={false} side={DoubleSide} />
+        <DistrictBillboard key={sign.id} sign={sign} />
+      ))}
+    </group>
+  );
+}
+
+const boardPoint = new Vector3();
+
+function faceBoard(mesh: Mesh, camera: { position: Vector3 }, parentYaw = 0) {
+  mesh.getWorldPosition(boardPoint);
+  const yaw = Math.atan2(camera.position.x - boardPoint.x, camera.position.z - boardPoint.z);
+  mesh.rotation.y = yaw - parentYaw;
+}
+
+function DistrictBillboard({ sign }: { sign: { id: string; map: CanvasTexture; x: number; y: number; z: number; wide: number; tall: number } }) {
+  const board = useRef<Mesh>(null);
+  useFrame(({ camera }) => {
+    const mesh = board.current;
+    if (!mesh) return;
+    faceBoard(mesh, camera);
+  });
+  return (
+    <group position={[sign.x, 0, sign.z]}>
+      <mesh position={[-sign.wide * 0.36, sign.y * 0.46, 0]} castShadow>
+        <cylinderGeometry args={[0.16, 0.22, sign.y * 0.92, 6]} />
+        <meshStandardMaterial color="#4e463f" roughness={0.8} />
+      </mesh>
+      <mesh position={[sign.wide * 0.36, sign.y * 0.46, 0]} castShadow>
+        <cylinderGeometry args={[0.16, 0.22, sign.y * 0.92, 6]} />
+        <meshStandardMaterial color="#4e463f" roughness={0.8} />
+      </mesh>
+      <mesh ref={board} position={[0, sign.y, 0]}>
+        <planeGeometry args={[sign.wide, sign.tall]} />
+        <meshBasicMaterial map={sign.map} toneMapped={false} side={DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
+
+function lotBoard(number: string, claimed: boolean) {
+  return paintSign(claimed ? "CLAIMED" : "BUILD HERE", number, 1024, 512);
+}
+
+function EmptyLotMarker({
+  lot,
+  claimed,
+  selected,
+  onEnter,
+}: {
+  lot: CityLot;
+  claimed: boolean;
+  selected: boolean;
+  onEnter: () => void;
+}) {
+  const map = useMemo(() => lotBoard(lot.number, claimed), [lot.number, claimed]);
+  const board = useRef<Mesh>(null);
+  useFrame(({ camera }) => {
+    const mesh = board.current;
+    if (!mesh) return;
+    faceBoard(mesh, camera, lot.yaw);
+  });
+  const inset = 0.45;
+  const w = Math.max(2.4, lot.w - inset);
+  const d = Math.max(2.4, lot.d - inset);
+  const posts: [number, number][] = [
+    [-w / 2, -d / 2],
+    [w / 2, -d / 2],
+    [-w / 2, d / 2],
+    [w / 2, d / 2],
+  ];
+  return (
+    <group name={lot.id} position={[lot.x + lot.w / 2, 0, lot.z + lot.d / 2]} rotation={[0, lot.yaw, 0]}>
+      <mesh position={[0, 0.045, 0]} receiveShadow>
+        <boxGeometry args={[w, 0.07, d]} />
+        <meshStandardMaterial color={claimed ? "#d7c4a3" : "#c6b48a"} roughness={0.95} />
+      </mesh>
+      {claimed ? (
+        <mesh position={[0, 0.16, 0]} receiveShadow>
+          <boxGeometry args={[w * 0.55, 0.18, d * 0.55]} />
+          <meshStandardMaterial color="#efe6d6" roughness={0.86} />
+        </mesh>
+      ) : null}
+      {posts.map(([x, z]) => (
+        <mesh key={`${x}-${z}`} position={[x, 0.55, z]} castShadow>
+          <cylinderGeometry args={[0.06, 0.08, 1.1, 5]} />
+          <meshStandardMaterial color="#6b3a28" roughness={0.8} />
         </mesh>
       ))}
+      <mesh position={[0, 0.42, -d / 2]}>
+        <boxGeometry args={[w, 0.08, 0.08]} />
+        <meshStandardMaterial color="#f4efe4" roughness={0.7} />
+      </mesh>
+      <mesh position={[0, 0.42, d / 2]}>
+        <boxGeometry args={[w, 0.08, 0.08]} />
+        <meshStandardMaterial color="#f4efe4" roughness={0.7} />
+      </mesh>
+      <mesh position={[-w / 2, 0.42, 0]}>
+        <boxGeometry args={[0.08, 0.08, d]} />
+        <meshStandardMaterial color="#f4efe4" roughness={0.7} />
+      </mesh>
+      <mesh position={[w / 2, 0.42, 0]}>
+        <boxGeometry args={[0.08, 0.08, d]} />
+        <meshStandardMaterial color="#f4efe4" roughness={0.7} />
+      </mesh>
+      <mesh position={[0, 1.15, 0]} castShadow>
+        <cylinderGeometry args={[0.05, 0.07, 2.3, 6]} />
+        <meshStandardMaterial color="#2a2926" roughness={0.7} />
+      </mesh>
+      <mesh ref={board} position={[0, 2.15, 0]}>
+        <planeGeometry args={[Math.min(6.2, Math.max(3.4, w * 0.82)), 2.15]} />
+        <meshBasicMaterial map={map} toneMapped={false} side={DoubleSide} />
+      </mesh>
+      {selected ? (
+        <mesh position={[0, 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[Math.min(w, d) * 0.28, Math.min(w, d) * 0.34, 24]} />
+          <meshBasicMaterial color="#f2c14e" />
+        </mesh>
+      ) : null}
+      <mesh
+        position={[0, 1.1, 0]}
+        onClick={(event) => {
+          event.stopPropagation();
+          onEnter();
+        }}
+        onPointerOver={(event) => {
+          event.stopPropagation();
+          const node = event.nativeEvent.target;
+          if (node instanceof HTMLCanvasElement) node.style.cursor = "pointer";
+        }}
+        onPointerOut={(event) => {
+          const node = event.nativeEvent.target;
+          if (node instanceof HTMLCanvasElement) node.style.cursor = "";
+        }}
+      >
+        <boxGeometry args={[w, 2.2, d]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
     </group>
   );
 }
@@ -222,6 +370,7 @@ export function CityLayer({
   onEnter,
   tier,
   weather,
+  claimedLotIds,
 }: {
   district: CityDistrict;
   quality: "fine" | "fast";
@@ -233,6 +382,7 @@ export function CityLayer({
   onEnter: (id: string) => void;
   tier: HomeTier;
   weather: OfficeWeather;
+  claimedLotIds: readonly string[];
 }) {
   const { ground } = district;
   const canopy = FOLIAGE_COLORS[weather.foliage].canopy[0] ?? "#3e8a42";
@@ -247,6 +397,15 @@ export function CityLayer({
       <Lamps district={district} />
       <ParkedCars streets={district.streets} />
       <DistrictLabels plots={district.plots} />
+      {district.lots.map((lot) => (
+        <EmptyLotMarker
+          key={lot.id}
+          lot={lot}
+          claimed={claimedLotIds.includes(lot.id)}
+          selected={selectedId === lot.id}
+          onEnter={() => onEnter(lot.id)}
+        />
+      ))}
       <Verges district={district} canopy={canopy} />
       {district.plots.map((plot) => (
         <CityBuilding

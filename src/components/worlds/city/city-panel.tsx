@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ASSET_OWNER, HOME_TIER_LABEL, HOME_TIER_PRICE_CENTS, HOME_TIERS, formatKash, shopItemsFor, type HomeTier } from "@/lib/worlds/economy";
+import { APARTMENT_UNIT_PRICE_CENTS, ASSET_OWNER, HOME_TIER_LABEL, HOME_TIER_PRICE_CENTS, HOME_TIERS, apartmentFloors, formatKash, shopItemsFor, type HomeTier } from "@/lib/worlds/economy";
 import { ACCESS_ROLES, decideEnter, type AccessRole } from "@/lib/worlds/city/access";
-import { CITY_LOCATIONS, SKILL_LABEL, locationById } from "@/lib/worlds/city/locations";
+import { CITY_LOCATIONS, SKILL_LABEL, locationById, type CityLot } from "@/lib/worlds/city/locations";
 import type { CityInteractable } from "@/lib/worlds/city/interactables";
 import {
   buyCityItem,
+  claimApartmentUnit,
+  claimCityLot,
   emptyCitySession,
   homeItemsForTier,
   LIBRARY_TIPS,
@@ -39,6 +41,7 @@ export function CityChrome({
   propertyTier,
   viewerRole,
   onViewerRole,
+  lot,
 }: {
   locationId: string | null;
   officeTaps: readonly CityInteractable[];
@@ -50,6 +53,7 @@ export function CityChrome({
   propertyTier?: HomeTier;
   viewerRole: AccessRole;
   onViewerRole: (role: AccessRole) => void;
+  lot?: CityLot | null;
 }) {
   const [session, setSession] = useState<CitySession>(() => {
     if (typeof window === "undefined") return emptyCitySession();
@@ -58,8 +62,9 @@ export function CityChrome({
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [optIns, setOptIns] = useState<Record<string, boolean>>({});
   const [banner, setBanner] = useState<{ at: string | null; message: string; error: string }>({ at: null, message: "", error: "" });
-  const message = banner.at === locationId ? banner.message : "";
-  const error = banner.at === locationId ? banner.error : "";
+  const sheetKey = lot?.id ?? locationId;
+  const message = banner.at === sheetKey ? banner.message : "";
+  const error = banner.at === sheetKey ? banner.error : "";
   const [placesOpen, setPlacesOpen] = useState(false);
   const [qc, setQc] = useState<Record<string, { auto: string; peer: string; owner: string; delivery: string }>>({});
 
@@ -90,7 +95,7 @@ export function CityChrome({
           [taskId]: { auto: "Failed", peer: "Waiting", owner: "Waiting", delivery: "Not sent" },
         }));
       }
-      setBanner({ at: locationId, message: "", error: result.error });
+      setBanner({ at: sheetKey, message: "", error: result.error });
       return;
     }
     if (taskId) {
@@ -108,7 +113,7 @@ export function CityChrome({
       }));
     }
     setSession(result.session);
-    setBanner({ at: locationId, message: result.message, error: "" });
+    setBanner({ at: sheetKey, message: result.message, error: "" });
   }
 
   return (
@@ -156,6 +161,15 @@ export function CityChrome({
           <p className="city-balance">{formatKash(session.kashCents)}</p>
           <p>{location.summary}</p>
           {decision && !decision.open ? <p className="office-error">{decision.reason}</p> : null}
+          {propertyTier === "apartment" ? (
+            <div className="city-task">
+              <h3>Add a floor</h3>
+              <p>The complex grows taller as more people move in. There is no side yard. It is {apartmentFloors(session.apartmentUnits)} floors now.</p>
+              <p>{formatKash(APARTMENT_UNIT_PRICE_CENTS)}. Practice Kash. {ASSET_OWNER} still owns the building. No real payment.</p>
+              {viewerRole !== "owner" ? <p className="office-error">Only the owner can claim a unit in this practice build.</p> : null}
+              <button type="button" onClick={() => apply(claimApartmentUnit(session, viewerRole, Date.now()))}>Claim a unit</button>
+            </div>
+          ) : null}
           {decision?.open && decision.mode === "check-in" ? <p>{decision.reason}</p> : null}
           <p className="office-kicker">{ASSET_OWNER} owns the in-game assets. Kash is not a real payment.</p>
           {decision?.open ? (
@@ -255,6 +269,24 @@ export function CityChrome({
           ))}
           </>
           ) : null}
+          {message ? <p>{message}</p> : null}
+          {error ? <p className="office-error">{error}</p> : null}
+        </section>
+      ) : null}
+      {lot ? (
+        <section className="office-panel office-sheet city-sheet" aria-label={`Lot ${lot.number}`} data-location={lot.id}>
+          <button className="office-close" type="button" aria-label="Close" onClick={onClose}>×</button>
+          <p className="office-kicker">{HOME_TIER_LABEL[lot.tier]} footprint</p>
+          <h2>Lot {lot.number}</h2>
+          <p className="city-balance">{formatKash(session.kashCents)}</p>
+          <p>Build here. This lot is empty and waiting. The footprint matches a {HOME_TIER_LABEL[lot.tier].toLowerCase()}.</p>
+          <p>{formatKash(lot.priceCents)}. Practice Kash. {ASSET_OWNER} keeps the lot. No real payment.</p>
+          {viewerRole !== "owner" ? <p className="office-error">Only the owner can claim a lot in this practice build.</p> : null}
+          {session.claimedLotIds.includes(lot.id) ? (
+            <p>This lot is claimed. The build comes later.</p>
+          ) : (
+            <button type="button" onClick={() => apply(claimCityLot(session, lot, viewerRole, Date.now()))}>Claim lot {lot.number}</button>
+          )}
           {message ? <p>{message}</p> : null}
           {error ? <p className="office-error">{error}</p> : null}
         </section>

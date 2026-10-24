@@ -32,17 +32,20 @@ function drawFinish(ctx: CanvasRenderingContext2D, finish: Finish, color: string
   ctx.fillStyle = shade(color, 18);
   ctx.fillRect(0, 0, 128, 128);
   if (finish === "brick") {
-    const bw = 32;
-    const bh = 16;
-    for (let y = 0; y < 128; y += bh) {
+    const bw = 40;
+    const bh = 18;
+    ctx.fillStyle = "#c9bfb2";
+    ctx.fillRect(0, 0, 256, 256);
+    for (let y = 0; y < 256; y += bh) {
       const row = Math.floor(y / bh);
       const offset = row % 2 ? bw / 2 : 0;
-      for (let x = -bw; x < 160; x += bw) {
-        ctx.fillStyle = (row + Math.floor(x / bw)) % 2 ? color : shade(color, -16);
-        ctx.fillRect(x + offset, y, bw - 2, bh - 2);
+      for (let x = -bw; x < 300; x += bw) {
+        const shift = ((row * 3 + Math.floor((x + 80) / bw)) % 5) * 6 - 12;
+        ctx.fillStyle = shade(color, shift);
+        ctx.fillRect(x + offset + 1, y + 1, bw - 4, bh - 4);
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.fillRect(x + offset + 2, y + 2, bw - 8, 2);
       }
-      ctx.fillStyle = "#d9d0c4";
-      ctx.fillRect(0, y + bh - 2, 128, 2);
     }
     return;
   }
@@ -91,8 +94,8 @@ function finishMap(finish: Finish, color: string) {
   const hit = finishCache.get(key);
   if (hit) return hit;
   const canvas = document.createElement("canvas");
-  canvas.width = 128;
-  canvas.height = 128;
+  canvas.width = finish === "brick" || finish === "stone" ? 256 : 128;
+  canvas.height = canvas.width;
   const ctx = canvas.getContext("2d");
   if (ctx) drawFinish(ctx, finish, color);
   const texture = new CanvasTexture(canvas);
@@ -173,7 +176,7 @@ function signTexture(label: string, fill = "#1c211e") {
 function buildingHeight(model: BuildingModel, floors: number, tier: HomeTier) {
   if (model === "hq") return 3.2;
   if (model === "studio") return 2.7;
-  if (model === "apartment") return 6.4;
+  if (model === "apartment") return 2.15 + Math.max(3, floors) * 1.55;
   if (model === "houses") return 3.6;
   if (model === "loft") return 4.4;
   if (model === "mansion") return 6.2;
@@ -219,10 +222,11 @@ function ToonBox({
       <meshStandardMaterial
         map={map ?? undefined}
         color={map ? "#ffffff" : color}
-        roughness={finish === "metal" ? 0.34 : finish === "glass" ? 0.08 : 0.82}
-        metalness={finish === "metal" ? 0.7 : finish === "glass" ? 0.18 : 0.02}
-        emissive={finish === "glass" ? "#d5e7f0" : "#000000"}
-        emissiveIntensity={finish === "glass" ? 0.08 : 0}
+        roughness={finish === "metal" ? 0.28 : finish === "glass" ? 0.04 : finish === "brick" ? 0.74 : 0.82}
+        metalness={finish === "metal" ? 0.74 : finish === "glass" ? 0.78 : 0.03}
+        envMapIntensity={finish === "glass" ? 1.4 : finish === "metal" ? 0.55 : 0.18}
+        emissive={finish === "glass" ? "#b7d4e6" : "#000000"}
+        emissiveIntensity={finish === "glass" ? 0.06 : 0}
       />
     </mesh>
   );
@@ -317,8 +321,12 @@ function Envelope({
       ) : (
         <DoorWall w={w} h={h} d={d} color={color} openDoor={open && southFace(yaw) === "pz"} outline={outline} />
       )}
-      <ToonBox position={[0, 0.18, 0]} args={[w + 0.16, 0.12, d + 0.16]} color={shade(color, 28)} finish="paint" />
-      <ToonBox position={[0, h - 0.08, 0]} args={[w + 0.18, 0.14, d + 0.18]} color={shade(color, 36)} finish="paint" />
+      <ToonBox position={[0, 0.18, 0]} args={[w + 0.16, 0.12, d + 0.16]} color="#f4efe4" finish="paint" />
+      <ToonBox position={[0, h - 0.08, 0]} args={[w + 0.22, 0.18, d + 0.22]} color="#f7f1e4" finish="paint" />
+      <ToonBox position={[0, h * 0.58, d / 2 + 0.02]} args={[w + 0.08, 0.14, 0.1]} color="#f7f1e4" finish="paint" />
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
+        <ToonBox key={`${sx}-${sz}`} position={[(w / 2) * sx, h / 2, (d / 2) * sz]} args={[0.16, h, 0.16]} color="#f4efe4" finish="paint" />
+      ))}
     </group>
   );
 }
@@ -343,7 +351,11 @@ function Windows({ w, h, d, rows, cols }: { w: number; h: number; d: number; row
           </mesh>
           <mesh position={[0, 0, 0.04]}>
             <planeGeometry args={[0.42, 0.56]} />
-            <meshStandardMaterial color="#d5e7f0" roughness={0.08} metalness={0.12} emissive="#eef6fb" emissiveIntensity={0.12} />
+            <meshStandardMaterial color="#d7eef6" roughness={0.04} metalness={0.82} envMapIntensity={1.45} emissive="#c5dce8" emissiveIntensity={0.05} />
+          </mesh>
+          <mesh position={[0.08, 0.08, 0.055]}>
+            <planeGeometry args={[0.07, 0.34]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.55} />
           </mesh>
           <mesh position={[0, 0, 0.05]}>
             <boxGeometry args={[0.03, 0.56, 0.02]} />
@@ -461,6 +473,38 @@ function LibraryRoom({ w, d }: { w: number; d: number }) {
   );
 }
 
+function CallRoom({ w, d }: { w: number; d: number }) {
+  const booths = [-w * 0.26, 0, w * 0.26];
+  return (
+    <group>
+      {booths.map((x) => (
+        <group key={x} position={[x, 0, -0.15]}>
+          <ToonBox position={[0, 0.46, 0]} args={[1.05, 0.08, 0.62]} color="#d7e7f2" finish="paint" />
+          <ToonBox position={[0, 0.22, -0.22]} args={[0.08, 0.4, 0.08]} color="#2a2e33" finish="metal" />
+          <ToonBox position={[0, 0.78, -0.04]} args={[0.62, 0.38, 0.05]} color="#8ec4ea" finish="glass" />
+          <ToonBox position={[0.38, 0.62, 0.12]} args={[0.1, 0.22, 0.1]} color="#243044" finish="metal" />
+        </group>
+      ))}
+      <ToonBox position={[0, 1.45, -d / 2 + 0.28]} args={[Math.min(w * 0.7, 4.2), 0.95, 0.08]} color="#1f3b2d" finish="paint" />
+      <ToonBox position={[w * 0.32, 0.4, d * 0.18]} args={[0.42, 0.5, 0.42]} color="#6b4a32" finish="wood" />
+    </group>
+  );
+}
+
+function ArtRoom({ w, d }: { w: number; d: number }) {
+  return (
+    <group>
+      <ToonBox position={[-w * 0.22, 0.7, -0.1]} args={[0.08, 1.35, 0.08]} color="#6b3a28" finish="wood" />
+      <ToonBox position={[-w * 0.22 + 0.22, 1.2, -0.1]} args={[0.72, 0.9, 0.06]} color="#f2b4c4" finish="paint" />
+      <ToonBox position={[w * 0.16, 0.46, 0.15]} args={[1.35, 0.08, 0.72]} color="#f7f1e4" finish="wood" />
+      <ToonBox position={[w * 0.16, 0.22, -0.12]} args={[0.08, 0.4, 0.08]} color="#6b4a32" finish="wood" />
+      {[-0.85, 0, 0.85].map((x, index) => (
+        <ToonBox key={x} position={[x, 1.4, -d / 2 + 0.28]} args={[0.55, 0.42, 0.05]} color={["#e07a5f", "#f2c14e", "#8ec4ea"][index] ?? "#f2c14e"} finish="paint" />
+      ))}
+    </group>
+  );
+}
+
 function HomeRoom({ w, d, tier }: { w: number; d: number; tier: HomeTier }) {
   const cook = tier !== "studio";
   const host = tier === "house" || tier === "creator-loft" || tier === "mansion";
@@ -508,10 +552,11 @@ function Extras({
   open: boolean;
   close: boolean;
 }) {
+  void open;
   if (model === "lab") {
     return (
       <group>
-        {open ? null : <FlatRoof w={w} h={h} d={d} color={roof} />}
+        <FlatRoof w={w} h={h} d={d} color={roof} />
         <ToonCylinder position={[-w * 0.22, h + 0.7, -0.2]} args={[0.38, 0.42, 1.15, 10]} color="#d9d3c8" />
         <ToonCylinder position={[w * 0.18, h + 0.5, 0.3]} args={[0.24, 0.28, 0.8, 8]} color={accent} />
         <ToonBox position={[0, h + 0.85, 0]} args={[w * 0.42, 0.1, 0.12]} color="#c5ccd1" />
@@ -522,7 +567,7 @@ function Extras({
   if (model === "library") {
     return (
       <group>
-        {open ? null : <FlatRoof w={w} h={h} d={d} color={roof} />}
+        <FlatRoof w={w} h={h} d={d} color={roof} />
         <Pediment w={w * 0.7} h={h} color={roof} />
         <Columns w={w * 0.8} h={h * 0.72} d={d} color="#f7f1e4" />
         <ToonBox position={[0, 0.18, d / 2 + 0.7]} args={[w * 0.55, 0.28, 0.8]} color="#d9d3c8" />
@@ -532,7 +577,7 @@ function Extras({
   if (model === "learning") {
     return (
       <group>
-        {open ? null : <FlatRoof w={w} h={h} d={d} color={roof} />}
+        <FlatRoof w={w} h={h} d={d} color={roof} />
         <ToonBox position={[0, h * 0.72, d / 2 + 0.7]} args={[w * 0.55, 0.1, 1.1]} color={accent} />
         <ToonCylinder position={[w * 0.42, h + 0.9, -d * 0.2]} args={[0.05, 0.06, 1.8, 6]} color="#1c211e" />
         <ToonBox position={[w * 0.42 + 0.28, h + 1.55, -d * 0.2]} args={[0.55, 0.32, 0.06]} color={accent} />
@@ -542,7 +587,7 @@ function Extras({
   if (model === "call-center") {
     return (
       <group>
-        {open ? null : <FlatRoof w={w} h={h} d={d} color={roof} lip="#243044" />}
+        <FlatRoof w={w} h={h} d={d} color={roof} lip="#243044" />
         <ToonCylinder position={[0, h + 1.35, 0]} args={[0.06, 0.08, 2.4, 6]} color="#1c211e" />
         <ToonBox position={[0.45, h + 2.15, 0]} args={[0.9, 0.08, 0.08]} color="#1c211e" />
         <mesh position={[0.7, h + 1.55, 0.2]} rotation={[0.4, 0, 0.6]}>
@@ -556,7 +601,7 @@ function Extras({
   if (model === "art") {
     return (
       <group>
-        {open ? null : <ToonBox position={[0, h + 0.45, -d * 0.05]} rotation={[-0.55, 0, 0]} args={[w * 0.72, 0.12, d * 0.7]} color="#d7e7f2" />}
+        <ToonBox position={[0, h + 0.45, -d * 0.05]} rotation={[-0.55, 0, 0]} args={[w * 0.72, 0.12, d * 0.7]} color="#d7e7f2" finish="glass" />
         <ToonBox position={[0, h * 0.55, d / 2 + 0.14]} args={[w * 0.55, 0.16, 0.06]} color={accent} />
         {close ? (
           <group position={[w * 0.36, 0, d / 2 + 0.7]}>
@@ -570,7 +615,7 @@ function Extras({
   if (model === "music") {
     return (
       <group>
-        {open ? null : <FlatRoof w={w} h={h} d={d} color={roof} />}
+        <FlatRoof w={w} h={h} d={d} color={roof} />
         <ToonSphere position={[0, h + 0.7, 0]} radius={0.55} color={accent} />
         <ToonBox position={[-w * 0.22, h * 0.62, d / 2 + 0.16]} args={[0.12, 0.7, 0.2]} color="#1c211e" />
         <ToonBox position={[w * 0.22, h * 0.5, d / 2 + 0.16]} args={[0.12, 0.45, 0.2]} color="#1c211e" />
@@ -581,7 +626,7 @@ function Extras({
   if (model === "computers") {
     return (
       <group>
-        {open ? null : <FlatRoof w={w} h={h} d={d} color={roof} />}
+        <FlatRoof w={w} h={h} d={d} color={roof} />
         <ToonBox position={[w * 0.28, h + 0.55, -d * 0.1]} args={[0.7, 0.7, 0.7]} color="#1c3330" />
         <ToonBox position={[w * 0.28, h + 1.15, -d * 0.1]} args={[0.48, 0.4, 0.48]} color="#243044" />
         <ToonBox position={[0, h * 0.48, d / 2 + 0.16]} args={[w * 0.62, 0.16, 0.06]} color={accent} />
@@ -591,7 +636,7 @@ function Extras({
   if (model === "club") {
     return (
       <group>
-        {open ? null : <FlatRoof w={w} h={h} d={d} color={roof} />}
+        <FlatRoof w={w} h={h} d={d} color={roof} />
         <ToonBox position={[0, 2.15, d / 2 + 0.55]} args={[w * 0.7, 0.1, 1.05]} color={accent} />
         <mesh position={[0, h * 0.62, d / 2 + 0.16]}>
           <circleGeometry args={[0.38, 16]} />
@@ -606,7 +651,7 @@ function Extras({
   if (model === "bank") {
     return (
       <group>
-        {open ? null : <FlatRoof w={w} h={h} d={d} color={roof} lip="#c6a15a" />}
+        <FlatRoof w={w} h={h} d={d} color={roof} lip="#c6a15a" />
         <ToonSphere position={[0, h + 0.85, 0]} radius={0.7} color="#c6a15a" />
         <Pediment w={w * 0.62} h={h} color="#c6a15a" />
         <Columns w={w * 0.72} h={h * 0.7} d={d} color="#f7f1e4" />
@@ -616,7 +661,7 @@ function Extras({
   if (model === "clothing") {
     return (
       <group>
-        {open ? null : <FlatRoof w={w} h={h} d={d} color={roof} />}
+        <FlatRoof w={w} h={h} d={d} color={roof} />
         <ToonBox position={[0, 2.05, d / 2 + 0.62]} args={[w * 0.78, 0.12, 1.15]} color="#d4567a" />
         <ToonBox position={[0, 2.05, d / 2 + 0.62]} args={[w * 0.78, 0.12, 0.18]} color="#f7f1e4" />
         <ToonBox position={[0, 1.15, d / 2 + 0.18]} args={[w * 0.46, 1.15, 0.08]} color="#f7e7ee" />
@@ -632,7 +677,7 @@ function Extras({
   if (model === "furniture") {
     return (
       <group>
-        {open ? null : <FlatRoof w={w} h={h} d={d} color={roof} />}
+        <FlatRoof w={w} h={h} d={d} color={roof} />
         <group position={[w * 0.38, 0, d / 2 + 0.9]}>
           <ToonCylinder position={[0, 0.9, 0]} args={[0.06, 0.08, 1.8, 6]} color="#5c3c0c" />
           <ToonCylinder position={[0, 1.85, 0]} args={[0.38, 0.22, 0.28, 10]} color={accent} />
@@ -646,7 +691,7 @@ function Extras({
     if (tier === "apartment") {
       return (
         <group>
-          {open ? null : <FlatRoof w={w} h={h} d={d} color={roof} />}
+          <FlatRoof w={w} h={h} d={d} color={roof} />
           <ToonBox position={[0, 1.7, d / 2 + 0.4]} args={[w * 0.42, 0.08, 0.7]} color="#d9d3c8" />
           <ToonBox position={[0, 1.95, d / 2 + 0.7]} args={[w * 0.42, 0.36, 0.06]} color="#f7f1e4" />
         </group>
@@ -655,7 +700,7 @@ function Extras({
     if (tier === "creator-loft") {
       return (
         <group>
-          {open ? null : <ToonBox position={[0, h + 0.7, -0.2]} rotation={[-0.4, 0, 0]} args={[w * 0.9, 0.14, d * 0.85]} color="#d7e7f2" />}
+          <ToonBox position={[0, h + 0.7, -0.2]} rotation={[-0.4, 0, 0]} args={[w * 0.9, 0.14, d * 0.85]} color="#d7e7f2" finish="glass" />
           {chimney}
         </group>
       );
@@ -663,22 +708,22 @@ function Extras({
     if (tier === "mansion") {
       return (
         <group>
-          {open ? null : <Gable w={w * 0.72} h={h * 0.72} d={d} color={roof} />}
+          <Gable w={w * 0.72} h={h * 0.72} d={d} color={roof} />
           <ToonBox position={[w * 0.34, (h + 1.4) / 2, -d * 0.2]} args={[1.5, h + 1.4, 1.5]} color="#e7d3b0" outline />
-          {open ? null : <ToonCylinder position={[w * 0.34, h + 1.7, -d * 0.2]} args={[0.2, 0.85, 0.9, 4]} color={roof} />}
+          <ToonCylinder position={[w * 0.34, h + 1.7, -d * 0.2]} args={[0.2, 0.85, 0.9, 4]} color={roof} />
           <Columns w={w * 0.55} h={h * 0.45} d={d} color="#f7f1e4" />
         </group>
       );
     }
     return (
       <group>
-        {open ? null : <Gable w={w} h={h} d={d} color={roof} />}
+        <Gable w={w} h={h} d={d} color={roof} />
         {chimney}
         {tier === "house" ? <ToonBox position={[0, 1.15, d / 2 + 0.7]} args={[w * 0.46, 0.1, 1.05]} color={roof} /> : null}
       </group>
     );
   }
-  return open ? null : <FlatRoof w={w} h={h} d={d} color={roof} />;
+  return <FlatRoof w={w} h={h} d={d} color={roof} />;
 }
 
 function HqBody({ w, h, d, open }: { w: number; h: number; d: number; open: boolean }) {
@@ -709,7 +754,7 @@ function HqBody({ w, h, d, open }: { w: number; h: number; d: number; open: bool
       {[-w * 0.28, w * 0.28].map((x) => (
         <mesh key={x} position={[x, h * 0.55, d / 2 + 0.06]}>
           <boxGeometry args={[1.5, 0.85, 0.06]} />
-          <meshStandardMaterial color="#d5e7f0" roughness={0.08} metalness={0} />
+          <meshStandardMaterial color="#d7eef6" roughness={0.04} metalness={0.8} envMapIntensity={1.35} />
         </mesh>
       ))}
     </group>
@@ -785,7 +830,7 @@ function Neighborhood({
           return (
             <group key={x} position={[x, 0, 0]}>
               <Envelope w={unit} h={2.55} d={d * 0.7} color={index % 2 ? "#d7b07a" : plot.wall} yaw={0} open={open && index === 1} outline={false} finish="wood" />
-              {open ? null : <Gable w={unit} h={2.55} d={d * 0.7} color={plot.roof} />}
+              <Gable w={unit} h={2.55} d={d * 0.7} color={plot.roof} />
               {mid ? <Windows w={unit * 0.8} h={2.4} d={d * 0.7} rows={1} cols={2} /> : null}
               <ToonBox position={[0, 0.12, d * 0.35 + 0.45]} args={[unit * 0.55, 0.16, 0.7]} color="#cfc8bb" finish="stone" />
             </group>
@@ -796,15 +841,17 @@ function Neighborhood({
     );
   }
   if (model === "apartment") {
+    const floors = Math.max(3, plot.floors);
+    const h = 2.15 + floors * 1.55;
     return (
       <group>
-        <Envelope w={w * 0.86} h={6.2} d={d * 0.78} color={plot.wall} yaw={0} open={open} outline={false} finish="brick" />
-        {open ? null : <FlatRoof w={w * 0.86} h={6.2} d={d * 0.78} color={plot.roof} finish="metal" />}
-        {mid ? <Windows w={w * 0.7} h={5.6} d={d * 0.78} rows={3} cols={5} /> : null}
-        {mid ? <Sign label="1 bed · 1 bath" y={5.5} z={d * 0.39 + 0.3} fill="#1f3b2d" wide={4.6} /> : null}
+        <Envelope w={w * 0.86} h={h} d={d * 0.78} color={plot.wall} yaw={0} open={open} outline={false} finish="brick" />
+        <FlatRoof w={w * 0.86} h={h} d={d * 0.78} color={plot.roof} finish="metal" />
+        {mid ? <Windows w={w * 0.7} h={h - 0.6} d={d * 0.78} rows={floors} cols={5} /> : null}
+        {mid ? <Sign label={`${floors} floors · 1 bed`} y={h - 0.7} z={d * 0.39 + 0.3} fill="#1f3b2d" wide={5.2} /> : null}
         <ToonBox position={[0, 0.05, d * 0.42]} args={[w * 0.7, 0.08, d * 0.28]} color="#c8c2b6" finish="stone" />
         {[-w * 0.22, w * 0.22].map((x) => (
-          <ToonBox key={x} position={[x, 2.4, d * 0.39 + 0.28]} args={[1.4, 0.08, 0.55]} color="#2a2e33" finish="metal" />
+          <ToonBox key={x} position={[x, Math.min(2.4, h * 0.38), d * 0.39 + 0.28]} args={[1.4, 0.08, 0.55]} color="#2a2e33" finish="metal" />
         ))}
         {open ? <HomeRoom w={w * 0.5} d={d} tier="apartment" /> : null}
       </group>
@@ -820,7 +867,7 @@ function Neighborhood({
           return (
             <group key={x} position={[x, 0, -0.4]}>
               <Envelope w={unit} h={3.3} d={d * 0.62} color={index === 1 ? "#efe6d6" : plot.wall} yaw={0} open={open && index === 1} outline={false} finish={index === 1 ? "plaster" : "brick"} />
-              {open ? null : <Gable w={unit} h={3.3} d={d * 0.62} color={plot.roof} />}
+              <Gable w={unit} h={3.3} d={d * 0.62} color={plot.roof} />
               {mid ? <Windows w={unit * 0.75} h={3} d={d * 0.62} rows={1} cols={2} /> : null}
               <ToonBox position={[0, 1.05, d * 0.31 + 0.45]} args={[unit * 0.55, 0.1, 0.9]} color={plot.roof} finish="wood" />
               {mid ? <PicketRun w={unit + 0.4} z={d * 0.31 + 1.15} /> : null}
@@ -839,7 +886,7 @@ function Neighborhood({
         {[-w * 0.24, w * 0.24].map((x, index) => (
           <group key={x} position={[x, 0, 0]}>
             <Envelope w={w * 0.4} h={4.2} d={d * 0.7} color={plot.wall} yaw={0} open={open && index === 0} outline={false} finish="brick" />
-            {open ? null : <ToonBox position={[0, 4.7, -0.3]} rotation={[-0.42, 0, 0]} args={[w * 0.36, 0.12, d * 0.55]} color="#d5e7f0" finish="glass" />}
+            <ToonBox position={[0, 4.7, -0.3]} rotation={[-0.42, 0, 0]} args={[w * 0.36, 0.12, d * 0.55]} color="#d5e7f0" finish="glass" />
             {mid ? <Windows w={w * 0.28} h={3.6} d={d * 0.7} rows={2} cols={3} /> : null}
             {mid ? <ToonBox position={[w * 0.12, 2.2, d * 0.35 + 0.2]} args={[w * 0.16, 2.2, 0.16]} color="#d5e7f0" finish="glass" /> : null}
           </group>
@@ -852,9 +899,9 @@ function Neighborhood({
   return (
     <group>
       <Envelope w={w * 0.72} h={5.6} d={d * 0.62} color={plot.wall} yaw={0} open={open} outline={false} finish="stone" />
-      {open ? null : <Gable w={w * 0.5} h={4.2} d={d * 0.62} color={plot.roof} />}
+      <Gable w={w * 0.5} h={4.2} d={d * 0.62} color={plot.roof} />
       <ToonBox position={[w * 0.28, 3.3, -d * 0.08]} args={[2.2, 6.4, 2.2]} color="#efe6d6" finish="stone" cast />
-      {open ? null : <ToonCylinder position={[w * 0.28, 6.8, -d * 0.08]} args={[0.25, 1.15, 1.1, 6]} color={plot.roof} />}
+      <ToonCylinder position={[w * 0.28, 6.8, -d * 0.08]} args={[0.25, 1.15, 1.1, 6]} color={plot.roof} />
       <Columns w={w * 0.4} h={3.2} d={d * 0.62} color="#f7f1e4" />
       {mid ? <Windows w={w * 0.4} h={4.4} d={d * 0.62} rows={2} cols={3} /> : null}
       {mid ? (
@@ -921,6 +968,8 @@ export function CityBuilding({
           {mid && yard !== "none" ? <YardTree w={plot.w} d={plot.d} canopy="#3e8a42" /> : null}
           {open && model === "learning" ? <LearningRoom w={plot.w} d={plot.d} /> : null}
           {open && model === "library" ? <LibraryRoom w={plot.w} d={plot.d} /> : null}
+          {open && model === "call-center" ? <CallRoom w={plot.w} d={plot.d} /> : null}
+          {open && model === "art" ? <ArtRoom w={plot.w} d={plot.d} /> : null}
           {open && model === "home" ? <HomeRoom w={plot.w} d={plot.d} tier={placeTier} /> : null}
           {open ? <pointLight position={[0, Math.min(2.4, height - 0.4), 0]} intensity={0.55} distance={14} decay={2} color="#fff1d6" /> : null}
         </>

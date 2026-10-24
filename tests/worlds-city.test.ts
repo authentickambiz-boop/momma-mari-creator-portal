@@ -11,11 +11,12 @@ import {
   EARNINGS_CAP_CENTS,
   HOME_TIERS,
   REAL_PAYMENTS,
+  apartmentFloors,
   formatKash,
   refuseRealPayment,
 } from "../src/lib/worlds/economy";
 import { worldsCityEnabled } from "../src/lib/worlds/city/flag";
-import { cityOverviewHome, officeTargetBounds, poseInsideBounds } from "../src/lib/worlds/city/scene-shell";
+import { cityOverviewHome, districtBillboard, interiorStand, officeTargetBounds, poseInsideBounds } from "../src/lib/worlds/city/scene-shell";
 import { officeCameraHome, officeCameraPoseOk } from "../src/lib/worlds/office-move";
 import {
   CITY_LOCATION_IDS,
@@ -35,7 +36,10 @@ import {
   LIVE_EMAIL_SEND,
   LIVE_SOCIAL_ACTIONS,
   buyCityItem,
+  claimApartmentUnit,
+  claimCityLot,
   emptyCitySession,
+  parseCitySession,
   pipelineLabel,
   submitCityTask,
   unlockHomeTier,
@@ -80,7 +84,7 @@ test("every location has the city fields and the required real-world categories"
     assert.ok(location.name);
     assert.ok(location.buildingModel);
     assert.ok(Number.isFinite(location.entrance.x) && Number.isFinite(location.entrance.z));
-    if (location.id === "learning-center" || location.id === "home" || location.id === "library") assert.equal(location.interior, "walk-in");
+    if (location.id === "learning-center" || location.id === "home" || location.id === "library" || location.id === "call-center" || location.id === "art-studio") assert.equal(location.interior, "walk-in");
     else assert.equal(location.interior, "panel");
     assert.ok(location.taskTypes.length > 0);
     assert.ok(Array.isArray(location.skills));
@@ -162,6 +166,16 @@ test("the office camera clamp is unchanged and the city view pulls back", () => 
   assert.match(canvas, /city \?/);
   assert.match(canvas, /WorldSceneShell/);
   assert.match(canvas, /CityLayer/);
+  const sign = districtBillboard("APARTMENT COMPLEX");
+  assert.ok(sign.tall >= 6);
+  assert.ok(sign.wide >= 26);
+  const inside = interiorStand({ x: 72, z: 4, w: 9, d: 10, yaw: -Math.PI / 2 });
+  const dx = inside.eye.x - inside.aim.x;
+  const dy = inside.eye.y - inside.aim.y;
+  const dz = inside.eye.z - inside.aim.z;
+  const distance = Math.hypot(dx, dy, dz);
+  assert.ok(distance >= 3.2 && distance <= 12);
+  assert.ok(Math.acos(dy / distance) <= Math.PI / 2.2 + 0.02);
   const layer = source("src/components/worlds/city/city-layer.tsx");
   assert.equal(layer.includes("hemisphereLight"), false);
   assert.equal(layer.includes("directionalLight"), false);
@@ -456,4 +470,100 @@ test("worlds has no adult copy and refuses that kind of note", () => {
   const folded = submitCityTask(session, "social-like", { optIn: true, note: "s3x", now: 6_000 });
   assert.equal(folded.ok, false);
   if (!folded.ok) assert.equal(folded.error, WORLDS_TEXT_REJECTION);
+});
+
+function boxGap(a: { x: number; z: number; w: number; d: number }, b: { x: number; z: number; w: number; d: number }) {
+  const dx = Math.max(0, Math.max(a.x - (b.x + b.w), b.x - (a.x + a.w)));
+  const dz = Math.max(0, Math.max(a.z - (b.z + b.d), b.z - (a.z + a.d)));
+  return Math.hypot(dx, dz);
+}
+
+test("neighborhood streets, empty lots, and a taller apartment stay in practice", () => {
+  const layout = buildOfficeLayout();
+  const district = buildCityDistrict(layout, "studio", 0);
+  const blockers = [...district.plots, ...district.lots];
+  for (let i = 0; i < blockers.length; i += 1) {
+    for (let j = i + 1; j < blockers.length; j += 1) {
+      const a = blockers[i];
+      const b = blockers[j];
+      assert.equal(boxesOverlap(a, b, 0.15), false, `${a.id} ${b.id}`);
+    }
+  }
+  for (const street of district.streets) {
+    for (const box of blockers) {
+      assert.equal(boxesOverlap(street, box, 0.05), false, `${street.id} ${box.id}`);
+    }
+  }
+  assert.equal(district.lots.some((lot) => lot.districtId === "apartment-complex"), false);
+  for (const tier of ["studio", "house", "creator-loft", "mansion"] as const) {
+    const lots = district.lots.filter((lot) => lot.tier === tier);
+    assert.ok(lots.length >= 2, tier);
+    assert.ok(lots.every((lot) => lot.priceCents > 0 && lot.number.length > 0));
+  }
+  const studio = district.plots.find((item) => item.id === "studio-row");
+  const house = district.plots.find((item) => item.id === "house-lane");
+  const loft = district.plots.find((item) => item.id === "loft-block");
+  const mansion = district.plots.find((item) => item.id === "mansion-grounds");
+  const apartment = district.plots.find((item) => item.id === "apartment-complex");
+  assert.ok(studio && house && loft && mansion && apartment);
+  const area = (box: { w: number; d: number }) => box.w * box.d;
+  for (const lot of district.lots.filter((item) => item.tier === "studio")) assert.ok(area(lot) < area(studio));
+  for (const lot of district.lots.filter((item) => item.tier === "house")) assert.ok(area(lot) < area(house) && area(lot) > area(studio) / 2);
+  for (const lot of district.lots.filter((item) => item.tier === "creator-loft")) assert.ok(area(lot) < area(loft) && area(lot) > area(house) / 3);
+  for (const lot of district.lots.filter((item) => item.tier === "mansion")) assert.ok(area(lot) > area(loft) * 0.7);
+  assert.equal(apartment.yard, "none");
+  assert.equal(apartment.floors, 3);
+  const grown = buildCityDistrict(layout, "apartment", 2);
+  assert.equal(grown.plots.find((item) => item.id === "apartment-complex")?.floors, 5);
+  assert.equal(grown.lots.length, district.lots.length);
+  const roads = district.streets.filter((street) => street.kind === "road");
+  const housing = [...district.plots.filter((plot) => plot.propertyTier), ...district.lots];
+  for (const box of housing) {
+    const near = Math.min(...district.streets.map((street) => boxGap(box, street)));
+    assert.ok(near < 3.2, `${box.id} ${near}`);
+  }
+  for (const id of ["road-studio-row", "road-apartment", "road-house", "road-loft", "road-mansion"]) {
+    const road = roads.find((item) => item.id === id);
+    assert.ok(road, id);
+    const touches = roads.some((other) => other.id !== id && boxGap(road, other) < 0.35);
+    assert.equal(touches, true, id);
+    assert.ok(district.streets.some((street) => street.id.startsWith(`${id}-walk-`)));
+  }
+  const layer = source("src/components/worlds/city/city-layer.tsx");
+  assert.match(layer, /districtBillboard/);
+  assert.match(layer, /BUILD HERE/);
+  assert.match(source("src/components/worlds/city/city-panel.tsx"), /Claim lot/);
+  assert.match(source("src/components/worlds/city/city-panel.tsx"), /Claim a unit/);
+  assert.equal(LIVE_SOCIAL_ACTIONS, false);
+  assert.equal(LIVE_EMAIL_SEND, false);
+
+  const lot = district.lots.find((item) => item.id === "lot-studio-1");
+  assert.ok(lot);
+  let session = { ...emptyCitySession(), kashCents: 100_000 };
+  const denied = claimCityLot(session, lot, "user", 5_000);
+  assert.equal(denied.ok, false);
+  const poor = claimCityLot({ ...emptyCitySession(), kashCents: 0 }, lot, "owner", 6_000);
+  assert.equal(poor.ok, false);
+  const claimed = claimCityLot(session, lot, "owner", 8_000);
+  assert.equal(claimed.ok, true);
+  if (!claimed.ok) return;
+  session = claimed.session;
+  assert.ok(session.claimedLotIds.includes(lot.id));
+  assert.equal(session.kashCents, 100_000 - lot.priceCents);
+  assert.match(claimed.message, /No real payment/);
+  const again = claimCityLot(session, lot, "owner", 20_000);
+  assert.equal(again.ok, false);
+  const unitDenied = claimApartmentUnit(session, "creatorBot", 30_000);
+  assert.equal(unitDenied.ok, false);
+  const unit = claimApartmentUnit(session, "owner", 40_000);
+  assert.equal(unit.ok, true);
+  if (!unit.ok) return;
+  assert.equal(unit.session.apartmentUnits, 1);
+  assert.equal(apartmentFloors(unit.session.apartmentUnits), 4);
+  assert.match(unit.message, /No empty yard/);
+  assert.match(unit.message, /No real payment/);
+  const kept = parseCitySession(JSON.stringify(unit.session));
+  assert.ok(kept);
+  assert.deepEqual(kept.claimedLotIds, [lot.id]);
+  assert.equal(kept.apartmentUnits, 1);
 });

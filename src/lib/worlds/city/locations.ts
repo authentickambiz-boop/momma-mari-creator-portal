@@ -4,7 +4,10 @@
  */
 
 import {
+  APARTMENT_MAX_FLOORS,
   HOME_TIER_FLOORS,
+  LOT_PRICE_CENTS,
+  apartmentFloors,
   shopItemsFor,
   type HomeTier,
 } from "../economy";
@@ -174,22 +177,22 @@ const CITY_LOCATION_BASE: readonly Omit<CityLocationDef, "allowedRoles" | "enter
     id: "call-center",
     name: "Call center",
     buildingModel: "call-center",
-    interior: "panel",
+    interior: "walk-in",
     taskTypes: ["call-script", "dm-review", "email-draft", "script-ideas", "situation-drill"],
     skills: ["outreach"],
     realWorldCategory: "outreach call scripts and reviewed DMs",
-    summary: "Call scripts, script ideas, situation drills, reviewed DMs, and outreach email drafts. Email stays a draft until Kamron says otherwise. Nothing is auto-sent.",
+    summary: "Call scripts, script ideas, situation drills, reviewed DMs, and outreach email drafts. The room is walk-in. Email stays a draft until Kamron says otherwise. Nothing is auto-sent.",
     interiorProps: ["Headset booth", "Script board", "DM queue", "Coffee"],
   },
   {
     id: "art-studio",
     name: "Art studio",
     buildingModel: "art",
-    interior: "panel",
+    interior: "walk-in",
     taskTypes: ["thumbnail", "caption", "cover-crop"],
     skills: ["design"],
     realWorldCategory: "thumbnails and graphics",
-    summary: "Thumbnails, caption cards, and cover crops. Describe the frame. Nothing is uploaded.",
+    summary: "Thumbnails, caption cards, and cover crops. The room is walk-in. Describe the frame. Nothing is uploaded.",
     interiorProps: ["Easel", "Drawing table", "Thumbnail wall", "Paint"],
   },
   {
@@ -278,8 +281,23 @@ export type Street = {
   kind: "road" | "walk";
 };
 
+/** An empty footprint waiting for a build. Apartments are not lots. */
+export type CityLot = {
+  id: string;
+  number: string;
+  tier: Exclude<HomeTier, "apartment">;
+  districtId: string;
+  x: number;
+  z: number;
+  w: number;
+  d: number;
+  yaw: number;
+  priceCents: number;
+};
+
 export type CityDistrict = {
   plots: Plot[];
+  lots: CityLot[];
   streets: Street[];
   bounds: TargetBounds;
   ground: { x: number; z: number; w: number; d: number };
@@ -288,6 +306,32 @@ export type CityDistrict = {
 const ROAD = 6.4;
 const GAP = 1.6;
 const HALF = ROAD / 2;
+
+function addRoad(streets: Street[], id: string, x: number, z: number, w: number, d: number) {
+  streets.push({ id, x, z, w, d, kind: "road" });
+  const alongX = w >= d;
+  if (alongX) {
+    streets.push({ id: `${id}-walk-a`, x, z: z - 1.55, w, d: 1.3, kind: "walk" });
+    streets.push({ id: `${id}-walk-b`, x, z: z + d + 0.25, w, d: 1.3, kind: "walk" });
+  } else {
+    streets.push({ id: `${id}-walk-a`, x: x - 1.55, z, w: 1.3, d, kind: "walk" });
+    streets.push({ id: `${id}-walk-b`, x: x + w + 0.25, z, w: 1.3, d, kind: "walk" });
+  }
+}
+
+function emptyLot(
+  id: string,
+  number: string,
+  tier: CityLot["tier"],
+  districtId: string,
+  x: number,
+  z: number,
+  w: number,
+  d: number,
+  yaw: number,
+): CityLot {
+  return { id, number, tier, districtId, x, z, w, d, yaw, priceCents: LOT_PRICE_CENTS[tier] };
+}
 
 type Box = { x: number; z: number; w: number; d: number };
 
@@ -360,7 +404,11 @@ function homeDistrict(
  * Streets and buildings around the office. The office footprint is left empty
  * so the existing lawn, door, and parking lot stay put.
  */
-export function buildCityDistrict(layout: { width: number; depth: number }, tier: HomeTier = "studio"): CityDistrict {
+export function buildCityDistrict(
+  layout: { width: number; depth: number },
+  tier: HomeTier = "studio",
+  apartmentUnits = 0,
+): CityDistrict {
   void tier;
   const width = layout.width;
   const depth = layout.depth;
@@ -371,12 +419,13 @@ export function buildCityDistrict(layout: { width: number; depth: number }, tier
   const spanX = eastX - westX;
   const spanZ = southZ - northZ;
 
+  const northRoadX = -86;
   const streets: Street[] = [
-    { id: "road-north", x: westX, z: northZ - HALF, w: spanX, d: ROAD, kind: "road" },
+    { id: "road-north", x: northRoadX, z: northZ - HALF, w: eastX - northRoadX, d: ROAD, kind: "road" },
     { id: "road-south", x: westX, z: southZ - HALF, w: spanX, d: ROAD, kind: "road" },
     { id: "road-west", x: westX - HALF, z: northZ, w: ROAD, d: spanZ, kind: "road" },
     { id: "road-east", x: eastX - HALF, z: northZ, w: ROAD, d: spanZ, kind: "road" },
-    { id: "walk-north", x: westX, z: northZ - HALF - 1.5, w: spanX, d: 1.4, kind: "walk" },
+    { id: "walk-north", x: northRoadX, z: northZ - HALF - 1.5, w: eastX - northRoadX, d: 1.4, kind: "walk" },
     { id: "walk-south", x: westX, z: southZ + HALF + 0.1, w: spanX, d: 1.4, kind: "walk" },
     { id: "walk-west", x: westX - HALF - 1.5, z: northZ, w: 1.4, d: spanZ, kind: "walk" },
     { id: "walk-east", x: eastX + HALF + 0.1, z: northZ, w: 1.4, d: spanZ, kind: "walk" },
@@ -426,12 +475,38 @@ export function buildCityDistrict(layout: { width: number; depth: number }, tier
     plot("clothing-shop", shopX, shopZ, shopW, shopD, Math.PI / 2, { x: shopX + shopW + 0.9, z: shopZ + shopD / 2 }, 1, "#d4567a", "#6a243c", "#f7f1e4"),
   ];
 
+  const rowSouth = -58.3;
+  const frontRoadZ = rowSouth + 2.3;
+  const studioZ = rowSouth - 7.2;
+  const apartmentZ = rowSouth - 12;
+  const apartmentFloorCount = Math.min(APARTMENT_MAX_FLOORS, apartmentFloors(apartmentUnits));
+  addRoad(streets, "road-studio-row", northRoadX, frontRoadZ, 94, ROAD);
+  addRoad(streets, "road-apartment", 8, frontRoadZ, 28, ROAD);
+  addRoad(streets, "road-studio-link", -84.2, frontRoadZ, ROAD, northZ - HALF + ROAD - frontRoadZ);
+  addRoad(streets, "road-mansion", -41.8, -44, ROAD, 84);
+  addRoad(streets, "road-mansion-link", -41.8, -22.4, 16.6, ROAD);
+  addRoad(streets, "road-house", 84.2, -28, ROAD, 64);
+  addRoad(streets, "road-house-link", eastX - HALF, -27.6, 84.2 + ROAD - (eastX - HALF), 9.2);
+  addRoad(streets, "road-loft", -18, 71.4, 96, ROAD);
+  addRoad(streets, "road-loft-link", 66.4, southZ - HALF, ROAD, 71.4 + ROAD - (southZ - HALF));
+
   const neighborhoods = [
-    homeDistrict("studio-row", "studio", -16, -50, 18, 7.2, 0, HOME_TIER_FLOORS.studio, "#c68642", "#6b3a28", "#f4efe4", "stoop", "STUDIO ROW", "studio"),
-    homeDistrict("apartment-complex", "apartment", 10, -54, 20, 12, 0, 3, "#b56a52", "#4e463f", "#f7f1e4", "none", "APARTMENT COMPLEX", "apartment"),
-    homeDistrict("house-lane", "house", 92, -2, 28, 16, -Math.PI / 2, HOME_TIER_FLOORS.house, "#d7c4a3", "#6b3a28", "#2f6d4f", "small", "HOUSE LANE", "houses"),
+    homeDistrict("studio-row", "studio", -32, studioZ, 18, 7.2, 0, HOME_TIER_FLOORS.studio, "#c68642", "#6b3a28", "#f4efe4", "stoop", "STUDIO ROW", "studio"),
+    homeDistrict("apartment-complex", "apartment", 8, apartmentZ, 20, 12, 0, apartmentFloorCount, "#b56a52", "#4e463f", "#f7f1e4", "none", "APARTMENT COMPLEX", "apartment"),
+    homeDistrict("house-lane", "house", 93.2, -2, 28, 16, -Math.PI / 2, HOME_TIER_FLOORS.house, "#d7c4a3", "#6b3a28", "#2f6d4f", "small", "HOUSE LANE", "houses"),
     homeDistrict("loft-block", "creator-loft", 6, 80, 34, 16, Math.PI, HOME_TIER_FLOORS["creator-loft"], "#8a4b3c", "#243044", "#d5e7f0", "studio", "LOFT BLOCK", "loft"),
     homeDistrict("mansion-grounds", "mansion", -72, -12, 28, 26, Math.PI / 2, HOME_TIER_FLOORS.mansion, "#d9d3c8", "#4e463f", "#c6a15a", "grounds", "MANSION GROUNDS", "mansion"),
+  ];
+
+  const lots: CityLot[] = [
+    emptyLot("lot-studio-1", "S-01", "studio", "studio-row", -46.5, studioZ, 6.6, 7.2, 0),
+    emptyLot("lot-studio-2", "S-02", "studio", "studio-row", -11.6, studioZ, 6.6, 7.2, 0),
+    emptyLot("lot-house-1", "H-01", "house", "house-lane", 95, -22.5, 13, 12, -Math.PI / 2),
+    emptyLot("lot-house-2", "H-02", "house", "house-lane", 95, 20, 13, 12, -Math.PI / 2),
+    emptyLot("lot-loft-1", "L-01", "creator-loft", "loft-block", -16, 80, 16, 16, Math.PI),
+    emptyLot("lot-loft-2", "L-02", "creator-loft", "loft-block", 44, 80, 16, 16, Math.PI),
+    emptyLot("lot-mansion-1", "M-01", "mansion", "mansion-grounds", -74, -44, 28, 18.5, Math.PI / 2),
+    emptyLot("lot-mansion-2", "M-02", "mansion", "mansion-grounds", -74, 18, 28, 20, Math.PI / 2),
   ];
 
   const eastIds: { id: CityLocationId; wall: string; roof: string; accent: string; floors: number }[] = [
@@ -468,10 +543,11 @@ export function buildCityDistrict(layout: { width: number; depth: number }, tier
   );
 
   const plots = [...northPlots, ...eastPlots, ...southPlots, ...westPlots, ...neighborhoods, officePlot];
-  let minX = Math.min(westX - HALF - 8, ...plots.map((item) => item.x));
-  let maxX = Math.max(eastX + HALF + 8, ...plots.map((item) => item.x + item.w));
-  let minZ = Math.min(northZ - HALF - 8, ...plots.map((item) => item.z));
-  let maxZ = Math.max(southZ + HALF + 8, ...plots.map((item) => item.z + item.d));
+  const boxes = [...plots, ...lots, ...streets];
+  let minX = Math.min(...boxes.map((item) => item.x));
+  let maxX = Math.max(...boxes.map((item) => item.x + item.w));
+  let minZ = Math.min(...boxes.map((item) => item.z));
+  let maxZ = Math.max(...boxes.map((item) => item.z + item.d));
   const pad = 16;
   minX -= pad;
   maxX += pad;
@@ -488,6 +564,7 @@ export function buildCityDistrict(layout: { width: number; depth: number }, tier
   };
   return {
     plots,
+    lots,
     streets,
     bounds,
     ground: { x: minX, z: minZ, w: maxX - minX, d: maxZ - minZ },

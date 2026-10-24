@@ -44,8 +44,8 @@ import type { BoardOpen, OfficeCameraApi, OfficeLayers, OfficeQuality } from "./
 import { CityChrome } from "./city/city-panel";
 import { allowsWalkIn, decideEnter, type AccessRole } from "@/lib/worlds/city/access";
 import { officeInteractables } from "@/lib/worlds/city/interactables";
-import { buildCityDistrict, locationById, plotForLocation, type CityLocationId } from "@/lib/worlds/city/locations";
-import { cityDayWeather } from "@/lib/worlds/city/scene-shell";
+import { buildCityDistrict, locationById, plotForLocation, type CityLocationId, type CityLot } from "@/lib/worlds/city/locations";
+import { cityDayWeather, interiorStand } from "@/lib/worlds/city/scene-shell";
 import { emptyCitySession, type CitySession } from "@/lib/worlds/city/tasks";
 import type { HomeTier } from "@/lib/worlds/economy";
 import { OfficeJoystick } from "./office-joystick";
@@ -210,6 +210,7 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
   const [bankAmount, setBankAmount] = useState("");
   const [cityLocation, setCityLocation] = useState<string | null>(null);
   const [cityPlot, setCityPlot] = useState<string | null>(null);
+  const [cityLotId, setCityLotId] = useState<string | null>(null);
   const [viewerRole, setViewerRole] = useState<AccessRole>("owner");
   const [citySession, setCitySession] = useState<CitySession>(() => emptyCitySession());
   const rememberCitySession = useCallback((next: CitySession) => {
@@ -726,7 +727,17 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
       setCityPlot(null);
       return;
     }
-    const plots = buildCityDistrict(layout, homeTier).plots;
+    const district = buildCityDistrict(layout, homeTier, citySession.apartmentUnits);
+    const lot = district.lots.find((item) => item.id === id);
+    if (lot) {
+      setCityLocation(null);
+      setCityPlot(null);
+      setCityLotId(lot.id);
+      cameraApiRef.current?.focus(lot.x + lot.w / 2, lot.z + lot.d / 2);
+      return;
+    }
+    setCityLotId(null);
+    const plots = district.plots;
     const plot = plots.find((item) => item.id === id) ?? plotForLocation(plots, id as CityLocationId, citySession.homeTier);
     if (!plot) {
       setCityLocation(id);
@@ -738,12 +749,17 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
     const location = locationById(plot.locationId);
     const decision = location ? decideEnter(location, viewerRole, citySession, plot.propertyTier) : null;
     const inside = location && decision ? allowsWalkIn(decision, location.interior) : false;
-    cameraApiRef.current?.focus(inside ? plot.x + plot.w / 2 : plot.entrance.x, inside ? plot.z + plot.d / 2 : plot.entrance.z);
+    if (inside) {
+      const pose = interiorStand(plot);
+      cameraApiRef.current?.stand(pose.eye.x, pose.eye.y, pose.eye.z, pose.aim.x, pose.aim.y, pose.aim.z);
+    } else {
+      cameraApiRef.current?.focus(plot.entrance.x, plot.entrance.z);
+    }
   }
 
   const cityVisit = useMemo(() => {
     if (!cityMode || !layout || !cityLocation) return null;
-    const plots = buildCityDistrict(layout, homeTier).plots;
+    const plots = buildCityDistrict(layout, homeTier, citySession.apartmentUnits).plots;
     const plot = plots.find((item) => item.id === cityPlot) ?? null;
     const location = locationById(cityLocation);
     if (!location) return null;
@@ -754,6 +770,11 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
       locked: !decision.open,
     };
   }, [cityMode, layout, homeTier, cityLocation, cityPlot, viewerRole, citySession]);
+
+  const cityLot = useMemo<CityLot | null>(() => {
+    if (!cityMode || !layout || !cityLotId) return null;
+    return buildCityDistrict(layout, homeTier, citySession.apartmentUnits).lots.find((item) => item.id === cityLotId) ?? null;
+  }, [cityMode, layout, homeTier, cityLotId, citySession.apartmentUnits]);
 
   const officeTaps = useMemo(
     () => (cityMode && layout && status ? officeInteractables(layout, status.sections, status.bots) : []),
@@ -793,7 +814,7 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
             bankBalance={gameWallet?.wallet.bank ?? 0}
             onOpenBank={() => openBank()}
             stickRef={stickRef}
-            city={cityMode ? { homeTier, selectedId: cityPlot, interiorOpen: cityVisit?.interiorOpen ?? false, locked: cityVisit?.locked ?? false, onOpenLocation: openCity } : null}
+            city={cityMode ? { homeTier, apartmentUnits: citySession.apartmentUnits, claimedLotIds: citySession.claimedLotIds, selectedId: cityLotId ?? cityPlot, interiorOpen: cityVisit?.interiorOpen ?? false, locked: cityVisit?.locked ?? false, onOpenLocation: openCity } : null}
           />
         ) : (
           <div className="office-loading">{error || "Opening the bot office…"}</div>
@@ -878,16 +899,18 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
         ) : null}
       </div>
 
-      <OfficeJoystick stickRef={stickRef} lifted={sheet !== null || cityLocation !== null} />
+      <OfficeJoystick stickRef={stickRef} lifted={sheet !== null || cityLocation !== null || cityLotId !== null} />
 
       {cityMode ? (
         <CityChrome
           locationId={cityLocation}
           officeTaps={officeTaps}
           onOpenLocation={openCity}
+          lot={cityLot}
           onClose={() => {
             setCityLocation(null);
             setCityPlot(null);
+            setCityLotId(null);
           }}
           onOpenBank={() => openBank()}
           onTier={setTier}

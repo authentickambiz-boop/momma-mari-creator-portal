@@ -60,6 +60,24 @@ export const HOME_TIER_SCALE: Record<HomeTier, number> = {
   mansion: 1.72,
 };
 
+/** Practice price for one empty lot. Apartments are not sold as side yards. */
+export const LOT_PRICE_CENTS: Record<Exclude<HomeTier, "apartment">, number> = {
+  studio: 1_800,
+  house: 7_500,
+  "creator-loft": 12_000,
+  mansion: 22_000,
+};
+
+/** One more floor on the shared apartment complex. Practice Kash only. */
+export const APARTMENT_UNIT_PRICE_CENTS = 2_400;
+export const APARTMENT_BASE_FLOORS = 3;
+export const APARTMENT_MAX_FLOORS = 11;
+
+export function apartmentFloors(claimedUnits: number) {
+  const extra = Number.isFinite(claimedUnits) ? Math.max(0, Math.trunc(claimedUnits)) : 0;
+  return APARTMENT_BASE_FLOORS + extra;
+}
+
 export type ShopItemKind = "wear" | "indoor" | "outdoor" | "oversized";
 
 export type CityShopItem = {
