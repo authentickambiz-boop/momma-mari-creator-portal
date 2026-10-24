@@ -1,0 +1,22 @@
+{
+  "locationId": "furniture-shop",
+  "name": "Furniture shop",
+  "pass": true,
+  "liveSocialActions": false,
+  "liveEmailSend": false,
+  "earningsCapCents": null,
+  "realPayments": false,
+  "sent": false,
+  "tasks": [],
+  "sharedCaps": [],
+  "negatives": [
+    {
+      "id": "apartment-yard",
+      "name": "Apartment buying a yard item rejected",
+      "locationId": "furniture-shop",
+      "pass": true,
+      "detail": "Apartment cannot buy the yard planter. No Kash moved."
+    }
+  ],
+  "note": "No scored tasks. The shop spends Kash and does not post or send mail."
+}

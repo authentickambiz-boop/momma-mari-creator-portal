@@ -1,0 +1,57 @@
+{
+  "locationId": "bank",
+  "name": "Bank",
+  "pass": true,
+  "liveSocialActions": false,
+  "liveEmailSend": false,
+  "earningsCapCents": null,
+  "realPayments": false,
+  "sent": false,
+  "tasks": [
+    {
+      "taskId": "bank-visit",
+      "name": "Visit the bank",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 0,
+      "balanceCents": 0,
+      "score": null,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Auto check is on. The note stays in the city."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "No peer or bot score on this path."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $0.00. Balance Kash $0.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 30, then blocked. Window limit:visit. No earnings cap."
+        }
+      ]
+    }
+  ],
+  "sharedCaps": [],
+  "negatives": [],
+  "note": "Each task ran on a throwaway owner session. Nothing was posted or sent."
+}

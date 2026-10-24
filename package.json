@@ -8,6 +8,7 @@
     "start": "next start --hostname 0.0.0.0 --port 43123",
     "lint": "eslint",
     "test": "tsx --test tests/*.test.ts",
+    "worlds:qc": "tsx scripts/worlds-qc.ts",
     "db:generate": "drizzle-kit generate",
     "db:apply:local": "wrangler d1 migrations apply DB --local",
     "db:seed": "node scripts/render-seed.mjs",

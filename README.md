@@ -685,6 +685,35 @@ curl -sS -X POST \
   http://localhost:43123/api/worlds/wallets
 ```
 
+## Worlds City task QC
+
+`/worlds/city` stays off unless `WORLDS_CITY` is exactly `true`, and it stays owner-only. `npm run worlds:qc` scores every city task on a throwaway session. `LIVE_SOCIAL_ACTIONS` and `LIVE_EMAIL_SEND` stay false, so the run does not post or send email. Per-building JSON and markdown reports are written to `src/lib/worlds/city/qc-reports/`. The map and the task rules are in `src/lib/worlds/city/README.md`.
+
+<!-- worlds-qc:start -->
+`npm run worlds:qc` prints this table. `LIVE_SOCIAL_ACTIONS` and `LIVE_EMAIL_SEND` stay false. Nothing is posted or emailed.
+
+| Building | Tasks | Passed | Result |
+| --- | ---: | ---: | --- |
+| Office | 1 | 1 | PASS |
+| Personal home | 6 | 6 | PASS |
+| Social club | 6 | 6 | PASS |
+| Research lab | 4 | 4 | PASS |
+| Library | 5 | 5 | PASS |
+| Computer lab | 4 | 4 | PASS |
+| Learning center | 6 | 6 | PASS |
+| Call center | 5 | 5 | PASS |
+| Art studio | 3 | 3 | PASS |
+| Music studio | 3 | 3 | PASS |
+| Bank | 1 | 1 | PASS |
+| Clothing shop | 0 | 0 | PASS |
+| Furniture shop | 0 | 0 | PASS |
+| Negative checks | 5 | 5 | PASS |
+
+Negative checks: spam comment rejected, NSFW blocked, apartment buying a yard item rejected, non-owner office enter rejected, office bot leave blocked.
+
+Per-building JSON and markdown reports: `src/lib/worlds/city/qc-reports/`.
+<!-- worlds-qc:end -->
+
 ## Momma Mari Worlds desktop
 
 `desktop/` is a small Tauri window that opens [https://www.mommamari.com/portal/worlds](https://www.mommamari.com/portal/worlds). It is the same owner-only office. Sign in with Google in that window and it comes back to `/portal/worlds`. The window does not open the rest of the creator portal: other `/portal` pages are blocked, and the app menu is only **Quit** and **View → Toggle Fullscreen**. It remembers its size, its position, and which monitor it was on, and restores them the next time you open it. If that monitor is unplugged, the system picks a screen that is still connected. **View → Toggle Fullscreen** (F11) switches fullscreen. On a Mac, F11 is sometimes taken by Mission Control, so use the View menu.

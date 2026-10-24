@@ -1,0 +1,274 @@
+{
+  "locationId": "learning-center",
+  "name": "Learning center",
+  "pass": true,
+  "liveSocialActions": false,
+  "liveEmailSend": false,
+  "earningsCapCents": null,
+  "realPayments": false,
+  "sent": false,
+  "tasks": [
+    {
+      "taskId": "lesson-research",
+      "name": "Read a brand brief",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 0,
+      "balanceCents": 0,
+      "score": null,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Auto check is on. The note stays in the city."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "No peer or bot score on this path."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $0.00. Balance Kash $0.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 24, then blocked. Window limit:lesson. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "lesson-writing",
+      "name": "Summarize in one breath",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 0,
+      "balanceCents": 0,
+      "score": null,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Auto check is on. The note stays in the city."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "No peer or bot score on this path."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $0.00. Balance Kash $0.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 24, then blocked. Window limit:lesson. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "lesson-outreach",
+      "name": "Shape a call opener",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 0,
+      "balanceCents": 0,
+      "score": null,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Auto check is on. The note stays in the city."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "No peer or bot score on this path."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $0.00. Balance Kash $0.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 24, then blocked. Window limit:lesson. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "lesson-design",
+      "name": "Frame a thumbnail",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 0,
+      "balanceCents": 0,
+      "score": null,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Auto check is on. The note stays in the city."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "No peer or bot score on this path."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $0.00. Balance Kash $0.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 24, then blocked. Window limit:lesson. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "lesson-audio",
+      "name": "Mark a ten-second cue",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 0,
+      "balanceCents": 0,
+      "score": null,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Auto check is on. The note stays in the city."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "No peer or bot score on this path."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $0.00. Balance Kash $0.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 24, then blocked. Window limit:lesson. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "lesson-data",
+      "name": "Check a sample row",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 0,
+      "balanceCents": 0,
+      "score": null,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Auto check is on. The note stays in the city."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "No peer or bot score on this path."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $0.00. Balance Kash $0.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 24, then blocked. Window limit:lesson. No earnings cap."
+        }
+      ]
+    }
+  ],
+  "sharedCaps": [
+    {
+      "windowKey": "limit:lesson",
+      "limit": 24,
+      "pass": true,
+      "detail": "24 lesson-research runs filled limit:lesson. The next lesson-writing was rejected. No earnings cap."
+    }
+  ],
+  "negatives": [],
+  "note": "Each task ran on a throwaway owner session. Nothing was posted or sent."
+}

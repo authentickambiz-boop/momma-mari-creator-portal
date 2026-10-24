@@ -1,0 +1,232 @@
+{
+  "locationId": "call-center",
+  "name": "Call center",
+  "pass": true,
+  "liveSocialActions": false,
+  "liveEmailSend": false,
+  "earningsCapCents": null,
+  "realPayments": false,
+  "sent": false,
+  "tasks": [
+    {
+      "taskId": "call-script",
+      "name": "Outreach call script",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 700,
+      "balanceCents": 700,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $7.00. Balance Kash $7.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "dm-review",
+      "name": "Reviewed DM note",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 600,
+      "balanceCents": 600,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $6.00. Balance Kash $6.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "call-email",
+      "name": "Outreach email draft",
+      "external": "email",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 850,
+      "balanceCents": 850,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. Greeting, one reason, and a close. The draft is never auto-sent."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Owner gate holds the email draft."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $8.50. Balance Kash $8.50."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 3, then blocked. Window limit:task:call-email. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "call-ideas",
+      "name": "Script ideas",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 600,
+      "balanceCents": 600,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $6.00. Balance Kash $6.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "call-drill",
+      "name": "Situation drill",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 650,
+      "balanceCents": 650,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $6.50. Balance Kash $6.50."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    }
+  ],
+  "sharedCaps": [
+    {
+      "windowKey": "limit:paid",
+      "limit": 5,
+      "pass": true,
+      "detail": "5 call-script runs filled limit:paid. The next dm-review was rejected. call-email keeps its own cap of 3. No earnings cap."
+    }
+  ],
+  "negatives": [],
+  "note": "Each task ran on a throwaway owner session. Nothing was posted or sent."
+}

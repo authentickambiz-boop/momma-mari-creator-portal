@@ -874,7 +874,39 @@ function peerScore(note: string) {
   return Math.max(55, Math.min(98, 58 + words * 4));
 }
 
+const NSFW_NOTE = /\b(nsfw|porn|xxx|nude|nudes|naked|hentai)\b/i;
+const SPAM_PHRASE = /\b(buy now|click here|free followers|act now|limited offer)\b/i;
+const SPAM_URL = /https?:\/\/|www\./i;
+
+/** City notes stay suitable for a public practice draft. */
+export function noteIsNsfw(note: string) {
+  return NSFW_NOTE.test(note);
+}
+
+/** Repeated pitches, links, and stuffed words are spam comments. */
+export function commentIsSpam(note: string) {
+  if (SPAM_URL.test(note) || SPAM_PHRASE.test(note)) return true;
+  if (/(.)\1{6,}/.test(note)) return true;
+  const words = note.toLowerCase().match(/[a-z0-9']+/g) ?? [];
+  if (words.length < 4) return false;
+  const counts = new Map<string, number>();
+  for (const word of words) counts.set(word, (counts.get(word) ?? 0) + 1);
+  return Math.max(...counts.values()) >= 4;
+}
+
+export function taskWindow(item: Pick<CityTask, "id" | "kind" | "dailyLimit">) {
+  const limits = ACTION_LIMITS[item.kind];
+  return {
+    limit: item.dailyLimit ?? limits.limit,
+    windowMs: limits.windowMs,
+    cooldownMs: limits.cooldownMs,
+    windowKey: item.dailyLimit != null ? `limit:task:${item.id}` : `limit:${item.kind}`,
+  };
+}
+
 function autoFail(item: CityTask, note: string) {
+  if (noteIsNsfw(note)) return "NSFW is blocked. Nothing was posted or sent.";
+  if (item.taskType === "comment" && commentIsSpam(note)) return "Spam comments are rejected. Nothing was posted.";
   if (item.external === "email") {
     if (note.length < 24) return "The auto check wants a full draft: greeting, reason, and a close.";
     if (!/\b(hi|hello|hey)\b/i.test(note)) return "The auto check wants a greeting in the draft.";
@@ -898,7 +930,8 @@ function pipelineResult(item: CityTask, note: string) {
   const score = item.pipeline.peerScore ? peerScore(note) : null;
   if (item.practice || item.external === "social") {
     const scored = score === null ? "Practice mode saved this draft." : `Practice score ${score}.`;
-    return { ok: true as const, score, sent: false as const, summary: `${scored} Live likes, comments, follows, and story posts are off. Nothing was posted.` };
+    const gate = item.pipeline.ownerGate ? " Owner gate holds this draft." : "";
+    return { ok: true as const, score, sent: false as const, summary: `${scored}${gate} Live likes, comments, follows, and story posts are off. Nothing was posted.` };
   }
   if (item.external === "email" || item.pipeline.ownerGate) {
     const scored = score === null ? "Auto check passed." : `Auto check passed. Peer score ${score}.`;
@@ -950,12 +983,10 @@ export function submitCityTask(
   if (item.minTier && homeTierRank(session.homeTier) < homeTierRank(item.minTier)) {
     return { ok: false, error: `${HOME_TIER_LABEL[item.minTier]} unlocks this. The home you have is ${HOME_TIER_LABEL[session.homeTier]}.` };
   }
-  const limits = ACTION_LIMITS[item.kind];
-  const cooled = onCooldown(session, `task:${item.id}`, limits.cooldownMs, input.now);
+  const window = taskWindow(item);
+  const cooled = onCooldown(session, `task:${item.id}`, window.cooldownMs, input.now);
   if (cooled) return { ok: false, error: cooled };
-  const cap = item.dailyLimit ?? limits.limit;
-  const windowKey = item.dailyLimit != null ? `limit:task:${item.id}` : `limit:${item.kind}`;
-  const slotted = takeWindow(session, windowKey, cap, limits.windowMs, input.now);
+  const slotted = takeWindow(session, window.windowKey, window.limit, window.windowMs, input.now);
   if (!slotted.ok) return slotted;
   const reviewed = pipelineResult(item, note);
   if (!reviewed.ok) return reviewed;

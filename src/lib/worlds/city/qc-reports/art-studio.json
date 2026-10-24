@@ -1,0 +1,148 @@
+{
+  "locationId": "art-studio",
+  "name": "Art studio",
+  "pass": true,
+  "liveSocialActions": false,
+  "liveEmailSend": false,
+  "earningsCapCents": null,
+  "realPayments": false,
+  "sent": false,
+  "tasks": [
+    {
+      "taskId": "thumbnail",
+      "name": "Thumbnail note",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 900,
+      "balanceCents": 900,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $9.00. Balance Kash $9.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "caption-card",
+      "name": "Caption card",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 700,
+      "balanceCents": 700,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $7.00. Balance Kash $7.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    },
+    {
+      "taskId": "cover-crop",
+      "name": "Cover crop note",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 800,
+      "balanceCents": 800,
+      "score": 98,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Weak note rejected. The note is specific enough to score."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "Peer or bot score 98."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $8.00. Balance Kash $8.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Accepted 5, then blocked. Window limit:paid. No earnings cap."
+        }
+      ]
+    }
+  ],
+  "sharedCaps": [
+    {
+      "windowKey": "limit:paid",
+      "limit": 5,
+      "pass": true,
+      "detail": "5 thumbnail runs filled limit:paid. The next caption-card was rejected. No earnings cap."
+    }
+  ],
+  "negatives": [],
+  "note": "Each task ran on a throwaway owner session. Nothing was posted or sent."
+}

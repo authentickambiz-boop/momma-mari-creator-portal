@@ -1,0 +1,72 @@
+{
+  "locationId": "office",
+  "name": "Office",
+  "pass": true,
+  "liveSocialActions": false,
+  "liveEmailSend": false,
+  "earningsCapCents": null,
+  "realPayments": false,
+  "sent": false,
+  "tasks": [
+    {
+      "taskId": "office-check-in",
+      "name": "Check in",
+      "external": "none",
+      "pass": true,
+      "sent": false,
+      "payoutCents": 0,
+      "balanceCents": 0,
+      "score": null,
+      "assertions": [
+        {
+          "name": "autoCheck",
+          "pass": true,
+          "detail": "Auto check is on. The note stays in the city."
+        },
+        {
+          "name": "peerScore",
+          "pass": true,
+          "detail": "No peer or bot score on this path."
+        },
+        {
+          "name": "ownerGate",
+          "pass": true,
+          "detail": "Stays in the city. No owner gate."
+        },
+        {
+          "name": "sent",
+          "pass": true,
+          "detail": "sent: false"
+        },
+        {
+          "name": "kash",
+          "pass": true,
+          "detail": "Payout Kash $0.00. Balance Kash $0.00."
+        },
+        {
+          "name": "dailyCap",
+          "pass": true,
+          "detail": "Check-in is once. The next visit was rejected. No earnings cap."
+        }
+      ]
+    }
+  ],
+  "sharedCaps": [],
+  "negatives": [
+    {
+      "id": "non-owner-office",
+      "name": "Non-owner office enter rejected",
+      "locationId": "office",
+      "pass": true,
+      "detail": "Only Kamron and the office roster can enter HQ."
+    },
+    {
+      "id": "office-bot-leave",
+      "name": "Office bot leave blocked",
+      "locationId": "office",
+      "pass": true,
+      "detail": "Office roster bots stay inside HQ until the buildings are connected."
+    }
+  ],
+  "note": "Each task ran on a throwaway owner session. Nothing was posted or sent."
+}
