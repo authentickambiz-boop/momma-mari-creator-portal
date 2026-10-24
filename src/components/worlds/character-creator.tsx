@@ -26,7 +26,7 @@ import {
   type CharacterSlotName,
   type CharacterSubjectKind,
 } from "@/lib/worlds/character";
-import { formatGameUnits, GAME_CATALOG } from "@/lib/worlds/game-wallet";
+import { GAME_CATALOG } from "@/lib/worlds/game-wallet";
 import { CharacterStage } from "./character-stage";
 import "./character.css";
 
@@ -63,16 +63,25 @@ function sameLook(left: CharacterConfig, right: CharacterConfig) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+type ItemLock = { price: number | null; reason: string };
+
+function kashAmount(units: number) {
+  const whole = Math.abs(units - Math.round(units)) < 0.001;
+  return whole ? String(Math.round(units)) : units.toFixed(2);
+}
+
 function locksFor(slot: CharacterSlotName, values: readonly string[], unlocked: readonly string[]) {
-  const locked: Record<string, string> = {};
+  const locked: Record<string, ItemLock> = {};
   const shop = SHOP_CLOTHING[slot] as readonly string[];
   for (const item of values) {
     if (!shop.includes(item) || unlocked.includes(item)) continue;
     const product = GAME_CATALOG.find((row) => row.sku === item);
-    locked[item] = product ? formatGameUnits(product.priceCents / 100) : "Locked";
+    locked[item] = product
+      ? { price: product.priceCents / 100, reason: "Shop" }
+      : { price: null, reason: "Locked" };
   }
   for (const item of values) {
-    if (item !== "none" && !slotMeshReady(slot, item) && !locked[item]) locked[item] = "Missing mesh";
+    if (item !== "none" && !slotMeshReady(slot, item) && !locked[item]) locked[item] = { price: null, reason: "Missing mesh" };
   }
   return locked;
 }
@@ -92,7 +101,7 @@ function Choices({
   selected: string;
   onPick: (value: string) => void;
   labelText: string;
-  locked?: Readonly<Record<string, string>>;
+  locked?: Readonly<Record<string, ItemLock>>;
 }) {
   if (values.length === 0) {
     return (
@@ -103,14 +112,40 @@ function Choices({
     );
   }
   return (
-    <div>
+    <div className="character-group">
       <p className="character-kicker">{labelText}</p>
       <div className="character-choices" role="group" aria-label={labelText}>
         {values.map((value) => {
           const lock = locked?.[value];
+          const name = label(value);
+          const price = lock?.price;
           return (
-            <button key={value} type="button" aria-pressed={selected === value} disabled={Boolean(lock)} onClick={() => onPick(value)}>
-              {lock ? `${label(value)} · ${lock}` : label(value)}
+            <button
+              key={value}
+              type="button"
+              className={lock ? "is-locked" : undefined}
+              aria-pressed={selected === value}
+              aria-label={lock ? `${name}, ${price != null ? `${kashAmount(price)} Kash` : lock.reason}, locked` : name}
+              disabled={Boolean(lock)}
+              onClick={() => onPick(value)}
+            >
+              {lock ? (
+                <>
+                  <svg className="character-lock-icon" viewBox="0 0 16 16" aria-hidden="true">
+                    <rect x="3.2" y="7" width="9.6" height="6.2" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                    <path d="M5.4 7V5.2a2.6 2.6 0 0 1 5.2 0V7" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                  </svg>
+                  <span>{name}</span>
+                  {price != null ? (
+                    <span className="character-price">
+                      <span className="kash-mark" aria-hidden="true">K</span>
+                      {kashAmount(price)}
+                    </span>
+                  ) : (
+                    <span className="character-price">{lock.reason}</span>
+                  )}
+                </>
+              ) : name}
             </button>
           );
         })}
@@ -118,6 +153,10 @@ function Choices({
     </div>
   );
 }
+
+const COMPLEXION = CHARACTER_SWATCHES.slice(0, 5);
+const NEUTRALS = ["#f7f1e4", "#1c211e", "#ffffff"] as const;
+const WARDROBE = CHARACTER_SWATCHES.filter((color) => !COMPLEXION.includes(color) && !(NEUTRALS as readonly string[]).includes(color));
 
 function Swatches({
   selected,
@@ -128,20 +167,32 @@ function Swatches({
   onPick: (value: string) => void;
   labelText: string;
 }) {
+  const rows = [
+    { id: "complexion", label: "Complexion", colors: COMPLEXION },
+    { id: "wardrobe", label: "Wardrobe", colors: WARDROBE },
+    { id: "neutral", label: "Neutral", colors: NEUTRALS },
+  ];
   return (
-    <div>
+    <div className="character-group">
       <p className="character-kicker">{labelText}</p>
-      <div className="character-swatches" role="group" aria-label={labelText}>
-        {CHARACTER_SWATCHES.map((color) => (
-          <button
-            key={color}
-            type="button"
-            className="character-swatch"
-            aria-label={color}
-            aria-pressed={selected === color}
-            style={{ background: color }}
-            onClick={() => onPick(color)}
-          />
+      <div role="group" aria-label={labelText}>
+        {rows.map((row) => (
+          <div key={row.id} className="character-swatch-row">
+            <span className="character-swatch-label">{row.label}</span>
+            <div className="character-swatches">
+              {row.colors.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  className="character-swatch"
+                  aria-label={color}
+                  aria-pressed={selected === color}
+                  style={{ background: color }}
+                  onClick={() => onPick(color)}
+                />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </div>
@@ -150,12 +201,13 @@ function Swatches({
 
 function Recolor({ labelText, before, after }: { labelText: string; before: string; after: string }) {
   const changed = before.toLowerCase() !== after.toLowerCase();
+  if (!changed) return null;
   return (
     <p className="character-recolor">
       <span>{labelText}</span>
       <span className="character-recolor-chip" style={{ background: before }} aria-label={`${labelText} saved`} />
       <span className="character-recolor-chip" style={{ background: after }} aria-label={`${labelText} now`} />
-      <span>{changed ? "Changed" : "Same"}</span>
+      <span>Changed</span>
     </p>
   );
 }
@@ -213,11 +265,9 @@ export function CharacterCreator({
       const studioBox = studio.getBoundingClientRect();
       const panelBox = panel.getBoundingClientRect();
       const narrow = window.matchMedia("(max-width: 800px)").matches;
-      const cover = narrow && studioBox.height > 0
-        ? Math.min(0.72, (panelBox.height + 56) / studioBox.height)
-        : 0;
-      sheetCoverRef.current = cover;
-      studio.style.setProperty("--sheet-lift", `${Math.ceil(narrow ? panelBox.height : 0)}px`);
+      const lift = narrow ? Math.max(0, studioBox.bottom - panelBox.top) : 0;
+      sheetCoverRef.current = narrow && studioBox.height > 0 ? Math.min(0.72, lift / studioBox.height) : 0;
+      studio.style.setProperty("--sheet-lift", `${Math.ceil(lift)}px`);
     };
     sync();
     const observer = new ResizeObserver(sync);
@@ -333,7 +383,10 @@ export function CharacterCreator({
           {sheetOpen ? "Hide options" : `${categoryLabel} options`}
         </button>
         <div className="character-bar">
-          <h1>{title}</h1>
+          <div className="character-bar-title">
+            <p className="character-kicker">Dresser</p>
+            <h1>{title}</h1>
+          </div>
           <Link href={backHref} onClick={onBack} aria-disabled={saving}>{saving ? "Saving…" : backLabel}</Link>
         </div>
         <div className="character-tabs" role="tablist" aria-label="Look categories">
@@ -486,19 +539,20 @@ export function CharacterCreator({
               <Swatches labelText="Tag color" selected={config.nameTag.color} onPick={(color) => { setConfig((current) => ({ ...current, nameTag: { ...current.nameTag, color } })); setMessage(""); }} />
             </>
           ) : null}
-          <div className="character-actions">
-            <button type="button" className="ghost" onClick={() => { setConfig(randomCharacter()); setMessage(""); }}>Randomize</button>
-            <button type="button" className="ghost" onClick={() => { setConfig(defaultCharacter(subjectId)); setMessage(""); }}>Reset</button>
-          </div>
         </div>
         <div className="character-apply-bar">
           {message ? <p className={failed ? "character-note error" : "character-note"} role="status">{message}</p> : null}
           {!message && dirty ? (
-            <p className="character-note">{you ? "Unsaved. Save look updates the office You character." : "Unsaved. Save look updates this bot in the office."}</p>
+            <p className="character-note is-dirty">{you ? "Unsaved. Save look updates the office You character." : "Unsaved. Save look updates this bot in the office."}</p>
           ) : null}
-          <button type="button" className="character-apply" disabled={saving} onClick={() => void save()}>
-            {saving ? "Saving…" : "Save look"}
-          </button>
+          {!message && !dirty ? <p className="character-note">Matches the saved look.</p> : null}
+          <div className="character-footer-actions">
+            <button type="button" className="character-quiet" onClick={() => { setConfig(randomCharacter()); setMessage(""); }}>Randomize</button>
+            <button type="button" className="character-quiet" onClick={() => { setConfig(defaultCharacter(subjectId)); setMessage(""); }}>Reset</button>
+            <button type="button" className="character-apply" disabled={saving} onClick={() => void save()}>
+              {saving ? "Saving…" : "Save look"}
+            </button>
+          </div>
         </div>
       </section>
     </div>

@@ -22,3 +22,5 @@ A new owner look is the locked glam portrait: long plum hair, no headwear, a fit
 The preview is a two-by-two sheet on neutral light gray `#e6e6e6`: front, side, back, and a profile headshot. Each cell is the same paper doll, so the clothing, hair, and expression match across angles. The header reads the character name and the content-creator archetype. The legend lists build, expression, and each worn piece with its color. Compare keeps the current look on the body views and the last saved look on the profile headshot.
 
 On a narrow viewport the picker is a bottom sheet. The concept sheet sits in the band above it. Tapping the sheet scrim hides the picker.
+
+The selection panel is a dresser: category pills, item chips, grouped color swatches, and a sticky footer with Randomize, Reset, and Save look. Shop pieces stay locked and show a Kash price with a K crossed by a horizontal line.
