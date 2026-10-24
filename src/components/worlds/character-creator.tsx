@@ -317,6 +317,7 @@ export function CharacterCreator({
           baseline={baseline}
           compare={compare}
           sheetOpen={sheetOpen}
+          name={title}
           onCompare={() => setCompare((open) => !open)}
           onHideSheet={() => setSheetOpen(false)}
         />

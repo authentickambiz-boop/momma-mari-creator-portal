@@ -225,7 +225,27 @@ export function buildCharacter(rng: () => number): CharacterConfig {
 /** Saved looks for the signed-in owner use subject id "owner", not the office actor id. */
 export const OWNER_LOOK_SEED = "owner";
 
+/** Trendy starter for a new player. Bots keep a seeded mix. Shop pieces stay locked. */
+export function starterFashionLook(): CharacterConfig {
+  return {
+    version: 1,
+    body: { shape: "tall", size: "medium", color: "#e0b08a" },
+    face: { eyes: "wide", mouth: "smile", expression: "smile" },
+    slots: {
+      hair: { item: "long", color: "#6b4c7a" },
+      headwear: { item: "headphones", color: "#f2c14e" },
+      top: { item: "collar", color: "#d4567a" },
+      bottom: { item: "skirt", color: "#2f6283" },
+      shoes: { item: "boots", color: "#1c211e" },
+      accessory: { item: "bag", color: "#f2c14e" },
+    },
+    palette: { primary: "#d4567a", secondary: "#2f6283", accent: "#f2c14e" },
+    nameTag: { style: "pill", color: "#d4567a" },
+  };
+}
+
 export function defaultCharacter(seed = "bot"): CharacterConfig {
+  if (seed === OWNER_LOOK_SEED) return starterFashionLook();
   return buildCharacter(mix(seed));
 }
 
