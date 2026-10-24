@@ -289,7 +289,7 @@ export async function markCreatorTaskDone(db: PortalDb, viewer: Viewer, taskId: 
   }
   if (task.status !== "done") {
     await db.update(creatorTasks).set({ status: "done", updatedAt: nowIso() }).where(eq(creatorTasks.id, task.id));
-    await noteTaskCompleted(db, task.creatorId, task.id);
+    await noteTaskCompleted(db, task.creatorId, task.id, task.category);
   }
   return { ok: true as const };
 }
@@ -317,7 +317,7 @@ export async function saveCreatorTask(
     status: input.status,
     updatedAt: nowIso(),
   }).where(eq(creatorTasks.id, current.id));
-  if (input.status === "done" && current.status !== "done") await noteTaskCompleted(db, current.creatorId, current.id);
+  if (input.status === "done" && current.status !== "done") await noteTaskCompleted(db, current.creatorId, current.id, current.category);
   return { ok: true as const };
 }
 

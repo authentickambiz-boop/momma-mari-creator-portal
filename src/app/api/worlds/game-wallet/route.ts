@@ -5,22 +5,19 @@ import { readBody } from "@/lib/http";
 import { parseCharacterSubject } from "@/lib/worlds/character";
 import {
   parseCollectDestination,
-  parseEarnRates,
   parseIdempotencyKey,
   parseMoveAmount,
   parseRewardGrant,
   parseWeeklyInterest,
   refuseCurrencyPurchase,
-  walletAccess,
-  walletAccessStatus,
 } from "@/lib/worlds/game-wallet";
 import {
   buyShopItem,
+  claimViewerDaily,
   collectEarnings,
   depositToBank,
   grantReward,
   readGameWallet,
-  saveEarnRates,
   saveInterestRate,
   withdrawFromBank,
 } from "@/lib/worlds/game-wallet-store";
@@ -53,7 +50,6 @@ export async function POST(request: Request) {
   const record = body as {
     action?: unknown;
     sku?: unknown;
-    rates?: unknown;
     amount?: unknown;
     destination?: unknown;
     idempotencyKey?: unknown;
@@ -61,18 +57,16 @@ export async function POST(request: Request) {
   };
   if (record.action === "buy-currency") return noStore(refuseCurrencyPurchase(), refuseCurrencyPurchase().status);
   const db = await getDb();
+  if (record.action === "daily") {
+    const claimed = await claimViewerDaily(db, viewer);
+    if (!claimed.ok) return noStore({ error: claimed.error }, claimed.status);
+    return noStore({ wallet: claimed.wallet, duplicate: claimed.duplicate, streak: claimed.streak });
+  }
   if (record.action === "buy") {
     if (typeof record.sku !== "string") return noStore({ error: "sku is required." }, 400);
     const bought = await buyShopItem(db, viewer, record.sku);
     if (!bought.ok) return noStore({ error: bought.error }, bought.status);
     return noStore({ wallet: bought.wallet, alreadyOwned: bought.alreadyOwned });
-  }
-  if (record.action === "set-rates") {
-    const gate = walletAccess(viewer, "rates");
-    if (!gate.ok) return noStore({ error: gate.error }, walletAccessStatus(gate.error));
-    const rates = parseEarnRates(record.rates);
-    if (!rates.ok) return noStore({ error: rates.error }, rates.status);
-    return noStore({ rates: await saveEarnRates(db, rates.value) });
   }
   if (record.action === "reward") {
     const reward = parseRewardGrant(body);

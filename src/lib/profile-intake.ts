@@ -262,7 +262,7 @@ export async function saveProfileIntake(db: PortalDb, viewer: Viewer, input: Pro
   const tasks = await db.select().from(creatorTasks).where(eq(creatorTasks.id, taskId));
   if (tasks[0] && tasks[0].status !== "done") {
     await db.update(creatorTasks).set({ status: "done", updatedAt: timestamp }).where(eq(creatorTasks.id, taskId));
-    await noteTaskCompleted(db, creator.id, taskId);
+    await noteTaskCompleted(db, creator.id, taskId, tasks[0].category);
   }
   return { ok: true as const, id: intakeId };
 }

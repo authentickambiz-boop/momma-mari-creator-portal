@@ -1,17 +1,26 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
-import { creators, deals, gameBankMarks, gameEarnRates, gameInterestRates, gameInventory, gameLedger, gameWallets, payments } from "@/db/schema";
+import { creators, deals, gameBankMarks, gameInterestRates, gameInventory, gameLedger, gameWallets, payments } from "@/db/schema";
 import { isOwner } from "@/lib/authz";
 import { feeAndPayout, nowIso } from "@/lib/format";
 import type { Viewer } from "@/lib/types";
 import { characterSubjectForViewer, type CharacterSubject } from "./character";
 import {
+  ECONOMY,
+  commandPayoutCents,
+  connectPayoutCents,
+  dailyDecayCents,
+  dailyPayoutCents,
+  minigamePayoutCents,
+  rewardPayoutCents,
+  taskDifficulty,
+  taskPayoutCents,
+} from "./economy";
+import {
   BANK_PERKS,
   BRAND_PAID_STATUSES,
   COMMISSION_CREDIT_COMING_SOON,
-  DEFAULT_EARN_CENTS,
   DEFAULT_WEEKLY_BPS,
-  EARN_TYPES,
   GAME_CATALOG,
   GAME_CURRENCY,
   MAX_INTEREST_CATCHUP_DAYS,
@@ -120,18 +129,39 @@ async function balances(db: PortalDb, subject: CharacterSubject) {
 async function postEntry(
   db: PortalDb,
   subject: CharacterSubject,
-  entry: { bucket: GameBucket; direction: LedgerDirection; amountCents: number; reason: string; source: string; idempotencyKey: string },
+  entry: {
+    bucket: GameBucket;
+    direction: LedgerDirection;
+    amountCents: number;
+    reason: string;
+    source: string;
+    sourceId: string;
+    idempotencyKey: string;
+    createdAt?: string;
+  },
 ) {
   if (!Number.isInteger(entry.amountCents) || entry.amountCents <= 0) {
     return { ok: false as const, status: 400, error: "Amount must be more than zero." };
   }
   const source = entry.source.trim().slice(0, 80);
-  if (!source) return { ok: false as const, status: 400, error: "source is required." };
+  const sourceId = entry.sourceId.trim().slice(0, 80);
+  if (!source || !sourceId) return { ok: false as const, status: 400, error: "source and sourceId are required." };
   const prior = await db.select().from(gameLedger).where(eq(gameLedger.idempotencyKey, entry.idempotencyKey));
   const id = await ensureWallet(db, subject);
   if (prior[0]) {
     const balance = await bucketBalanceCents(db, subject, bucketOf(prior[0].bucket));
     return { ok: true as const, duplicate: true, balanceCents: balance, walletId: prior[0].walletId };
+  }
+  if (entry.direction === "credit") {
+    const same = await db.select({ id: gameLedger.id }).from(gameLedger).where(and(
+      eq(gameLedger.walletId, id),
+      eq(gameLedger.source, source),
+      eq(gameLedger.sourceId, sourceId),
+      eq(gameLedger.direction, "credit"),
+    ));
+    if (same[0]) {
+      return { ok: false as const, status: 409, duplicate: true, error: "That credit was already recorded." };
+    }
   }
   if (entry.direction === "debit") {
     const balance = await bucketBalanceCents(db, subject, entry.bucket);
@@ -144,7 +174,9 @@ async function postEntry(
     amountCents: entry.amountCents,
     reason: entry.reason,
     source,
+    sourceId,
     idempotencyKey: entry.idempotencyKey,
+    createdAt: entry.createdAt,
   });
   return { ok: true as const, duplicate: false, balanceCents: await bucketBalanceCents(db, subject, entry.bucket), walletId: id };
 }
@@ -163,7 +195,9 @@ async function insertLedger(
     amountCents: number;
     reason: string;
     source: string;
+    sourceId: string;
     idempotencyKey: string;
+    createdAt?: string;
   },
 ) {
   try {
@@ -175,12 +209,21 @@ async function insertLedger(
       amountCents: entry.amountCents,
       reason: entry.reason,
       source: entry.source,
+      sourceId: entry.sourceId,
       idempotencyKey: entry.idempotencyKey,
-      createdAt: nowIso(),
+      createdAt: entry.createdAt ?? nowIso(),
     });
   } catch (error) {
     const won = await entryByKey(db, entry.idempotencyKey);
-    if (!won) throw error;
+    if (won) return;
+    const sameCredit = await db.select({ id: gameLedger.id }).from(gameLedger).where(and(
+      eq(gameLedger.walletId, entry.walletId),
+      eq(gameLedger.source, entry.source),
+      eq(gameLedger.sourceId, entry.sourceId),
+      eq(gameLedger.direction, "credit"),
+    ));
+    if (entry.direction === "credit" && sameCredit[0]) return;
+    throw error;
   }
 }
 
@@ -233,6 +276,7 @@ export async function accrueBankInterest(db: PortalDb, subject: CharacterSubject
           amountCents: cents,
           reason: "interest",
           source: "interest",
+          sourceId: day,
           idempotencyKey: key,
         });
       }
@@ -240,6 +284,51 @@ export async function accrueBankInterest(db: PortalDb, subject: CharacterSubject
     await rememberInterestDay(db, id, day);
     day = addUtcDays(day, 1);
   }
+}
+
+/**
+ * Uncollected earnings older than the decay window lose a daily slice of the weekly rate.
+ * Wallet and bank rows are never written here.
+ */
+export async function accrueUncollectedDecay(db: PortalDb, subject: CharacterSubject, now = new Date()) {
+  const id = walletId(subject);
+  const existing = await db.select({ id: gameWallets.id }).from(gameWallets).where(eq(gameWallets.id, id));
+  if (!existing[0]) return;
+  const today = utcDay(now);
+  const key = `decay:${id}:${today}`;
+  if (await entryByKey(db, key)) return;
+  const rows = await rowsFor(db, id);
+  const cutoff = addUtcDays(today, -ECONOMY.decay.afterDays);
+  let oldCredits = 0;
+  let recentCredits = 0;
+  let debits = 0;
+  for (const row of rows) {
+    if (bucketOf(row.bucket) !== "uncollected") continue;
+    if (row.direction === "credit") {
+      const day = row.createdAt.slice(0, 10);
+      if (day <= cutoff) oldCredits += row.amountCents;
+      else recentCredits += row.amountCents;
+    } else {
+      debits += row.amountCents;
+    }
+  }
+  const uncollected = oldCredits + recentCredits - debits;
+  if (uncollected <= 0) return;
+  const freshLeft = Math.max(0, recentCredits - debits);
+  const aged = Math.max(0, uncollected - freshLeft);
+  const cents = dailyDecayCents(aged);
+  if (cents <= 0) return;
+  await insertLedger(db, {
+    walletId: id,
+    bucket: "uncollected",
+    direction: "debit",
+    amountCents: cents,
+    reason: "decay",
+    source: "decay",
+    sourceId: today,
+    idempotencyKey: key,
+    createdAt: now.toISOString(),
+  });
 }
 
 /**
@@ -278,6 +367,7 @@ async function moveFunds(
       amountCents: amount,
       reason: move.reason,
       source: move.to,
+      sourceId: outKey,
       idempotencyKey: outKey,
     });
   }
@@ -289,6 +379,7 @@ async function moveFunds(
       amountCents: amount,
       reason: move.reason,
       source: move.from,
+      sourceId: inKey,
       idempotencyKey: inKey,
     });
   }
@@ -302,32 +393,6 @@ async function ownSpend(db: PortalDb, viewer: Viewer) {
     return gate.ok ? { ok: false as const, status: 403, error: "You can only spend from your own wallet." } : gate;
   }
   return { ok: true as const, subject: gate.value };
-}
-
-export async function earnAmountCents(db: PortalDb, type: EarnType) {
-  const rows = await db.select().from(gameEarnRates).where(eq(gameEarnRates.earnType, type));
-  return rows[0]?.amountCents ?? DEFAULT_EARN_CENTS[type];
-}
-
-export async function readEarnRates(db: PortalDb) {
-  const rows = await db.select().from(gameEarnRates);
-  const saved = new Map(rows.map((row) => [row.earnType, row.amountCents]));
-  const rates = {} as Record<EarnType, number>;
-  for (const type of EARN_TYPES) rates[type] = units(saved.get(type) ?? DEFAULT_EARN_CENTS[type]);
-  return rates;
-}
-
-export async function saveEarnRates(db: PortalDb, cents: Record<EarnType, number>) {
-  const updatedAt = nowIso();
-  for (const type of EARN_TYPES) {
-    const existing = await db.select().from(gameEarnRates).where(eq(gameEarnRates.earnType, type));
-    if (existing[0]) {
-      await db.update(gameEarnRates).set({ amountCents: cents[type], updatedAt }).where(eq(gameEarnRates.earnType, type));
-    } else {
-      await db.insert(gameEarnRates).values({ earnType: type, amountCents: cents[type], updatedAt });
-    }
-  }
-  return readEarnRates(db);
 }
 
 export async function readInterestPercent(db: PortalDb) {
@@ -348,43 +413,80 @@ export async function saveInterestRate(db: PortalDb, viewer: Viewer, weeklyBps: 
   return { ok: true as const, status: 200, interestWeeklyPercent: capped / 100 };
 }
 
-/** Configured credit. Minigames keep a rate and do not write the ledger. Task, command, and connect land uncollected. */
+export type EarnOptions = {
+  difficulty?: number;
+  category?: string;
+  roundMs?: number;
+  score?: number;
+  now?: Date;
+};
+
+function payoutFor(type: EarnType, subject: CharacterSubject, options?: EarnOptions) {
+  const botId = subject.kind === "bot" ? subject.id : undefined;
+  if (type === "task") return taskPayoutCents(options?.difficulty ?? taskDifficulty(options?.category), botId);
+  if (type === "command") return commandPayoutCents(botId);
+  if (type === "connect") return connectPayoutCents(botId);
+  if (type === "minigame") return minigamePayoutCents(options?.score ?? 0, botId);
+  if (type === "daily") return dailyPayoutCents(botId);
+  return rewardPayoutCents(botId);
+}
+
+async function cooldownActive(db: PortalDb, id: string, source: string, now: Date) {
+  if (source !== "command") return false;
+  const rows = await rowsFor(db, id);
+  let latest = "";
+  for (const row of rows) {
+    if (row.direction !== "credit" || row.source !== source) continue;
+    if (row.createdAt > latest) latest = row.createdAt;
+  }
+  if (!latest) return false;
+  return now.getTime() - Date.parse(latest) < ECONOMY.command.cooldownMs;
+}
+
+/** Credits from the economy config. Task, command, connect, minigame, and daily login land uncollected. Rewards land in the wallet. */
 export async function grantEarn(
   db: PortalDb,
   subject: CharacterSubject,
   type: EarnType,
-  source: string,
+  sourceId: string,
   idempotencyKey: string,
+  options?: EarnOptions,
 ) {
-  if (type === "minigame") {
+  const now = options?.now ?? new Date();
+  if (type === "minigame" && (options?.roundMs ?? 0) < ECONOMY.minigame.minRoundMs) {
     return {
       ok: false as const,
-      status: 403,
-      stub: true,
+      status: 400,
       credited: false as const,
-      error: "Minigames are not in Worlds yet. Nothing was credited.",
+      error: `That round is too short to earn ${GAME_CURRENCY}.`,
     };
   }
   const bucket = earnBucket(type);
-  const amountCents = await earnAmountCents(db, type);
+  const amountCents = payoutFor(type, subject, options);
   if (amountCents <= 0) {
-    return { ok: true as const, credited: false as const, duplicate: false, balanceCents: await bucketBalanceCents(db, subject, bucket) };
+    return { ok: true as const, credited: false as const, duplicate: false, cooldown: false, balanceCents: await bucketBalanceCents(db, subject, bucket) };
+  }
+  const id = await ensureWallet(db, subject);
+  if (await cooldownActive(db, id, type, now)) {
+    return { ok: true as const, credited: false as const, duplicate: false, cooldown: true, balanceCents: await bucketBalanceCents(db, subject, bucket) };
   }
   const posted = await postEntry(db, subject, {
     bucket,
     direction: "credit",
     amountCents,
     reason: type,
-    source,
+    source: type,
+    sourceId,
     idempotencyKey,
+    createdAt: now.toISOString(),
   });
   if (!posted.ok) return posted;
-  return { ok: true as const, credited: !posted.duplicate, duplicate: posted.duplicate, balanceCents: posted.balanceCents };
+  return { ok: true as const, credited: !posted.duplicate, duplicate: posted.duplicate, cooldown: false, balanceCents: posted.balanceCents };
 }
 
-export async function noteTaskCompleted(db: PortalDb, creatorId: string, taskId: string) {
+export async function noteTaskCompleted(db: PortalDb, creatorId: string, taskId: string, category?: string) {
   try {
-    await grantEarn(db, { kind: "user", id: creatorId }, "task", `task:${taskId}`, `task:${taskId}`);
+    await grantEarn(db, { kind: "user", id: creatorId }, "task", taskId, `task:${taskId}`, { category });
   } catch {
     // Currency is a side effect. The task itself still completes.
   }
@@ -394,7 +496,7 @@ export async function noteCommandCompleted(db: PortalDb, commandId: string, botI
   try {
     for (const botId of botIds) {
       if (!findOfficeBot(botId)) continue;
-      await grantEarn(db, { kind: "bot", id: botId }, "command", `command:${commandId}`, `command:${commandId}:${botId}`);
+      await grantEarn(db, { kind: "bot", id: botId }, "command", `${commandId}:${botId}`, `command:${commandId}:${botId}`);
     }
   } catch {
     // Currency is a side effect. The command itself still completes.
@@ -439,6 +541,7 @@ export async function creditPaidBrandCommissions(db: PortalDb) {
       amountCents: share.feeCents,
       reason: "commission",
       source: deal.brand,
+      sourceId: payment.id,
       idempotencyKey: `commission:${payment.id}`,
     });
     if (posted.ok && !posted.duplicate) credited += 1;
@@ -490,7 +593,10 @@ async function catalogFor(db: PortalDb, subject: CharacterSubject) {
     name: item.name,
     category: item.category,
     slot: item.slot,
+    tier: item.tier,
     price: units(item.priceCents),
+    slots: item.slots,
+    activities: item.activities,
     owned: owned.has(item.sku),
     note: item.note,
   }));
@@ -528,11 +634,11 @@ export async function readGameWallet(db: PortalDb, viewer: Viewer, subject?: Cha
   const gate = walletAccess(viewer, "read", subject);
   if (!gate.ok || !gate.value) return gate.ok ? { ok: false as const, status: 404, error: "This sign-in has no wallet yet." } : gate;
   await accrueBankInterest(db, gate.value, now);
+  await accrueUncollectedDecay(db, gate.value, now);
   const wallet = await publicWallet(db, gate.value);
   const catalog = await catalogFor(db, gate.value.kind === "user" ? gate.value : characterSubjectForViewer(viewer) ?? gate.value);
-  const rates = isOwner(viewer) ? await readEarnRates(db) : null;
   const extra = isOwner(viewer) ? await officeBalances(db) : { bots: [], creators: [] };
-  return { ok: true as const, status: 200, body: { wallet, catalog, rates, bots: extra.bots, creators: extra.creators } };
+  return { ok: true as const, status: 200, body: { wallet, catalog, owner: isOwner(viewer), bots: extra.bots, creators: extra.creators } };
 }
 
 async function finishMove(
@@ -616,6 +722,7 @@ export async function loseWalletFunds(
     amountCents,
     reason: "loss",
     source,
+    sourceId: idempotencyKey,
     idempotencyKey,
   });
 }
@@ -638,6 +745,7 @@ export async function buyShopItem(db: PortalDb, viewer: Viewer, sku: string) {
     amountCents: item.priceCents,
     reason: "shop",
     source: item.sku,
+    sourceId: item.sku,
     idempotencyKey: `shop:${id}:${item.sku}`,
   });
   if (!posted.ok) return posted;
@@ -662,7 +770,76 @@ export async function grantReward(
 ) {
   const gate = walletAccess(viewer, "grant", subject);
   if (!gate.ok) return gate;
-  const granted = await grantEarn(db, subject, "reward", source, `reward:${idempotencyKey}`);
+  const granted = await grantEarn(db, subject, "reward", `${source}:${idempotencyKey}`, `reward:${idempotencyKey}`);
   if (!granted.ok) return granted;
   return { ok: true as const, status: 200, wallet: await publicWallet(db, subject), duplicate: granted.duplicate };
+}
+
+export async function claimDailyLogin(db: PortalDb, subject: CharacterSubject, now = new Date()) {
+  const today = utcDay(now);
+  const rows = await rowsFor(db, walletId(subject));
+  let streak = 1;
+  for (let ago = 1; ago < ECONOMY.daily.maxStreak; ago += 1) {
+    const day = addUtcDays(today, -ago);
+    const hit = rows.some((row) => row.direction === "credit" && row.source === "daily" && row.sourceId === day);
+    if (!hit) break;
+    streak += 1;
+  }
+  const granted = await grantEarn(db, subject, "daily", today, `daily:${walletId(subject)}:${today}`, { now });
+  if (!granted.ok) return granted;
+  return { ...granted, streak: Math.min(streak, ECONOMY.daily.maxStreak) };
+}
+
+/** One flat daily login credit for the signed-in person's own wallet. */
+export async function claimViewerDaily(db: PortalDb, viewer: Viewer, now = new Date()) {
+  const own = characterSubjectForViewer(viewer);
+  if (!own) return { ok: false as const, status: 404, error: "This sign-in has no wallet yet." };
+  const granted = await claimDailyLogin(db, own, now);
+  if (!granted.ok) return granted;
+  return {
+    ok: true as const,
+    status: 200,
+    duplicate: granted.duplicate,
+    streak: granted.streak,
+    wallet: await publicWallet(db, own),
+  };
+}
+
+export async function economyStats(db: PortalDb, viewer: Viewer, now = new Date()) {
+  if (!isOwner(viewer)) return { ok: false as const, status: 403, error: "Only the owner can view the economy." };
+  const rows = await db.select().from(gameLedger);
+  const since = (days: number) => new Date(now.getTime() - days * 86_400_000).toISOString();
+  const sumDirection = (direction: "credit" | "debit", days: number) => {
+    const start = since(days);
+    return units(rows.reduce((sum, row) => sum + (row.direction === direction && row.createdAt >= start ? row.amountCents : 0), 0));
+  };
+  const ranked = (direction: "credit" | "debit") => {
+    const start = since(30);
+    const totals = new Map<string, number>();
+    for (const row of rows) {
+      if (row.direction !== direction || row.createdAt < start) continue;
+      totals.set(row.source, (totals.get(row.source) ?? 0) + row.amountCents);
+    }
+    return [...totals.entries()]
+      .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+      .slice(0, 5)
+      .map(([source, cents]) => ({ source, amount: units(cents) }));
+  };
+  const supply = {
+    wallet: units(sumBucket(rows, "wallet")),
+    bank: units(sumBucket(rows, "bank")),
+    uncollected: units(sumBucket(rows, "uncollected")),
+  };
+  return {
+    ok: true as const,
+    status: 200,
+    body: {
+      currency: GAME_CURRENCY,
+      supply,
+      earned: { days7: sumDirection("credit", 7), days30: sumDirection("credit", 30) },
+      spent: { days7: sumDirection("debit", 7), days30: sumDirection("debit", 30) },
+      topSources: ranked("credit"),
+      topSinks: ranked("debit"),
+    },
+  };
 }

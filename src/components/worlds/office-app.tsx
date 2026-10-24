@@ -39,6 +39,7 @@ import {
   type WalletList,
   type WalletType,
 } from "@/lib/worlds/office-wallets";
+import { ECONOMY } from "@/lib/worlds/economy";
 import { formatGameUnits, GAME_WALLET_PATH } from "@/lib/worlds/game-wallet";
 import type { BoardOpen, OfficeCameraApi, OfficeLayers, OfficeQuality } from "./office-canvas";
 import { OfficeJoystick } from "./office-joystick";
@@ -50,7 +51,10 @@ type GameCatalogItem = {
   sku: string;
   name: string;
   category: string;
+  tier?: string;
   price: number;
+  slots?: number;
+  activities?: number;
   owned: boolean;
   note: string | null;
 };
@@ -77,7 +81,7 @@ type GameWalletView = {
     historyNote: string | null;
   };
   catalog: GameCatalogItem[];
-  rates: Record<string, number> | null;
+  owner?: boolean;
   bots: GameMoneyRow[];
   creators: GameMoneyRow[];
 };
@@ -198,8 +202,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
   const [walletError, setWalletError] = useState("");
   const [gameWallet, setGameWallet] = useState<GameWalletView | null>(null);
   const [gameError, setGameError] = useState("");
-  const [gameRates, setGameRates] = useState<Record<string, string>>({});
-  const [interestPercent, setInterestPercent] = useState("1");
+  const [interestPercent, setInterestPercent] = useState(String(ECONOMY.interest.defaultWeeklyPercent));
   const [bankAmount, setBankAmount] = useState("");
   const bankKey = useRef("");
   const [savingGame, setSavingGame] = useState(false);
@@ -318,11 +321,20 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
         const body = await response.json().catch(() => null) as (GameWalletView & { error?: string }) | null;
         if (stop || !response.ok || !body?.wallet) return;
         setGameWallet(body);
-        if (body.rates) {
-          setGameRates(Object.fromEntries(Object.entries(body.rates).map(([key, value]) => [key, String(value)])));
-        }
         if (typeof body.wallet.interestWeeklyPercent === "number") {
           setInterestPercent(String(body.wallet.interestWeeklyPercent));
+        }
+        const claimed = await fetch(withBasePath(GAME_WALLET_PATH), {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "daily" }),
+        });
+        const daily = await claimed.json().catch(() => null) as { wallet?: GameWalletView["wallet"] } | null;
+        if (stop || !claimed.ok || !daily?.wallet) return;
+        setGameWallet((current) => (current ? { ...current, wallet: daily.wallet as GameWalletView["wallet"] } : current));
+        if (typeof daily.wallet.interestWeeklyPercent === "number") {
+          setInterestPercent(String(daily.wallet.interestWeeklyPercent));
         }
       } catch {
         // A later visit to the bank loads the balances again.
@@ -561,9 +573,6 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
 
   function applyGameWallet(body: GameWalletView) {
     setGameWallet(body);
-    if (body.rates) {
-      setGameRates(Object.fromEntries(Object.entries(body.rates).map(([key, value]) => [key, String(value)])));
-    }
     if (typeof body.wallet.interestWeeklyPercent === "number") {
       setInterestPercent(String(body.wallet.interestWeeklyPercent));
     }
@@ -1091,7 +1100,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
           <p className="office-vault-total">Wallet {gameWallet ? formatGameUnits(gameWallet.wallet.balance) : "…"}</p>
           <p className="office-kicker">Spendable at shops and stores.</p>
           <p className="office-vault-total">Bank {gameWallet ? formatGameUnits(gameWallet.wallet.bank) : "…"}</p>
-          <p className="office-kicker">Protected. Earns {gameWallet ? gameWallet.wallet.interestWeeklyPercent : 1}% a week. Visit the outdoor bank to move it.</p>
+          <p className="office-kicker">Protected. Earns {gameWallet ? gameWallet.wallet.interestWeeklyPercent : ECONOMY.interest.defaultWeeklyPercent}% a week. Visit the outdoor bank to move it.</p>
           {gameWallet && gameWallet.wallet.uncollected > 0 ? (
             <p><b>Uncollected</b> {formatGameUnits(gameWallet.wallet.uncollected)}. Visit the outdoor bank to collect.</p>
           ) : null}
@@ -1102,7 +1111,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
             {(gameWallet?.catalog ?? []).map((item) => (
               <li key={item.sku}>
                 <b>{item.name}</b> · {formatGameUnits(item.price)}
-                <div className="office-kicker">{item.category}{item.note ? ` · ${item.note}` : ""}</div>
+                <div className="office-kicker">{item.tier ? `${item.tier} · ` : ""}{item.category}{item.note ? ` · ${item.note}` : ""}</div>
                 <button type="button" disabled={savingGame || item.owned || (gameWallet != null && item.price > gameWallet.wallet.balance)} onClick={() => void postGameWallet({ action: "buy", sku: item.sku })}>
                   {item.owned ? "Owned" : "Buy"}
                 </button>
@@ -1136,21 +1145,6 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
               </ul>
             </>
           ) : null}
-          {gameWallet?.rates ? (
-            <form className="office-form" onSubmit={(event) => {
-              event.preventDefault();
-              const rates = Object.fromEntries(Object.entries(gameRates).map(([key, value]) => [key, Number(value)]));
-              void postGameWallet({ action: "set-rates", rates });
-            }}>
-              <p className="office-kicker">Earn amounts in currency-dollars. Minigames stay unavailable.</p>
-              {Object.entries(gameRates).map(([key, value]) => (
-                <label key={key} className="office-field"><span className="office-kicker">{key}</span>
-                  <input aria-label={`${key} earn amount`} inputMode="decimal" value={value} onChange={(event) => setGameRates((current) => ({ ...current, [key]: event.target.value }))} />
-                </label>
-              ))}
-              <button type="submit" disabled={savingGame}>Save earn amounts</button>
-            </form>
-          ) : null}
           <button type="button" disabled title="Real-money purchases are off. Nothing is charged.">Buy currency with real money</button>
           <p className="office-kicker">Real-money purchases are off. Nothing is charged.</p>
         </section>
@@ -1164,7 +1158,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
           <p><b>Wallet</b> {gameWallet ? formatGameUnits(gameWallet.wallet.balance) : "…"}</p>
           <p><b>Bank</b> {gameWallet ? formatGameUnits(gameWallet.wallet.bank) : "…"}</p>
           <p><b>Uncollected</b> {gameWallet ? formatGameUnits(gameWallet.wallet.uncollected) : "…"}</p>
-          <p className="office-kicker">Interest {gameWallet ? gameWallet.wallet.interestWeeklyPercent : 1}% a week, credited daily to the bank.</p>
+          <p className="office-kicker">Interest {gameWallet ? gameWallet.wallet.interestWeeklyPercent : ECONOMY.interest.defaultWeeklyPercent}% a week, credited daily to the bank on balances up to the cap.</p>
           <label className="office-field"><span className="office-kicker">Amount</span>
             <input aria-label="Bank amount" inputMode="decimal" value={bankAmount} onChange={(event) => setBankAmount(event.target.value)} placeholder="All uncollected, or a deposit" />
           </label>
@@ -1174,7 +1168,7 @@ export function OfficeApp({ charactersEnabled = false }: { charactersEnabled?: b
             <button type="button" disabled={savingGame} onClick={() => void sendBankMove("deposit")}>Deposit</button>
             <button type="button" disabled={savingGame} onClick={() => void sendBankMove("withdraw")}>Withdraw</button>
           </div>
-          {gameWallet?.rates ? (
+          {gameWallet?.owner ? (
             <form className="office-form" onSubmit={(event) => {
               event.preventDefault();
               void postGameWallet({ action: "set-interest", weeklyPercent: Number(interestPercent) });

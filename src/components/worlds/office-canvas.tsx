@@ -2,12 +2,12 @@
 
 import { Component, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { MapControls } from "@react-three/drei";
+import { Html, MapControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import type { BotStatus } from "@/lib/worlds/office-catalog";
 import { OWNER_ACTOR_ID, type OfficeLayout, type OfficeRoom, type OfficeSection } from "@/lib/worlds/office-layout";
-import { deskFacing, isSeated, type OfficeSimStore } from "@/lib/worlds/office-sim";
+import { deskFacing, isSeated, yawToward, type OfficeSimStore } from "@/lib/worlds/office-sim";
 import { boardStations, type OfficeKey } from "@/lib/worlds/office-state";
 import { vaultPilePlan } from "@/lib/worlds/office-wallets";
 import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/worlds/office-weather";
@@ -1045,13 +1045,16 @@ function Robot({
   const bob = useRef<THREE.Group>(null);
   const ring = useRef<THREE.Mesh>(null);
   const poseRef = useRef<CharacterPose | null>({ phase: 0, moving: false, seated: false });
-  useFrame(() => {
+  const home = layout.homes[id];
+  useFrame(({ camera }) => {
     const bot = sim.state.bots[id];
     if (!bot || !root.current) return;
     root.current.position.set(bot.x, 0, bot.z);
-    root.current.rotation.y = bot.yaw;
-    const seated = isSeated(bot, layout.homes[id]);
     const moving = bot.path.length > 0;
+    root.current.rotation.y = moving
+      ? bot.yaw
+      : yawToward({ x: bot.x, z: bot.z }, { x: camera.position.x, z: camera.position.z });
+    const seated = isSeated(bot, layout.homes[id]);
     poseRef.current = { phase: bot.phase, moving, seated };
     if (bob.current) bob.current.position.y = seated ? -0.32 : 0;
     if (ring.current) ring.current.visible = selected;
@@ -1059,6 +1062,7 @@ function Robot({
   return (
     <group
       ref={root}
+      position={[home?.x ?? 0, 0, home?.z ?? 0]}
       userData={{ short }}
       {...pointerCursor}
       onClick={(event) => { event.stopPropagation(); if (canOpen()) onSelect(id); }}
@@ -1082,6 +1086,11 @@ function Robot({
       <group ref={bob}>
         <CharacterFigure config={look} poseRef={poseRef} />
         <NameTag name={`${name}`} status={status} look={look.nameTag} />
+        {id === OWNER_ACTOR_ID ? (
+          <Html position={[0, 2.35, 0]} center zIndexRange={[40, 0]} style={{ pointerEvents: "none" }}>
+            <span className="office-you-tag">You</span>
+          </Html>
+        ) : null}
         <SpeechBubble text={line} />
       </group>
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
