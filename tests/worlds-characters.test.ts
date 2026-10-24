@@ -32,6 +32,7 @@ import { isBotOfficePath } from "../src/lib/worlds/office-path";
 import { worldsReturnPath } from "../src/lib/worlds/office-return";
 import { admin, mariclare, openTestDb } from "./harness";
 import { isLockedGlam } from "../src/lib/worlds/fashion-glam-lock";
+import { createGlamRig, disposeGlamRig, glamParts, poseGlamRig } from "../src/lib/worlds/glam-rig";
 
 function source(file: string) {
   return readFileSync(path.join(process.cwd(), file), "utf8");
@@ -336,12 +337,26 @@ describe("Worlds characters", () => {
     assert.match(figure, /bindHumanoid/);
     assert.match(app, /CharacterFigure|looks/);
     assert.match(canvas, /CharacterFigure/);
-    assert.match(canvas, /FashionDoll/);
-    assert.match(canvas, /OfficeGlamPlate/);
-    assert.match(canvas, /distanceFactor=\{3\.2\}/);
-    assert.match(canvas, /step=\{step\}/);
-    const plate = source("src/components/worlds/fashion-figure.tsx").split("export function OfficeGlamPlate")[1] ?? "";
-    assert.equal(plate.includes("useFrame"), false);
+    assert.match(canvas, /GlamFigure/);
+    assert.match(canvas, /isLockedGlam\(look\)/);
+    assert.equal(canvas.includes("OfficeGlamPlate"), false);
+    assert.equal(canvas.includes("distanceFactor={3.2}"), false);
+    assert.match(source("src/lib/worlds/glam-rig.ts"), /glam-rig/);
+    const rig = createGlamRig();
+    let headphones = false;
+    rig.traverse((node) => {
+      if (/headphone/i.test(node.name)) headphones = true;
+    });
+    assert.equal(headphones, false);
+    poseGlamRig(rig, "idle", 0);
+    const idle = glamParts(rig).thighL.rotation.x;
+    poseGlamRig(rig, "walk", 0.45);
+    const walked = glamParts(rig);
+    assert.notEqual(idle, walked.thighL.rotation.x);
+    assert.ok(walked.thighL.rotation.x * walked.thighR.rotation.x < 0);
+    poseGlamRig(rig, "sit", 0);
+    assert.ok(glamParts(rig).hips.position.y < 0.7);
+    disposeGlamRig(rig);
     assert.equal(isLockedGlam(starter), true);
     assert.equal(isLockedGlam({ ...starter, slots: { ...starter.slots, headwear: { item: "headphones", color: starter.slots.hair.color } } }), false);
     assert.match(canvas, /OWNER_ACTOR_ID/);

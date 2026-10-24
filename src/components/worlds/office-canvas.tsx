@@ -15,8 +15,7 @@ import { BOT_CAPSULE_CENTER, BOT_CAPSULE_LENGTH, BOT_CAPSULE_RADIUS, pickBotCaps
 import { OWNER_LOOK_SEED, defaultCharacter, nameTagFrame, type CharacterConfig, type CharacterPose } from "@/lib/worlds/character";
 import { CharacterFigure } from "./character-figure";
 import "./character.css";
-import { FashionDoll, type FashionEmote } from "./fashion-doll";
-import { OfficeGlamPlate } from "./fashion-figure";
+import { GlamFigure } from "./glam-figure";
 import { isLockedGlam } from "@/lib/worlds/fashion-glam-lock";
 import {
   desiredFollowPose,
@@ -1043,39 +1042,7 @@ function NameTag({ name, status, look }: { name: string; status: BotStatus; look
   );
 }
 
-function YouFashion({
-  look,
-  poseRef,
-}: {
-  look: CharacterConfig;
-  poseRef: RefObject<CharacterPose | null>;
-}) {
-  const [emote, setEmote] = useState<FashionEmote>("idle");
-  const [step, setStep] = useState(0);
-  useFrame(({ clock }) => {
-    const pose = poseRef.current;
-    const next: FashionEmote = pose?.wave ? "wave" : pose?.moving ? "walk" : pose?.seated ? "sit" : "idle";
-    const nextStep = next === "walk" ? Math.floor(clock.elapsedTime * 6) % 8 : 0;
-    setEmote((current) => (current === next ? current : next));
-    setStep((current) => (current === nextStep ? current : nextStep));
-  });
-  return (
-    <Html
-      transform
-      sprite
-      position={[0, 0, 0]}
-      distanceFactor={3.2}
-      zIndexRange={[12, 0]}
-      style={{ pointerEvents: "none", transform: "translate(-50%, -100%)" }}
-    >
-      <div className="fashion-office" style={{ width: 140, height: 272 }}>
-        {isLockedGlam(look) ? <OfficeGlamPlate config={look} emote={emote} step={step} /> : <FashionDoll config={look} view="front" emote={emote} />}
-      </div>
-    </Html>
-  );
-}
-
-/** Humanoid bot. The skeleton sits in the chair; the hit capsule stays put. You is the 2D fashion doll. */
+/** Humanoid bot. The skeleton sits in the chair. You is the rigged glam figure when she wears the locked look. */
 function Robot({
   id,
   name,
@@ -1151,8 +1118,8 @@ function Robot({
         <meshBasicMaterial color="#1f3b2d" />
       </mesh>
       <group ref={bob}>
-        {id === OWNER_ACTOR_ID ? (
-          <YouFashion look={look} poseRef={poseRef} />
+        {id === OWNER_ACTOR_ID && isLockedGlam(look) ? (
+          <GlamFigure poseRef={poseRef} />
         ) : (
           <Suspense fallback={null}>
             <CharacterFigure config={look} poseRef={poseRef} />
@@ -1160,7 +1127,7 @@ function Robot({
         )}
         <NameTag name={`${name}`} status={status} look={look.nameTag} />
         {id === OWNER_ACTOR_ID ? (
-          <Html position={[0, 2.35, 0]} center zIndexRange={[40, 0]} style={{ pointerEvents: "none" }}>
+          <Html position={[0, 1.92, 0]} center zIndexRange={[40, 0]} style={{ pointerEvents: "none" }}>
             <span className="office-you-tag">You</span>
           </Html>
         ) : null}

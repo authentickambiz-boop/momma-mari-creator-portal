@@ -1,6 +1,7 @@
 /**
  * Worlds fashion avatar. Office You and the creator draw this illustration
- * onto a camera-facing plane. Roster bots keep the rigged humanoid.
+ * onto a camera-facing plane for the creator studio. In the office, You is the
+ * rigged glam figure. Roster bots keep the MakeHuman rig.
  * `public/worlds/humanoid.glb` is the hero only when NEXT_PUBLIC_WORLDS_HUMANOID=true.
  *
  * The default owner look paints the locked glam plate (the approved
