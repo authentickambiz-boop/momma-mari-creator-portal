@@ -1,0 +1,20 @@
+{
+  "height": 1.4327,
+  "minY": 0.001,
+  "foot": 0.0631,
+  "sitFoot": 0.0507,
+  "skins": [
+    {
+      "name": "skintex_fair",
+      "color": "#ce9e83"
+    },
+    {
+      "name": "skintex_tan",
+      "color": "#b07431"
+    },
+    {
+      "name": "skintex_deep",
+      "color": "#603828"
+    }
+  ]
+}

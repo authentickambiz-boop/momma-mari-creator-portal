@@ -15,10 +15,14 @@ import {
   LOOKS_POLL_MS,
   characterSubjectForViewer,
   defaultCharacter,
+  INNER_TOPS,
   limbRotation,
+  missingWornParts,
   nameTagFrame,
+  OUTERWEAR_ITEMS,
   parseCharacter,
   randomCharacter,
+  slotMeshReady,
   worldsCharacterAccess,
 } from "../src/lib/worlds/character";
 import { listBotCharacters, readCharacter, writeCharacter } from "../src/lib/worlds/character-store";
@@ -81,6 +85,9 @@ describe("Worlds characters", () => {
     assert.ok(large > small);
     assert.equal(limbRotation("leg-l", { phase: 0, moving: false, seated: true })[0], -1.15);
     assert.equal(limbRotation("arm-r", { phase: 0, moving: true, seated: false })[0], 0);
+    const wave = limbRotation("arm-r", { phase: 0, moving: false, seated: false, wave: true });
+    assert.ok(wave[2] > 1);
+    assert.deepEqual(limbRotation("arm-r", { phase: 1, moving: false, seated: false }), [0, 0, 0]);
     assert.equal(nameTagFrame("plain").filled, false);
     assert.ok(nameTagFrame("banner").width > nameTagFrame("pill").width);
   });
@@ -158,6 +165,32 @@ describe("Worlds characters", () => {
       assert.ok(diameter / topY > 0.45, shape);
       assert.ok(diameter / topY < 0.62, shape);
     }
+  });
+
+  test("missing meshes are reported and outerwear stays on the top slot", () => {
+    const config = defaultCharacter("ops");
+    assert.equal(slotMeshReady("hair", "cap"), true);
+    assert.equal(slotMeshReady("hair", "mohawk"), false);
+    assert.equal(slotMeshReady("top", "jacket"), true);
+    assert.equal(slotMeshReady("shoes", "none"), true);
+    const cape = {
+      ...config,
+      slots: { ...config.slots, top: { item: "cape", color: "#ffffff" }, hair: { item: "mohawk", color: "#111111" } },
+    };
+    const gaps = missingWornParts(cape);
+    assert.deepEqual(gaps.map((gap) => gap.slot), ["hair", "top"]);
+    assert.equal(characterFigure(cape).parts.some((part) => part.slot === "hair" || part.slot === "top"), false);
+    for (const item of INNER_TOPS) {
+      if (item === "none") continue;
+      assert.equal(slotMeshReady("top", item), true);
+    }
+    for (const item of OUTERWEAR_ITEMS) {
+      if (item === "none") continue;
+      assert.equal(slotMeshReady("top", item), true);
+      assert.equal((INNER_TOPS as readonly string[]).includes(item), false);
+    }
+    const jacket = characterFigure({ ...config, slots: { ...config.slots, top: { item: "jacket", color: "#1c211e" } } });
+    assert.ok(jacket.parts.some((part) => part.id === "jacket"));
   });
 
   test("only the character owner can write, and any signed-in person can read", async () => {
@@ -259,12 +292,51 @@ describe("Worlds characters", () => {
     assert.match(creator, /savingRef/);
     assert.match(creator, /beforeunload/);
     assert.match(creator, /preventDefault/);
+    assert.match(creator, /Outerwear/);
+    assert.match(creator, /Accessories/);
+    assert.match(creator, /Save look/);
+    assert.match(creator, /The office You character wears this look/);
+    assert.match(creator, /character-empty/);
+    assert.match(creator, /CHARACTER_PATH/);
+    const stage = source("src/components/worlds/character-stage.tsx");
+    assert.match(stage, /Idle/);
+    assert.match(stage, /Front/);
+    assert.match(stage, /Side/);
+    assert.match(stage, /Back/);
+    assert.match(stage, /Profile/);
+    assert.match(stage, /#e6e6e6/);
+    assert.match(stage, /Compare/);
+    assert.match(stage, /FashionDoll/);
+    assert.match(stage, /Content creator/);
+    assert.match(stage, /character-scrim/);
+    assert.equal(stage.includes("humanoid.glb"), false);
+    assert.equal(stage.includes("CharacterFigure"), false);
+    assert.match(source("docs/worlds-creator-ux.md"), /paper doll/);
+    assert.match(source("docs/worlds-creator-ux.md"), /not the creator preview/);
+    const starter = defaultCharacter("owner");
+    assert.equal(starter.slots.top.item, "collar");
+    assert.equal(starter.slots.hair.item, "long");
+    assert.equal(starter.slots.headwear.item, "none");
+    assert.equal(starter.slots.bottom.item, "skirt");
+    assert.equal(starter.slots.shoes.item, "boots");
+    assert.equal(starter.slots.shoes.color, "#b24669");
+    assert.equal(starter.slots.accessory.item, "none");
+    assert.match(source("src/components/worlds/fashion-doll.tsx"), /GlamPortrait/);
+    assert.match(source("src/components/worlds/glam-portrait.tsx"), /glam-front\.png/);
+    assert.equal(starter.face.eyes, "wide");
+    assert.equal(parseCharacter(starter).ok, true);
+    assert.notDeepEqual(defaultCharacter("content"), starter);
+    assert.match(creator, /sheetCoverRef/);
+    assert.match(app, /next\[OWNER_ACTOR_ID\] = mineConfig/);
+    assert.match(app, /It wears the look you save in the character creator/);
     assert.match(route, /CDN-Cache-Control/);
     assert.match(route, /no-store/);
-    assert.match(figure, /BackSide/);
-    assert.match(figure, /#1a1614/);
+    assert.match(figure, /humanoid\.glb/);
+    assert.match(figure, /bindHumanoid/);
     assert.match(app, /CharacterFigure|looks/);
     assert.match(canvas, /CharacterFigure/);
+    assert.match(canvas, /FashionDoll/);
+    assert.match(canvas, /OWNER_ACTOR_ID/);
     assert.match(canvas, /characterFigure|defaultCharacter/);
     assert.match(onboarding, /Create your character/);
     assert.match(onboarding, /Skip for now/);

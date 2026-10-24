@@ -1,6 +1,6 @@
 "use client";
 
-import { Component, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Component, createContext, Suspense, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, MapControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -14,6 +14,8 @@ import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/w
 import { BOT_CAPSULE_CENTER, BOT_CAPSULE_LENGTH, BOT_CAPSULE_RADIUS, pickBotCapsule, rayFromClient, type BotHitPose } from "@/lib/worlds/bot-hit";
 import { OWNER_LOOK_SEED, defaultCharacter, nameTagFrame, type CharacterConfig, type CharacterPose } from "@/lib/worlds/character";
 import { CharacterFigure } from "./character-figure";
+import "./character.css";
+import { FashionDoll, type FashionEmote } from "./fashion-doll";
 import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, zoomOffset, type Stick } from "@/lib/worlds/office-move";
 import { OfficeSite } from "./office-grounds";
 
@@ -1030,7 +1032,36 @@ function NameTag({ name, status, look }: { name: string; status: BotStatus; look
   );
 }
 
-/** Chibi bot: a big head, a short body, and a name label. */
+function YouFashion({
+  look,
+  poseRef,
+}: {
+  look: CharacterConfig;
+  poseRef: RefObject<CharacterPose | null>;
+}) {
+  const [emote, setEmote] = useState<FashionEmote>("idle");
+  useFrame(() => {
+    const pose = poseRef.current;
+    const next: FashionEmote = pose?.wave ? "wave" : pose?.moving ? "walk" : pose?.seated ? "sit" : "idle";
+    setEmote((current) => (current === next ? current : next));
+  });
+  return (
+    <Html
+      transform
+      sprite
+      position={[0, 0, 0]}
+      distanceFactor={16}
+      zIndexRange={[12, 0]}
+      style={{ pointerEvents: "none", transform: "translate(-50%, -100%)" }}
+    >
+      <div className="fashion-office" style={{ width: 140, height: 272 }}>
+        <FashionDoll config={look} view="front" emote={emote} />
+      </div>
+    </Html>
+  );
+}
+
+/** Humanoid bot. The skeleton sits in the chair; the hit capsule stays put. You is the 2D fashion doll. */
 function Robot({
   id,
   name,
@@ -1072,7 +1103,7 @@ function Robot({
       : yawToward({ x: bot.x, z: bot.z }, { x: camera.position.x, z: camera.position.z });
     const seated = isSeated(bot, layout.homes[id]);
     poseRef.current = { phase: bot.phase, moving, seated };
-    if (bob.current) bob.current.position.y = seated ? -0.32 : 0;
+    if (bob.current) bob.current.position.y = 0;
     if (ring.current) ring.current.visible = selected;
   });
   return (
@@ -1100,7 +1131,13 @@ function Robot({
         <meshBasicMaterial color="#1f3b2d" />
       </mesh>
       <group ref={bob}>
-        <CharacterFigure config={look} poseRef={poseRef} />
+        {id === OWNER_ACTOR_ID ? (
+          <YouFashion look={look} poseRef={poseRef} />
+        ) : (
+          <Suspense fallback={null}>
+            <CharacterFigure config={look} poseRef={poseRef} />
+          </Suspense>
+        )}
         <NameTag name={`${name}`} status={status} look={look.nameTag} />
         {id === OWNER_ACTOR_ID ? (
           <Html position={[0, 2.35, 0]} center zIndexRange={[40, 0]} style={{ pointerEvents: "none" }}>

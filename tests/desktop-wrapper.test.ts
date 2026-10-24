@@ -102,7 +102,8 @@ describe("Momma Mari Worlds desktop", () => {
     assert.equal(worldsReturnCookie("mm_worlds_return=https%3A%2F%2Fevil.example"), null);
 
     assert.match(source("src/app/worlds/page.tsx"), /requireViewer\("\/worlds"\)/);
-    assert.match(source("src/app/login/page.tsx"), /next=\/worlds/);
+    assert.match(source("src/app/login/page.tsx"), /worldsReturnPath\(params\.next\)/);
+    assert.match(source("src/app/login/page.tsx"), /next=\$\{worldsNext\}/);
     assert.match(source("src/app/api/auth/callback/route.ts"), /worldsReturnCookie/);
     assert.match(source("src/app/api/auth/callback/route.ts"), /creatorStartPath/);
     assert.match(source("src/app/api/auth/google/route.ts"), /WORLDS_RETURN_COOKIE/);
