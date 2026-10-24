@@ -105,22 +105,32 @@ function Eye({
   star: boolean;
   scale?: number;
 }) {
-  const rx = (wide ? 14.6 : 12.6) * scale;
-  const ry = (sleepy ? 8 : wide ? 15.4 : 13.8) * scale;
-  if (wink) return <path d={`M${cx - rx} ${cy + 1} Q${cx} ${cy - ry * 0.35} ${cx + rx} ${cy + 2}`} {...stroke(INK, 2.6)} />;
+  const rx = (wide ? 10.2 : 9) * scale;
+  const ry = (sleepy ? 6.2 : wide ? 11.2 : 10) * scale;
+  if (wink) return <path d={`M${cx - rx} ${cy + 1} Q${cx} ${cy - ry * 0.28} ${cx + rx} ${cy + 1}`} {...stroke(INK, 2.2)} />;
   return (
     <g>
-      <path d={`M${cx - rx - 1} ${cy} Q${cx - rx * 0.15} ${cy - ry - 10} ${cx + rx * 0.2} ${cy - ry + 1}`} {...stroke(INK, 3.1)} />
-      <path d={`M${cx - rx * 0.05} ${cy - ry + 2} Q${cx + rx * 0.55} ${cy - ry - 12} ${cx + rx + 3} ${cy - 1}`} {...stroke(INK, 2.7)} />
-      <path d={`M${cx + rx} ${cy - 2} Q${cx + rx + 8} ${cy + 2} ${cx + rx + 2} ${cy + 9}`} {...stroke(INK, 2.3)} />
-      <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="#fffaf6" stroke={INK} strokeWidth="1.8" />
-      <ellipse cx={cx + rx * 0.04} cy={cy + ry * 0.06} rx={rx * 0.56} ry={ry * 0.6} fill="#7a4570" />
-      <ellipse cx={cx + rx * 0.04} cy={cy + ry * 0.1} rx={rx * 0.26} ry={ry * 0.3} fill="#2a1a28" />
-      <ellipse cx={cx - rx * 0.28} cy={cy - ry * 0.32} rx={rx * 0.34} ry={ry * 0.28} fill="#fff" opacity="0.94" />
-      <ellipse cx={cx + rx * 0.24} cy={cy + ry * 0.3} rx={rx * 0.16} ry={ry * 0.11} fill="#fff" opacity="0.72" />
-      {star ? <circle cx={cx} cy={cy} r={3.4 * scale} fill="#f2c14e" /> : null}
-      <path d={`M${cx - rx + 2} ${cy + ry - 1} Q${cx} ${cy + ry + 2.4} ${cx + rx - 2} ${cy + ry - 1}`} {...stroke(INK, 1.15)} opacity="0.65" />
+      <path d={`M${cx - rx * 0.2} ${cy - ry * 0.2} Q${cx + rx * 0.15} ${cy - ry - ry * 0.42} ${cx + rx * 0.85} ${cy - ry * 0.05}`} {...stroke(INK, 2.15)} />
+      <path d={`M${cx + rx * 0.45} ${cy - ry * 0.45} Q${cx + rx + 3.5} ${cy - ry * 0.05} ${cx + rx * 0.9} ${cy + ry * 0.28}`} {...stroke(INK, 1.7)} />
+      <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="#fffaf6" stroke={INK} strokeWidth="1.6" />
+      <path d={`M${cx - rx * 0.72} ${cy - ry * 0.08} Q${cx} ${cy - ry * 0.78} ${cx + rx * 0.72} ${cy - ry * 0.08}`} {...stroke("#fff6fb", Math.max(1.7, ry * 0.2))} opacity="0.95" />
+      <ellipse cx={cx + rx * 0.02} cy={cy + ry * 0.1} rx={rx * 0.5} ry={ry * 0.54} fill="#7a4570" />
+      <ellipse cx={cx + rx * 0.02} cy={cy + ry * 0.14} rx={rx * 0.24} ry={ry * 0.28} fill="#2a1a28" />
+      <ellipse cx={cx - rx * 0.26} cy={cy - ry * 0.28} rx={rx * 0.28} ry={ry * 0.24} fill="#fff" opacity="0.95" />
+      {star ? <circle cx={cx} cy={cy} r={2.6 * scale} fill="#f2c14e" /> : null}
     </g>
+  );
+}
+
+function Sparkle({ x, y, size = 4.2 }: { x: number; y: number; size?: number }) {
+  const s = size;
+  return (
+    <path
+      d={`M${x} ${y - s} L${x + s * 0.22} ${y - s * 0.22} L${x + s} ${y} L${x + s * 0.22} ${y + s * 0.22} L${x} ${y + s} L${x - s * 0.22} ${y + s * 0.22} L${x - s} ${y} L${x - s * 0.22} ${y - s * 0.22} Z`}
+      fill="#fff"
+      stroke="#f2c14e"
+      strokeWidth="0.6"
+    />
   );
 }
 
@@ -132,43 +142,46 @@ function Face({ config, paint, side }: { config: CharacterConfig; paint: Paint; 
   const grin = config.face.mouth === "grin" || config.face.expression === "smile";
   const open = config.face.mouth === "open" || config.face.expression === "surprised";
   const flat = config.face.mouth === "flat" && config.face.expression !== "smile";
-  const blush = mix(paint.skin, "#ff8d78", 0.62);
-  const lip = flat ? "none" : "#e27898";
+  const blush = mix(paint.skin, "#ffb09a", 0.48);
+  const lip = flat ? "none" : "#e56d96";
   if (side) {
     return (
       <g>
-        <ellipse cx="120" cy="92" rx="10" ry="6" fill={blush} opacity="0.55" />
-        <path d="M106 60 Q118 54 130 64" {...stroke(INK, 1.6)} />
-        <Eye cx={120} cy={76} wink={wink} wide={wide} sleepy={sleepy} star={star} scale={0.96} />
-        <path d="M138 84 Q144 87 140 93" {...stroke(INK, 1.5)} />
+        <ellipse cx="118" cy="94" rx="11" ry="5.5" fill={blush} opacity="0.42" />
+        <path d="M108 58 Q120 48 132 62" {...stroke(INK, 1.15)} />
+        <Eye cx={122} cy={76} wink={wink} wide={wide} sleepy={sleepy} star={star} scale={0.92} />
+        <path d="M136 86 Q141 88 138 93" {...stroke(INK, 1.35)} />
         <path
-          d={flat ? "M134 102 H150" : open ? "M132 100 C140 96 150 98 154 104 C148 112 138 112 132 106 Z" : grin ? "M130 100 C140 94 154 98 158 106 C150 116 136 114 130 106 Z" : "M132 102 C140 96 152 98 156 106 C148 114 136 112 132 106 Z"}
+          d={flat ? "M132 104 H146" : open ? "M132 102 C138 98 146 100 148 105 C144 110 136 110 132 105 Z" : "M130 103 C138 98 146 100 148 106 C144 112 134 111 130 105 Z"}
           fill={lip}
           stroke={INK}
-          strokeWidth="1.6"
+          strokeWidth="1.45"
           strokeLinejoin="round"
         />
-        {flat ? null : <ellipse cx="144" cy="106" rx="7" ry="2.2" fill="#fff" opacity="0.72" />}
+        {flat ? null : <path d="M134 105 Q140 107 145 104" {...stroke("#fff", 1.5)} opacity="0.9" />}
+        <Sparkle x={136} y={58} size={3.4} />
       </g>
     );
   }
   return (
     <g>
-      <ellipse cx="68" cy="96" rx="13" ry="7.5" fill={blush} opacity="0.5" />
-      <ellipse cx="132" cy="96" rx="13" ry="7.5" fill={blush} opacity="0.5" />
-      <path d="M64 66 Q78 60 94 68" {...stroke(INK, 1.65)} />
-      <path d="M106 68 Q122 60 136 66" {...stroke(INK, 1.65)} />
-      <Eye cx={82} cy={80} wink={false} wide={wide} sleepy={sleepy} star={star} />
-      <Eye cx={118} cy={80} wink={wink} wide={wide} sleepy={sleepy} star={star} />
-      <path d="M99 94 Q101 98 99 100" {...stroke(INK, 1.45)} />
+      <ellipse cx="70" cy="98" rx="14" ry="6.5" fill={blush} opacity="0.4" />
+      <ellipse cx="130" cy="98" rx="14" ry="6.5" fill={blush} opacity="0.4" />
+      <path d="M66 70 Q78 58 92 68" {...stroke(INK, 1.15)} />
+      <path d="M108 68 Q122 56 134 68" {...stroke(INK, 1.15)} />
+      <Eye cx={84} cy={82} wink={false} wide={wide} sleepy={sleepy} star={star} />
+      <Eye cx={116} cy={82} wink={wink} wide={wide} sleepy={sleepy} star={star} />
+      <path d="M99 96 Q101 99 99 101" {...stroke(INK, 1.3)} />
       <path
-        d={flat ? "M88 108 H112" : open ? "M90 106 C96 100 104 100 110 106 C112 114 104 118 100 118 C96 118 88 114 90 106 Z" : grin ? "M84 106 C92 98 108 98 116 106 C118 116 108 122 100 122 C92 122 82 116 84 106 Z" : "M88 106 C94 100 106 100 112 106 C114 114 106 120 100 120 C94 120 86 114 88 106 Z"}
+        d={flat ? "M88 108 H112" : open ? "M90 106 C96 101 104 101 110 106 C108 114 92 114 90 106 Z" : grin ? "M84 107 C92 100 108 100 116 107 C114 115 86 115 84 107 Z" : "M88 107 C94 102 106 102 112 107 C110 114 90 114 88 107 Z"}
         fill={lip}
         stroke={INK}
-        strokeWidth="1.65"
+        strokeWidth="1.45"
         strokeLinejoin="round"
       />
-      {flat ? null : <ellipse cx="100" cy={grin ? 112 : 111} rx={grin ? 9 : 7.5} ry="2.6" fill="#fff" opacity="0.78" />}
+      {flat ? null : <path d="M90 109 Q100 112 110 109" {...stroke("#fff", 1.6)} opacity="0.92" />}
+      <Sparkle x={134} y={66} size={4} />
+      <Sparkle x={64} y={74} size={2.6} />
     </g>
   );
 }
@@ -247,14 +260,14 @@ function Accessory({ item, paint, side }: { item: string; paint: Paint; side?: b
   if (item === "glasses") {
     return side ? (
       <g>
-        <ellipse cx="120" cy="76" rx="13" ry="11" fill={mix(fill, "#ffffff", 0.65)} stroke={INK} strokeWidth="1.6" />
-        <path d="M133 76 H148" {...stroke(INK, 1.6)} />
+        <ellipse cx="122" cy="76" rx="11" ry="9" fill={mix(fill, "#ffffff", 0.65)} stroke={INK} strokeWidth="1.6" />
+        <path d="M133 76 H146" {...stroke(INK, 1.6)} />
       </g>
     ) : (
       <g>
-        <ellipse cx="82" cy="80" rx="17" ry="14" fill={mix(fill, "#ffffff", 0.65)} stroke={INK} strokeWidth="1.6" />
-        <ellipse cx="118" cy="80" rx="17" ry="14" fill={mix(fill, "#ffffff", 0.65)} stroke={INK} strokeWidth="1.6" />
-        <path d="M99 80 H101" {...stroke(INK, 1.6)} />
+        <ellipse cx="84" cy="82" rx="12.5" ry="10" fill={mix(fill, "#ffffff", 0.65)} stroke={INK} strokeWidth="1.6" />
+        <ellipse cx="116" cy="82" rx="12.5" ry="10" fill={mix(fill, "#ffffff", 0.65)} stroke={INK} strokeWidth="1.6" />
+        <path d="M96 82 H104" {...stroke(INK, 1.6)} />
       </g>
     );
   }
