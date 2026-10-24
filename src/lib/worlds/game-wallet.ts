@@ -1,6 +1,6 @@
 /**
- * In-game currency. Amounts are currency-dollars, stored as cents in the ledger.
- * Real money is never moved here. The shop spends this currency only.
+ * In-game Kash. Amounts and prices live in economy.ts.
+ * Real money is never moved here. The shop spends Kash only.
  */
 
 import { isOwner } from "@/lib/authz";
@@ -14,21 +14,29 @@ import {
   type CharacterSlotName,
   type CharacterSubject,
 } from "./character";
+import {
+  CURRENCY,
+  ECONOMY_ITEMS,
+  MAX_WEEKLY_BPS,
+  centsToUnits,
+  findEconomyItem,
+  formatKash,
+  itemPriceCents,
+  unitsToCents,
+  type EconomyItem,
+  type ShopTier,
+} from "./economy";
 import { findOfficeBot } from "./office-catalog";
 
 export const GAME_WALLET_PATH = "/api/worlds/game-wallet";
-export const GAME_CURRENCY = "currency-dollars";
+export const ECONOMY_STATS_PATH = "/api/worlds/economy/stats";
+export const GAME_CURRENCY = CURRENCY.label;
 
-export const EARN_TYPES = ["task", "command", "connect", "minigame", "reward"] as const;
+export const EARN_TYPES = ["task", "command", "connect", "minigame", "daily", "reward"] as const;
 export type EarnType = (typeof EARN_TYPES)[number];
 
-export const DEFAULT_EARN_CENTS: Record<EarnType, number> = {
-  task: 1000,
-  command: 500,
-  connect: 2500,
-  minigame: 1500,
-  reward: 1000,
-};
+export type { EconomyItem, ShopTier };
+export { CURRENCY, findEconomyItem, formatKash, unitsToCents, centsToUnits };
 
 export const BRAND_PAID_STATUSES = ["brand_paid", "creator_payout_pending", "creator_paid"] as const;
 
@@ -41,51 +49,39 @@ export function creatorCommissionCreditEnabled() {
   return raw === "on" || raw === "true" || raw === "1";
 }
 
-export type ShopCategory = "clothing" | "decoration" | "real-estate";
+export type ShopCategory = EconomyItem["category"];
 
 export type ShopItem = {
   sku: string;
   name: string;
   category: ShopCategory;
   slot: CharacterSlotName | null;
+  tier: ShopTier;
   priceCents: number;
+  slots: number;
+  activities: number;
   note: string | null;
 };
 
-/** Clothing skus match character slot item ids. Decorations and the lot do not change the bot. */
-export const GAME_CATALOG: readonly ShopItem[] = [
-  { sku: "waves", name: "Waves", category: "clothing", slot: "hair", priceCents: 4000, note: null },
-  { sku: "crown", name: "Crown", category: "clothing", slot: "headwear", priceCents: 8000, note: null },
-  { sku: "jacket", name: "Jacket", category: "clothing", slot: "top", priceCents: 6000, note: null },
-  { sku: "overalls", name: "Overalls", category: "clothing", slot: "bottom", priceCents: 5500, note: null },
-  { sku: "heels", name: "Heels", category: "clothing", slot: "shoes", priceCents: 4500, note: null },
-  { sku: "watch", name: "Watch", category: "clothing", slot: "accessory", priceCents: 3000, note: null },
-  { sku: "desk-plant", name: "Desk plant", category: "decoration", slot: null, priceCents: 2500, note: null },
-  { sku: "poster", name: "Poster", category: "decoration", slot: null, priceCents: 1500, note: null },
-  { sku: "rug", name: "Rug", category: "decoration", slot: null, priceCents: 3500, note: null },
-  {
-    sku: "studio-lot",
-    name: "Studio lot",
-    category: "real-estate",
-    slot: null,
-    priceCents: 50000,
-    note: "Placeholder. Buying this does not place a building.",
-  },
-];
+/** Clothing skus match character slot item ids. Prices come from the economy config. */
+export const GAME_CATALOG: readonly ShopItem[] = ECONOMY_ITEMS.map((item) => ({
+  sku: item.sku,
+  name: item.name,
+  category: item.category,
+  slot: item.slot,
+  tier: item.tier,
+  priceCents: itemPriceCents(item),
+  slots: item.slots,
+  activities: item.activities,
+  note: item.note,
+}));
 
 export type LedgerDirection = "credit" | "debit";
 
 export type GameResult<T> = { ok: true; value: T } | { ok: false; status: number; error: string };
 
 export function formatGameUnits(amount: number) {
-  const safe = Number.isFinite(amount) ? amount : 0;
-  const whole = Math.abs(safe - Math.round(safe)) < 0.001;
-  const text = whole ? String(Math.round(safe)) : safe.toFixed(2);
-  return `${text} ${GAME_CURRENCY}`;
-}
-
-export function unitsToCents(amount: number) {
-  return Math.round(amount * 100);
+  return formatKash(amount);
 }
 
 export function findShopItem(sku: string) {
@@ -165,25 +161,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function parseEarnRates(body: unknown): GameResult<Record<EarnType, number>> {
-  if (!isRecord(body)) return { ok: false, status: 400, error: "Expected earn rates." };
-  const extra = Object.keys(body).find((key) => !(EARN_TYPES as readonly string[]).includes(key));
-  if (extra || Object.keys(body).length !== EARN_TYPES.length) {
-    return { ok: false, status: 400, error: "Rates are task, command, connect, minigame, and reward." };
-  }
-  const value = {} as Record<EarnType, number>;
-  for (const type of EARN_TYPES) {
-    const amount = body[type];
-    if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0 || amount > 1_000_000) {
-      return { ok: false, status: 400, error: `${type} must be a currency amount.` };
-    }
-    const cents = unitsToCents(amount);
-    if (Math.abs(amount * 100 - cents) > 0.001) return { ok: false, status: 400, error: `${type} uses cents at most.` };
-    value[type] = cents;
-  }
-  return { ok: true, value };
-}
-
 export function parseRewardGrant(body: unknown): GameResult<{ subject: CharacterSubject; source: string; idempotencyKey: string }> {
   if (!isRecord(body)) return { ok: false, status: 400, error: "Expected a reward." };
   const subject = parseCharacterSubject(body.subjectKind, body.subjectId);
@@ -208,12 +185,13 @@ export function ledgerSum(rows: { direction: string; amountCents: number }[]) {
 export const GAME_BUCKETS = ["wallet", "bank", "uncollected"] as const;
 export type GameBucket = (typeof GAME_BUCKETS)[number];
 
-/** 1% a week, stored as basis points. */
-export const DEFAULT_WEEKLY_BPS = 100;
-/** 10% a week. The owner cannot set a higher rate. */
-export const MAX_WEEKLY_BPS = 1000;
-/** A quiet stretch accrues at most this many days on the next read. */
-export const MAX_INTEREST_CATCHUP_DAYS = 30;
+export {
+  DEFAULT_WEEKLY_BPS,
+  MAX_INTEREST_CATCHUP_DAYS,
+  MAX_WEEKLY_BPS,
+  dailyDecayCents,
+  dailyInterestCents,
+} from "./economy";
 
 export const BANK_PERKS = [
   { id: "later", name: "Bank perks", note: "Bank-only perks will show up here later." },
@@ -226,14 +204,6 @@ const IDEMPOTENCY = /^[A-Za-z0-9:_-]{1,80}$/;
 export function bucketOf(value: string | null | undefined): GameBucket {
   if (value === "bank" || value === "uncollected") return value;
   return "wallet";
-}
-
-/** Simple daily slice of the weekly rate. Basis points stay in integer math. */
-export function dailyInterestCents(balanceCents: number, weeklyBps: number) {
-  if (!Number.isInteger(balanceCents) || balanceCents <= 0) return 0;
-  const bps = Math.min(MAX_WEEKLY_BPS, Math.max(0, Math.trunc(weeklyBps)));
-  if (bps === 0) return 0;
-  return Math.floor((balanceCents * bps) / (7 * 10_000));
 }
 
 export function utcDay(date: Date) {
@@ -263,7 +233,7 @@ export function parseIdempotencyKey(value: unknown): GameResult<string> {
   return { ok: true, value };
 }
 
-/** Empty means the whole source bucket. A number is currency-dollars. */
+/** Empty means the whole source bucket. A number is Kash. */
 export function parseMoveAmount(value: unknown, allowAll: boolean): GameResult<number | null> {
   if (value === undefined || value === null || value === "") {
     if (allowAll) return { ok: true, value: null };

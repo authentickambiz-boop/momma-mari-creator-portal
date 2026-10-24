@@ -10,11 +10,11 @@ import { feeAndPayout, nowIso } from "../src/lib/format";
 import { saveGmailConnection } from "../src/lib/onboarding";
 import type { Viewer } from "../src/lib/types";
 import { characterFigure, defaultCharacter, parseCharacter } from "../src/lib/worlds/character";
+import { connectPayoutCents, rewardPayoutCents, taskDifficulty, taskPayoutCents } from "../src/lib/worlds/economy";
 import {
   COMMISSION_CREDIT_COMING_SOON,
   creatorCommissionCreditEnabled,
   ledgerSum,
-  parseEarnRates,
   refuseCurrencyPurchase,
   walletAccess,
   wearBlock,
@@ -27,7 +27,6 @@ import {
   grantReward,
   ownedSkus,
   readGameWallet,
-  saveEarnRates,
   walletBalanceCents,
 } from "../src/lib/worlds/game-wallet-store";
 import { worldsPaymentsEnabled } from "../src/lib/worlds/office-payments";
@@ -144,10 +143,7 @@ describe("Worlds game wallet", { concurrency: false }, () => {
     assert.equal(walletAccess(mariclare, "read", { kind: "user", id: "abby" }).ok, false);
     assert.equal(walletAccess(admin, "read", { kind: "bot", id: "content" }).ok, true);
     assert.equal(walletAccess(mariclare, "spend", { kind: "bot", id: "content" }).ok, false);
-    const rates = parseEarnRates({ task: 3, command: 5, connect: 25, minigame: 15, reward: 10 });
-    assert.equal(rates.ok, true);
-    if (!rates.ok) return;
-    await saveEarnRates(db, rates.value);
+    const taskCents = taskPayoutCents(taskDifficulty("content"));
     await creator(db, "mariclare", "MariClare", mariclare.email);
     await db.insert(creatorTasks).values({
       id: "task-1",
@@ -164,7 +160,7 @@ describe("Worlds game wallet", { concurrency: false }, () => {
     const again = await markCreatorTaskDone(db, mariclare, "task-1");
     assert.equal(again.ok, true);
     assert.equal(await walletBalanceCents(db, { kind: "user", id: "mariclare" }), 0);
-    assert.equal(await bucketBalanceCents(db, { kind: "user", id: "mariclare" }, "uncollected"), 300);
+    assert.equal(await bucketBalanceCents(db, { kind: "user", id: "mariclare" }, "uncollected"), taskCents);
 
     const queued = await enqueueOfficeCommand(db, {
       kind: "assign_task",
@@ -178,21 +174,20 @@ describe("Worlds game wallet", { concurrency: false }, () => {
     assert.equal((await updateOfficeCommand(db, { id: queued.body.command.id, status: "in_progress" })).ok, true);
     assert.equal((await updateOfficeCommand(db, { id: queued.body.command.id, status: "done", result: "Checked." })).ok, true);
     assert.equal(await walletBalanceCents(db, { kind: "bot", id: "money" }), 0);
-    assert.equal(await bucketBalanceCents(db, { kind: "bot", id: "money" }, "uncollected"), 500);
+    assert.equal(await bucketBalanceCents(db, { kind: "bot", id: "money" }, "uncollected"), 200);
     assert.equal((await updateOfficeCommand(db, { id: queued.body.command.id, status: "done", result: "Checked." })).ok, false);
-    assert.equal(await bucketBalanceCents(db, { kind: "bot", id: "money" }, "uncollected"), 500);
+    assert.equal(await bucketBalanceCents(db, { kind: "bot", id: "money" }, "uncollected"), 200);
 
     const connected = await saveGmailConnection(db, "mariclare", { refreshToken: "refresh-token", gmailEmail: "mari@example.com" });
     assert.equal(connected.ok, true);
     const connectedAgain = await saveGmailConnection(db, "mariclare", { refreshToken: "refresh-token", gmailEmail: "mari@example.com" });
     assert.equal(connectedAgain.ok, true);
     assert.equal(await walletBalanceCents(db, { kind: "user", id: "mariclare" }), 0);
-    assert.equal(await bucketBalanceCents(db, { kind: "user", id: "mariclare" }, "uncollected"), 300 + 2500);
+    assert.equal(await bucketBalanceCents(db, { kind: "user", id: "mariclare" }, "uncollected"), taskCents + connectPayoutCents());
 
-    const mini = await grantEarn(db, { kind: "user", id: "mariclare" }, "minigame", "mini", "mini:1");
+    const mini = await grantEarn(db, { kind: "user", id: "mariclare" }, "minigame", "mini", "mini:1", { roundMs: 1000 });
     assert.equal(mini.ok, false);
-    if (!mini.ok) assert.equal("stub" in mini && mini.stub, true);
-    assert.equal(await bucketBalanceCents(db, { kind: "user", id: "mariclare" }, "uncollected"), 2800);
+    assert.equal(await bucketBalanceCents(db, { kind: "user", id: "mariclare" }, "uncollected"), taskCents + connectPayoutCents());
     assert.equal(await walletBalanceCents(db, { kind: "user", id: "mariclare" }), 0);
 
     const reward = await grantReward(db, mariclare, { kind: "user", id: "mariclare" }, "bonus", "bonus-1");
@@ -202,8 +197,8 @@ describe("Worlds game wallet", { concurrency: false }, () => {
     const ownerRewardAgain = await grantReward(db, admin, { kind: "user", id: "mariclare" }, "bonus", "bonus-1");
     assert.equal(ownerRewardAgain.ok, true);
     if (ownerRewardAgain.ok) assert.equal(ownerRewardAgain.duplicate, true);
-    assert.equal(await walletBalanceCents(db, { kind: "user", id: "mariclare" }), 1000);
-    assert.equal(await bucketBalanceCents(db, { kind: "user", id: "mariclare" }, "uncollected"), 2800);
+    assert.equal(await walletBalanceCents(db, { kind: "user", id: "mariclare" }), rewardPayoutCents());
+    assert.equal(await bucketBalanceCents(db, { kind: "user", id: "mariclare" }, "uncollected"), taskCents + connectPayoutCents());
   });
 
   test("a paid brand payment credits the 20% cut once and does not change the payment", async () => {
@@ -251,14 +246,15 @@ describe("Worlds game wallet", { concurrency: false }, () => {
     assert.equal(view.body.wallet.balance, 0);
     assert.equal(view.body.wallet.uncollected, 200);
     assert.equal(view.body.wallet.bank, 0);
-    assert.equal(view.body.wallet.currency, "currency-dollars");
+    assert.equal(view.body.wallet.currency, "Kash $");
     assert.equal(view.body.wallet.history[0]?.reason, "commission");
     assert.equal(view.body.wallet.history[0]?.bucket, "uncollected");
     assert.equal(view.body.wallet.history[0]?.source, "Northwind");
     assert.equal(view.body.wallet.historyNote, null);
     const packed = JSON.stringify(view.body);
+    const privatePacked = JSON.stringify({ ...view.body, catalog: [] });
     assert.equal(packed.includes(mariclare.email), false);
-    assert.equal(packed.includes("100000"), false);
+    assert.equal(privatePacked.includes("100000"), false);
     assert.equal(packed.includes("idempotency"), false);
     const owner = await readGameWallet(db, admin);
     assert.equal(owner.ok, true);
@@ -334,25 +330,24 @@ describe("Worlds game wallet", { concurrency: false }, () => {
     assert.match(source("src/components/worlds/office-app.tsx"), /Buy currency with real money/);
     assert.match(source("src/components/worlds/character-creator.tsx"), /disabled=\{Boolean\(lock\)\}/);
 
-    const rates = parseEarnRates({ task: 10, command: 5, connect: 25, minigame: 15, reward: 200 });
-    assert.equal(rates.ok, true);
-    if (!rates.ok) return;
-    await saveEarnRates(db, rates.value);
     const funded = await grantReward(db, admin, { kind: "user", id: "owner" }, "starter", "starter");
     assert.equal(funded.ok, true);
-    const poor = await buyShopItem(db, admin, "studio-lot");
+    const poor = await buyShopItem(db, admin, "jacket");
     assert.equal(poor.ok, false);
     assert.deepEqual(await ownedSkus(db, { kind: "user", id: "owner" }), []);
-    assert.equal(await walletBalanceCents(db, { kind: "user", id: "owner" }), 20_000);
+    assert.equal(await walletBalanceCents(db, { kind: "user", id: "owner" }), rewardPayoutCents());
+    for (let i = 0; i < 5; i += 1) {
+      assert.equal((await grantReward(db, admin, { kind: "user", id: "owner" }, "starter", `starter-${i}`)).ok, true);
+    }
 
     const bought = await buyShopItem(db, admin, "jacket");
     assert.equal(bought.ok, true);
     if (!bought.ok) return;
-    assert.equal(bought.wallet.balance, 140);
+    assert.equal(bought.wallet.balance, 0);
     const repeat = await buyShopItem(db, admin, "jacket");
     assert.equal(repeat.ok, true);
     if (repeat.ok) assert.equal(repeat.alreadyOwned, true);
-    assert.equal(await walletBalanceCents(db, { kind: "user", id: "owner" }), 14_000);
+    assert.equal(await walletBalanceCents(db, { kind: "user", id: "owner" }), 0);
     assert.deepEqual(await ownedSkus(db, { kind: "user", id: "owner" }), ["jacket"]);
 
     const look = defaultCharacter("owner");
@@ -371,7 +366,10 @@ describe("Worlds game wallet", { concurrency: false }, () => {
       : null;
     assert.equal(lot?.ok, true);
     if (!lot?.ok) return;
-    assert.equal(lot.body.catalog.find((item) => item.sku === "studio-lot")?.note?.includes("does not place a building"), true);
+    assert.equal(lot.body.catalog.find((item) => item.sku === "studio-lot"), undefined);
+    assert.equal(lot.body.catalog.find((item) => item.sku === "studio")?.price, 1500);
+    assert.equal(lot.body.catalog.find((item) => item.sku === "mansion")?.price, 100000);
+    assert.equal(lot.body.catalog.find((item) => item.sku === "studio")?.note?.includes("later phase"), true);
     assert.equal(lot.body.catalog.find((item) => item.sku === "jacket")?.owned, true);
   });
 });

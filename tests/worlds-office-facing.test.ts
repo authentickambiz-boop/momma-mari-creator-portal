@@ -5,7 +5,7 @@ import { describe, test } from "node:test";
 import { OWNER_LOOK_SEED, defaultCharacter } from "../src/lib/worlds/character";
 import { OWNER_ACTOR_ID, buildOfficeLayout, roomAt } from "../src/lib/worlds/office-layout";
 import { officeCameraHome } from "../src/lib/worlds/office-move";
-import { DESK_SIDE, SEAT_YAW, createSimState, deskFacing, stepOfficeSim } from "../src/lib/worlds/office-sim";
+import { DESK_SIDE, SEAT_YAW, createSimState, deskFacing, stepOfficeSim, yawToward } from "../src/lib/worlds/office-sim";
 import { seedOfficeRecord } from "../src/lib/worlds/office-state";
 
 function source(file: string) {
@@ -19,18 +19,33 @@ describe("desk bots face the default camera", () => {
     assert.ok(home.position.z > home.target.z);
   });
 
-  test("a desk monitor sits on the camera side of the chair and the screen faces the sitter", () => {
+  test("each seat faces the default camera and the monitor stays off that line", () => {
     const layout = buildOfficeLayout();
-    const spot = layout.homes.kash;
-    assert.ok(spot);
-    const facing = deskFacing(spot.x, spot.z);
-    assert.equal(DESK_SIDE, 1);
+    const camera = officeCameraHome(layout.width, layout.depth);
+    const cam = { x: camera.position.x, z: camera.position.z };
+    assert.equal(DESK_SIDE, -1);
     assert.equal(SEAT_YAW, 0);
-    assert.ok(facing.monitor.z > spot.z);
-    assert.ok(facing.monitor.z > facing.desk.z);
-    assert.ok(facing.chairBack.z < spot.z);
-    assert.equal(facing.screenYaw, Math.PI);
+    for (const [id, spot] of Object.entries(layout.homes)) {
+      const yaw = yawToward(spot, cam);
+      const forwardX = Math.sin(yaw);
+      const forwardZ = Math.cos(yaw);
+      const towardX = cam.x - spot.x;
+      const towardZ = cam.z - spot.z;
+      assert.ok(forwardX * towardX + forwardZ * towardZ > 0, id);
+      const facing = deskFacing(spot.x, spot.z);
+      const seatDist = (spot.x - cam.x) ** 2 + (spot.z - cam.z) ** 2;
+      const monitorDist = (facing.monitor.x - cam.x) ** 2 + (facing.monitor.z - cam.z) ** 2;
+      assert.ok(monitorDist > seatDist, id);
+      const sx = spot.x - cam.x;
+      const sz = spot.z - cam.z;
+      const mx = facing.monitor.x - cam.x;
+      const mz = facing.monitor.z - cam.z;
+      assert.ok(Math.abs(sx * mz - sz * mx) > 0.15, id);
+    }
     assert.match(source("src/components/worlds/office-canvas.tsx"), /deskFacing/);
+    assert.match(source("src/components/worlds/office-canvas.tsx"), /yawToward/);
+    assert.match(source("src/components/worlds/office-canvas.tsx"), /camera\.position/);
+    assert.match(source("src/components/worlds/office-canvas.tsx"), /office-you-tag">You</);
   });
 
   test("new bots start facing the camera, turn to their seat, and face the way they walk", () => {

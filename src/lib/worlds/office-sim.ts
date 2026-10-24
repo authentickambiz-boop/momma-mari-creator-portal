@@ -1,24 +1,31 @@
 import { OWNER_ACTOR_ID, route, roomAt, type OfficeLayout, type Vec } from "./office-layout";
 
-/** Yaw 0 faces +Z, toward the default camera south of the building. */
+/** Yaw 0 faces +Z. Seated bots then turn toward the live camera. */
 export const SEAT_YAW = 0;
 
-/** +1 puts the desk and monitor on the +Z side of the chair. */
-export const DESK_SIDE = 1;
+/** Desk sits on the far side of the chair so the face is toward the camera. */
+export const DESK_SIDE = -1;
 
-/** Chair, desk, and monitor positions for a home at (x, z). */
+/** Horizontal yaw that points from `from` toward `to`. */
+export function yawToward(from: { x: number; z: number }, to: { x: number; z: number }) {
+  return Math.atan2(to.x - from.x, to.z - from.z);
+}
+
+/**
+ * Chair in front of the desk from a southern camera.
+ * The monitor sits beside the desk, not between the face and the camera.
+ */
 export function deskFacing(x: number, z: number) {
-  const side = DESK_SIDE;
-  const deskZ = z + 0.82 * side;
+  const deskZ = z + 0.82 * DESK_SIDE;
   return {
     seat: { x, z },
-    chairBack: { x, z: z - 0.2 * side },
+    chairBack: { x, z: z - 0.2 },
     desk: { x, z: deskZ },
-    monitor: { x, z: deskZ + 0.22 * side },
-    screen: { x, z: deskZ + 0.195 * side },
-    keyboard: { x: x - 0.05, z: deskZ - 0.12 * side },
-    mug: { x: x + 0.42, z: deskZ - 0.08 * side },
-    screenYaw: side > 0 ? Math.PI : 0,
+    monitor: { x: x + 0.55, z: deskZ - 0.22 },
+    screen: { x: x + 0.55, z: deskZ - 0.195 },
+    keyboard: { x: x - 0.05, z: deskZ + 0.12 },
+    mug: { x: x - 0.42, z: deskZ + 0.08 },
+    screenYaw: 0,
   };
 }
 

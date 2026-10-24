@@ -1743,6 +1743,7 @@ export const gameLedger = sqliteTable("game_ledger", {
   amountCents: integer("amount_cents").notNull(),
   reason: text("reason").notNull(),
   source: text("source").notNull(),
+  sourceId: text("source_id").notNull().default(""),
   idempotencyKey: text("idempotency_key").notNull(),
   createdAt: text("created_at").notNull(),
 }, (table) => [uniqueIndex("game_ledger_idempotency").on(table.idempotencyKey)]);

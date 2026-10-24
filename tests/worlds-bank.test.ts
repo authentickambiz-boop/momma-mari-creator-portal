@@ -5,10 +5,10 @@ import { describe, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { gameBankMarks, gameLedger } from "../src/db/schema";
 import { nowIso } from "../src/lib/format";
+import { commandPayoutCents, taskPayoutCents } from "../src/lib/worlds/economy";
 import {
   BANK_PERKS,
   dailyInterestCents,
-  parseEarnRates,
   parseWeeklyInterest,
 } from "../src/lib/worlds/game-wallet";
 import {
@@ -21,7 +21,6 @@ import {
   grantReward,
   loseWalletFunds,
   ownedSkus,
-  saveEarnRates,
   saveInterestRate,
   walletBalanceCents,
   withdrawFromBank,
@@ -64,43 +63,45 @@ describe("Worlds in-game bank", { concurrency: false }, () => {
     assert.equal(BANK_PERKS[0]?.note, "Bank-only perks will show up here later.");
     assert.match(source("src/components/worlds/office-app.tsx"), /wallet\.perks/);
 
+    const taskCents = taskPayoutCents(1);
+    const commandCents = commandPayoutCents();
     const earned = await grantEarn(db, owner, "task", "task:one", "task:one");
     assert.equal(earned.ok, true);
     assert.equal(await walletBalanceCents(db, owner), 0);
-    assert.equal(await bucketBalanceCents(db, owner, "uncollected"), 1000);
+    assert.equal(await bucketBalanceCents(db, owner, "uncollected"), taskCents);
     assert.equal(await bucketBalanceCents(db, owner, "bank"), 0);
 
     const kept = await collectEarnings(db, admin, null, "bank", "keep-1", day);
     assert.equal(kept.ok, true);
     if (!kept.ok) return;
-    assert.equal(kept.wallet.bank, 10);
+    assert.equal(kept.wallet.bank, taskCents / 100);
     assert.equal(kept.wallet.uncollected, 0);
     assert.equal(kept.wallet.balance, 0);
     const keptAgain = await collectEarnings(db, admin, null, "bank", "keep-1", day);
     assert.equal(keptAgain.ok, true);
     if (keptAgain.ok) assert.equal(keptAgain.duplicate, true);
-    assert.equal(await bucketBalanceCents(db, owner, "bank"), 1000);
+    assert.equal(await bucketBalanceCents(db, owner, "bank"), taskCents);
 
     const more = await grantEarn(db, owner, "command", "command:one", "command:one");
     assert.equal(more.ok, true);
     const collected = await collectEarnings(db, admin, null, "wallet", "take-1", day);
     assert.equal(collected.ok, true);
     if (!collected.ok) return;
-    assert.equal(collected.wallet.balance, 5);
+    assert.equal(collected.wallet.balance, commandCents / 100);
     assert.equal(collected.wallet.uncollected, 0);
-    assert.equal(collected.wallet.bank, 10);
+    assert.equal(collected.wallet.bank, taskCents / 100);
     const empty = await collectEarnings(db, admin, null, "wallet", "take-2", day);
     assert.equal(empty.ok, false);
     if (!empty.ok) assert.equal(empty.error, "Nothing to collect.");
-    assert.equal(await walletBalanceCents(db, owner), 500);
+    assert.equal(await walletBalanceCents(db, owner), commandCents);
 
-    const deposited = await depositToBank(db, admin, 200, "dep-1", day);
+    const deposited = await depositToBank(db, admin, commandCents, "dep-1", day);
     assert.equal(deposited.ok, true);
-    const depositedAgain = await depositToBank(db, admin, 200, "dep-1", day);
+    const depositedAgain = await depositToBank(db, admin, commandCents, "dep-1", day);
     assert.equal(depositedAgain.ok, true);
     if (depositedAgain.ok) assert.equal(depositedAgain.duplicate, true);
-    assert.equal(await walletBalanceCents(db, owner), 300);
-    assert.equal(await bucketBalanceCents(db, owner, "bank"), 1200);
+    assert.equal(await walletBalanceCents(db, owner), 0);
+    assert.equal(await bucketBalanceCents(db, owner, "bank"), taskCents + commandCents);
     const pair = (await db.select().from(gameLedger)).filter((row) => row.idempotencyKey.startsWith("dep-1"));
     assert.equal(pair.length, 2);
     assert.equal(pair.filter((row) => row.direction === "debit" && row.bucket === "wallet").length, 1);
@@ -111,12 +112,12 @@ describe("Worlds in-game bank", { concurrency: false }, () => {
     const withdrawnAgain = await withdrawFromBank(db, admin, 100, "out-1", day);
     assert.equal(withdrawnAgain.ok, true);
     if (withdrawnAgain.ok) assert.equal(withdrawnAgain.duplicate, true);
-    assert.equal(await walletBalanceCents(db, owner), 400);
-    assert.equal(await bucketBalanceCents(db, owner, "bank"), 1100);
+    assert.equal(await walletBalanceCents(db, owner), 100);
+    assert.equal(await bucketBalanceCents(db, owner, "bank"), taskCents + commandCents - 100);
     const tooMuch = await withdrawFromBank(db, admin, 50_000, "out-2", day);
     assert.equal(tooMuch.ok, false);
     if (!tooMuch.ok) assert.equal(tooMuch.error, "Not enough currency.");
-    assert.equal(await bucketBalanceCents(db, owner, "bank"), 1100);
+    assert.equal(await bucketBalanceCents(db, owner, "bank"), taskCents + commandCents - 100);
     assert.equal((await collectEarnings(db, mariclare, null, "wallet", "nope", day)).ok, false);
   });
 
@@ -132,6 +133,7 @@ describe("Worlds in-game bank", { concurrency: false }, () => {
       amountCents: 400,
       reason: "deposit",
       source: "bank",
+      sourceId: "once:out",
       idempotencyKey: "once:out",
       createdAt: nowIso(),
     });
@@ -154,13 +156,19 @@ describe("Worlds in-game bank", { concurrency: false }, () => {
     assert.equal(capped.ok, false);
     assert.equal((await saveInterestRate(db, mariclare, 200)).ok, false);
 
-    const rates = parseEarnRates({ task: 10, command: 5, connect: 25, minigame: 15, reward: 700 });
-    assert.equal(rates.ok, true);
-    if (!rates.ok) return;
-    await saveEarnRates(db, rates.value);
     assert.equal((await grantReward(db, admin, owner, "fund", "fund")).ok, true);
-    const parked = await depositToBank(db, admin, 70_000, "park", day);
-    assert.equal(parked.ok, true);
+    await db.insert(gameLedger).values({
+      id: "seed-bank",
+      walletId: "user:owner",
+      bucket: "bank",
+      direction: "credit",
+      amountCents: 70_000,
+      reason: "seed",
+      source: "seed",
+      sourceId: "seed-bank",
+      idempotencyKey: "seed-bank",
+      createdAt: day.toISOString(),
+    });
     assert.equal(await bucketBalanceCents(db, owner, "bank"), 70_000);
     assert.equal((await db.select().from(gameLedger)).some((row) => row.reason === "interest"), false);
 
@@ -186,11 +194,19 @@ describe("Worlds in-game bank", { concurrency: false }, () => {
 
   test("shops and losses take the wallet only", async () => {
     const db = openTestDb();
-    const rates = parseEarnRates({ task: 10, command: 5, connect: 25, minigame: 15, reward: 200 });
-    assert.equal(rates.ok, true);
-    if (!rates.ok) return;
-    await saveEarnRates(db, rates.value);
     assert.equal((await grantReward(db, admin, owner, "shop-fund", "shop-fund")).ok, true);
+    await db.insert(gameLedger).values({
+      id: "shop-seed",
+      walletId: "user:owner",
+      bucket: "wallet",
+      direction: "credit",
+      amountCents: 19_000,
+      reason: "seed",
+      source: "seed",
+      sourceId: "shop-seed",
+      idempotencyKey: "shop-seed",
+      createdAt: day.toISOString(),
+    });
     assert.equal((await depositToBank(db, admin, 20_000, "hide", day)).ok, true);
     assert.equal(await walletBalanceCents(db, owner), 0);
     assert.equal(await bucketBalanceCents(db, owner, "bank"), 20_000);

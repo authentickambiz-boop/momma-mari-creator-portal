@@ -418,6 +418,17 @@ body:has(.bot-office) .community-fab,
 body:has(.bot-office) .home-install,
 body:has(.bot-office) .home-bar { display: none; }
 
+.office-you-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 2px solid #1f3b2d;
+  border-radius: 999px;
+  background: #fff;
+  color: #1c211e;
+  font: 700 14px/1.2 sans-serif;
+  white-space: nowrap;
+}
+
 @media (min-width: 801px) {
   .office-panel.office-sheet.office-chat,
   .office-panel.office-sheet.office-board,
