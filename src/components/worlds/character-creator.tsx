@@ -60,27 +60,6 @@ function label(value: string) {
   return value.slice(0, 1).toUpperCase() + value.slice(1);
 }
 
-const GHOST_SKIN = "#f4e6da";
-
-/** One piece on a plain figure, so the preview is not the worn portrait. */
-function mannequin(base: CharacterConfig, slot: CharacterSlotName, item: string): CharacterConfig {
-  const slots: CharacterConfig["slots"] = {
-    hair: { item: "none", color: base.slots.hair.color },
-    headwear: { item: "none", color: base.slots.headwear.color },
-    top: { item: "none", color: base.slots.top.color },
-    bottom: { item: "none", color: base.slots.bottom.color },
-    shoes: { item: "none", color: base.slots.shoes.color },
-    accessory: { item: "none", color: base.slots.accessory.color },
-  };
-  slots[slot] = { item, color: base.slots[slot].color };
-  return {
-    ...base,
-    body: { shape: "tall", size: "medium", color: GHOST_SKIN },
-    face: { eyes: "wide", mouth: "smile", expression: "smile" },
-    slots,
-  };
-}
-
 function wornWith(base: CharacterConfig, slot: CharacterSlotName, item: string): CharacterConfig {
   return {
     ...base,
@@ -481,15 +460,14 @@ export function CharacterCreator({
   const gaps = missingWornParts(config);
 
   function slotPreview(slot: CharacterSlotName, item: string) {
-    return { mannequin: mannequin(config, slot, item), onCharacter: wornWith(config, slot, item) };
+    const onCharacter = wornWith(config, slot, item);
+    return { mannequin: onCharacter, onCharacter };
   }
 
   function outerPreview(item: string) {
     const keepsShirt = item === "none" && !(OUTERWEAR_ITEMS as readonly string[]).includes(config.slots.top.item);
-    return {
-      mannequin: mannequin(config, "top", item),
-      onCharacter: keepsShirt ? config : wornWith(config, "top", item),
-    };
+    const onCharacter = keepsShirt ? config : wornWith(config, "top", item);
+    return { mannequin: onCharacter, onCharacter };
   }
 
   function samePreview(onCharacter: CharacterConfig) {
@@ -681,7 +659,7 @@ export function CharacterCreator({
         {arm ? (
           <div className="character-preview" role="region" aria-label="Item preview">
             <div className="character-preview-stage">
-              <FashionDoll config={arm.look} view="front" emote="idle" forceDoll />
+              <FashionDoll config={arm.onCharacter} view="front" emote="idle" forceDoll />
             </div>
             <div className="character-preview-copy">
               <p className="character-kicker">Preview</p>

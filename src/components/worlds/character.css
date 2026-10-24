@@ -536,8 +536,8 @@
   background: #fff;
 }
 .character-preview-stage {
-  width: 84px;
-  height: 116px;
+  width: 92px;
+  height: 200px;
   flex: 0 0 auto;
   overflow: hidden;
   border-radius: 12px;
@@ -679,7 +679,46 @@
     border-bottom: 1px solid #c5d4ea;
     border-radius: 22px;
   }
-  .character-sheet-legend { font-size: 12px; }
+  .character-preview-stage {
+    width: 64px;
+    height: 140px;
+  }
+  .character-sheet-bar,
+  .character-emotes,
+  .character-stage-tools,
+  .character-sheet-legend {
+    flex-wrap: nowrap;
+  }
+  .character-sheet-bar,
+  .character-sheet-legend {
+    overflow-x: auto;
+  }
+  .character-sheet-bar { padding-top: 8px; padding-bottom: 4px; }
+  .character-sheet-name { padding-bottom: 2px; }
+  .character-sheet-name p { font-size: 13px; }
+  .character-sheet-grid { bottom: 36px; }
+  .character-sheet-legend {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3;
+    align-items: center;
+    height: 36px;
+    gap: 4px 10px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+  .character-tabs {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .character-emotes button,
+  .character-stage-tools button {
+    min-height: 36px;
+    padding: 6px 10px;
+  }
   .character-tabs {
     gap: 8px;
     padding-bottom: 10px;

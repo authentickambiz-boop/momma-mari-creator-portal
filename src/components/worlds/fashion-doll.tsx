@@ -495,7 +495,7 @@ export function FashionDoll({
   config: CharacterConfig;
   view: FashionView;
   emote?: FashionEmote;
-  /** Preview mannequin. Skips the locked glam portrait. */
+  /** Preview figure. Skips the locked glam portrait so the sheet and the dresser share this doll. */
   forceDoll?: boolean;
 }) {
   const gid = useId().replace(/:/g, "");
