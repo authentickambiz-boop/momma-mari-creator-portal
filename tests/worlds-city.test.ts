@@ -532,6 +532,9 @@ test("neighborhood streets, empty lots, and a taller apartment stay in practice"
   const layer = source("src/components/worlds/city/city-layer.tsx");
   assert.match(layer, /districtBillboard/);
   assert.match(layer, /BUILD HERE/);
+  assert.match(layer, /LotShell/);
+  assert.match(source("src/components/worlds/city/building.tsx"), /RisingStory/);
+  assert.match(source("src/components/worlds/city/building.tsx"), /StoryBox/);
   assert.match(source("src/components/worlds/city/city-panel.tsx"), /Claim lot/);
   assert.match(source("src/components/worlds/city/city-panel.tsx"), /Claim a unit/);
   assert.equal(LIVE_SOCIAL_ACTIONS, false);

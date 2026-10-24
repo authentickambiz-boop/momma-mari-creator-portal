@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { CanvasTexture, DoubleSide, SRGBColorSpace, Vector3, type Mesh } from "three";
+import { CanvasTexture, DoubleSide, SRGBColorSpace, Vector3, type Group, type Mesh } from "three";
 import type { CityDistrict, CityLot, Plot, Street } from "@/lib/worlds/city/locations";
 import type { HomeTier } from "@/lib/worlds/economy";
 import { districtBillboard } from "@/lib/worlds/city/scene-shell";
@@ -207,6 +207,99 @@ function lotBoard(number: string, claimed: boolean) {
   return paintSign(claimed ? "CLAIMED" : "BUILD HERE", number, 1024, 512);
 }
 
+const SHELL_HEIGHT = {
+  studio: 1.85,
+  house: 2.45,
+  "creator-loft": 2.9,
+  mansion: 3.6,
+} as const;
+
+function LotShell({ w, d, tier }: { w: number; d: number; tier: keyof typeof SHELL_HEIGHT }) {
+  const ref = useRef<Group>(null);
+  const rise = useRef(0.05);
+  const sw = Math.max(2.2, w * 0.74);
+  const sd = Math.max(2.2, d * 0.66);
+  const h = SHELL_HEIGHT[tier];
+  useLayoutEffect(() => {
+    if (ref.current) ref.current.scale.y = 0.05;
+  }, []);
+  useFrame((_, delta) => {
+    const node = ref.current;
+    if (!node || rise.current >= 1) return;
+    rise.current = Math.min(1, rise.current + delta * 1.35);
+    node.scale.y = rise.current;
+  });
+  const studs = Math.max(3, Math.min(7, Math.round(sw / 1.8)));
+  return (
+    <group ref={ref} name="lot-shell">
+      <mesh position={[0, 0.2, 0]} receiveShadow castShadow>
+        <boxGeometry args={[sw + 0.55, 0.4, sd + 0.55]} />
+        <meshStandardMaterial color="#b7b1a6" roughness={0.92} />
+      </mesh>
+      <mesh position={[0, 0.46, 0]} receiveShadow>
+        <boxGeometry args={[sw + 0.2, 0.12, sd + 0.2]} />
+        <meshStandardMaterial color="#8d8378" roughness={0.84} />
+      </mesh>
+      {[-sd / 2, sd / 2].map((z) => (
+        <mesh key={`sill-${z}`} position={[0, 0.62, z]}>
+          <boxGeometry args={[sw, 0.12, 0.12]} />
+          <meshStandardMaterial color="#6b3a28" roughness={0.78} />
+        </mesh>
+      ))}
+      {[-sw / 2, sw / 2].map((x) => (
+        <mesh key={`sill-${x}`} position={[x, 0.62, 0]}>
+          <boxGeometry args={[0.12, 0.12, sd]} />
+          <meshStandardMaterial color="#6b3a28" roughness={0.78} />
+        </mesh>
+      ))}
+      {Array.from({ length: studs }, (_, index) => {
+        const x = -sw / 2 + (index * sw) / (studs - 1);
+        if (Math.abs(x) < sw * 0.18) return null;
+        return (
+          <mesh key={`front-${x}`} position={[x, 0.62 + h / 2, sd / 2]} castShadow>
+            <boxGeometry args={[0.1, h, 0.1]} />
+            <meshStandardMaterial color={index % 2 ? "#c68642" : "#a56b32"} roughness={0.8} />
+          </mesh>
+        );
+      })}
+      {Array.from({ length: studs }, (_, index) => {
+        const x = -sw / 2 + (index * sw) / (studs - 1);
+        if (Math.abs(x) < sw * 0.16) return null;
+        return (
+          <mesh key={`back-${x}`} position={[x, 0.62 + h / 2, -sd / 2]} castShadow>
+            <boxGeometry args={[0.1, h, 0.1]} />
+            <meshStandardMaterial color="#c68642" roughness={0.8} />
+          </mesh>
+        );
+      })}
+      {[-sw / 2, sw / 2].map((x) => (
+        <mesh key={`side-${x}`} position={[x, 0.62 + h / 2, 0]} castShadow>
+          <boxGeometry args={[0.14, h, sd]} />
+          <meshStandardMaterial color="#d7b07a" roughness={0.82} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.62 + h * 0.45, -sd / 2 - 0.02]} castShadow>
+        <boxGeometry args={[sw * 0.7, h * 0.55, 0.08]} />
+        <meshStandardMaterial color="#e7d3b0" roughness={0.86} />
+      </mesh>
+      <mesh position={[0, 0.62 + h, 0]} castShadow>
+        <boxGeometry args={[sw + 0.2, 0.14, sd + 0.2]} />
+        <meshStandardMaterial color="#4e463f" roughness={0.74} />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={`jamb-${side}`} position={[side * sw * 0.16, 0.62 + h * 0.36, sd / 2 + 0.04]} castShadow>
+          <boxGeometry args={[0.1, h * 0.72, 0.1]} />
+          <meshStandardMaterial color="#2a2926" roughness={0.7} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.62 + h * 0.74, sd / 2 + 0.04]} castShadow>
+        <boxGeometry args={[sw * 0.36, 0.1, 0.1]} />
+        <meshStandardMaterial color="#2a2926" roughness={0.7} />
+      </mesh>
+    </group>
+  );
+}
+
 function EmptyLotMarker({
   lot,
   claimed,
@@ -240,12 +333,7 @@ function EmptyLotMarker({
         <boxGeometry args={[w, 0.07, d]} />
         <meshStandardMaterial color={claimed ? "#d7c4a3" : "#c6b48a"} roughness={0.95} />
       </mesh>
-      {claimed ? (
-        <mesh position={[0, 0.16, 0]} receiveShadow>
-          <boxGeometry args={[w * 0.55, 0.18, d * 0.55]} />
-          <meshStandardMaterial color="#efe6d6" roughness={0.86} />
-        </mesh>
-      ) : null}
+      {claimed ? <LotShell w={w} d={d} tier={lot.tier} /> : null}
       {posts.map(([x, z]) => (
         <mesh key={`${x}-${z}`} position={[x, 0.55, z]} castShadow>
           <cylinderGeometry args={[0.06, 0.08, 1.1, 5]} />
@@ -272,7 +360,7 @@ function EmptyLotMarker({
         <cylinderGeometry args={[0.05, 0.07, 2.3, 6]} />
         <meshStandardMaterial color="#2a2926" roughness={0.7} />
       </mesh>
-      <mesh ref={board} position={[0, 2.15, 0]}>
+      <mesh ref={board} position={[0, claimed ? SHELL_HEIGHT[lot.tier] + 1.55 : 2.15, 0]}>
         <planeGeometry args={[Math.min(6.2, Math.max(3.4, w * 0.82)), 2.15]} />
         <meshBasicMaterial map={map} toneMapped={false} side={DoubleSide} />
       </mesh>

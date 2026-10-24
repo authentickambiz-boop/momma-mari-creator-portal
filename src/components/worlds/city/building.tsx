@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
   CanvasTexture,
@@ -40,11 +40,14 @@ function drawFinish(ctx: CanvasRenderingContext2D, finish: Finish, color: string
       const row = Math.floor(y / bh);
       const offset = row % 2 ? bw / 2 : 0;
       for (let x = -bw; x < 300; x += bw) {
-        const shift = ((row * 3 + Math.floor((x + 80) / bw)) % 5) * 6 - 12;
-        ctx.fillStyle = shade(color, shift);
+        const n = (row * 5 + Math.floor((x + 80) / bw)) % 7;
+        const shift = n * 5 - 16;
+        ctx.fillStyle = n === 0 ? shade(color, -36) : shade(color, shift);
         ctx.fillRect(x + offset + 1, y + 1, bw - 4, bh - 4);
-        ctx.fillStyle = "rgba(255,255,255,0.08)";
-        ctx.fillRect(x + offset + 2, y + 2, bw - 8, 2);
+        ctx.fillStyle = "rgba(255,255,255,0.16)";
+        ctx.fillRect(x + offset + 2, y + 2, bw - 10, 2);
+        ctx.fillStyle = "rgba(40, 16, 8, 0.18)";
+        ctx.fillRect(x + offset + 1, y + bh - 5, bw - 4, 1);
       }
     }
     return;
@@ -56,6 +59,14 @@ function drawFinish(ctx: CanvasRenderingContext2D, finish: Finish, color: string
       ctx.fillStyle = "rgba(40, 24, 12, 0.18)";
       ctx.fillRect(0, y + 7, 128, 1);
     }
+    ctx.fillStyle = shade(color, -40);
+    for (let i = 0; i < 5; i += 1) {
+      const x = 18 + i * 22;
+      const y = 16 + (i % 3) * 28;
+      ctx.beginPath();
+      ctx.ellipse(x, y, 4, 7, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
     return;
   }
   if (finish === "metal") {
@@ -65,20 +76,44 @@ function drawFinish(ctx: CanvasRenderingContext2D, finish: Finish, color: string
       ctx.fillStyle = x % 16 ? shade(color, 24) : shade(color, -8);
       ctx.fillRect(x, 0, 3, 128);
     }
+    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    ctx.fillRect(0, 18, 128, 10);
+    ctx.fillStyle = "rgba(0,0,0,0.18)";
+    ctx.fillRect(0, 96, 128, 8);
     return;
   }
   if (finish === "stone") {
-    const bw = 28;
-    const bh = 18;
-    for (let y = 0; y < 128; y += bh) {
+    const bw = 34;
+    const bh = 22;
+    ctx.fillStyle = "#9a9186";
+    ctx.fillRect(0, 0, 256, 256);
+    for (let y = 0; y < 256; y += bh) {
       const row = Math.floor(y / bh);
-      const offset = row % 2 ? 12 : 0;
-      for (let x = -bw; x < 160; x += bw) {
-        ctx.fillStyle = (row + x) % 3 ? shade(color, -10) : shade(color, 12);
-        ctx.fillRect(x + offset, y, bw - 3, bh - 3);
+      const offset = row % 2 ? 14 : 0;
+      for (let x = -bw; x < 280; x += bw) {
+        const n = (row + Math.floor(x / bw)) % 4;
+        ctx.fillStyle = shade(color, n === 0 ? -22 : n * 8 - 8);
+        ctx.fillRect(x + offset + 1, y + 1, bw - 5, bh - 5);
+        ctx.fillStyle = "rgba(255,255,255,0.12)";
+        ctx.fillRect(x + offset + 2, y + 2, 8, 3);
       }
-      ctx.fillStyle = "#9a9186";
-      ctx.fillRect(0, y + bh - 3, 128, 3);
+    }
+    return;
+  }
+  if (finish === "shingle") {
+    const bw = 22;
+    const bh = 12;
+    ctx.fillStyle = shade(color, -12);
+    ctx.fillRect(0, 0, 256, 256);
+    for (let y = 0; y < 256; y += bh) {
+      const row = Math.floor(y / bh);
+      const offset = row % 2 ? bw / 2 : 0;
+      ctx.strokeStyle = shade(color, -30);
+      ctx.lineWidth = 1;
+      for (let x = -bw; x < 280; x += bw) {
+        ctx.fillStyle = row % 3 ? shade(color, 6) : shade(color, -8);
+        ctx.fillRect(x + offset, y, bw - 2, bh - 2);
+      }
     }
     return;
   }
@@ -94,7 +129,7 @@ function finishMap(finish: Finish, color: string) {
   const hit = finishCache.get(key);
   if (hit) return hit;
   const canvas = document.createElement("canvas");
-  canvas.width = finish === "brick" || finish === "stone" ? 256 : 128;
+  canvas.width = finish === "brick" || finish === "stone" || finish === "shingle" ? 256 : 128;
   canvas.height = canvas.width;
   const ctx = canvas.getContext("2d");
   if (ctx) drawFinish(ctx, finish, color);
@@ -173,10 +208,12 @@ function signTexture(label: string, fill = "#1c211e") {
   return tex;
 }
 
+const APARTMENT_STORY = 1.86;
+
 function buildingHeight(model: BuildingModel, floors: number, tier: HomeTier) {
   if (model === "hq") return 3.2;
   if (model === "studio") return 2.7;
-  if (model === "apartment") return 2.15 + Math.max(3, floors) * 1.55;
+  if (model === "apartment") return Math.max(3, floors) * APARTMENT_STORY + 0.35;
   if (model === "houses") return 3.6;
   if (model === "loft") return 4.4;
   if (model === "mansion") return 6.2;
@@ -353,9 +390,13 @@ function Windows({ w, h, d, rows, cols }: { w: number; h: number; d: number; row
             <planeGeometry args={[0.42, 0.56]} />
             <meshStandardMaterial color="#d7eef6" roughness={0.04} metalness={0.82} envMapIntensity={1.45} emissive="#c5dce8" emissiveIntensity={0.05} />
           </mesh>
-          <mesh position={[0.08, 0.08, 0.055]}>
-            <planeGeometry args={[0.07, 0.34]} />
-            <meshBasicMaterial color="#ffffff" transparent opacity={0.55} />
+          <mesh position={[0.08, 0.1, 0.055]}>
+            <planeGeometry args={[0.08, 0.28]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.62} />
+          </mesh>
+          <mesh position={[-0.1, -0.12, 0.056]} rotation={[0, 0, 0.7]}>
+            <planeGeometry args={[0.05, 0.22]} />
+            <meshBasicMaterial color="#f7fbff" transparent opacity={0.4} />
           </mesh>
           <mesh position={[0, 0, 0.05]}>
             <boxGeometry args={[0.03, 0.56, 0.02]} />
@@ -422,6 +463,59 @@ function Columns({ w, h, d, color }: { w: number; h: number; d: number; color: s
       ))}
     </group>
   );
+}
+
+function StoryBox({
+  w,
+  h,
+  d,
+  color,
+  door,
+}: {
+  w: number;
+  h: number;
+  d: number;
+  color: string;
+  door: boolean;
+}) {
+  return (
+    <group>
+      <ToonBox position={[0, h / 2, -d / 2]} args={[w, h, 0.22]} color={color} finish="brick" cast />
+      <ToonBox position={[w / 2, h / 2, 0]} args={[0.22, h, d]} color={color} finish="brick" cast />
+      <ToonBox position={[-w / 2, h / 2, 0]} args={[0.22, h, d]} color={color} finish="brick" cast />
+      {door ? (
+        <DoorWall w={w} h={h} d={d} color={color} openDoor={false} outline={false} />
+      ) : (
+        <ToonBox position={[0, h / 2, d / 2]} args={[w, h, 0.22]} color={color} finish="brick" cast />
+      )}
+      <ToonBox position={[0, 0.1, 0]} args={[w + 0.28, 0.18, d + 0.28]} color="#cfc8bb" finish="stone" />
+      <ToonBox position={[0, h - 0.08, 0]} args={[w + 0.42, 0.2, d + 0.42]} color="#f7f1e4" finish="paint" />
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
+        <ToonBox key={`${sx}-${sz}`} position={[(w / 2) * sx, h / 2, (d / 2) * sz]} args={[0.18, h, 0.18]} color="#f4efe4" finish="paint" />
+      ))}
+    </group>
+  );
+}
+
+function RisingStory({
+  grow,
+  children,
+}: {
+  grow: boolean;
+  children: ReactNode;
+}) {
+  const ref = useRef<Group>(null);
+  const rise = useRef(grow ? 0.08 : 1);
+  useLayoutEffect(() => {
+    if (ref.current) ref.current.scale.y = grow ? 0.08 : 1;
+  }, [grow]);
+  useFrame((_, delta) => {
+    const node = ref.current;
+    if (!node || !grow || rise.current >= 1) return;
+    rise.current = Math.min(1, rise.current + delta * 1.2);
+    node.scale.y = rise.current;
+  });
+  return <group ref={ref}>{children}</group>;
 }
 
 function FlatRoof({ w, h, d, color, lip = "#6a625a", finish = "shingle" }: { w: number; h: number; d: number; color: string; lip?: string; finish?: Finish }) {
@@ -805,6 +899,50 @@ function PicketRun({ w, z, color = "#f4efe4" }: { w: number; z: number; color?: 
   );
 }
 
+function ApartmentStack({
+  plot,
+  w,
+  d,
+  open,
+  mid,
+}: {
+  plot: Plot;
+  w: number;
+  d: number;
+  open: boolean;
+  mid: boolean;
+}) {
+  const floors = Math.max(3, plot.floors);
+  const bw = w * 0.86;
+  const bd = d * 0.78;
+  const seen = useRef(floors);
+  const [growIndex, setGrowIndex] = useState<number | null>(null);
+  useEffect(() => {
+    if (floors > seen.current) setGrowIndex(floors - 1);
+    seen.current = floors;
+  }, [floors]);
+  return (
+    <group name="apartment-stack">
+      {Array.from({ length: floors }, (_, index) => (
+        <group key={index} position={[0, index * APARTMENT_STORY, 0]}>
+          <RisingStory grow={growIndex === index}>
+            <StoryBox w={bw} h={APARTMENT_STORY} d={bd} color={plot.wall} door={index === 0} />
+            {mid ? <Windows w={bw * 0.72} h={APARTMENT_STORY} d={bd} rows={1} cols={4} /> : null}
+            {index === floors - 1 ? (
+              <>
+                <FlatRoof w={bw} h={APARTMENT_STORY} d={bd} color={plot.roof} finish="metal" />
+                {mid ? <Sign label={`${floors} floors · 1 bed`} y={APARTMENT_STORY + 0.55} z={bd / 2 + 0.35} fill="#1f3b2d" wide={5.4} /> : null}
+              </>
+            ) : null}
+          </RisingStory>
+        </group>
+      ))}
+      <ToonBox position={[0, 0.05, d * 0.42]} args={[w * 0.7, 0.08, d * 0.28]} color="#c8c2b6" finish="stone" />
+      {open ? <HomeRoom w={w * 0.5} d={d} tier="apartment" /> : null}
+    </group>
+  );
+}
+
 function Neighborhood({
   model,
   plot,
@@ -841,20 +979,8 @@ function Neighborhood({
     );
   }
   if (model === "apartment") {
-    const floors = Math.max(3, plot.floors);
-    const h = 2.15 + floors * 1.55;
     return (
-      <group>
-        <Envelope w={w * 0.86} h={h} d={d * 0.78} color={plot.wall} yaw={0} open={open} outline={false} finish="brick" />
-        <FlatRoof w={w * 0.86} h={h} d={d * 0.78} color={plot.roof} finish="metal" />
-        {mid ? <Windows w={w * 0.7} h={h - 0.6} d={d * 0.78} rows={floors} cols={5} /> : null}
-        {mid ? <Sign label={`${floors} floors · 1 bed`} y={h - 0.7} z={d * 0.39 + 0.3} fill="#1f3b2d" wide={5.2} /> : null}
-        <ToonBox position={[0, 0.05, d * 0.42]} args={[w * 0.7, 0.08, d * 0.28]} color="#c8c2b6" finish="stone" />
-        {[-w * 0.22, w * 0.22].map((x) => (
-          <ToonBox key={x} position={[x, Math.min(2.4, h * 0.38), d * 0.39 + 0.28]} args={[1.4, 0.08, 0.55]} color="#2a2e33" finish="metal" />
-        ))}
-        {open ? <HomeRoom w={w * 0.5} d={d} tier="apartment" /> : null}
-      </group>
+      <ApartmentStack plot={plot} w={w} d={d} open={open} mid={mid} />
     );
   }
   if (model === "houses") {

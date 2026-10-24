@@ -1074,7 +1074,7 @@ export function claimCityLot(
     ok: true,
     session: next,
     sent: false,
-    message: `${ASSET_OWNER} still owns lot ${lot.number}. You can build on it later. Spent ${formatKash(lot.priceCents)}. No real payment was made.`,
+    message: `${ASSET_OWNER} still owns lot ${lot.number}. A foundation and shell are on the lot. Spent ${formatKash(lot.priceCents)}. No real payment was made.`,
   };
 }
 

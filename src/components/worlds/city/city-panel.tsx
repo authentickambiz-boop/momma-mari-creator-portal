@@ -283,7 +283,7 @@ export function CityChrome({
           <p>{formatKash(lot.priceCents)}. Practice Kash. {ASSET_OWNER} keeps the lot. No real payment.</p>
           {viewerRole !== "owner" ? <p className="office-error">Only the owner can claim a lot in this practice build.</p> : null}
           {session.claimedLotIds.includes(lot.id) ? (
-            <p>This lot is claimed. The build comes later.</p>
+            <p>This lot is claimed. The foundation and shell are on the lot. The finished building comes later.</p>
           ) : (
             <button type="button" onClick={() => apply(claimCityLot(session, lot, viewerRole, Date.now()))}>Claim lot {lot.number}</button>
           )}
