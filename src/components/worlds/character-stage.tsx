@@ -156,8 +156,9 @@ function stopPointer(event: ReactPointerEvent) {
 }
 
 /**
- * Studio turntable for the office chibi. PR #210's skinned humanoid is not
- * merged, so this preview uses the same mesh the office You actor wears.
+ * Studio turntable for the office chibi. PR #210's GLB is a sphere and
+ * cylinder export, not a finished humanoid mesh, so this preview keeps
+ * CharacterFigure until a real GLB lands.
  */
 export function CharacterStage({
   config,
