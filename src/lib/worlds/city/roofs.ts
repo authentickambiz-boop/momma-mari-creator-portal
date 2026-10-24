@@ -72,6 +72,33 @@ export function shedSlab(
   };
 }
 
+/** Space between neighboring modules. Wider than both eaves, so roofs cannot meet. */
+export const HOUSE_ROW_GAP = 2.2;
+export const STUDIO_ROW_GAP = 1.4;
+export const ROW_ROOF_OVERHANG_X = 0.04;
+export const ROW_ROOF_OVERHANG_Z = 0.08;
+
+/** Clear air between neighboring gable meshes along a row. */
+export function rowRoofClearance(span: number, count: number, gap: number, overhangX = ROW_ROOF_OVERHANG_X, pitch = 0.42) {
+  const step = span / count;
+  const unit = step - gap;
+  return step - gableReach(unit, pitch, overhangX) * 2;
+}
+
+/** Furthest the gable mesh reaches from the building center, including slab corners. */
+export function gableReach(w: number, pitch = 0.42, overhangX = 0.16, thickness = 0.12) {
+  const pose = gableSlabs(w, 0, pitch, overhangX, thickness);
+  let reach = 0;
+  for (const slab of pose.slabs) {
+    for (const localX of [-slab.length / 2, slab.length / 2]) {
+      for (const localY of [-slab.thickness / 2, slab.thickness / 2]) {
+        reach = Math.max(reach, Math.abs(slabPoint(slab, localX, localY).x));
+      }
+    }
+  }
+  return reach;
+}
+
 export function slabPoint(slab: RoofSlab, localX: number, localY: number, localZ = 0) {
   const x = Math.cos(slab.rotZ) * localX - Math.sin(slab.rotZ) * localY;
   const y = Math.sin(slab.rotZ) * localX + Math.cos(slab.rotZ) * localY;

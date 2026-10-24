@@ -17,7 +17,7 @@ import {
 } from "../src/lib/worlds/economy";
 import { worldsCityEnabled } from "../src/lib/worlds/city/flag";
 import { cityNightWeather, cityOverviewHome, districtBillboard, interiorStand, officeTargetBounds, poseInsideBounds } from "../src/lib/worlds/city/scene-shell";
-import { gableSlabs, shedSlab, slabPoint } from "../src/lib/worlds/city/roofs";
+import { HOUSE_ROW_GAP, STUDIO_ROW_GAP, gableSlabs, rowRoofClearance, shedSlab, slabPoint } from "../src/lib/worlds/city/roofs";
 import { CITY_PARK, MANSION_FOUNTAIN, curbReturns, roadPieces } from "../src/lib/worlds/city/streets";
 import { officeCameraHome, officeCameraPoseOk } from "../src/lib/worlds/office-move";
 import {
@@ -597,7 +597,13 @@ test("ownable roofs sit on the walls and roads are not drawn twice", () => {
       assert.equal(boxesOverlap(segments[i], cross, -0.02), false, `${segments[i].id} ${cross.id}`);
     }
   }
-  assert.ok(curbReturns(crossings).length >= 4);
+  const turns = curbReturns(crossings);
+  assert.ok(turns.length >= 4);
+  assert.ok(turns.some((turn) => turn.radius >= 2.5), "wide junctions keep a curb large enough to read");
+  const houseClearance = rowRoofClearance(28 * 0.92, 3, HOUSE_ROW_GAP);
+  const studioClearance = rowRoofClearance(18 * 0.92, 4, STUDIO_ROW_GAP);
+  assert.ok(houseClearance > 1.6, `house roof gap ${houseClearance}`);
+  assert.ok(studioClearance > 0.9, `studio roof gap ${studioClearance}`);
   const blocked = [...district.plots, ...district.lots, ...district.streets];
   assert.equal(blocked.some((box) => boxesOverlap(CITY_PARK, box, 0.2)), false);
   const fountainHits = [...district.lots, ...district.streets, ...district.plots.filter((plot) => plot.id !== "mansion-grounds")];

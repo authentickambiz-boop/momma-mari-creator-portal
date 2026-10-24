@@ -11,12 +11,18 @@ export type RoadSegment = RoadRect & {
 
 export type RoadCrossing = RoadRect & { perpendicular: boolean };
 
+/** Big enough that a wide overview still shows the curve, and small enough that neighboring corners do not meet. */
+export const CURB_RADIUS = 2.9;
+export const WALK_BAND = 1.35;
+
 export type CurbReturn = {
   id: string;
   x: number;
   z: number;
   /** Theta start for a quarter turn, radians, three.js cylinder convention. */
   theta: number;
+  /** Asphalt quarter radius. The sidewalk quarter is this plus the walk band. */
+  radius: number;
 };
 
 function overlap(a: RoadRect, b: RoadRect) {
@@ -82,9 +88,11 @@ export function roadPieces(roads: readonly RoadRect[]): { segments: RoadSegment[
 }
 
 /** Quarter-circle curb returns just outside each corner of a real junction. */
-export function curbReturns(crossings: readonly RoadCrossing[], radius = 1.7): CurbReturn[] {
+export function curbReturns(crossings: readonly RoadCrossing[], radius = CURB_RADIUS): CurbReturn[] {
   const turns: CurbReturn[] = [];
   crossings.filter((cross) => cross.perpendicular).forEach((cross) => {
+    const fit = Math.min(radius, Math.min(cross.w, cross.d) * 0.46);
+    if (fit < 1.35) return;
     const corners: { x: number; z: number; theta: number }[] = [
       { x: cross.x, z: cross.z, theta: Math.PI },
       { x: cross.x + cross.w, z: cross.z, theta: -Math.PI / 2 },
@@ -97,10 +105,10 @@ export function curbReturns(crossings: readonly RoadCrossing[], radius = 1.7): C
         x: corner.x,
         z: corner.z,
         theta: corner.theta,
+        radius: fit,
       });
     });
   });
-  void radius;
   return turns;
 }
 

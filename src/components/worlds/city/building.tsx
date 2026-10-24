@@ -14,7 +14,7 @@ import {
 } from "three";
 import type { HomeTier } from "@/lib/worlds/economy";
 import type { BuildingModel, Plot } from "@/lib/worlds/city/locations";
-import { gableSlabs, shedSlab } from "@/lib/worlds/city/roofs";
+import { HOUSE_ROW_GAP, ROW_ROOF_OVERHANG_X, ROW_ROOF_OVERHANG_Z, STUDIO_ROW_GAP, gableSlabs, shedSlab } from "@/lib/worlds/city/roofs";
 import { locationById } from "@/lib/worlds/city/locations";
 
 const scratch = new Vector3();
@@ -484,7 +484,7 @@ export function Gable({
           cast
         />
       ))}
-      <ToonBox position={[0, pose.ridge + 0.05, 0]} args={[0.2, 0.08, depth + 0.04]} color={color} finish="shingle" cast />
+      <ToonBox position={[0, pose.ridge + 0.05, 0]} args={[0.18, 0.07, Math.max(0.4, d - 0.2)]} color={color} finish="shingle" cast />
       {ends ? [-1, 1].map((side) => (
         <mesh key={side} position={[0, h + 0.02, side * (d / 2 - 0.02)]} castShadow>
           <shapeGeometry args={[shape]} />
@@ -1229,15 +1229,16 @@ function Neighborhood({
   const d = plot.d * 0.72;
   if (model === "studio") {
     const count = 4;
-    const unit = w / count - 0.35;
+    const unit = w / count - STUDIO_ROW_GAP;
     return (
       <group>
         {Array.from({ length: count }, (_, index) => {
-          const x = -w / 2 + unit / 2 + 0.2 + index * (w / count);
+          const step = w / count;
+          const x = -w / 2 + step * index + step / 2;
           return (
             <group key={x} position={[x, 0, 0]}>
               <Envelope w={unit} h={2.55} d={d * 0.7} color={index % 2 ? "#d7b07a" : plot.wall} yaw={0} open={open && index === 1} outline={false} finish="wood" />
-              <Gable w={unit} h={2.55} d={d * 0.7} color={plot.roof} overhangX={0.08} endColor={index % 2 ? "#d7b07a" : plot.wall} />
+              <Gable w={unit} h={2.55} d={d * 0.7} color={plot.roof} overhangX={ROW_ROOF_OVERHANG_X} overhangZ={ROW_ROOF_OVERHANG_Z} endColor={index % 2 ? "#d7b07a" : plot.wall} />
               {furnish && index === 1 ? <CityInterior model="studio" w={unit * 0.82} d={d * 0.58} tier="studio" /> : null}
               {mid ? <Windows w={unit * 0.8} h={2.4} d={d * 0.7} rows={1} cols={2} /> : null}
               <ToonBox position={[0, 0.12, d * 0.35 + 0.45]} args={[unit * 0.55, 0.16, 0.7]} color="#cfc8bb" finish="stone" />
@@ -1254,20 +1255,21 @@ function Neighborhood({
   }
   if (model === "houses") {
     const count = 3;
-    const unit = w / count - 0.8;
+    const unit = w / count - HOUSE_ROW_GAP;
     return (
       <group>
         {Array.from({ length: count }, (_, index) => {
-          const x = -w / 2 + unit / 2 + 0.5 + index * (w / count);
+          const step = w / count;
+          const x = -w / 2 + step * index + step / 2;
           return (
             <group key={x} position={[x, 0, -0.4]}>
               <Envelope w={unit} h={3.3} d={d * 0.62} color={index === 1 ? "#efe6d6" : plot.wall} yaw={0} open={open && index === 1} outline={false} finish={index === 1 ? "plaster" : "brick"} />
-              <Gable w={unit} h={3.3} d={d * 0.62} color={plot.roof} endColor={index === 1 ? "#efe6d6" : plot.wall} />
+              <Gable w={unit} h={3.3} d={d * 0.62} color={plot.roof} overhangX={ROW_ROOF_OVERHANG_X} overhangZ={ROW_ROOF_OVERHANG_Z} endColor={index === 1 ? "#efe6d6" : plot.wall} />
               {furnish && index === 1 ? <CityInterior model="houses" w={unit * 0.78} d={d * 0.5} tier="house" /> : null}
               {mid ? <Windows w={unit * 0.75} h={3} d={d * 0.62} rows={1} cols={2} /> : null}
               <ToonBox position={[0, 1.05, d * 0.31 + 0.45]} args={[unit * 0.55, 0.1, 0.9]} color={plot.roof} finish="wood" />
               {mid ? <PicketRun w={unit + 0.4} z={d * 0.31 + 1.15} /> : null}
-              {mid ? <Flowers x={unit * 0.35} z={d * 0.31 + 1.7} /> : null}
+              {mid ? [-unit * 0.32, 0, unit * 0.32].map((bed) => <Flowers key={bed} x={bed} z={d * 0.31 + 1.65} />) : null}
               {mid ? <YardTree w={unit * 0.2} d={-d * 0.2} canopy="#3e8a42" /> : null}
             </group>
           );

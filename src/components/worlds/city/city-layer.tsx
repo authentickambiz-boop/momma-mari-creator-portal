@@ -7,13 +7,14 @@ import type { CityDistrict, CityLot, Plot, Street } from "@/lib/worlds/city/loca
 import { boxesOverlap } from "@/lib/worlds/city/locations";
 import type { HomeTier } from "@/lib/worlds/economy";
 import { districtBillboard } from "@/lib/worlds/city/scene-shell";
-import { CITY_PARK, MANSION_FOUNTAIN, curbReturns, roadPieces, type RoadRect, type RoadSegment } from "@/lib/worlds/city/streets";
+import { CITY_PARK, CURB_RADIUS, MANSION_FOUNTAIN, WALK_BAND, curbReturns, roadPieces, type RoadRect, type RoadSegment } from "@/lib/worlds/city/streets";
 import { FOLIAGE_COLORS, type OfficeWeather } from "@/lib/worlds/office-weather";
 import { CityBuilding, Gable } from "./building";
 
 function sidewalks(segment: RoadSegment): RoadRect[] {
-  const insetStart = segment.roundStart ? 1.55 : 0;
-  const insetEnd = segment.roundEnd ? 1.55 : 0;
+  const inset = CURB_RADIUS + WALK_BAND;
+  const insetStart = segment.roundStart ? inset : 0;
+  const insetEnd = segment.roundEnd ? inset : 0;
   if (segment.alongX) {
     const x = segment.x + insetStart;
     const w = segment.w - insetStart - insetEnd;
@@ -49,15 +50,15 @@ function Streets({ district }: { district: CityDistrict }) {
         </mesh>
       ))}
       {turns.map((turn) => (
-        <mesh key={turn.id} position={[turn.x, 0.07, turn.z]} rotation={[0, turn.theta, 0]} receiveShadow>
-          <cylinderGeometry args={[1.65, 1.65, 0.04, 10, 1, false, 0, Math.PI / 2]} />
-          <meshStandardMaterial color="#3a3d42" roughness={0.92} />
+        <mesh key={`${turn.id}-walk`} position={[turn.x, 0.062, turn.z]} rotation={[0, turn.theta, 0]} receiveShadow>
+          <cylinderGeometry args={[turn.radius + WALK_BAND, turn.radius + WALK_BAND, 0.02, 32, 1, false, 0, Math.PI / 2]} />
+          <meshStandardMaterial color="#cfc8bb" roughness={0.86} />
         </mesh>
       ))}
       {turns.map((turn) => (
-        <mesh key={`${turn.id}-walk`} position={[turn.x, 0.045, turn.z]} rotation={[0, turn.theta, 0]} receiveShadow>
-          <cylinderGeometry args={[2.85, 2.85, 0.03, 10, 1, false, 0, Math.PI / 2]} />
-          <meshStandardMaterial color="#cfc8bb" roughness={0.86} />
+        <mesh key={turn.id} position={[turn.x, 0.095, turn.z]} rotation={[0, turn.theta, 0]} receiveShadow>
+          <cylinderGeometry args={[turn.radius, turn.radius, 0.04, 32, 1, false, 0, Math.PI / 2]} />
+          <meshStandardMaterial color="#3a3d42" roughness={0.92} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
         </mesh>
       ))}
       {walks.map((walk) => (
@@ -89,25 +90,35 @@ function Lamps({ district, dark }: { district: CityDistrict; dark: boolean }) {
   const spots = useMemo(() => lampSpots(district.streets), [district.streets]);
   return (
     <group>
-      {spots.map((spot, index) => (
-        <group key={spot.id} position={[spot.x, 0, spot.z]}>
+      {spots.map((spot) => (
+        <group key={spot.id} name={`lamp-${spot.id}`} position={[spot.x, 0, spot.z]}>
           <mesh position={[0, 1.55, 0]} castShadow>
-            <cylinderGeometry args={[0.05, 0.08, 3.1, 6]} />
+            <cylinderGeometry args={[0.07, 0.1, 3.1, 8]} />
             <meshStandardMaterial color="#2a2926" roughness={0.7} />
           </mesh>
-          <mesh position={[0.34, 3.05, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.035, 0.035, 0.7, 5]} />
+          <mesh position={[0.42, 3.12, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.045, 0.045, 0.9, 6]} />
             <meshStandardMaterial color="#2a2926" roughness={0.6} />
           </mesh>
-          <mesh position={[0.62, 2.95, 0]}>
-            <sphereGeometry args={[0.16, 10, 8]} />
-            <meshStandardMaterial
-              color={dark ? "#fff3c4" : "#d9d3c7"}
-              emissive={dark ? "#ffd27a" : "#000000"}
-              emissiveIntensity={dark ? 1.8 : 0}
-            />
+          <mesh position={[0.86, 3.05, 0]} renderOrder={3}>
+            <sphereGeometry args={[dark ? 0.72 : 0.18, 16, 12]} />
+            {dark
+              ? <meshBasicMaterial color="#fff4b0" toneMapped={false} />
+              : <meshStandardMaterial color="#d9d3c7" />}
           </mesh>
-          {dark && index % 2 === 0 ? <pointLight position={[0.62, 2.85, 0]} intensity={0.45} distance={8} decay={2} color="#ffd9a0" /> : null}
+          {dark ? (
+            <>
+              <mesh position={[0.86, 3.05, 0]} renderOrder={2}>
+                <sphereGeometry args={[2.15, 14, 10]} />
+                <meshBasicMaterial color="#ffe08a" transparent opacity={0.62} depthWrite={false} toneMapped={false} />
+              </mesh>
+              <mesh position={[0.86, 0.16, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={2}>
+                <circleGeometry args={[6.4, 28]} />
+                <meshBasicMaterial color="#ffb020" transparent opacity={0.9} depthWrite={false} side={DoubleSide} toneMapped={false} />
+              </mesh>
+              <pointLight position={[0.86, 2.7, 0]} intensity={3.2} distance={18} decay={2} color="#ffc56a" />
+            </>
+          ) : null}
         </group>
       ))}
     </group>
