@@ -307,10 +307,7 @@ describe("Worlds characters", () => {
     assert.match(stage, /#6a5848/);
     assert.match(stage, /#fff3dd/);
     assert.match(stage, /character-scrim/);
-    assert.match(stage, /StudioHumanoid/);
     assert.match(creator, /sheetCoverRef/);
-    assert.match(source("src/components/worlds/studio-humanoid.tsx"), /SOFT_FACE_NODE/);
-    assert.match(source("src/lib/worlds/humanoid.ts"), /softFace/);
     assert.match(app, /next\[OWNER_ACTOR_ID\] = mineConfig/);
     assert.match(app, /It wears the look you save in the character creator/);
     assert.match(route, /CDN-Cache-Control/);

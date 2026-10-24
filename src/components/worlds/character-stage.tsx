@@ -2,8 +2,9 @@
 
 import { Component, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import type { CharacterConfig } from "@/lib/worlds/character";
-import { StudioHumanoid } from "./studio-humanoid";
+import type { Group } from "three";
+import type { CharacterConfig, CharacterPose } from "@/lib/worlds/character";
+import { CharacterFigure } from "./character-figure";
 
 export const STUDIO_EMOTES = ["idle", "walk", "wave", "sit"] as const;
 export type StudioEmote = (typeof STUDIO_EMOTES)[number];
@@ -72,18 +73,18 @@ function OrbitRig({
     const comparing = compare;
     const cover = coverRef.current;
     let dist = distanceRef.current;
-    let focusY = short ? 1.05 : 0.92;
+    let focusY = short ? 0.95 : 0.78;
     let pitch = pitchRef.current;
     if (face && !comparing) {
-      dist = short ? 2.15 : 1.85;
-      focusY = short ? 1.58 : 1.52;
-      pitch = 0.04;
+      dist = short ? 2.55 : 2.05;
+      focusY = short ? 1.28 : 1.12;
+      pitch = 0.08;
     } else if (face && comparing) {
-      dist = short ? 2.7 : 2.25;
-      focusY = 1.5;
-      pitch = 0.04;
+      dist = short ? 3.5 : 2.9;
+      focusY = 1.12;
+      pitch = 0.08;
     } else {
-      dist = Math.max(dist, comparing ? (short ? 7.2 : 6.2) : (short ? 6.6 : 4.6));
+      dist = Math.max(dist, comparing ? (short ? 7.2 : 5.1) : (short ? 6.1 : 3.7));
     }
     const topBand = cover > 0.02 ? Math.min(0.18, 72 / Math.max(height, 1)) : 0;
     if (cover > 0.05) {
@@ -105,20 +106,45 @@ function OrbitRig({
   return null;
 }
 
+function PoseDriver({
+  emote,
+  poseRef,
+}: {
+  emote: StudioEmote;
+  poseRef: RefObject<CharacterPose | null>;
+}) {
+  useFrame((_, dt) => {
+    const pose = poseRef.current;
+    if (!pose) return;
+    const speed = emote === "walk" ? 7.5 : emote === "wave" ? 6.5 : 1.4;
+    pose.phase += dt * speed;
+    pose.moving = emote === "walk";
+    pose.seated = emote === "sit";
+    pose.wave = emote === "wave";
+  });
+  return null;
+}
+
 function FigureAnchor({
   config,
-  emote,
+  poseRef,
   x,
 }: {
   config: CharacterConfig;
-  emote: StudioEmote;
+  poseRef: RefObject<CharacterPose | null>;
   x: number;
 }) {
+  const group = useRef<Group>(null);
+  useFrame(() => {
+    if (!group.current) return;
+    const seated = poseRef.current?.seated ?? false;
+    group.current.position.set(x, seated ? -0.16 : 0, 0);
+  });
   return (
-    <group position={[x, 0, 0]}>
-      <StudioHumanoid config={config} emote={emote} />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0.04]}>
-        <circleGeometry args={[0.34, 24]} />
+    <group ref={group}>
+      <CharacterFigure config={config} poseRef={poseRef} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0.04]}>
+        <circleGeometry args={[0.42, 24]} />
         <meshBasicMaterial color="#1c211e" transparent opacity={0.16} />
       </mesh>
     </group>
@@ -130,8 +156,8 @@ function stopPointer(event: ReactPointerEvent) {
 }
 
 /**
- * Studio turntable. The preview is the PR #210 humanoid with a soft face.
- * The office still draws the chibi until that rig lands on the desk.
+ * Studio turntable for the office chibi. PR #210's skinned humanoid is not
+ * merged, so this preview uses the same mesh the office You actor wears.
  */
 export function CharacterStage({
   config,
@@ -157,6 +183,7 @@ export function CharacterStage({
   const lastRef = useRef({ x: 0, y: 0 });
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<number | null>(null);
+  const poseRef = useRef<CharacterPose | null>({ phase: 0, moving: false, seated: false, wave: false });
   const focusRef = useRef<CameraFocus>("body");
   const stageRef = useRef<HTMLDivElement>(null);
   const [emote, setEmote] = useState<StudioEmote>("idle");
@@ -166,7 +193,7 @@ export function CharacterStage({
 
   function showFocus(next: CameraFocus) {
     focusRef.current = next;
-    if (next === "face") yawRef.current = 0.18;
+    if (next === "face") yawRef.current = 0.55;
     setFocus((current) => (current === next ? current : next));
   }
 
@@ -267,6 +294,7 @@ export function CharacterStage({
               coverRef={coverRef}
               compare={compare}
             />
+            <PoseDriver emote={emote} poseRef={poseRef} />
             <hemisphereLight args={[STUDIO_SKY, STUDIO_GROUND, 0.72]} />
             <ambientLight intensity={0.28} color={STUDIO_SUN} />
             <directionalLight position={[2.2, 4.4, 3.1]} intensity={1.35} color={STUDIO_KEY} />
@@ -280,8 +308,8 @@ export function CharacterStage({
               <circleGeometry args={[1.7, 48]} />
               <meshStandardMaterial color="#cfc6ba" roughness={0.92} />
             </mesh>
-            {compare ? <FigureAnchor config={baseline} emote={emote} x={-spread} /> : null}
-            <FigureAnchor config={config} emote={emote} x={compare ? spread : 0} />
+            {compare ? <FigureAnchor config={baseline} poseRef={poseRef} x={-spread} /> : null}
+            <FigureAnchor config={config} poseRef={poseRef} x={compare ? spread : 0} />
           </Canvas>
         </PreviewBoundary>
       ) : null}
