@@ -42,6 +42,19 @@ export const PAGE_GUIDES: { [K in PortalTab]: PageGuide } = {
       "A label says whether the lesson is for everyone or for one creator.",
       "Kamron or a manager can add a lesson, or edit one, and choose who sees it.",
       "Deal paperwork and the templates live on How Momma Mari works.",
+      "Open Program roadmaps for the beauty, home, and retailer planning guides.",
+    ],
+  },
+  roadmaps: {
+    id: "roadmaps",
+    who: "Everyone signed in. Creators in every niche can read these guides.",
+    purpose: "Planning guides for beauty content, home projects, and retailer creator programs.",
+    principle: "Program dates change every year. Check the official page and apply yourself. These guides do not list rates.",
+    steps: [
+      "Open a guide from the list and read the plan.",
+      "Use a weekly plan when you are starting beauty or home content.",
+      "Check the official page before you apply. You apply yourself.",
+      "Official program links open in a new tab.",
     ],
   },
   how: {

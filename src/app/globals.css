@@ -834,6 +834,7 @@ textarea:focus {
   .fulfillment-table { min-width: 40rem; }
   .fulfillment-table th,
   .fulfillment-table td { white-space: nowrap; }
+  .roadmap-table { min-width: 64rem; }
   .stage-form { flex-direction: column; align-items: stretch; }
   .stage-form input, .stage-form select, .stage-form textarea { width: 100%; max-width: 100%; }
   .connect { flex-wrap: wrap; align-items: flex-start; }
