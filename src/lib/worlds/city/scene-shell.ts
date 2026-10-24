@@ -89,19 +89,24 @@ export function districtBillboard(label: string) {
 }
 
 /**
- * Eye just inside a walk-in, aimed across the room.
+ * Eye in the doorway, aimed down the open aisle toward the objective.
  * The office polar limit still applies, so the eye stays a little above the aim.
  */
-export function interiorStand(plot: { x: number; z: number; w: number; d: number; yaw: number }) {
+export function interiorStand(
+  plot: { x: number; z: number; w: number; d: number; yaw: number },
+  local: { x: number; z: number } = { x: 0, z: 0 },
+) {
   const cx = plot.x + plot.w / 2;
   const cz = plot.z + plot.d / 2;
-  const ox = Math.sin(plot.yaw);
-  const oz = Math.cos(plot.yaw);
-  const eyeReach = Math.min(Math.max(plot.d * 0.16, 1.15), 2.35);
-  const aimReach = eyeReach - 3.45;
+  const sin = Math.sin(plot.yaw);
+  const cos = Math.cos(plot.yaw);
+  const ox = local.x * cos + local.z * sin;
+  const oz = -local.x * sin + local.z * cos;
+  const eyeReach = Math.min(Math.max(plot.d * 0.18, 1.2), 2.2);
+  const aimReach = eyeReach - 4.6;
   return {
-    eye: { x: cx + ox * eyeReach, y: 1.95, z: cz + oz * eyeReach },
-    aim: { x: cx + ox * aimReach, y: 1.15, z: cz + oz * aimReach },
+    eye: { x: cx + ox + sin * eyeReach, y: 2.05, z: cz + oz + cos * eyeReach },
+    aim: { x: cx + ox + sin * aimReach, y: 0.78, z: cz + oz + cos * aimReach },
   };
 }
 

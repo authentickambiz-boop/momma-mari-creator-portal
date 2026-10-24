@@ -45,6 +45,7 @@ import { CityChrome } from "./city/city-panel";
 import { allowsWalkIn, decideEnter, type AccessRole } from "@/lib/worlds/city/access";
 import { officeInteractables } from "@/lib/worlds/city/interactables";
 import { buildCityDistrict, locationById, plotForLocation, type CityLocationId, type CityLot } from "@/lib/worlds/city/locations";
+import { homeRoomShift } from "@/lib/worlds/city/interiors";
 import { cityDayWeather, cityNightWeather, interiorStand } from "@/lib/worlds/city/scene-shell";
 import { emptyCitySession, type CitySession } from "@/lib/worlds/city/tasks";
 import type { HomeTier } from "@/lib/worlds/economy";
@@ -750,7 +751,7 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
     const decision = location ? decideEnter(location, viewerRole, citySession, plot.propertyTier) : null;
     const inside = location && decision ? allowsWalkIn(decision, location.interior) : false;
     if (inside) {
-      const pose = interiorStand(plot);
+      const pose = interiorStand(plot, homeRoomShift(plot.model ?? "lab", plot.w, plot.d));
       cameraApiRef.current?.stand(pose.eye.x, pose.eye.y, pose.eye.z, pose.aim.x, pose.aim.y, pose.aim.z);
     } else {
       cameraApiRef.current?.focus(plot.entrance.x, plot.entrance.z);

@@ -17,6 +17,7 @@ import {
 } from "../src/lib/worlds/economy";
 import { worldsCityEnabled } from "../src/lib/worlds/city/flag";
 import { cityNightWeather, cityOverviewHome, districtBillboard, interiorStand, officeTargetBounds, poseInsideBounds } from "../src/lib/worlds/city/scene-shell";
+import { homeRoomShift, interiorAisle, interiorLayout, interiorModels, interiorPathClear } from "../src/lib/worlds/city/interiors";
 import { HOUSE_ROW_GAP, STUDIO_ROW_GAP, gableSlabs, rowRoofClearance, shedSlab, slabPoint } from "../src/lib/worlds/city/roofs";
 import { CITY_PARK, MANSION_FOUNTAIN, curbOuterRadius, curbReturns, paveCity, roadPieces } from "../src/lib/worlds/city/streets";
 import { officeCameraHome, officeCameraPoseOk } from "../src/lib/worlds/office-move";
@@ -191,6 +192,41 @@ test("the office camera clamp is unchanged and the city view pulls back", () => 
   const app = source("src/components/worlds/office-app.tsx");
   assert.match(app, /cityMode \? cityDayWeather/);
   assert.match(app, /if \(cityMode\) return/);
+  assert.match(source("src/components/worlds/city/building.tsx"), /interior-objective/);
+  assert.match(source("src/components/worlds/city/building.tsx"), /side=\{DoubleSide\}/);
+});
+
+test("interior furniture stays on the walls and the aisle reaches the marker", () => {
+  const sizes = [
+    [8.6, 5.6],
+    [6.5, 6.2],
+    [5, 5.8],
+    [2.3, 3],
+    [10, 6.3],
+    [11.4, 4.2],
+    [12, 7.9],
+  ];
+  for (const model of interiorModels()) {
+    for (const [w, d] of sizes) {
+      const pieces = interiorLayout(model, w, d);
+      assert.equal(interiorPathClear(pieces, w, d), true, `${model} ${w}x${d}`);
+      assert.ok(pieces.some((piece) => piece.marker), model);
+      assert.ok(pieces.some((piece) => piece.zone === "work"), model);
+      assert.ok(pieces.some((piece) => piece.zone === "lounge"), model);
+      assert.ok(pieces.some((piece) => piece.zone === "decor" && !piece.glass), model);
+      assert.ok(pieces.filter((piece) => piece.glass).length >= 2, model);
+    }
+  }
+  const aisle = interiorAisle(8, 6);
+  assert.ok(aisle.d > 1);
+  assert.ok(aisle.objectiveZ < aisle.z);
+  const loft = homeRoomShift("loft", 34, 16);
+  assert.ok(loft.x < -5);
+  assert.equal(homeRoomShift("houses", 28, 16).x, 0);
+  assert.equal(homeRoomShift("library", 12, 9).x, 0);
+  const shifted = interiorStand({ x: 6, z: 80, w: 34, d: 16, yaw: Math.PI }, loft);
+  const centered = interiorStand({ x: 6, z: 80, w: 34, d: 16, yaw: Math.PI });
+  assert.ok(Math.hypot(shifted.eye.x - centered.eye.x, shifted.eye.z - centered.eye.z) > 4);
 });
 
 test("office taps and city buildings share one registry", () => {
