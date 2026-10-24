@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { ASSET_OWNER, HOME_TIER_LABEL, HOME_TIER_PRICE_CENTS, HOME_TIERS, formatKash, shopItemsFor, type HomeTier } from "@/lib/worlds/economy";
+import { ACCESS_ROLES, decideEnter, type AccessRole } from "@/lib/worlds/city/access";
 import { CITY_LOCATIONS, SKILL_LABEL, locationById } from "@/lib/worlds/city/locations";
 import type { CityInteractable } from "@/lib/worlds/city/interactables";
 import {
   buyCityItem,
   emptyCitySession,
   homeItemsForTier,
+  LIBRARY_TIPS,
   parseCitySession,
+  pipelineLabel,
   submitCityTask,
   tasksForLocation,
   unlockHomeTier,
@@ -18,6 +21,13 @@ import "./city.css";
 
 const STORAGE_KEY = "mm-worlds-city";
 
+const ROLE_LABEL: Record<AccessRole, string> = {
+  owner: "Owner",
+  officeBot: "Office bot",
+  creatorBot: "Creator bot",
+  user: "User",
+};
+
 export function CityChrome({
   locationId,
   officeTaps,
@@ -25,6 +35,10 @@ export function CityChrome({
   onClose,
   onOpenBank,
   onTier,
+  onSession,
+  propertyTier,
+  viewerRole,
+  onViewerRole,
 }: {
   locationId: string | null;
   officeTaps: readonly CityInteractable[];
@@ -32,6 +46,10 @@ export function CityChrome({
   onClose: () => void;
   onOpenBank: () => void;
   onTier: (tier: HomeTier) => void;
+  onSession: (session: CitySession) => void;
+  propertyTier?: HomeTier;
+  viewerRole: AccessRole;
+  onViewerRole: (role: AccessRole) => void;
 }) {
   const [session, setSession] = useState<CitySession>(() => {
     if (typeof window === "undefined") return emptyCitySession();
@@ -51,8 +69,15 @@ export function CityChrome({
     onTier(session.homeTier);
   }, [session.homeTier, onTier]);
 
+  useEffect(() => {
+    onSession(session);
+  }, [session, onSession]);
+
   const location = locationId ? locationById(locationId) : null;
-  const tasks = location ? tasksForLocation(location.id) : [];
+  const decision = location ? decideEnter(location, viewerRole, session, propertyTier) : null;
+  const tasks = location && decision?.open
+    ? tasksForLocation(location.id).filter((item) => (decision.mode === "check-in" ? item.id === "office-check-in" : item.id !== "office-check-in"))
+    : [];
   const shop = location ? shopItemsFor(location.id) : [];
 
   function apply(result: { ok: true; session: CitySession; message: string } | { ok: false; error: string }) {
@@ -80,6 +105,13 @@ export function CityChrome({
         </button>
         {placesOpen ? (
           <nav className="city-map" aria-label="City places">
+            <div role="group" aria-label="Preview access">
+              {ACCESS_ROLES.map((role) => (
+                <button key={role} type="button" aria-pressed={viewerRole === role} onClick={() => onViewerRole(role)}>
+                  {ROLE_LABEL[role]}
+                </button>
+              ))}
+            </div>
             {CITY_LOCATIONS.map((item) => (
               <button
                 key={item.id}
@@ -103,7 +135,11 @@ export function CityChrome({
           <h2>{location.name}</h2>
           <p className="city-balance">{formatKash(session.kashCents)}</p>
           <p>{location.summary}</p>
+          {decision && !decision.open ? <p className="office-error">{decision.reason}</p> : null}
+          {decision?.open && decision.mode === "check-in" ? <p>{decision.reason}</p> : null}
           <p className="office-kicker">{ASSET_OWNER} owns the in-game assets. Kash is not a real payment.</p>
+          {decision?.open ? (
+          <>
           <div className="city-room" aria-label={`${location.name} room`}>
             {(location.id === "home" ? homeItemsForTier(session.homeTier) : location.interiorProps).map((prop) => (
               <span key={prop} className="city-prop">{prop}</span>
@@ -145,8 +181,11 @@ export function CityChrome({
             <ul className="city-shop">
               {shop.map((item) => (
                 <li key={item.sku}>
-                  <b>{item.name}</b> · {formatKash(item.priceCents)}
+                  <b>{item.name}</b> · {formatKash(item.priceCents)} · from {HOME_TIER_LABEL[item.minTier]}
                   <p className="office-kicker">{item.note}</p>
+                  {item.kind === "outdoor" || item.kind === "oversized" ? (
+                    <p className="office-kicker">Yard, outdoor, and oversized pieces stay locked until {HOME_TIER_LABEL[item.minTier]}.</p>
+                  ) : null}
                   <button type="button" onClick={() => apply(buyCityItem(session, item.sku, Date.now()))}>
                     {session.ownedSkus.includes(item.sku) ? "Yours to use" : "Buy with Kash"}
                   </button>
@@ -165,7 +204,11 @@ export function CityChrome({
             >
               <h3>{item.name}</h3>
               <p className="city-disclosure">{item.disclosure}</p>
+              <p className="office-kicker">{pipelineLabel(item)}. {item.pipeline.autoChecks.join(" ")}</p>
               <p className="office-kicker">{item.prompt}</p>
+              {session.libraryTips.includes(item.id) ? (
+                <p>Library tip: {LIBRARY_TIPS.find((tip) => tip.taskId === item.id)?.text}</p>
+              ) : null}
               <label>
                 <input
                   type="checkbox"
@@ -174,7 +217,7 @@ export function CityChrome({
                 />
                 <span>I choose to do this. It is optional.</span>
               </label>
-              {item.realWork || item.kind === "lesson" ? (
+              {item.realWork || item.kind === "lesson" || item.practice || item.external !== "none" ? (
                 <textarea
                   aria-label={item.name}
                   value={notes[item.id] ?? ""}
@@ -184,6 +227,8 @@ export function CityChrome({
               <button type="submit">Submit in the city</button>
             </form>
           ))}
+          </>
+          ) : null}
           {message ? <p>{message}</p> : null}
           {error ? <p className="office-error">{error}</p> : null}
         </section>

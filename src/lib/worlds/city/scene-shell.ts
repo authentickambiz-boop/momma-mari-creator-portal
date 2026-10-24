@@ -70,7 +70,7 @@ export function cityDayWeather(date = new Date()): OfficeWeather {
 export function cityOverviewHome(layout: { width: number; depth: number }) {
   const office = officeCameraHome(layout.width, layout.depth);
   const offset = office.position.clone().sub(office.target);
-  const distance = Math.min(MAP_MAX_DISTANCE - 8, Math.max(offset.length() * 1.85, 120));
+  const distance = Math.min(MAP_MAX_DISTANCE - 6, Math.max(offset.length() * 2.6, 188));
   offset.setLength(distance);
   return {
     position: office.target.clone().add(offset),

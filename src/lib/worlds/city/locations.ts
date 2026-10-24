@@ -5,10 +5,10 @@
 
 import {
   HOME_TIER_FLOORS,
-  HOME_TIER_SCALE,
   shopItemsFor,
   type HomeTier,
 } from "../economy";
+import { enterRulesFor, type AccessRole, type EnterRule } from "./access";
 import type { TargetBounds } from "./scene-shell";
 
 export const CITY_LOCATION_IDS = [
@@ -32,6 +32,11 @@ export type CityLocationId = (typeof CITY_LOCATION_IDS)[number];
 export type BuildingModel =
   | "hq"
   | "home"
+  | "studio"
+  | "apartment"
+  | "houses"
+  | "loft"
+  | "mansion"
   | "club"
   | "lab"
   | "library"
@@ -81,9 +86,12 @@ export type CityLocationDef = {
   usesOfficeScene?: boolean;
   /** Money movement opens the existing vault bank. */
   reusesBank?: boolean;
+  /** Roles that are not permanently locked out. Skill and ownership still apply. */
+  allowedRoles: readonly AccessRole[];
+  enterRules: readonly EnterRule[];
 };
 
-export const CITY_LOCATIONS: readonly CityLocationDef[] = [
+const CITY_LOCATION_BASE: readonly Omit<CityLocationDef, "allowedRoles" | "enterRules">[] = [
   {
     id: "office",
     name: "Office",
@@ -104,7 +112,7 @@ export const CITY_LOCATIONS: readonly CityLocationDef[] = [
     taskTypes: ["rest", "journal", "cook", "host", "idea", "gallery"],
     skills: ["hospitality"],
     realWorldCategory: "home life",
-    summary: "Your place in the city. Studio, Apartment, House, Creator loft, and Mansion. Bigger tiers unlock more in-home activities and items. Momma Mari owns the property.",
+    summary: "Your place in the city. Studio row, the apartment complex, house lane, loft block, and mansion grounds each have their own district. Plot size grows with the tier. An apartment is a 1 bed, 1 bath in the shared complex, with no private yard. Momma Mari owns the property.",
     interiorProps: ["Bed", "Desk", "Sofa", "Table", "Backdrop", "Gallery wall"],
   },
   {
@@ -112,10 +120,10 @@ export const CITY_LOCATIONS: readonly CityLocationDef[] = [
     name: "Social club",
     buildingModel: "club",
     interior: "panel",
-    taskTypes: ["hello", "lounge"],
+    taskTypes: ["hello", "like", "comment", "follow", "story-post", "story-reply"],
     skills: ["hospitality"],
-    realWorldCategory: "community",
-    summary: "A lounge for saying hello. Club visits stay in the city. They are not work for Momma Mari.",
+    realWorldCategory: "managed creator socials",
+    summary: "Practice likes, comments, follows, and story posts or replies for managed creators. Each visit is opt-in and capped per day. Live platform actions stay off. Practice mode scores the draft.",
     interiorProps: ["Booth", "Bar", "Stage", "Coat rack"],
   },
   {
@@ -123,10 +131,10 @@ export const CITY_LOCATIONS: readonly CityLocationDef[] = [
     name: "Research lab",
     buildingModel: "lab",
     interior: "panel",
-    taskTypes: ["brand-scan"],
+    taskTypes: ["brand-scan", "audience", "competitor", "quotes"],
     skills: ["research"],
     realWorldCategory: "brand and market research",
-    summary: "Brand and market research. The paid scan unlocks after the learning center lesson.",
+    summary: "Brand and market research. Sample scans, audience questions, competitor notes, and invented quotes. The paid versions unlock after the learning center lesson.",
     interiorProps: ["Bench", "Samples", "Brief board", "Microscope"],
   },
   {
@@ -134,10 +142,10 @@ export const CITY_LOCATIONS: readonly CityLocationDef[] = [
     name: "Library",
     buildingModel: "library",
     interior: "panel",
-    taskTypes: ["summary"],
+    taskTypes: ["summary", "test", "read", "story", "rate"],
     skills: ["writing"],
     realWorldCategory: "content summaries",
-    summary: "Content summaries. This is the city library, separate from the office library room.",
+    summary: "Tests, a reading shelf with hidden tips, short stories, ratings, and content summaries. This is the city library, separate from the office library room.",
     interiorProps: ["Stacks", "Reading table", "Card catalog", "Lamp"],
   },
   {
@@ -145,10 +153,10 @@ export const CITY_LOCATIONS: readonly CityLocationDef[] = [
     name: "Computer lab",
     buildingModel: "computers",
     interior: "panel",
-    taskTypes: ["data-entry", "qa-check"],
+    taskTypes: ["data-entry", "qa-check", "clip-tags", "sheet-cleanup"],
     skills: ["data"],
     realWorldCategory: "data entry and QA",
-    summary: "Data entry and QA. Lessons come first, then the paid checks.",
+    summary: "Data entry, QA, clip tags, and sample sheet cleanup. Lessons come first, then the paid checks.",
     interiorProps: ["Row of screens", "Keyboard", "QA checklist", "Server rack"],
   },
   {
@@ -167,10 +175,10 @@ export const CITY_LOCATIONS: readonly CityLocationDef[] = [
     name: "Call center",
     buildingModel: "call-center",
     interior: "panel",
-    taskTypes: ["call-script", "dm-review"],
+    taskTypes: ["call-script", "dm-review", "email-draft", "script-ideas", "situation-drill"],
     skills: ["outreach"],
     realWorldCategory: "outreach call scripts and reviewed DMs",
-    summary: "Outreach call scripts and reviewed DMs. Both are opt-in and say what they earn.",
+    summary: "Call scripts, script ideas, situation drills, reviewed DMs, and outreach email drafts. Email stays a draft until Kamron says otherwise. Nothing is auto-sent.",
     interiorProps: ["Headset booth", "Script board", "DM queue", "Coffee"],
   },
   {
@@ -178,10 +186,10 @@ export const CITY_LOCATIONS: readonly CityLocationDef[] = [
     name: "Art studio",
     buildingModel: "art",
     interior: "panel",
-    taskTypes: ["thumbnail"],
+    taskTypes: ["thumbnail", "caption", "cover-crop"],
     skills: ["design"],
     realWorldCategory: "thumbnails and graphics",
-    summary: "Thumbnails and graphics. Describe the frame. Nothing is uploaded.",
+    summary: "Thumbnails, caption cards, and cover crops. Describe the frame. Nothing is uploaded.",
     interiorProps: ["Easel", "Drawing table", "Thumbnail wall", "Paint"],
   },
   {
@@ -189,10 +197,10 @@ export const CITY_LOCATIONS: readonly CityLocationDef[] = [
     name: "Music studio",
     buildingModel: "music",
     interior: "panel",
-    taskTypes: ["audio-snippet"],
+    taskTypes: ["audio-snippet", "hook", "bed"],
     skills: ["audio"],
     realWorldCategory: "audio snippets",
-    summary: "Audio snippets. Describe a short cue. No file is recorded or sent.",
+    summary: "Audio snippets, hook lines, and bed music notes. Describe the cue. No file is recorded or sent.",
     interiorProps: ["Booth", "Keys", "Speakers", "Mixer"],
   },
   {
@@ -231,8 +239,17 @@ export const CITY_LOCATIONS: readonly CityLocationDef[] = [
   },
 ];
 
+export const CITY_LOCATIONS: readonly CityLocationDef[] = CITY_LOCATION_BASE.map((def) => {
+  const enterRules = enterRulesFor(def.id);
+  const allowedRoles = enterRules.filter((rule) => rule.mode !== "locked").map((rule) => rule.role);
+  return { ...def, enterRules, allowedRoles };
+});
+
+export type YardKind = "none" | "stoop" | "small" | "studio" | "grounds";
+
 export type Plot = {
-  id: CityLocationId;
+  id: string;
+  locationId: CityLocationId;
   x: number;
   z: number;
   w: number;
@@ -244,6 +261,12 @@ export type Plot = {
   wall: string;
   roof: string;
   accent: string;
+  /** Set on a housing district. The home you own is the only one that opens. */
+  propertyTier?: HomeTier;
+  yard?: YardKind;
+  /** Overview label, drawn in world space above the district. */
+  district?: string;
+  model?: BuildingModel;
 };
 
 export type Street = {
@@ -285,7 +308,52 @@ function plot(
   roof: string,
   accent: string,
 ): Plot {
-  return { id, x, z, w, d, yaw, entrance, floors, wall, roof, accent };
+  return { id, locationId: id, x, z, w, d, yaw, entrance, floors, wall, roof, accent };
+}
+
+function doorPoint(x: number, z: number, w: number, d: number, yaw: number) {
+  const ox = Math.sin(yaw);
+  const oz = Math.cos(yaw);
+  return {
+    x: x + w / 2 + ox * (d / 2 + 0.9),
+    z: z + d / 2 + oz * (d / 2 + 0.9),
+  };
+}
+
+function homeDistrict(
+  id: string,
+  tier: HomeTier,
+  x: number,
+  z: number,
+  w: number,
+  d: number,
+  yaw: number,
+  floors: number,
+  wall: string,
+  roof: string,
+  accent: string,
+  yard: YardKind,
+  district: string,
+  model: BuildingModel,
+): Plot {
+  return {
+    id,
+    locationId: "home",
+    x,
+    z,
+    w,
+    d,
+    yaw,
+    entrance: doorPoint(x, z, w, d, yaw),
+    floors,
+    wall,
+    roof,
+    accent,
+    propertyTier: tier,
+    yard,
+    district,
+    model,
+  };
 }
 
 /**
@@ -293,6 +361,7 @@ function plot(
  * so the existing lawn, door, and parking lot stay put.
  */
 export function buildCityDistrict(layout: { width: number; depth: number }, tier: HomeTier = "studio"): CityDistrict {
+  void tier;
   const width = layout.width;
   const depth = layout.depth;
   const westX = -22;
@@ -348,19 +417,21 @@ export function buildCityDistrict(layout: { width: number; depth: number }, tier
     return plot(id, x, z, w, southD, Math.PI, { x: x + w / 2, z: z - 0.9 }, id === "bank" ? 2 : 1, color.wall, color.roof, color.accent);
   });
 
-  const scale = HOME_TIER_SCALE[tier];
-  const homeW = 8.4 * scale;
-  const homeD = 7.6 * scale;
   const shopW = 8.2;
   const shopD = 7.2;
   const westInner = westX - HALF - GAP;
-  const homeX = westInner - homeW;
-  const homeZ = northZ + 4;
   const shopX = westInner - shopW;
   const shopZ = southZ - shopD - 4;
   const westPlots = [
-    plot("home", homeX, homeZ, homeW, homeD, Math.PI / 2, { x: homeX + homeW + 0.9, z: homeZ + homeD / 2 }, HOME_TIER_FLOORS[tier], "#c68642", "#6b3a28", "#f7f1e4"),
     plot("clothing-shop", shopX, shopZ, shopW, shopD, Math.PI / 2, { x: shopX + shopW + 0.9, z: shopZ + shopD / 2 }, 1, "#d4567a", "#6a243c", "#f7f1e4"),
+  ];
+
+  const neighborhoods = [
+    homeDistrict("studio-row", "studio", -16, -50, 18, 7.2, 0, HOME_TIER_FLOORS.studio, "#c68642", "#6b3a28", "#f4efe4", "stoop", "STUDIO ROW", "studio"),
+    homeDistrict("apartment-complex", "apartment", 10, -54, 20, 12, 0, 3, "#b56a52", "#4e463f", "#f7f1e4", "none", "APARTMENT COMPLEX", "apartment"),
+    homeDistrict("house-lane", "house", 92, -2, 28, 16, -Math.PI / 2, HOME_TIER_FLOORS.house, "#d7c4a3", "#6b3a28", "#2f6d4f", "small", "HOUSE LANE", "houses"),
+    homeDistrict("loft-block", "creator-loft", 6, 80, 34, 16, Math.PI, HOME_TIER_FLOORS["creator-loft"], "#8a4b3c", "#243044", "#d5e7f0", "studio", "LOFT BLOCK", "loft"),
+    homeDistrict("mansion-grounds", "mansion", -72, -12, 28, 26, Math.PI / 2, HOME_TIER_FLOORS.mansion, "#d9d3c8", "#4e463f", "#c6a15a", "grounds", "MANSION GROUNDS", "mansion"),
   ];
 
   const eastIds: { id: CityLocationId; wall: string; roof: string; accent: string; floors: number }[] = [
@@ -396,7 +467,7 @@ export function buildCityDistrict(layout: { width: number; depth: number }, tier
     "#1f3b2d",
   );
 
-  const plots = [...northPlots, ...eastPlots, ...southPlots, ...westPlots, officePlot];
+  const plots = [...northPlots, ...eastPlots, ...southPlots, ...westPlots, ...neighborhoods, officePlot];
   let minX = Math.min(westX - HALF - 8, ...plots.map((item) => item.x));
   let maxX = Math.max(eastX + HALF + 8, ...plots.map((item) => item.x + item.w));
   let minZ = Math.min(northZ - HALF - 8, ...plots.map((item) => item.z));
@@ -429,10 +500,17 @@ export type PlacedLocation = CityLocationDef & {
   shop: ReturnType<typeof shopItemsFor>;
 };
 
+export function plotForLocation(plots: readonly Plot[], id: CityLocationId, tier: HomeTier = "studio") {
+  if (id === "home") {
+    return plots.find((item) => item.propertyTier === tier) ?? plots.find((item) => item.propertyTier === "studio") ?? null;
+  }
+  return plots.find((item) => item.locationId === id && !item.propertyTier) ?? null;
+}
+
 export function placedLocations(layout: { width: number; depth: number }, tier: HomeTier = "studio"): PlacedLocation[] {
   const district = buildCityDistrict(layout, tier);
   return CITY_LOCATIONS.map((location) => {
-    const spot = district.plots.find((item) => item.id === location.id);
+    const spot = plotForLocation(district.plots, location.id, tier);
     if (!spot) throw new Error(`No plot for ${location.id}`);
     return {
       ...location,

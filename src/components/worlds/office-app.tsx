@@ -42,9 +42,11 @@ import {
 import { formatGameUnits, GAME_WALLET_PATH } from "@/lib/worlds/game-wallet";
 import type { BoardOpen, OfficeCameraApi, OfficeLayers, OfficeQuality } from "./office-canvas";
 import { CityChrome } from "./city/city-panel";
+import { allowsWalkIn, decideEnter, type AccessRole } from "@/lib/worlds/city/access";
 import { officeInteractables } from "@/lib/worlds/city/interactables";
-import { buildCityDistrict, locationById } from "@/lib/worlds/city/locations";
+import { buildCityDistrict, locationById, plotForLocation, type CityLocationId } from "@/lib/worlds/city/locations";
 import { cityDayWeather } from "@/lib/worlds/city/scene-shell";
+import { emptyCitySession, type CitySession } from "@/lib/worlds/city/tasks";
 import type { HomeTier } from "@/lib/worlds/economy";
 import { OfficeJoystick } from "./office-joystick";
 import { panelsEnabledFromStorage, panelsStorageValue } from "@/lib/worlds/office-chrome";
@@ -207,6 +209,12 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
   const [interestPercent, setInterestPercent] = useState("1");
   const [bankAmount, setBankAmount] = useState("");
   const [cityLocation, setCityLocation] = useState<string | null>(null);
+  const [cityPlot, setCityPlot] = useState<string | null>(null);
+  const [viewerRole, setViewerRole] = useState<AccessRole>("owner");
+  const [citySession, setCitySession] = useState<CitySession>(() => emptyCitySession());
+  const rememberCitySession = useCallback((next: CitySession) => {
+    setCitySession((current) => (current === next ? current : next));
+  }, []);
   const [homeTier, setHomeTier] = useState<HomeTier>("studio");
   const setTier = useCallback((tier: HomeTier) => {
     setHomeTier((current) => (current === tier ? current : tier));
@@ -710,16 +718,42 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
   }
 
   function openCity(id: string) {
-    setCityLocation(id);
     setSheet(null);
     setBoard(null);
     setMenuOpen(false);
-    if (!layout) return;
-    const plot = buildCityDistrict(layout, homeTier).plots.find((item) => item.id === id);
-    if (!plot) return;
-    const inside = locationById(id)?.interior === "walk-in";
+    if (!layout) {
+      setCityLocation(id);
+      setCityPlot(null);
+      return;
+    }
+    const plots = buildCityDistrict(layout, homeTier).plots;
+    const plot = plots.find((item) => item.id === id) ?? plotForLocation(plots, id as CityLocationId, citySession.homeTier);
+    if (!plot) {
+      setCityLocation(id);
+      setCityPlot(null);
+      return;
+    }
+    setCityLocation(plot.locationId);
+    setCityPlot(plot.id);
+    const location = locationById(plot.locationId);
+    const decision = location ? decideEnter(location, viewerRole, citySession, plot.propertyTier) : null;
+    const inside = location && decision ? allowsWalkIn(decision, location.interior) : false;
     cameraApiRef.current?.focus(inside ? plot.x + plot.w / 2 : plot.entrance.x, inside ? plot.z + plot.d / 2 : plot.entrance.z);
   }
+
+  const cityVisit = useMemo(() => {
+    if (!cityMode || !layout || !cityLocation) return null;
+    const plots = buildCityDistrict(layout, homeTier).plots;
+    const plot = plots.find((item) => item.id === cityPlot) ?? null;
+    const location = locationById(cityLocation);
+    if (!location) return null;
+    const decision = decideEnter(location, viewerRole, citySession, plot?.propertyTier);
+    return {
+      plot,
+      interiorOpen: allowsWalkIn(decision, location.interior),
+      locked: !decision.open,
+    };
+  }, [cityMode, layout, homeTier, cityLocation, cityPlot, viewerRole, citySession]);
 
   const officeTaps = useMemo(
     () => (cityMode && layout && status ? officeInteractables(layout, status.sections, status.bots) : []),
@@ -759,7 +793,7 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
             bankBalance={gameWallet?.wallet.bank ?? 0}
             onOpenBank={() => openBank()}
             stickRef={stickRef}
-            city={cityMode ? { homeTier, selectedId: cityLocation, onOpenLocation: openCity } : null}
+            city={cityMode ? { homeTier, selectedId: cityPlot, interiorOpen: cityVisit?.interiorOpen ?? false, locked: cityVisit?.locked ?? false, onOpenLocation: openCity } : null}
           />
         ) : (
           <div className="office-loading">{error || "Opening the bot office…"}</div>
@@ -851,9 +885,16 @@ export function OfficeApp({ charactersEnabled = false, cityMode = false }: { cha
           locationId={cityLocation}
           officeTaps={officeTaps}
           onOpenLocation={openCity}
-          onClose={() => setCityLocation(null)}
+          onClose={() => {
+            setCityLocation(null);
+            setCityPlot(null);
+          }}
           onOpenBank={() => openBank()}
           onTier={setTier}
+          onSession={rememberCitySession}
+          propertyTier={cityVisit?.plot?.propertyTier}
+          viewerRole={viewerRole}
+          onViewerRole={setViewerRole}
         />
       ) : null}
 

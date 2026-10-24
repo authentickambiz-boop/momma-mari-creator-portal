@@ -1,3 +1,4 @@
+import { insideOffice } from "./city/movement";
 import { OWNER_ACTOR_ID, route, roomAt, type OfficeLayout, type Vec } from "./office-layout";
 
 /** Yaw 0 faces +Z, toward the default camera south of the building. */
@@ -88,12 +89,32 @@ function lerpAngle(current: number, target: number, dt: number) {
   return current + delta * Math.min(1, dt * 8);
 }
 
+/** Indoor steps can clip the wall. City plots sit well outside this margin. */
+const OFFICE_HOLD = 8;
+
 function send(bot: SimBot, layout: OfficeLayout, to: Vec, plan: SimPlan, act: string, arrive: string, wait = 0) {
-  bot.path = route(layout, { x: bot.x, z: bot.z }, to);
+  if (!insideOffice(layout, to.x, to.z, OFFICE_HOLD)) return;
+  const path = route(layout, { x: bot.x, z: bot.z }, to);
+  if (path.some((point) => !insideOffice(layout, point.x, point.z, OFFICE_HOLD))) return;
+  bot.path = path;
   bot.plan = plan;
   bot.act = act;
   bot.arrive = arrive;
   bot.wait = wait;
+}
+
+/** Roster bots and the owner figure stay on the office floor until city doors connect. */
+function containToOffice(bot: SimBot, layout: OfficeLayout) {
+  const left = !insideOffice(layout, bot.x, bot.z, OFFICE_HOLD) || bot.path.some((point) => !insideOffice(layout, point.x, point.z, OFFICE_HOLD));
+  if (!left) return;
+  const home = layout.homes[bot.id] ?? { x: Math.min(2, layout.width / 2), z: Math.min(2, layout.depth / 2) };
+  bot.path = [];
+  bot.x = home.x;
+  bot.z = home.z;
+  bot.plan = "home";
+  bot.act = "At desk";
+  bot.arrive = "";
+  bot.wait = 0;
 }
 
 function spotIndex(id: string, length: number) {
@@ -172,6 +193,7 @@ export function stepOfficeSim(state: SimState, layout: OfficeLayout, dt: number,
   }
 
   for (const bot of Object.values(state.bots)) {
+    containToOffice(bot, layout);
     if (bot.path.length) {
       const goal = bot.path[0];
       const dx = goal.x - bot.x;

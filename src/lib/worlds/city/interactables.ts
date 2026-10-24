@@ -106,8 +106,8 @@ export function buildingInteractables(district: CityDistrict): CityInteractable[
     label: plot.id,
     x: plot.entrance.x,
     z: plot.entrance.z,
-    locationId: plot.id,
-    reuses: plot.id === "office" ? "office-scene" as const : plot.id === "bank" ? "vault-bank" as const : undefined,
+    locationId: plot.locationId,
+    reuses: plot.locationId === "office" ? "office-scene" as const : plot.locationId === "bank" ? "vault-bank" as const : undefined,
   }));
 }
 

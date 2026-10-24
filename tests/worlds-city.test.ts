@@ -25,10 +25,17 @@ import {
   placedLocations,
 } from "../src/lib/worlds/city/locations";
 import { buildingInteractables, officeInteractables, worldInteractables } from "../src/lib/worlds/city/interactables";
+import { decideEnter } from "../src/lib/worlds/city/access";
+import { insideOffice, roleMayStand } from "../src/lib/worlds/city/movement";
+import { runPracticeLocation, runPracticeTask } from "../src/lib/worlds/city/practice";
+import { createSimState, stepOfficeSim } from "../src/lib/worlds/office-sim";
 import {
   CITY_TASKS,
+  LIVE_EMAIL_SEND,
+  LIVE_SOCIAL_ACTIONS,
   buyCityItem,
   emptyCitySession,
+  pipelineLabel,
   submitCityTask,
   unlockHomeTier,
 } from "../src/lib/worlds/city/tasks";
@@ -118,10 +125,22 @@ test("streets and buildings sit around the office without covering it", () => {
       assert.equal(boxesOverlap(a, b, 0.2), false, `${a.id} ${b.id}`);
     }
   }
-  const homeStudio = buildCityDistrict(layout, "studio").plots.find((item) => item.id === "home");
-  const homeMansion = district.plots.find((item) => item.id === "home");
-  assert.ok(homeStudio && homeMansion && homeMansion.w > homeStudio.w);
-  assert.ok(homeMansion && homeMansion.floors > (homeStudio?.floors ?? 0));
+  const studio = district.plots.find((item) => item.id === "studio-row");
+  const apartment = district.plots.find((item) => item.id === "apartment-complex");
+  const house = district.plots.find((item) => item.id === "house-lane");
+  const loft = district.plots.find((item) => item.id === "loft-block");
+  const mansion = district.plots.find((item) => item.id === "mansion-grounds");
+  assert.ok(studio && apartment && house && loft && mansion);
+  const area = (plot: { w: number; d: number } | undefined) => (plot ? plot.w * plot.d : 0);
+  assert.ok(area(apartment) > area(studio));
+  assert.ok(area(house) > area(apartment));
+  assert.ok(area(loft) > area(house));
+  assert.ok(area(mansion) > area(loft));
+  assert.equal(apartment?.yard, "none");
+  assert.equal(apartment?.propertyTier, "apartment");
+  assert.equal(studio?.propertyTier, "studio");
+  assert.equal(mansion?.propertyTier, "mansion");
+  assert.ok(mansion && studio && mansion.floors > studio.floors);
 });
 
 test("the office camera clamp is unchanged and the city view pulls back", () => {
@@ -167,7 +186,8 @@ test("office taps and city buildings share one registry", () => {
   assert.ok(office.some((item) => item.kind === "bot" && item.botId === HQ_BOT_ID));
   const district = buildCityDistrict(layout);
   const buildings = buildingInteractables(district);
-  assert.equal(buildings.length, CITY_LOCATION_IDS.length);
+  assert.equal(buildings.length, district.plots.length);
+  assert.equal(new Set(buildings.map((item) => item.locationId)).size, CITY_LOCATION_IDS.length);
   assert.equal(buildings.find((item) => item.locationId === "bank")?.reuses, "vault-bank");
   assert.equal(buildings.find((item) => item.locationId === "office")?.reuses, "office-scene");
   const all = worldInteractables(layout, OFFICE_SECTIONS, bots, district);
@@ -186,7 +206,8 @@ test("real work is opt-in, disclosed, skill-gated, and paid in Kash without a ca
     assert.match(item.disclosure, /Momma Mari/);
     assert.match(item.disclosure, /Kash \$/);
     assert.match(item.disclosure, /optional/i);
-    assert.ok(item.requiresSkill);
+    if (item.kind !== "social") assert.ok(item.requiresSkill);
+    assert.ok(item.pipeline.autoChecks.length > 0);
   }
   const lessons = CITY_TASKS.filter((item) => item.kind === "lesson");
   assert.ok(lessons.every((item) => item.locationId === "learning-center"));
@@ -260,4 +281,155 @@ test("shops and home tiers spend Kash and stay owned by Momma Mari", () => {
   assert.ok(CITY_SHOP.some((item) => item.locationId === "furniture-shop"));
   const panel = source("src/components/worlds/city/city-panel.tsx");
   assert.ok(panel.indexOf("city-disclosure") < panel.indexOf("I choose to do this"));
+
+  const apartment = { ...emptyCitySession(), homeTier: "apartment" as const, kashCents: 50_000 };
+  const patio = buyCityItem(apartment, "city-patio", 1_000);
+  assert.equal(patio.ok, false);
+  if (patio.ok) return;
+  assert.match(patio.error, /cannot buy yard, outdoor, or oversized/);
+  assert.deepEqual(apartment.windows, {});
+});
+
+test("building tasks stay in practice, drafts, and the quality pipeline", () => {
+  assert.equal(LIVE_SOCIAL_ACTIONS, false);
+  assert.equal(LIVE_EMAIL_SEND, false);
+  const tasks = source("src/lib/worlds/city/tasks.ts");
+  assert.equal(tasks.includes("fetch("), false);
+  assert.equal(tasks.includes("mailto:"), false);
+  assert.equal(tasks.includes("nodemailer"), false);
+
+  const like = CITY_TASKS.find((item) => item.id === "social-like");
+  const email = CITY_TASKS.find((item) => item.id === "call-email");
+  const story = CITY_TASKS.find((item) => item.id === "library-story");
+  assert.ok(like && email && story);
+  assert.equal(like?.external, "social");
+  assert.equal(like?.practice, true);
+  assert.equal(email?.external, "email");
+  assert.equal(pipelineLabel(email!), "Auto check → peer or bot score → owner gate");
+  assert.match(like?.disclosure ?? "", /Nothing is posted/);
+  assert.match(email?.disclosure ?? "", /never auto-sent/);
+  assert.match(story?.disclosure ?? "", /Momma Mari/);
+
+  let session = emptyCitySession();
+  const lesson = submitCityTask(session, "lesson-writing", { optIn: true, note: "A summary names the point.", now: 1_000 });
+  assert.equal(lesson.ok, true);
+  if (!lesson.ok) return;
+  session = lesson.session;
+  const outreach = submitCityTask(session, "lesson-outreach", { optIn: true, note: "Hello, then one ask.", now: 2_000 });
+  assert.equal(outreach.ok, true);
+  if (!outreach.ok) return;
+  session = outreach.session;
+
+  const thin = submitCityTask(session, "library-story", { optIn: true, note: "Too short.", now: 10_000 });
+  assert.equal(thin.ok, false);
+  const told = submitCityTask(session, "library-story", {
+    optIn: true,
+    note: "A Friday drop waited on the shelf until Mara pressed play and the room went quiet.",
+    now: 20_000,
+  });
+  assert.equal(told.ok, true);
+  if (!told.ok) return;
+  assert.match(told.message, /Peer score/);
+  assert.match(told.message, /Nothing was sent/);
+  session = told.session;
+
+  const read = submitCityTask(session, "library-read", { optIn: true, note: "", now: 30_000 });
+  assert.equal(read.ok, true);
+  if (!read.ok) return;
+  assert.match(read.message, /Hidden tip/);
+  assert.ok(read.session.libraryTips.length > 0);
+  session = read.session;
+
+  const bare = submitCityTask(session, "call-email", { optIn: true, note: "Please look at Friday.", now: 40_000 });
+  assert.equal(bare.ok, false);
+  const draft = submitCityTask(session, "call-email", {
+    optIn: true,
+    note: "Hi, the Friday cut is ready for a look. One note is enough. Thank you.",
+    now: 50_000,
+  });
+  assert.equal(draft.ok, true);
+  if (!draft.ok) return;
+  assert.match(draft.message, /Held for Kamron/);
+  assert.match(draft.message, /Nothing was sent/);
+  assert.equal(draft.session.kashCents, session.kashCents + 850);
+
+  let social = emptyCitySession();
+  let now = 60_000;
+  for (let count = 0; count < 8; count += 1) {
+    const result = submitCityTask(social, "social-like", { optIn: true, note: `Like the Friday clip ${count}.`, now });
+    assert.equal(result.ok, true, result.ok ? "" : result.error);
+    if (!result.ok) return;
+    social = result.session;
+    now += 21_000;
+  }
+  const capped = submitCityTask(social, "social-comment", { optIn: true, note: "The Friday still is sharp.", now });
+  assert.equal(capped.ok, false);
+
+  const office = CITY_LOCATIONS.find((item) => item.id === "office");
+  assert.ok(office);
+  const userLocked = decideEnter(office, "user", emptyCitySession());
+  assert.equal(userLocked.open, false);
+  assert.match(userLocked.reason, /Only Kamron and the office roster/);
+});
+
+test("the owner practice harness runs every social, library, and call-center task without sending", () => {
+  assert.equal(worldsCityEnabled({}), false);
+  assert.equal(worldsCityEnabled({ WORLDS_CITY: "true" }), true);
+  assert.equal(LIVE_SOCIAL_ACTIONS, false);
+  assert.equal(LIVE_EMAIL_SEND, false);
+  const page = source("src/app/worlds/city/page.tsx");
+  assert.match(page, /isOwner/);
+  assert.match(page, /worldsCityEnabled/);
+  const harness = source("src/lib/worlds/city/practice.ts");
+  assert.equal(harness.includes("fetch("), false);
+  assert.equal(harness.includes("mailto:"), false);
+
+  const covered = new Set<string>();
+  for (const locationId of ["social-club", "library", "call-center"] as const) {
+    const runs = runPracticeLocation(locationId);
+    assert.ok(runs.length >= 4, locationId);
+    for (const run of runs) {
+      assert.equal(run.ok, true, run.ok ? run.taskId : `${run.taskId}: ${run.error}`);
+      if (!run.ok) continue;
+      covered.add(run.taskId);
+      assert.equal(run.sent, false);
+      assert.equal(run.balanceCents, run.payoutCents);
+      assert.match(run.message, /Nothing was (posted|sent)/);
+      const task = CITY_TASKS.find((item) => item.id === run.taskId);
+      assert.equal(task?.locationId, locationId);
+      if (task?.pipeline.peerScore) assert.equal(typeof run.score, "number");
+      if (task?.external === "social") assert.match(run.message, /Nothing was posted/);
+      if (task?.external === "email") {
+        assert.match(run.message, /Nothing was sent/);
+        assert.match(run.message, /Held for Kamron/);
+      }
+    }
+  }
+  const expected = CITY_TASKS.filter((item) => item.locationId === "social-club" || item.locationId === "library" || item.locationId === "call-center");
+  assert.equal(covered.size, expected.length);
+
+  for (const task of CITY_TASKS) {
+    const run = runPracticeTask(task.id, 2_000_000);
+    assert.equal(run.ok, true, run.ok ? task.id : `${task.id}: ${run.error}`);
+    if (!run.ok) continue;
+    assert.equal(run.sent, false);
+    assert.equal(run.balanceCents, task.payoutCents);
+    assert.equal(run.message.includes("http"), false);
+  }
+});
+
+test("office roster bots stay inside the office until the city connects", () => {
+  const layout = buildOfficeLayout();
+  const state = createSimState(layout, [HQ_BOT_ID]);
+  const bot = state.bots[HQ_BOT_ID];
+  assert.ok(bot);
+  bot.path = [{ x: -40, z: -40 }];
+  stepOfficeSim(state, layout, 0.05, { meeting: [], statuses: {}, rng: () => 0.2 });
+  assert.equal(bot.path.length, 0);
+  assert.equal(bot.act, "At desk");
+  assert.ok(insideOffice(layout, bot.x, bot.z, 0.2));
+  assert.equal(roleMayStand("officeBot", layout, -30, -30), false);
+  assert.equal(roleMayStand("user", layout, 4, 4), false);
+  assert.equal(roleMayStand("user", layout, -30, -30), true);
+  assert.equal(roleMayStand("owner", layout, -30, -30), true);
 });

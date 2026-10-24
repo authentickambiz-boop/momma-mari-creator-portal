@@ -3,13 +3,8 @@
 import { useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
-  BackSide,
   CanvasTexture,
-  DataTexture,
-  NearestFilter,
-  NoColorSpace,
   RepeatWrapping,
-  RGBAFormat,
   SRGBColorSpace,
   Vector3,
   type Group,
@@ -19,27 +14,97 @@ import type { HomeTier } from "@/lib/worlds/economy";
 import type { BuildingModel, Plot } from "@/lib/worlds/city/locations";
 import { locationById } from "@/lib/worlds/city/locations";
 
-const OUTLINE = "#1a1614";
 const scratch = new Vector3();
+const finishCache = new Map<string, Texture>();
 
-let sharedGradient: Texture | null = null;
-let sharedBrick: Texture | null = null;
+type Finish = "brick" | "wood" | "metal" | "stone" | "plaster" | "shingle" | "glass" | "paint";
 
-function toonGradient() {
-  if (sharedGradient) return sharedGradient;
-  const data = new Uint8Array([
-    70, 70, 70, 255,
-    160, 160, 160, 255,
-    255, 255, 255, 255,
-  ]);
-  const texture = new DataTexture(data, 3, 1, RGBAFormat);
-  texture.minFilter = NearestFilter;
-  texture.magFilter = NearestFilter;
-  texture.colorSpace = NoColorSpace;
-  texture.needsUpdate = true;
-  sharedGradient = texture;
+function shade(hex: string, amount: number) {
+  const raw = hex.replace("#", "");
+  const full = raw.length === 3 ? raw.split("").map((char) => char + char).join("") : raw;
+  const num = Number.parseInt(full, 16);
+  if (!Number.isFinite(num)) return hex;
+  const channel = (shift: number) => Math.min(255, Math.max(0, ((num >> shift) & 255) + amount));
+  return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
+}
+
+function drawFinish(ctx: CanvasRenderingContext2D, finish: Finish, color: string) {
+  ctx.fillStyle = shade(color, 18);
+  ctx.fillRect(0, 0, 128, 128);
+  if (finish === "brick") {
+    const bw = 32;
+    const bh = 16;
+    for (let y = 0; y < 128; y += bh) {
+      const row = Math.floor(y / bh);
+      const offset = row % 2 ? bw / 2 : 0;
+      for (let x = -bw; x < 160; x += bw) {
+        ctx.fillStyle = (row + Math.floor(x / bw)) % 2 ? color : shade(color, -16);
+        ctx.fillRect(x + offset, y, bw - 2, bh - 2);
+      }
+      ctx.fillStyle = "#d9d0c4";
+      ctx.fillRect(0, y + bh - 2, 128, 2);
+    }
+    return;
+  }
+  if (finish === "wood") {
+    for (let y = 0; y < 128; y += 10) {
+      ctx.fillStyle = y % 20 ? shade(color, -28) : shade(color, 8);
+      ctx.fillRect(0, y, 128, 8);
+      ctx.fillStyle = "rgba(40, 24, 12, 0.18)";
+      ctx.fillRect(0, y + 7, 128, 1);
+    }
+    return;
+  }
+  if (finish === "metal") {
+    ctx.fillStyle = shade(color, -20);
+    ctx.fillRect(0, 0, 128, 128);
+    for (let x = 0; x < 128; x += 8) {
+      ctx.fillStyle = x % 16 ? shade(color, 24) : shade(color, -8);
+      ctx.fillRect(x, 0, 3, 128);
+    }
+    return;
+  }
+  if (finish === "stone") {
+    const bw = 28;
+    const bh = 18;
+    for (let y = 0; y < 128; y += bh) {
+      const row = Math.floor(y / bh);
+      const offset = row % 2 ? 12 : 0;
+      for (let x = -bw; x < 160; x += bw) {
+        ctx.fillStyle = (row + x) % 3 ? shade(color, -10) : shade(color, 12);
+        ctx.fillRect(x + offset, y, bw - 3, bh - 3);
+      }
+      ctx.fillStyle = "#9a9186";
+      ctx.fillRect(0, y + bh - 3, 128, 3);
+    }
+    return;
+  }
+  ctx.fillStyle = shade(color, -24);
+  for (let y = 0; y < 128; y += 8) {
+    ctx.fillRect(0, y + 5, 128, 3);
+  }
+}
+
+function finishMap(finish: Finish, color: string) {
+  if (finish === "plaster" || finish === "paint" || finish === "glass") return null;
+  const key = `${finish}:${color}`;
+  const hit = finishCache.get(key);
+  if (hit) return hit;
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  if (ctx) drawFinish(ctx, finish, color);
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+  texture.repeat.set(finish === "shingle" ? 2 : 2.4, 2);
+  finishCache.set(key, texture);
   return texture;
 }
+
+let sharedBrick: Texture | null = null;
 
 function brickTexture() {
   if (sharedBrick) return sharedBrick;
@@ -107,6 +172,11 @@ function signTexture(label: string, fill = "#1c211e") {
 
 function buildingHeight(model: BuildingModel, floors: number, tier: HomeTier) {
   if (model === "hq") return 3.2;
+  if (model === "studio") return 2.7;
+  if (model === "apartment") return 6.4;
+  if (model === "houses") return 3.6;
+  if (model === "loft") return 4.4;
+  if (model === "mansion") return 6.2;
   if (model === "home") {
     if (tier === "studio") return 2.9;
     if (tier === "apartment") return 4.5;
@@ -131,8 +201,8 @@ function ToonBox({
   rotation = [0, 0, 0],
   args,
   color,
-  outline = false,
   cast = false,
+  finish = "plaster",
 }: {
   position?: Vec;
   rotation?: Vec;
@@ -140,20 +210,21 @@ function ToonBox({
   color: string;
   outline?: boolean;
   cast?: boolean;
+  finish?: Finish;
 }) {
+  const map = finishMap(finish, color);
   return (
-    <group position={position} rotation={rotation}>
-      <mesh castShadow={cast} receiveShadow>
-        <boxGeometry args={args} />
-        <meshToonMaterial color={color} emissive={color} emissiveIntensity={0.07} gradientMap={toonGradient()} />
-      </mesh>
-      {outline ? (
-        <mesh scale={1.03}>
-          <boxGeometry args={args} />
-          <meshBasicMaterial color={OUTLINE} side={BackSide} toneMapped={false} />
-        </mesh>
-      ) : null}
-    </group>
+    <mesh position={position} rotation={rotation} castShadow={cast} receiveShadow>
+      <boxGeometry args={args} />
+      <meshStandardMaterial
+        map={map ?? undefined}
+        color={map ? "#ffffff" : color}
+        roughness={finish === "metal" ? 0.34 : finish === "glass" ? 0.08 : 0.82}
+        metalness={finish === "metal" ? 0.7 : finish === "glass" ? 0.18 : 0.02}
+        emissive={finish === "glass" ? "#d5e7f0" : "#000000"}
+        emissiveIntensity={finish === "glass" ? 0.08 : 0}
+      />
+    </mesh>
   );
 }
 
@@ -161,7 +232,7 @@ function ToonCylinder({ position, args, color, rotation }: { position: Vec; args
   return (
     <mesh position={position} rotation={rotation} castShadow>
       <cylinderGeometry args={args} />
-      <meshToonMaterial color={color} emissive={color} emissiveIntensity={0.07} gradientMap={toonGradient()} />
+      <meshStandardMaterial color={color} roughness={0.62} metalness={0.08} />
     </mesh>
   );
 }
@@ -170,7 +241,7 @@ function ToonSphere({ position, radius, color }: { position: Vec; radius: number
   return (
     <mesh position={position} castShadow>
       <sphereGeometry args={[radius, 12, 10]} />
-      <meshToonMaterial color={color} emissive={color} emissiveIntensity={0.08} gradientMap={toonGradient()} />
+      <meshStandardMaterial color={color} roughness={0.74} />
     </mesh>
   );
 }
@@ -222,6 +293,7 @@ function Envelope({
   open,
   outline,
   floor = "#d7c4a3",
+  finish = "brick",
 }: {
   w: number;
   h: number;
@@ -231,19 +303,22 @@ function Envelope({
   open: boolean;
   outline: boolean;
   floor?: string;
+  finish?: Finish;
 }) {
   const skip = open ? southFace(yaw) : null;
   return (
     <group>
-      <ToonBox position={[0, 0.05, 0]} args={[Math.max(0.4, w - 0.28), 0.1, Math.max(0.4, d - 0.28)]} color={floor} />
-      {skip === "nz" ? null : <ToonBox position={[0, h / 2, -d / 2]} args={[w, h, 0.2]} color={color} outline={outline} cast />}
-      {skip === "px" ? null : <ToonBox position={[w / 2, h / 2, 0]} args={[0.2, h, d]} color={color} outline={outline} cast />}
-      {skip === "nx" ? null : <ToonBox position={[-w / 2, h / 2, 0]} args={[0.2, h, d]} color={color} outline={outline} cast />}
+      <ToonBox position={[0, 0.05, 0]} args={[Math.max(0.4, w - 0.28), 0.1, Math.max(0.4, d - 0.28)]} color={floor} finish="wood" />
+      {skip === "nz" ? null : <ToonBox position={[0, h / 2, -d / 2]} args={[w, h, 0.2]} color={color} outline={outline} finish={finish} cast />}
+      {skip === "px" ? null : <ToonBox position={[w / 2, h / 2, 0]} args={[0.2, h, d]} color={color} outline={outline} finish={finish} cast />}
+      {skip === "nx" ? null : <ToonBox position={[-w / 2, h / 2, 0]} args={[0.2, h, d]} color={color} outline={outline} finish={finish} cast />}
       {skip === "pz" ? (
         <DoorWall w={w} h={h} d={d} color={color} openDoor outline={false} />
       ) : (
         <DoorWall w={w} h={h} d={d} color={color} openDoor={open && southFace(yaw) === "pz"} outline={outline} />
       )}
+      <ToonBox position={[0, 0.18, 0]} args={[w + 0.16, 0.12, d + 0.16]} color={shade(color, 28)} finish="paint" />
+      <ToonBox position={[0, h - 0.08, 0]} args={[w + 0.18, 0.14, d + 0.18]} color={shade(color, 36)} finish="paint" />
     </group>
   );
 }
@@ -261,10 +336,20 @@ function Windows({ w, h, d, rows, cols }: { w: number; h: number; d: number; row
   return (
     <group>
       {panes.map((pane) => (
-        <mesh key={`${pane.x.toFixed(2)}-${pane.y.toFixed(2)}`} position={[pane.x, pane.y, d / 2 + 0.16]}>
-          <planeGeometry args={[0.42, 0.56]} />
-          <meshStandardMaterial color="#d7e7f2" emissive="#f4f8fb" emissiveIntensity={0.18} roughness={0.16} />
-        </mesh>
+        <group key={`${pane.x.toFixed(2)}-${pane.y.toFixed(2)}`} position={[pane.x, pane.y, d / 2 + 0.16]}>
+          <mesh>
+            <boxGeometry args={[0.56, 0.7, 0.06]} />
+            <meshStandardMaterial color="#2a2e33" metalness={0.62} roughness={0.32} />
+          </mesh>
+          <mesh position={[0, 0, 0.04]}>
+            <planeGeometry args={[0.42, 0.56]} />
+            <meshStandardMaterial color="#d5e7f0" roughness={0.08} metalness={0.12} emissive="#eef6fb" emissiveIntensity={0.12} />
+          </mesh>
+          <mesh position={[0, 0, 0.05]}>
+            <boxGeometry args={[0.03, 0.56, 0.02]} />
+            <meshStandardMaterial color="#1c211e" metalness={0.4} roughness={0.4} />
+          </mesh>
+        </group>
       ))}
     </group>
   );
@@ -301,8 +386,8 @@ function YardTree({ w, d, canopy }: { w: number; d: number; canopy: string }) {
 function Gable({ w, h, d, color }: { w: number; h: number; d: number; color: string }) {
   return (
     <group>
-      <ToonBox position={[0, h + 0.55, 0]} rotation={[0, 0, 0.46]} args={[w * 0.66, 0.16, d + 0.45]} color={color} cast />
-      <ToonBox position={[0, h + 0.55, 0]} rotation={[0, 0, -0.46]} args={[w * 0.66, 0.16, d + 0.45]} color={color} cast />
+      <ToonBox position={[0, h + 0.55, 0]} rotation={[0, 0, 0.46]} args={[w * 0.66, 0.16, d + 0.45]} color={color} finish="shingle" cast />
+      <ToonBox position={[0, h + 0.55, 0]} rotation={[0, 0, -0.46]} args={[w * 0.66, 0.16, d + 0.45]} color={color} finish="shingle" cast />
     </group>
   );
 }
@@ -327,11 +412,11 @@ function Columns({ w, h, d, color }: { w: number; h: number; d: number; color: s
   );
 }
 
-function FlatRoof({ w, h, d, color, lip = "#6a625a" }: { w: number; h: number; d: number; color: string; lip?: string }) {
+function FlatRoof({ w, h, d, color, lip = "#6a625a", finish = "shingle" }: { w: number; h: number; d: number; color: string; lip?: string; finish?: Finish }) {
   return (
     <group>
-      <ToonBox position={[0, h + 0.12, 0]} args={[w + 0.45, 0.24, d + 0.45]} color={color} cast />
-      <ToonBox position={[0, h + 0.28, 0]} args={[w + 0.15, 0.1, d + 0.15]} color={lip} />
+      <ToonBox position={[0, h + 0.12, 0]} args={[w + 0.45, 0.24, d + 0.45]} color={color} finish={finish} cast />
+      <ToonBox position={[0, h + 0.28, 0]} args={[w + 0.15, 0.1, d + 0.15]} color={lip} finish="metal" />
     </group>
   );
 }
@@ -445,7 +530,7 @@ function Extras({
         <ToonBox position={[0.45, h + 2.15, 0]} args={[0.9, 0.08, 0.08]} color="#1c211e" />
         <mesh position={[0.7, h + 1.55, 0.2]} rotation={[0.4, 0, 0.6]}>
           <cylinderGeometry args={[0.28, 0.28, 0.08, 12]} />
-          <meshToonMaterial color={accent} gradientMap={toonGradient()} />
+          <meshStandardMaterial color={accent} metalness={0.45} roughness={0.28} />
         </mesh>
         {close ? <ToonBox position={[0, 1.15, d / 2 + 0.2]} args={[1.4, 0.7, 0.08]} color="#122033" /> : null}
       </group>
@@ -614,12 +699,168 @@ function HqBody({ w, h, d, open }: { w: number; h: number; d: number; open: bool
   );
 }
 
+const WALL_FINISH: Partial<Record<BuildingModel, Finish>> = {
+  lab: "metal",
+  library: "stone",
+  learning: "brick",
+  computers: "metal",
+  "call-center": "metal",
+  art: "wood",
+  music: "wood",
+  club: "brick",
+  bank: "stone",
+  clothing: "plaster",
+  furniture: "wood",
+  home: "wood",
+  studio: "wood",
+  apartment: "brick",
+  houses: "brick",
+  loft: "brick",
+  mansion: "stone",
+};
+
+function Flowers({ x, z }: { x: number; z: number }) {
+  return (
+    <group position={[x, 0, z]}>
+      <ToonBox position={[0, 0.08, 0]} args={[0.9, 0.14, 0.42]} color="#5c3c2e" finish="wood" />
+      <ToonSphere position={[-0.18, 0.24, 0]} radius={0.1} color="#d4567a" />
+      <ToonSphere position={[0.16, 0.24, 0]} radius={0.1} color="#f2c14e" />
+      <ToonSphere position={[0, 0.28, 0.08]} radius={0.08} color="#f7f1e4" />
+    </group>
+  );
+}
+
+function PicketRun({ w, z, color = "#f4efe4" }: { w: number; z: number; color?: string }) {
+  const count = Math.max(3, Math.floor(w / 0.7));
+  return (
+    <group position={[0, 0, z]}>
+      <ToonBox position={[0, 0.42, 0]} args={[w, 0.08, 0.06]} color={color} finish="wood" />
+      {Array.from({ length: count }, (_, index) => {
+        const x = -w / 2 + (index * w) / (count - 1);
+        return <ToonBox key={x} position={[x, 0.32, 0]} args={[0.06, 0.64, 0.06]} color={color} finish="wood" />;
+      })}
+    </group>
+  );
+}
+
+function Neighborhood({
+  model,
+  plot,
+  tier,
+  open,
+  mid,
+}: {
+  model: BuildingModel;
+  plot: Plot;
+  tier: HomeTier;
+  open: boolean;
+  mid: boolean;
+}) {
+  const w = plot.w * 0.92;
+  const d = plot.d * 0.72;
+  if (model === "studio") {
+    const count = 4;
+    const unit = w / count - 0.35;
+    return (
+      <group>
+        {Array.from({ length: count }, (_, index) => {
+          const x = -w / 2 + unit / 2 + 0.2 + index * (w / count);
+          return (
+            <group key={x} position={[x, 0, 0]}>
+              <Envelope w={unit} h={2.55} d={d * 0.7} color={index % 2 ? "#d7b07a" : plot.wall} yaw={0} open={open && index === 1} outline={false} finish="wood" />
+              {open ? null : <Gable w={unit} h={2.55} d={d * 0.7} color={plot.roof} />}
+              {mid ? <Windows w={unit * 0.8} h={2.4} d={d * 0.7} rows={1} cols={2} /> : null}
+              <ToonBox position={[0, 0.12, d * 0.35 + 0.45]} args={[unit * 0.55, 0.16, 0.7]} color="#cfc8bb" finish="stone" />
+            </group>
+          );
+        })}
+        {open ? <HomeRoom w={w * 0.4} d={d} tier={tier} /> : null}
+      </group>
+    );
+  }
+  if (model === "apartment") {
+    return (
+      <group>
+        <Envelope w={w * 0.86} h={6.2} d={d * 0.78} color={plot.wall} yaw={0} open={open} outline={false} finish="brick" />
+        {open ? null : <FlatRoof w={w * 0.86} h={6.2} d={d * 0.78} color={plot.roof} finish="metal" />}
+        {mid ? <Windows w={w * 0.7} h={5.6} d={d * 0.78} rows={3} cols={5} /> : null}
+        {mid ? <Sign label="1 bed · 1 bath" y={5.5} z={d * 0.39 + 0.3} fill="#1f3b2d" wide={4.6} /> : null}
+        <ToonBox position={[0, 0.05, d * 0.42]} args={[w * 0.7, 0.08, d * 0.28]} color="#c8c2b6" finish="stone" />
+        {[-w * 0.22, w * 0.22].map((x) => (
+          <ToonBox key={x} position={[x, 2.4, d * 0.39 + 0.28]} args={[1.4, 0.08, 0.55]} color="#2a2e33" finish="metal" />
+        ))}
+        {open ? <HomeRoom w={w * 0.5} d={d} tier="apartment" /> : null}
+      </group>
+    );
+  }
+  if (model === "houses") {
+    const count = 3;
+    const unit = w / count - 0.8;
+    return (
+      <group>
+        {Array.from({ length: count }, (_, index) => {
+          const x = -w / 2 + unit / 2 + 0.5 + index * (w / count);
+          return (
+            <group key={x} position={[x, 0, -0.4]}>
+              <Envelope w={unit} h={3.3} d={d * 0.62} color={index === 1 ? "#efe6d6" : plot.wall} yaw={0} open={open && index === 1} outline={false} finish={index === 1 ? "plaster" : "brick"} />
+              {open ? null : <Gable w={unit} h={3.3} d={d * 0.62} color={plot.roof} />}
+              {mid ? <Windows w={unit * 0.75} h={3} d={d * 0.62} rows={1} cols={2} /> : null}
+              <ToonBox position={[0, 1.05, d * 0.31 + 0.45]} args={[unit * 0.55, 0.1, 0.9]} color={plot.roof} finish="wood" />
+              {mid ? <PicketRun w={unit + 0.4} z={d * 0.31 + 1.15} /> : null}
+              {mid ? <Flowers x={unit * 0.35} z={d * 0.31 + 1.7} /> : null}
+              {mid ? <YardTree w={unit * 0.2} d={-d * 0.2} canopy="#3e8a42" /> : null}
+            </group>
+          );
+        })}
+        {open ? <HomeRoom w={w * 0.4} d={d} tier="house" /> : null}
+      </group>
+    );
+  }
+  if (model === "loft") {
+    return (
+      <group>
+        {[-w * 0.24, w * 0.24].map((x, index) => (
+          <group key={x} position={[x, 0, 0]}>
+            <Envelope w={w * 0.4} h={4.2} d={d * 0.7} color={plot.wall} yaw={0} open={open && index === 0} outline={false} finish="brick" />
+            {open ? null : <ToonBox position={[0, 4.7, -0.3]} rotation={[-0.42, 0, 0]} args={[w * 0.36, 0.12, d * 0.55]} color="#d5e7f0" finish="glass" />}
+            {mid ? <Windows w={w * 0.28} h={3.6} d={d * 0.7} rows={2} cols={3} /> : null}
+            {mid ? <ToonBox position={[w * 0.12, 2.2, d * 0.35 + 0.2]} args={[w * 0.16, 2.2, 0.16]} color="#d5e7f0" finish="glass" /> : null}
+          </group>
+        ))}
+        {mid ? <PicketRun w={w * 0.9} z={d * 0.42} color="#8a4b3c" /> : null}
+        {open ? <HomeRoom w={w * 0.35} d={d} tier="creator-loft" /> : null}
+      </group>
+    );
+  }
+  return (
+    <group>
+      <Envelope w={w * 0.72} h={5.6} d={d * 0.62} color={plot.wall} yaw={0} open={open} outline={false} finish="stone" />
+      {open ? null : <Gable w={w * 0.5} h={4.2} d={d * 0.62} color={plot.roof} />}
+      <ToonBox position={[w * 0.28, 3.3, -d * 0.08]} args={[2.2, 6.4, 2.2]} color="#efe6d6" finish="stone" cast />
+      {open ? null : <ToonCylinder position={[w * 0.28, 6.8, -d * 0.08]} args={[0.25, 1.15, 1.1, 6]} color={plot.roof} />}
+      <Columns w={w * 0.4} h={3.2} d={d * 0.62} color="#f7f1e4" />
+      {mid ? <Windows w={w * 0.4} h={4.4} d={d * 0.62} rows={2} cols={3} /> : null}
+      {mid ? (
+        <group>
+          <PicketRun w={w * 0.8} z={d * 0.38 + 0.4} color="#2a2e33" />
+          <Flowers x={-w * 0.28} z={d * 0.2} />
+          <Flowers x={w * 0.18} z={d * 0.28} />
+          <YardTree w={w * 0.2} d={d * 0.1} canopy="#2f6d4f" />
+        </group>
+      ) : null}
+      {open ? <HomeRoom w={w * 0.4} d={d} tier="mansion" /> : null}
+    </group>
+  );
+}
+
 export function CityBuilding({
   plot,
   tier,
   quality,
   detailed,
   selected,
+  interiorOpen,
+  locked,
   canOpen,
   onEnter,
 }: {
@@ -628,37 +869,50 @@ export function CityBuilding({
   quality: "fine" | "fast";
   detailed: boolean;
   selected: boolean;
+  interiorOpen: boolean;
+  locked: boolean;
   canOpen: () => boolean;
   onEnter: () => void;
 }) {
-  const location = locationById(plot.id);
-  const model = location?.buildingModel ?? "lab";
-  const name = model === "hq" ? "Momma Mari" : location?.name ?? plot.id;
+  const location = locationById(plot.locationId);
+  const model = plot.model ?? location?.buildingModel ?? "lab";
+  const placeTier = plot.propertyTier ?? tier;
+  const name = model === "hq" ? "Momma Mari" : plot.district ?? location?.name ?? plot.id;
   const walkIn = location?.interior === "walk-in";
   const { ref, lod } = useLod(quality, detailed);
-  const height = buildingHeight(model, plot.floors, tier);
-  const open = selected && walkIn;
+  const height = buildingHeight(model, plot.floors, placeTier);
+  const open = selected && interiorOpen && walkIn;
   const mid = lod < 2;
   const close = lod === 0 && quality === "fine";
   const rows = mid ? Math.max(1, Math.floor(height / (close ? 1.7 : 2.3))) : 0;
-  const cols = mid ? Math.max(2, Math.floor(plot.w / (close ? 1.8 : 2.5))) : 0;
+  const cols = mid ? Math.max(2, Math.floor(Math.min(plot.w, 14) / (close ? 1.8 : 2.5))) : 0;
+  const neighborhood = model === "studio" || model === "apartment" || model === "houses" || model === "loft" || model === "mansion";
+  const yard = plot.yard ?? "stoop";
   return (
     <group ref={ref} position={[plot.x + plot.w / 2, 0, plot.z + plot.d / 2]} rotation={[0, plot.yaw, 0]}>
       {model === "hq" ? (
         <HqBody w={plot.w} h={height} d={plot.d} open={open} />
+      ) : neighborhood ? (
+        <Neighborhood model={model} plot={plot} tier={placeTier} open={open} mid={mid} />
       ) : (
         <>
-          <Envelope w={plot.w} h={height} d={plot.d} color={plot.wall} yaw={plot.yaw} open={open} outline={close} />
-          <Extras model={model} tier={tier} w={plot.w} h={height} d={plot.d} roof={plot.roof} accent={plot.accent} open={open} close={close} />
+          <Envelope w={plot.w} h={height} d={plot.d} color={plot.wall} yaw={plot.yaw} open={open} outline={close} finish={WALL_FINISH[model] ?? "brick"} />
+          <Extras model={model} tier={placeTier} w={plot.w} h={height} d={plot.d} roof={plot.roof} accent={plot.accent} open={open} close={close} />
           {mid && model !== "clothing" && model !== "furniture" ? <Windows w={plot.w * 0.78} h={height} d={plot.d} rows={rows} cols={cols} /> : null}
           {mid ? <Sign label={name} y={Math.max(1.7, height - 0.55)} z={plot.d / 2 + 0.22} /> : null}
           {mid ? <PorchLamp w={plot.w} d={plot.d} /> : null}
-          {mid ? <YardTree w={plot.w} d={plot.d} canopy="#3e8a42" /> : null}
+          {mid && yard !== "none" ? <YardTree w={plot.w} d={plot.d} canopy="#3e8a42" /> : null}
           {open && model === "learning" ? <LearningRoom w={plot.w} d={plot.d} /> : null}
-          {open && model === "home" ? <HomeRoom w={plot.w} d={plot.d} tier={tier} /> : null}
+          {open && model === "home" ? <HomeRoom w={plot.w} d={plot.d} tier={placeTier} /> : null}
           {open ? <pointLight position={[0, Math.min(2.4, height - 0.4), 0]} intensity={0.55} distance={14} decay={2} color="#fff1d6" /> : null}
         </>
       )}
+      {locked ? (
+        <group>
+          <ToonBox position={[0, 1.15, plot.d / 2 + 0.35]} args={[1.6, 0.12, 0.08]} color="#2a2e33" finish="metal" />
+          <Sign label="Locked" y={2.35} z={plot.d / 2 + 0.4} fill="#6a243c" wide={2.4} />
+        </group>
+      ) : null}
       {selected ? (
         <mesh position={[0, 0.06, plot.d / 2 + 1.1]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.4, 0.58, 20]} />

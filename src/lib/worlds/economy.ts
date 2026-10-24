@@ -18,6 +18,8 @@ export const ACTION_LIMITS = {
   lesson: { limit: 24, windowMs: 86_400_000, cooldownMs: 5_000 },
   shop: { limit: 12, windowMs: 86_400_000, cooldownMs: 2_000 },
   visit: { limit: 30, windowMs: 86_400_000, cooldownMs: 2_000 },
+  /** Likes, comments, follows, and story drafts share one daily cap. */
+  social: { limit: 8, windowMs: 86_400_000, cooldownMs: 20_000 },
 } as const;
 
 export type ActionClass = keyof typeof ACTION_LIMITS;
@@ -58,6 +60,8 @@ export const HOME_TIER_SCALE: Record<HomeTier, number> = {
   mansion: 1.72,
 };
 
+export type ShopItemKind = "wear" | "indoor" | "outdoor" | "oversized";
+
 export type CityShopItem = {
   sku: string;
   name: string;
@@ -65,21 +69,30 @@ export type CityShopItem = {
   priceCents: number;
   /** Plain ownership line. Momma Mari keeps the asset. */
   note: string;
+  kind: ShopItemKind;
+  /** Lowest home tier that may buy this. Apartments cannot buy yard, outdoor, or oversized pieces. */
+  minTier: HomeTier;
 };
 
 const OWNED = `${ASSET_OWNER} owns this. You can use it in the city. No real payment was made.`;
 
 export const CITY_SHOP: readonly CityShopItem[] = [
-  { sku: "city-waves", name: "Waves", locationId: "clothing-shop", priceCents: 4_000, note: OWNED },
-  { sku: "city-crown", name: "Crown", locationId: "clothing-shop", priceCents: 8_000, note: OWNED },
-  { sku: "city-jacket", name: "Jacket", locationId: "clothing-shop", priceCents: 6_000, note: OWNED },
-  { sku: "city-overalls", name: "Overalls", locationId: "clothing-shop", priceCents: 5_500, note: OWNED },
-  { sku: "city-heels", name: "Heels", locationId: "clothing-shop", priceCents: 4_500, note: OWNED },
-  { sku: "city-watch", name: "Watch", locationId: "clothing-shop", priceCents: 3_000, note: OWNED },
-  { sku: "city-desk-plant", name: "Desk plant", locationId: "furniture-shop", priceCents: 2_500, note: OWNED },
-  { sku: "city-poster", name: "Poster", locationId: "furniture-shop", priceCents: 1_500, note: OWNED },
-  { sku: "city-rug", name: "Rug", locationId: "furniture-shop", priceCents: 3_500, note: OWNED },
-  { sku: "city-lamp", name: "Loft lamp", locationId: "furniture-shop", priceCents: 4_200, note: OWNED },
+  { sku: "city-waves", name: "Waves", locationId: "clothing-shop", priceCents: 4_000, note: OWNED, kind: "wear", minTier: "studio" },
+  { sku: "city-crown", name: "Crown", locationId: "clothing-shop", priceCents: 8_000, note: OWNED, kind: "wear", minTier: "studio" },
+  { sku: "city-jacket", name: "Jacket", locationId: "clothing-shop", priceCents: 6_000, note: OWNED, kind: "wear", minTier: "studio" },
+  { sku: "city-overalls", name: "Overalls", locationId: "clothing-shop", priceCents: 5_500, note: OWNED, kind: "wear", minTier: "studio" },
+  { sku: "city-heels", name: "Heels", locationId: "clothing-shop", priceCents: 4_500, note: OWNED, kind: "wear", minTier: "studio" },
+  { sku: "city-watch", name: "Watch", locationId: "clothing-shop", priceCents: 3_000, note: OWNED, kind: "wear", minTier: "studio" },
+  { sku: "city-desk-plant", name: "Desk plant", locationId: "furniture-shop", priceCents: 2_500, note: OWNED, kind: "indoor", minTier: "studio" },
+  { sku: "city-poster", name: "Poster", locationId: "furniture-shop", priceCents: 1_500, note: OWNED, kind: "indoor", minTier: "studio" },
+  { sku: "city-rug", name: "Rug", locationId: "furniture-shop", priceCents: 3_500, note: OWNED, kind: "indoor", minTier: "studio" },
+  { sku: "city-lamp", name: "Loft lamp", locationId: "furniture-shop", priceCents: 4_200, note: OWNED, kind: "indoor", minTier: "apartment" },
+  { sku: "city-patio", name: "Patio set", locationId: "furniture-shop", priceCents: 7_500, note: OWNED, kind: "outdoor", minTier: "house" },
+  { sku: "city-fence", name: "Picket fence", locationId: "furniture-shop", priceCents: 6_400, note: OWNED, kind: "outdoor", minTier: "house" },
+  { sku: "city-planter", name: "Yard planter", locationId: "furniture-shop", priceCents: 3_200, note: OWNED, kind: "outdoor", minTier: "house" },
+  { sku: "city-sectional", name: "Sectional", locationId: "furniture-shop", priceCents: 9_800, note: OWNED, kind: "oversized", minTier: "house" },
+  { sku: "city-backdrop", name: "Studio backdrop", locationId: "furniture-shop", priceCents: 8_600, note: OWNED, kind: "oversized", minTier: "creator-loft" },
+  { sku: "city-bench", name: "Gallery bench", locationId: "furniture-shop", priceCents: 11_000, note: OWNED, kind: "oversized", minTier: "mansion" },
 ];
 
 export function formatKash(cents: number) {

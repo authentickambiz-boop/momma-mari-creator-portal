@@ -143,6 +143,8 @@ export function CityLayer({
   quality,
   detailed,
   selectedId,
+  interiorOpen,
+  locked,
   canOpen,
   onEnter,
   tier,
@@ -152,6 +154,8 @@ export function CityLayer({
   quality: "fine" | "fast";
   detailed: boolean;
   selectedId: string | null;
+  interiorOpen: boolean;
+  locked: boolean;
   canOpen: () => boolean;
   onEnter: (id: string) => void;
   tier: HomeTier;
@@ -177,6 +181,8 @@ export function CityLayer({
           quality={quality}
           detailed={detailed}
           selected={selectedId === plot.id}
+          interiorOpen={selectedId === plot.id && interiorOpen}
+          locked={selectedId === plot.id && locked}
           canOpen={canOpen}
           onEnter={() => onEnter(plot.id)}
         />

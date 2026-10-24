@@ -34,6 +34,8 @@ export type OfficeCameraApi = {
 export type CitySceneMode = {
   homeTier: HomeTier;
   selectedId: string | null;
+  interiorOpen: boolean;
+  locked: boolean;
   onOpenLocation: (id: string) => void;
 };
 
@@ -1127,11 +1129,11 @@ function Lights({ layout, weather, quality, city = false }: { layout: OfficeLayo
         shadow-mapSize-height={quality === "fast" ? 1024 : 2048}
         shadow-bias={-0.0004}
         shadow-camera-near={2}
-        shadow-camera-far={city ? 220 : 140}
-        shadow-camera-left={-(layout.width + (city ? 78 : 24))}
-        shadow-camera-right={layout.width + (city ? 78 : 24)}
-        shadow-camera-top={layout.depth + (city ? 70 : 30)}
-        shadow-camera-bottom={-(layout.depth + (city ? 64 : 20))}
+        shadow-camera-far={city ? 280 : 140}
+        shadow-camera-left={-(layout.width + (city ? 120 : 24))}
+        shadow-camera-right={layout.width + (city ? 120 : 24)}
+        shadow-camera-top={layout.depth + (city ? 110 : 30)}
+        shadow-camera-bottom={-(layout.depth + (city ? 100 : 20))}
       />
       {weather.sunElevation > 0.05 && weather.kind === "clear" ? (
         <mesh position={[sun.x, sun.y, sun.z]}>
@@ -1649,6 +1651,8 @@ function Scene({
             quality={quality}
             detailed={detailed}
             selectedId={city.selectedId}
+            interiorOpen={city.interiorOpen}
+            locked={city.locked}
             canOpen={canOpen}
             onEnter={city.onOpenLocation}
             tier={tier}
