@@ -105,18 +105,21 @@ function Eye({
   star: boolean;
   scale?: number;
 }) {
-  const rx = (wide ? 11.5 : 10) * scale;
-  const ry = (sleepy ? 5.5 : wide ? 13.5 : 12) * scale;
-  if (wink) return <path d={`M${cx - rx} ${cy} Q${cx} ${cy - 8} ${cx + rx} ${cy + 1}`} {...stroke(INK, 2.4)} />;
+  const rx = (wide ? 14.6 : 12.6) * scale;
+  const ry = (sleepy ? 8 : wide ? 15.4 : 13.8) * scale;
+  if (wink) return <path d={`M${cx - rx} ${cy + 1} Q${cx} ${cy - ry * 0.35} ${cx + rx} ${cy + 2}`} {...stroke(INK, 2.6)} />;
   return (
     <g>
-      <path d={`M${cx - rx - 1} ${cy - 1} Q${cx} ${cy - ry - 8} ${cx + rx + 3} ${cy - 3}`} {...stroke(INK, 2.5)} />
-      <path d={`M${cx + rx} ${cy - 3} Q${cx + rx + 6} ${cy + 2} ${cx + rx} ${cy + 7}`} {...stroke(INK, 1.6)} />
-      <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="#fffaf6" stroke={INK} strokeWidth="1.7" />
-      <ellipse cx={cx} cy={cy + 1} rx={rx * 0.52} ry={ry * 0.58} fill="#5a3054" />
-      <ellipse cx={cx} cy={cy + 1.4} rx={rx * 0.26} ry={ry * 0.32} fill="#1a1218" />
-      <ellipse cx={cx - rx * 0.32} cy={cy - ry * 0.28} rx={2.1 * scale} ry={2.6 * scale} fill="#fff" />
-      {star ? <circle cx={cx} cy={cy} r={3.2 * scale} fill="#f2c14e" /> : null}
+      <path d={`M${cx - rx - 1} ${cy} Q${cx - rx * 0.15} ${cy - ry - 10} ${cx + rx * 0.2} ${cy - ry + 1}`} {...stroke(INK, 3.1)} />
+      <path d={`M${cx - rx * 0.05} ${cy - ry + 2} Q${cx + rx * 0.55} ${cy - ry - 12} ${cx + rx + 3} ${cy - 1}`} {...stroke(INK, 2.7)} />
+      <path d={`M${cx + rx} ${cy - 2} Q${cx + rx + 8} ${cy + 2} ${cx + rx + 2} ${cy + 9}`} {...stroke(INK, 2.3)} />
+      <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="#fffaf6" stroke={INK} strokeWidth="1.8" />
+      <ellipse cx={cx + rx * 0.04} cy={cy + ry * 0.06} rx={rx * 0.56} ry={ry * 0.6} fill="#7a4570" />
+      <ellipse cx={cx + rx * 0.04} cy={cy + ry * 0.1} rx={rx * 0.26} ry={ry * 0.3} fill="#2a1a28" />
+      <ellipse cx={cx - rx * 0.28} cy={cy - ry * 0.32} rx={rx * 0.34} ry={ry * 0.28} fill="#fff" opacity="0.94" />
+      <ellipse cx={cx + rx * 0.24} cy={cy + ry * 0.3} rx={rx * 0.16} ry={ry * 0.11} fill="#fff" opacity="0.72" />
+      {star ? <circle cx={cx} cy={cy} r={3.4 * scale} fill="#f2c14e" /> : null}
+      <path d={`M${cx - rx + 2} ${cy + ry - 1} Q${cx} ${cy + ry + 2.4} ${cx + rx - 2} ${cy + ry - 1}`} {...stroke(INK, 1.15)} opacity="0.65" />
     </g>
   );
 }
@@ -129,42 +132,43 @@ function Face({ config, paint, side }: { config: CharacterConfig; paint: Paint; 
   const grin = config.face.mouth === "grin" || config.face.expression === "smile";
   const open = config.face.mouth === "open" || config.face.expression === "surprised";
   const flat = config.face.mouth === "flat" && config.face.expression !== "smile";
-  const blush = mix(paint.skin, "#d4567a", 0.42);
+  const blush = mix(paint.skin, "#ff8d78", 0.62);
+  const lip = flat ? "none" : "#e27898";
   if (side) {
     return (
       <g>
-        <ellipse cx="118" cy="84" rx="6" ry="3.5" fill={blush} opacity="0.7" />
-        <path d="M104 58 Q116 50 128 62" {...stroke(INK, 2)} />
-        <Eye cx={112} cy={72} wink={wink} wide={wide} sleepy={sleepy} star={star} scale={0.86} />
-        <path d="M132 74 Q146 82 140 92" fill={paint.skinLite} stroke={INK} strokeWidth="1.6" strokeLinejoin="round" />
+        <ellipse cx="120" cy="92" rx="10" ry="6" fill={blush} opacity="0.55" />
+        <path d="M106 60 Q118 54 130 64" {...stroke(INK, 1.6)} />
+        <Eye cx={120} cy={76} wink={wink} wide={wide} sleepy={sleepy} star={star} scale={0.96} />
+        <path d="M138 84 Q144 87 140 93" {...stroke(INK, 1.5)} />
         <path
-          d={flat ? "M128 98 H146" : open ? "M128 96 Q140 108 150 96 Q140 102 128 96" : grin ? "M124 96 Q140 112 154 96" : "M126 97 Q140 108 152 97"}
-          fill={flat ? "none" : "#c43768"}
+          d={flat ? "M134 102 H150" : open ? "M132 100 C140 96 150 98 154 104 C148 112 138 112 132 106 Z" : grin ? "M130 100 C140 94 154 98 158 106 C150 116 136 114 130 106 Z" : "M132 102 C140 96 152 98 156 106 C148 114 136 112 132 106 Z"}
+          fill={lip}
           stroke={INK}
           strokeWidth="1.6"
           strokeLinejoin="round"
         />
-        {flat ? null : <path d="M132 99 Q140 102 148 98" {...stroke("#fff", 1.5)} opacity="0.9" />}
+        {flat ? null : <ellipse cx="144" cy="106" rx="7" ry="2.2" fill="#fff" opacity="0.72" />}
       </g>
     );
   }
   return (
     <g>
-      <ellipse cx="78" cy="86" rx="8" ry="4.2" fill={blush} opacity="0.55" />
-      <ellipse cx="122" cy="86" rx="8" ry="4.2" fill={blush} opacity="0.55" />
-      <path d="M66 58 Q78 48 92 60" {...stroke(INK, 2)} />
-      <path d="M108 60 Q122 48 134 58" {...stroke(INK, 2)} />
-      <Eye cx={80} cy={74} wink={false} wide={wide} sleepy={sleepy} star={star} />
-      <Eye cx={120} cy={74} wink={wink} wide={wide} sleepy={sleepy} star={star} />
-      <path d="M98 84 Q102 92 97 94" {...stroke(INK, 1.5)} />
+      <ellipse cx="68" cy="96" rx="13" ry="7.5" fill={blush} opacity="0.5" />
+      <ellipse cx="132" cy="96" rx="13" ry="7.5" fill={blush} opacity="0.5" />
+      <path d="M64 66 Q78 60 94 68" {...stroke(INK, 1.65)} />
+      <path d="M106 68 Q122 60 136 66" {...stroke(INK, 1.65)} />
+      <Eye cx={82} cy={80} wink={false} wide={wide} sleepy={sleepy} star={star} />
+      <Eye cx={118} cy={80} wink={wink} wide={wide} sleepy={sleepy} star={star} />
+      <path d="M99 94 Q101 98 99 100" {...stroke(INK, 1.45)} />
       <path
-        d={flat ? "M86 102 H114" : open ? "M88 100 Q100 114 112 100 Q100 106 88 100" : grin ? "M80 100 Q100 118 120 100" : "M86 100 Q100 112 114 100"}
-        fill={flat ? "none" : "#c43768"}
+        d={flat ? "M88 108 H112" : open ? "M90 106 C96 100 104 100 110 106 C112 114 104 118 100 118 C96 118 88 114 90 106 Z" : grin ? "M84 106 C92 98 108 98 116 106 C118 116 108 122 100 122 C92 122 82 116 84 106 Z" : "M88 106 C94 100 106 100 112 106 C114 114 106 120 100 120 C94 120 86 114 88 106 Z"}
+        fill={lip}
         stroke={INK}
-        strokeWidth="1.7"
+        strokeWidth="1.65"
         strokeLinejoin="round"
       />
-      {flat ? null : <ellipse cx="100" cy={grin ? 105 : 103} rx={grin ? 10 : 8} ry="2.2" fill="#fff" opacity="0.82" />}
+      {flat ? null : <ellipse cx="100" cy={grin ? 112 : 111} rx={grin ? 9 : 7.5} ry="2.6" fill="#fff" opacity="0.78" />}
     </g>
   );
 }
@@ -199,8 +203,8 @@ function Bangs({ item, paint }: { item: string; paint: Paint }) {
   if (item === "cap") return <path d="M74 72 Q100 46 126 72 Q116 86 100 82 Q84 86 74 72" fill={paint.hair} stroke={INK} strokeWidth="2" />;
   return (
     <g>
-      <path d="M68 68 Q100 40 132 68 Q120 86 100 80 Q80 86 68 68" fill={item === "waves" ? paint.hairLite : paint.hair} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
-      <path d="M78 52 Q100 44 122 56" {...stroke(paint.hairLite, 3)} />
+      <path d="M74 48 Q100 30 126 48 Q116 58 100 54 Q84 58 74 48" fill={item === "waves" ? paint.hairLite : paint.hair} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M84 40 Q100 34 116 44" {...stroke(paint.hairLite, 3)} />
     </g>
   );
 }
@@ -211,16 +215,17 @@ function Headwear({ item, paint, side }: { item: string; paint: Paint; side?: bo
   if (item === "headphones") {
     return side ? (
       <g>
-        <path d="M86 52 Q108 24 136 58" {...stroke(shade(fill), 8)} />
-        <ellipse cx="132" cy="74" rx="8" ry="11" fill={fill} stroke={INK} strokeWidth="1.7" />
+        <path d="M78 50 Q104 22 128 54" {...stroke(shade(fill), 8)} />
+        <ellipse cx="90" cy="84" rx="9" ry="12" fill={fill} stroke={INK} strokeWidth="1.7" />
+        <ellipse cx="90" cy="84" rx="4" ry="5" fill={lift(fill)} />
       </g>
     ) : (
       <g>
-        <path d="M70 56 Q100 22 130 56" {...stroke(shade(fill), 8)} />
-        <ellipse cx="62" cy="76" rx="10" ry="13" fill={fill} stroke={INK} strokeWidth="1.7" />
-        <ellipse cx="138" cy="76" rx="10" ry="13" fill={fill} stroke={INK} strokeWidth="1.7" />
-        <ellipse cx="62" cy="76" rx="4" ry="5" fill={lift(fill)} />
-        <ellipse cx="138" cy="76" rx="4" ry="5" fill={lift(fill)} />
+        <path d="M58 58 Q100 16 142 58" {...stroke(shade(fill), 8)} />
+        <ellipse cx="46" cy="88" rx="11" ry="14" fill={fill} stroke={INK} strokeWidth="1.7" />
+        <ellipse cx="154" cy="88" rx="11" ry="14" fill={fill} stroke={INK} strokeWidth="1.7" />
+        <ellipse cx="46" cy="88" rx="4.5" ry="6" fill={lift(fill)} />
+        <ellipse cx="154" cy="88" rx="4.5" ry="6" fill={lift(fill)} />
       </g>
     );
   }
@@ -242,14 +247,14 @@ function Accessory({ item, paint, side }: { item: string; paint: Paint; side?: b
   if (item === "glasses") {
     return side ? (
       <g>
-        <ellipse cx="114" cy="74" rx="11" ry="8" fill={mix(fill, "#ffffff", 0.65)} stroke={INK} strokeWidth="1.6" />
-        <path d="M125 74 H142" {...stroke(INK, 1.6)} />
+        <ellipse cx="120" cy="76" rx="13" ry="11" fill={mix(fill, "#ffffff", 0.65)} stroke={INK} strokeWidth="1.6" />
+        <path d="M133 76 H148" {...stroke(INK, 1.6)} />
       </g>
     ) : (
       <g>
-        <ellipse cx="80" cy="74" rx="14" ry="10" fill={mix(fill, "#ffffff", 0.65)} stroke={INK} strokeWidth="1.6" />
-        <ellipse cx="120" cy="74" rx="14" ry="10" fill={mix(fill, "#ffffff", 0.65)} stroke={INK} strokeWidth="1.6" />
-        <path d="M94 74 H106" {...stroke(INK, 1.6)} />
+        <ellipse cx="82" cy="80" rx="17" ry="14" fill={mix(fill, "#ffffff", 0.65)} stroke={INK} strokeWidth="1.6" />
+        <ellipse cx="118" cy="80" rx="17" ry="14" fill={mix(fill, "#ffffff", 0.65)} stroke={INK} strokeWidth="1.6" />
+        <path d="M99 80 H101" {...stroke(INK, 1.6)} />
       </g>
     );
   }
@@ -376,7 +381,7 @@ function FrontBody({ config, paint, emote, gid }: { config: CharacterConfig; pai
       {pants ? null : <Boots item={shoes} gid={gid} paint={paint} shift={shift} />}
       {pants ? <Boots item={shoes} gid={gid} paint={paint} shift={0} /> : null}
       <path d="M92 112 H108 L106 132 H94 Z" fill={`url(#${gid}-skin)`} stroke={INK} strokeWidth="1.7" />
-      <ellipse cx="100" cy="74" rx="38" ry="42" fill={`url(#${gid}-skin)`} stroke={INK} strokeWidth="2.3" />
+      <ellipse cx="100" cy="76" rx="46" ry="42" fill={`url(#${gid}-skin)`} stroke={INK} strokeWidth="2.3" />
       <Face config={config} paint={paint} side={false} />
       <Bangs item={hair} paint={paint} />
       <Headwear item={config.slots.headwear.item} paint={paint} />
@@ -424,9 +429,9 @@ function SideBody({
           <path d="M104 112 H122 V132 H104 Z" fill={`url(#${gid}-skin)`} stroke={INK} strokeWidth="1.6" />
         </>
       )}
-      <ellipse cx="108" cy="74" rx="30" ry="42" fill={`url(#${gid}-skin)`} stroke={INK} strokeWidth="2.3" />
+      {hair === "none" ? null : <path d="M82 62 C60 86 58 128 74 164 L92 150 C80 118 82 88 98 66 Q88 46 82 62" fill={`url(#${gid}-hair)`} stroke={INK} strokeWidth="2" />}
+      <ellipse cx="108" cy="76" rx="36" ry="40" fill={`url(#${gid}-skin)`} stroke={INK} strokeWidth="2.3" />
       <Face config={config} paint={paint} side />
-      {hair === "none" ? null : <path d="M86 70 C64 96 66 140 82 160 L98 146 C88 120 92 96 108 74 Q96 52 86 70" fill={`url(#${gid}-hair)`} stroke={INK} strokeWidth="2" />}
       <Headwear item={config.slots.headwear.item} paint={paint} side />
       {headOnly ? null : <Accessory item={config.slots.accessory.item} paint={paint} side />}
     </g>
@@ -481,7 +486,7 @@ export function FashionDoll({
   const tall = config.body.shape === "tall" ? 1.04 : config.body.shape === "compact" ? 0.92 : 1;
   const wide = config.body.shape === "wide" ? 1.08 : config.body.shape === "round" ? 1.04 : config.body.shape === "compact" ? 0.96 : 1;
   const size = config.body.size === "large" ? 1.04 : config.body.size === "small" ? 0.92 : 1;
-  const viewBox = view === "profile" ? "58 18 112 132" : "0 0 200 440";
+  const viewBox = view === "profile" ? "46 16 132 142" : "0 0 200 440";
   const label = view === "profile" ? "profile headshot" : `${view} view`;
   return (
     <svg
