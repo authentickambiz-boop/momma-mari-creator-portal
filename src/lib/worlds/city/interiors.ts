@@ -19,7 +19,14 @@ export type InteriorProp =
   | "bed"
   | "plant"
   | "art"
-  | "window";
+  | "window"
+  | "lamp"
+  | "tv"
+  | "kitchen"
+  | "books"
+  | "queue"
+  | "atm"
+  | "notes";
 
 export type InteriorFace = "left" | "right" | "back";
 
@@ -261,25 +268,45 @@ function shared(room: Room, path: string, mark: string): InteriorBox[] {
   return [...windows(room), runner(room, path), marker(room, mark), plant(room, "right")];
 }
 
+/** A floor cloth under wall furniture. Decor, so it does not count as an obstacle. */
+function rug(room: Room, which: "left" | "right", id: string, z: number, wantW: number, wantD: number, color: string): InteriorBox {
+  const span = Math.max(0.36, room.halfW - room.aisle - 0.28);
+  const w = Math.min(wantW, span);
+  const depth = Math.min(wantD, room.halfD * 0.55);
+  const x = which === "left" ? -room.halfW + 0.22 + w / 2 : room.halfW - 0.22 - w / 2;
+  return box({
+    id, zone: "decor", x, y: 0.13, z, w, h: 0.02, d: depth, color, finish: "plaster", unlit: true, prop: "plain", face: which,
+  });
+}
+
 function layoutFor(model: BuildingModel, room: Room): InteriorBox[] {
   const mid = room.halfD * 0.08;
   if (model === "library") {
     return [
       ...shared(room, "#6b4a32", "#f2c14e"),
-      along(room, "left", "stacks", -room.halfD * 0.02, 0.9, 0.42, 1.55, "#6b3a28", "work", "shelf"),
-      along(room, "left", "stacks-b", room.halfD * 0.38, 0.7, 0.4, 1.35, "#8d5524", "work", "shelf"),
-      along(room, "right", "reading", mid, 1.05, 0.85, 0.9, "#f7f1e4", "lounge", "desk"),
+      along(room, "left", "stacks", -room.halfD * 0.22, 0.9, 0.42, 1.55, "#6b3a28", "work", "shelf"),
+      along(room, "left", "stacks-b", room.halfD * 0.12, 0.78, 0.4, 1.45, "#8d5524", "work", "shelf"),
+      along(room, "left", "stacks-c", room.halfD * 0.42, 0.62, 0.38, 1.15, "#4e3418", "work", "shelf"),
+      along(room, "right", "reading", -room.halfD * 0.08, 1.05, 0.85, 0.9, "#f7f1e4", "lounge", "desk"),
+      along(room, "right", "reader", room.halfD * 0.32, 0.46, 0.46, 0.9, "#6b4c7a", "lounge", "chair", "plaster"),
+      along(room, "right", "side-table", room.halfD * 0.14, 0.36, 0.36, 0.55, "#c4a574", "lounge", "books"),
       alongBack(room, "catalog", 1.15, 0.4, 1.45, "#4e3418", "work", "shelf"),
-      framed(room, "tips", 0, 1.7, 0, 0.7, 0.48, "#1f3b2d", "back"),
+      framed(room, "tips", -0.55, 1.7, 0, 0.62, 0.42, "#1f3b2d", "back"),
+      framed(room, "hours", 0.55, 1.65, 0, 0.48, 0.32, "#f2c14e", "back"),
     ];
   }
   if (model === "call-center") {
     return [
       ...shared(room, "#8ec4ea", "#9dff6a"),
-      along(room, "left", "booth-a", mid, 1.05, 0.85, 1.15, "#d7e7f2", "work", "booth", "paint"),
-      along(room, "right", "booth-b", mid, 1.05, 0.85, 1.15, "#d7e7f2", "work", "booth", "paint"),
-      along(room, "right", "break", room.halfD * 0.4, 0.42, 0.42, 0.85, "#6b4a32", "lounge", "chair"),
-      framed(room, "script", 0, 1.65, 0, 0.85, 0.5, "#1f3b2d", "back"),
+      along(room, "left", "booth-a", -room.halfD * 0.18, 1.05, 0.85, 1.15, "#d7e7f2", "work", "booth", "paint"),
+      along(room, "left", "booth-c", room.halfD * 0.22, 1.05, 0.85, 1.15, "#c5d7ea", "work", "booth", "paint"),
+      along(room, "right", "booth-b", -room.halfD * 0.18, 1.05, 0.85, 1.15, "#d7e7f2", "work", "booth", "paint"),
+      along(room, "right", "booth-d", room.halfD * 0.22, 1.05, 0.85, 1.15, "#c5d7ea", "work", "booth", "paint"),
+      along(room, "right", "break", room.halfD * 0.02, 0.42, 0.42, 0.85, "#6b4a32", "lounge", "chair"),
+      along(room, "left", "notes", room.halfD * 0.46, 0.32, 0.2, 0.7, "#f6e2a8", "decor", "notes", "paint"),
+      alongBack(room, "screen", 1.15, 0.16, 0.7, "#1f3b2d", "work", "tv", "paint"),
+      framed(room, "script", -0.7, 1.7, 0, 0.42, 0.36, "#f2c14e", "back"),
+      framed(room, "board", 0.7, 1.7, 0, 0.42, 0.36, "#8ec4ea", "back"),
     ];
   }
   if (model === "learning") {
@@ -342,10 +369,14 @@ function layoutFor(model: BuildingModel, room: Room): InteriorBox[] {
     return [
       ...shared(room, "#c6a15a", "#f2c14e"),
       alongBack(room, "teller", 1.7, 0.55, 1.15, "#243044", "work", "counter", "stone"),
-      along(room, "left", "vault", -room.halfD * 0.05, 0.8, 0.28, 1.45, "#2a2e33", "work", "vault", "metal"),
-      along(room, "right", "ledger", mid, 1.0, 0.8, 0.9, "#f7f1e4", "lounge", "desk"),
-      along(room, "left", "wait", room.halfD * 0.38, 0.42, 0.42, 0.85, "#6b4a32", "lounge", "chair"),
-      framed(room, "rates", 0, 1.7, 0, 0.7, 0.36, "#c6a15a", "back"),
+      along(room, "left", "vault", -room.halfD * 0.16, 0.8, 0.28, 1.45, "#2a2e33", "work", "vault", "metal"),
+      along(room, "left", "atm", room.halfD * 0.18, 0.55, 0.4, 1.35, "#243044", "work", "atm", "metal"),
+      along(room, "right", "ledger", -room.halfD * 0.02, 1.0, 0.8, 0.9, "#f7f1e4", "lounge", "desk"),
+      along(room, "right", "queue", room.halfD * 0.32, 0.9, 0.28, 0.9, "#c6a15a", "lounge", "queue", "metal"),
+      along(room, "left", "wait", room.halfD * 0.42, 0.42, 0.42, 0.85, "#6b4a32", "lounge", "chair"),
+      along(room, "right", "wait-b", room.halfD * 0.18, 0.42, 0.42, 0.85, "#8d5524", "lounge", "chair"),
+      framed(room, "rates", -0.55, 1.72, 0, 0.55, 0.34, "#c6a15a", "back"),
+      framed(room, "hours", 0.55, 1.68, 0, 0.42, 0.3, "#f7f1e4", "back"),
     ];
   }
   if (model === "clothing") {
@@ -376,28 +407,43 @@ function layoutFor(model: BuildingModel, room: Room): InteriorBox[] {
   if (model === "apartment") {
     return [
       ...shared(room, "#d7c4a3", "#6b4c7a"),
-      along(room, "left", "bed", -room.halfD * 0.05, 1.05, 0.7, 0.7, "#f4efe4", "lounge", "bed", "plaster"),
-      alongBack(room, "kitchen", 1.25, 0.5, 0.95, "#efe6d6", "work", "counter", "plaster"),
-      along(room, "right", "sofa", mid, 1.1, 0.68, 0.85, "#6b4c7a", "lounge", "sofa", "plaster"),
-      framed(room, "print", 0.35, 1.5, 0, 0.4, 0.32, "#8ec4ea", "back"),
+      along(room, "left", "bed", -room.halfD * 0.12, 1.15, 0.72, 0.7, "#f4efe4", "lounge", "bed", "plaster"),
+      along(room, "left", "night", room.halfD * 0.22, 0.36, 0.36, 0.7, "#c4a574", "lounge", "lamp"),
+      alongBack(room, "kitchen", 1.35, 0.55, 0.95, "#efe6d6", "work", "kitchen", "plaster"),
+      along(room, "right", "sofa", -room.halfD * 0.05, 1.1, 0.68, 0.85, "#6b4c7a", "lounge", "sofa", "plaster"),
+      along(room, "right", "tv", room.halfD * 0.18, 0.7, 0.4, 0.85, "#2a2e33", "work", "tv", "metal"),
+      rug(room, "right", "rug", -room.halfD * 0.05, 1.2, 0.8, "#6b4c7a"),
+      framed(room, "print", -0.4, 1.5, 0, 0.36, 0.3, "#8ec4ea", "back"),
+      framed(room, "print-b", 0.4, 1.48, 0, 0.32, 0.32, "#e07a5f", "back"),
     ];
   }
   if (model === "houses") {
     return [
       ...shared(room, "#c4a574", "#e07a5f"),
       along(room, "left", "sofa", mid, 1.2, 0.7, 0.86, "#6b4c7a", "lounge", "sofa", "plaster"),
-      along(room, "right", "desk", room.halfD * 0.12, 1.05, 0.88, 0.92, "#8d5524", "work", "desk"),
+      along(room, "left", "lamp", mid + room.halfD * 0.28, 0.34, 0.34, 0.72, "#c4a574", "lounge", "lamp"),
+      along(room, "left", "tv", mid - room.halfD * 0.32, 0.72, 0.4, 0.9, "#2a2e33", "work", "tv", "metal"),
+      along(room, "right", "desk", room.halfD * 0.16, 1.05, 0.88, 0.92, "#8d5524", "work", "desk"),
+      along(room, "right", "kitchen", -room.halfD * 0.28, 0.9, 0.5, 0.95, "#efe6d6", "work", "kitchen", "plaster"),
       alongBack(room, "dining", 1.35, 0.78, 0.78, "#c4a574", "work", "table"),
-      framed(room, "art", 0, 1.55, 0, 0.55, 0.42, "#e07a5f", "left"),
+      rug(room, "left", "rug", mid, 1.25, 0.85, "#8d5524"),
+      framed(room, "art", 0, 1.55, -room.halfD * 0.28, 0.42, 0.32, "#e07a5f", "left"),
+      framed(room, "art-b", 0, 1.48, room.halfD * 0.4, 0.36, 0.28, "#8ec4ea", "left"),
+      framed(room, "art-c", 0, 1.62, 0, 0.46, 0.34, "#f2c14e", "back"),
     ];
   }
   if (model === "loft") {
     return [
       ...shared(room, "#d5e7f0", "#8ec4ea"),
-      along(room, "left", "work-table", mid, 1.15, 0.88, 0.92, "#f7f1e4", "work", "desk"),
+      along(room, "left", "work-table", -room.halfD * 0.05, 1.15, 0.88, 0.92, "#f7f1e4", "work", "desk"),
+      along(room, "left", "lamp", room.halfD * 0.28, 0.34, 0.34, 0.72, "#c4a574", "lounge", "lamp"),
+      along(room, "left", "books", room.halfD * 0.42, 0.32, 0.28, 0.4, "#e07a5f", "work", "books"),
       along(room, "right", "daybed", mid, 1.15, 0.7, 0.7, "#8a4b3c", "lounge", "bed", "plaster"),
+      along(room, "right", "tv", room.halfD * 0.24, 0.62, 0.36, 0.8, "#243044", "work", "tv", "metal"),
+      rug(room, "right", "rug", mid, 1.2, 0.8, "#8a4b3c"),
       alongBack(room, "backdrop", 1.2, 0.16, 1.05, "#f7f1e4", "decor", "art", "paint"),
-      framed(room, "still", 0.45, 1.55, 0, 0.38, 0.38, "#e07a5f", "back"),
+      framed(room, "still", -0.5, 1.55, 0, 0.36, 0.36, "#e07a5f", "back"),
+      framed(room, "still-b", 0.5, 1.5, 0, 0.32, 0.4, "#8ec4ea", "back"),
     ];
   }
   if (model === "mansion") {

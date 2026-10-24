@@ -723,7 +723,20 @@ function SofaMesh({ color }: { color: string }) {
   );
 }
 
-function DeskMesh({ color, screen = "#8ec4ea" }: { color: string; screen?: string }) {
+function DeskLamp() {
+  return (
+    <group position={[0.34, 0.76, -0.14]}>
+      <ToonCylinder position={[0, 0.02, 0]} args={[0.055, 0.06, 0.03, 8]} color="#2a2e33" />
+      <ToonBox position={[0, 0.12, 0]} args={[0.025, 0.16, 0.025]} color="#2a2e33" finish="metal" />
+      <mesh position={[0, 0.24, 0]}>
+        <cylinderGeometry args={[0.045, 0.1, 0.12, 10]} />
+        <meshStandardMaterial color="#f6e2a8" emissive="#f2c14e" emissiveIntensity={0.65} roughness={0.4} />
+      </mesh>
+    </group>
+  );
+}
+
+function DeskMesh({ color, screen = "#8ec4ea", lamp = true }: { color: string; screen?: string; lamp?: boolean }) {
   const legs = [[-0.4, -0.16], [0.4, -0.16], [-0.4, 0.12], [0.4, 0.12]] as const;
   return (
     <group>
@@ -735,6 +748,7 @@ function DeskMesh({ color, screen = "#8ec4ea" }: { color: string; screen?: strin
       <ToonBox position={[0, 1.05, -0.2]} args={[0.5, 0.3, 0.045]} color="#f4efe4" finish="paint" />
       <ToonBox position={[0, 1.05, -0.17]} args={[0.4, 0.2, 0.02]} color={screen} finish="glass" />
       <ToonBox position={[0.02, 0.76, 0.08]} args={[0.28, 0.025, 0.1]} color="#2a2e33" finish="metal" />
+      {lamp ? <DeskLamp /> : null}
       <group position={[0, 0, 0.4]}>
         <ChairMesh />
       </group>
@@ -774,9 +788,18 @@ function ShelfMesh({ color }: { color: string }) {
       {books.map((book, index) => (
         <ToonBox key={book} position={[-0.24 + index * 0.09, 0.5, 0.03]} args={[0.075, 0.3 + (index % 3) * 0.04, 0.22]} color={book} finish="paint" />
       ))}
-      {books.map((book, index) => (
-        <ToonBox key={`${book}-b`} position={[-0.24 + index * 0.09, 0.94, 0.03]} args={[0.075, 0.28, 0.22]} color={books[(index + 3) % books.length] ?? book} finish="paint" />
-      ))}
+      {books.map((book, index) => {
+        const height = 0.22 + (index % 3) * 0.05;
+        return (
+          <ToonBox key={`${book}-b`} position={[-0.24 + index * 0.09, 0.76 + height / 2, 0.03]} args={[0.075, height, 0.22]} color={books[(index + 3) % books.length] ?? book} finish="paint" />
+        );
+      })}
+      {books.map((book, index) => {
+        const height = 0.14 + (index % 4) * 0.03;
+        return (
+          <ToonBox key={`${book}-c`} position={[-0.22 + index * 0.08, 1.18 + height / 2, 0.02]} args={[0.065, height, 0.18]} color={books[(index + 1) % books.length] ?? book} finish="paint" />
+        );
+      })}
     </group>
   );
 }
@@ -784,12 +807,17 @@ function ShelfMesh({ color }: { color: string }) {
 function BoothMesh({ color }: { color: string }) {
   return (
     <group>
-      <DeskMesh color={color} screen="#9dff6a" />
+      <DeskMesh color={color} screen="#9dff6a" lamp={false} />
       <ToonBox position={[-0.5, 0.72, 0.02]} args={[0.06, 1.3, 0.72]} color="#243044" finish="paint" />
+      <ToonBox position={[0, 0.6, -0.02]} args={[0.7, 0.04, 0.2]} color="#2a2e33" finish="metal" />
+      <ToonBox position={[0.08, 0.56, 0.04]} args={[0.32, 0.02, 0.025]} color="#1c211e" finish="paint" />
       <ToonBox position={[0.28, 0.86, 0.1]} args={[0.04, 0.18, 0.04]} color="#2a2e33" finish="metal" />
       <ToonBox position={[0.28, 0.97, 0.1]} args={[0.22, 0.045, 0.045]} color="#2a2e33" finish="metal" />
       <ToonCylinder position={[0.18, 0.93, 0.1]} args={[0.055, 0.055, 0.06, 10]} color="#1f3b2d" />
       <ToonCylinder position={[0.38, 0.93, 0.1]} args={[0.055, 0.055, 0.06, 10]} color="#1f3b2d" />
+      <ToonBox position={[-0.45, 1.08, 0.1]} args={[0.02, 0.1, 0.08]} color="#f6e2a8" finish="paint" />
+      <ToonBox position={[-0.45, 0.94, 0.18]} args={[0.02, 0.09, 0.07]} color="#f2b4c4" finish="paint" />
+      <ToonBox position={[-0.45, 1.18, -0.04]} args={[0.02, 0.08, 0.07]} color="#8ec4ea" finish="paint" />
     </group>
   );
 }
@@ -806,6 +834,13 @@ function CounterMesh({ color }: { color: string }) {
         <planeGeometry args={[0.86, 0.36]} />
         <meshStandardMaterial color="#d7eef6" transparent opacity={0.5} side={DoubleSide} emissive="#c5e4f2" emissiveIntensity={0.28} depthWrite={false} />
       </mesh>
+      <ToonBox position={[-0.42, 1.0, 0.08]} args={[0.16, 0.04, 0.12]} color="#1f3b2d" finish="paint" />
+      <ToonBox position={[-0.42, 1.05, 0.08]} args={[0.08, 0.05, 0.06]} color="#c6a15a" finish="wood" />
+      <ToonBox position={[0.32, 0.995, 0.06]} args={[0.28, 0.035, 0.16]} color="#2a2e33" finish="metal" />
+      <ToonBox position={[0.32, 1.03, -0.015]} args={[0.28, 0.06, 0.02]} color="#2a2e33" finish="metal" />
+      <ToonBox position={[0.19, 1.03, 0.06]} args={[0.02, 0.06, 0.16]} color="#2a2e33" finish="metal" />
+      <ToonBox position={[0.45, 1.03, 0.06]} args={[0.02, 0.06, 0.16]} color="#2a2e33" finish="metal" />
+      <ToonBox position={[0.32, 1.02, 0.06]} args={[0.18, 0.02, 0.1]} color="#1f6b45" finish="paint" />
     </group>
   );
 }
@@ -821,6 +856,122 @@ function VaultMesh() {
         <meshStandardMaterial color="#c6a15a" metalness={0.72} roughness={0.28} />
       </mesh>
       <ToonBox position={[0.04, 0.86, 0.1]} args={[0.2, 0.035, 0.035]} color="#c6a15a" finish="metal" />
+      {([[-0.24, 0.28], [0.24, 0.28], [-0.24, 1.32], [0.24, 1.32]] as const).map(([x, y]) => (
+        <mesh key={`${x}${y}`} position={[x, y, 0.09]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.035, 0.035, 0.04, 8]} />
+          <meshStandardMaterial color="#8a847c" metalness={0.62} roughness={0.32} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function LampMesh() {
+  const legs = [[-0.11, -0.09], [0.11, -0.09], [-0.11, 0.09], [0.11, 0.09]] as const;
+  return (
+    <group>
+      {legs.map(([x, z]) => (
+        <ToonBox key={`${x}${z}`} position={[x, 0.16, z]} args={[0.035, 0.32, 0.035]} color="#3a2a22" finish="wood" />
+      ))}
+      <ToonBox position={[0, 0.34, 0]} args={[0.3, 0.045, 0.24]} color="#c4a574" finish="wood" />
+      <ToonCylinder position={[0, 0.4, 0]} args={[0.05, 0.055, 0.04, 8]} color="#2a2e33" />
+      <ToonBox position={[0, 0.56, 0]} args={[0.03, 0.28, 0.03]} color="#2a2e33" finish="metal" />
+      <mesh position={[0, 0.74, 0]}>
+        <cylinderGeometry args={[0.05, 0.12, 0.14, 10]} />
+        <meshStandardMaterial color="#f6e2a8" emissive="#f2c14e" emissiveIntensity={0.7} roughness={0.38} />
+      </mesh>
+    </group>
+  );
+}
+
+function TvMesh({ screen = "#8ec4ea" }: { screen?: string }) {
+  return (
+    <group>
+      <ToonBox position={[0, 0.2, 0]} args={[0.58, 0.36, 0.3]} color="#3a2a22" finish="wood" />
+      <ToonBox position={[0, 0.22, 0.16]} args={[0.36, 0.16, 0.02]} color="#6b4a32" finish="wood" />
+      <ToonBox position={[0, 0.46, 0]} args={[0.06, 0.12, 0.06]} color="#2a2e33" finish="metal" />
+      <ToonBox position={[0, 0.78, 0]} args={[0.68, 0.42, 0.06]} color="#1c211e" finish="paint" />
+      <mesh position={[0, 0.78, 0.035]}>
+        <planeGeometry args={[0.54, 0.3]} />
+        <meshStandardMaterial color={screen} emissive={screen} emissiveIntensity={0.45} roughness={0.25} />
+      </mesh>
+    </group>
+  );
+}
+
+function KitchenMesh({ color }: { color: string }) {
+  return (
+    <group>
+      <ToonBox position={[-0.16, 0.36, 0]} args={[0.74, 0.68, 0.4]} color={color} finish="plaster" />
+      <ToonBox position={[-0.16, 0.72, 0.02]} args={[0.8, 0.06, 0.46]} color="#d9d3c8" finish="stone" />
+      <ToonCylinder position={[-0.32, 0.77, 0.04]} args={[0.065, 0.065, 0.025, 10]} color="#2a2e33" />
+      <ToonCylinder position={[-0.14, 0.77, 0.04]} args={[0.065, 0.065, 0.025, 10]} color="#2a2e33" />
+      <ToonBox position={[0.08, 0.74, 0.04]} args={[0.16, 0.03, 0.14]} color="#8ec4ea" finish="metal" />
+      <ToonBox position={[0.46, 0.56, 0]} args={[0.26, 1.08, 0.42]} color="#f7f1e4" finish="paint" />
+      <ToonBox position={[0.46, 0.7, 0.22]} args={[0.18, 0.025, 0.015]} color="#2a2e33" finish="metal" />
+      <ToonBox position={[0.56, 0.82, 0.2]} args={[0.025, 0.14, 0.025]} color="#2a2e33" finish="metal" />
+    </group>
+  );
+}
+
+function BookStackMesh() {
+  const legs = [[-0.12, -0.09], [0.12, -0.09], [-0.12, 0.09], [0.12, 0.09]] as const;
+  return (
+    <group>
+      {legs.map(([x, z]) => (
+        <ToonBox key={`${x}${z}`} position={[x, 0.14, z]} args={[0.03, 0.28, 0.03]} color="#3a2a22" finish="wood" />
+      ))}
+      <ToonBox position={[0, 0.3, 0]} args={[0.32, 0.04, 0.24]} color="#c4a574" finish="wood" />
+      <ToonBox position={[-0.02, 0.36, 0.01]} args={[0.22, 0.06, 0.16]} color="#e07a5f" finish="paint" />
+      <ToonBox position={[0.03, 0.43, -0.01]} args={[0.2, 0.055, 0.15]} color="#f2c14e" finish="paint" rotation={[0, 0.12, 0]} />
+      <ToonBox position={[-0.01, 0.49, 0.02]} args={[0.18, 0.05, 0.14]} color="#1f3b2d" finish="paint" rotation={[0, -0.08, 0]} />
+    </group>
+  );
+}
+
+function QueueMesh() {
+  return (
+    <group>
+      {[-0.36, 0.36].map((x) => (
+        <group key={x}>
+          <ToonBox position={[x, 0.04, 0]} args={[0.1, 0.06, 0.1]} color="#2a2e33" finish="metal" />
+          <ToonCylinder position={[x, 0.4, 0]} args={[0.03, 0.035, 0.7, 8]} color="#c6a15a" />
+          <ToonSphere position={[x, 0.78, 0]} radius={0.055} color="#c6a15a" />
+        </group>
+      ))}
+      <ToonBox position={[0, 0.58, 0]} args={[0.68, 0.035, 0.035]} color="#6b1d2a" finish="paint" />
+    </group>
+  );
+}
+
+function AtmMesh() {
+  return (
+    <group>
+      <ToonBox position={[0, 0.62, 0]} args={[0.46, 1.2, 0.32]} color="#243044" finish="metal" />
+      <ToonBox position={[0, 0.98, 0.17]} args={[0.3, 0.2, 0.02]} color="#111418" finish="paint" />
+      <mesh position={[0, 0.98, 0.185]}>
+        <planeGeometry args={[0.24, 0.14]} />
+        <meshStandardMaterial color="#9dff6a" emissive="#9dff6a" emissiveIntensity={0.4} />
+      </mesh>
+      {[-0.06, 0, 0.06].map((x) =>
+        [0.58, 0.68].map((y) => (
+          <ToonBox key={`${x}${y}`} position={[x, y, 0.175]} args={[0.035, 0.03, 0.02]} color="#8a847c" finish="metal" />
+        )),
+      )}
+      <ToonBox position={[0, 0.4, 0.17]} args={[0.18, 0.025, 0.02]} color="#111418" finish="paint" />
+    </group>
+  );
+}
+
+function NotesMesh() {
+  return (
+    <group>
+      <ToonBox position={[0, 0.22, 0]} args={[0.08, 0.4, 0.08]} color="#3a2a22" finish="wood" />
+      <ToonBox position={[0, 0.62, 0]} args={[0.28, 0.46, 0.04]} color="#c4a574" finish="wood" />
+      <ToonBox position={[-0.05, 0.72, 0.03]} args={[0.1, 0.09, 0.015]} color="#f6e2a8" finish="paint" />
+      <ToonBox position={[0.06, 0.64, 0.03]} args={[0.09, 0.08, 0.015]} color="#f2b4c4" finish="paint" />
+      <ToonBox position={[-0.02, 0.54, 0.03]} args={[0.1, 0.08, 0.015]} color="#8ec4ea" finish="paint" />
+      <ToonBox position={[0.05, 0.76, 0.035]} args={[0.07, 0.06, 0.012]} color="#e7ffc4" finish="paint" />
     </group>
   );
 }
@@ -882,6 +1033,20 @@ function FrameWindow({ wide, tall }: { wide: number; tall: number }) {
         <planeGeometry args={[Math.max(0.12, wide - t * 1.6), Math.max(0.12, tall - t * 1.6)]} />
         <meshStandardMaterial color="#d7eef8" transparent opacity={0.55} side={DoubleSide} emissive="#b7d4e4" emissiveIntensity={0.35} depthWrite={false} />
       </mesh>
+      <ToonBox position={[0, tall / 2 - t * 0.15, 0.045]} args={[wide * 0.92, 0.03, 0.03]} color="#2a2e33" finish="metal" />
+      {[-1, 1].map((side) => {
+        const panelW = Math.max(0.08, wide * 0.18);
+        const panelH = tall * 0.78;
+        return (
+          <ToonBox
+            key={side}
+            position={[side * (wide / 2 - panelW / 2 - t * 0.4), tall / 2 - t * 0.35 - panelH / 2, 0.05]}
+            args={[panelW, panelH, 0.025]}
+            color={side < 0 ? "#efe6d6" : "#e4d3c4"}
+            finish="plaster"
+          />
+        );
+      })}
     </group>
   );
 }
@@ -935,6 +1100,13 @@ function InteriorPiece({ piece }: { piece: InteriorBox }) {
   if (piece.prop === "counter") return <FitProp piece={piece} baseW={1.52} baseD={0.5}><CounterMesh color={piece.color} /></FitProp>;
   if (piece.prop === "vault") return <FitProp piece={piece} baseW={0.7} baseD={0.2}><VaultMesh /></FitProp>;
   if (piece.prop === "bed") return <FitProp piece={piece} baseW={1.35} baseD={0.7}><BedMesh color={piece.color} /></FitProp>;
+  if (piece.prop === "lamp") return <FitProp piece={piece} baseW={0.34} baseD={0.34}><LampMesh /></FitProp>;
+  if (piece.prop === "tv") return <FitProp piece={piece} baseW={0.7} baseD={0.38}><TvMesh screen={piece.color === "#1f3b2d" ? "#9dff6a" : "#8ec4ea"} /></FitProp>;
+  if (piece.prop === "kitchen") return <FitProp piece={piece} baseW={1.15} baseD={0.48}><KitchenMesh color={piece.color} /></FitProp>;
+  if (piece.prop === "books") return <FitProp piece={piece} baseW={0.36} baseD={0.32}><BookStackMesh /></FitProp>;
+  if (piece.prop === "queue") return <FitProp piece={piece} baseW={0.9} baseD={0.28}><QueueMesh /></FitProp>;
+  if (piece.prop === "atm") return <FitProp piece={piece} baseW={0.55} baseD={0.4}><AtmMesh /></FitProp>;
+  if (piece.prop === "notes") return <FitProp piece={piece} baseW={0.32} baseD={0.2}><NotesMesh /></FitProp>;
   return (
     <ToonBox
       position={[piece.x, piece.y, piece.z]}
