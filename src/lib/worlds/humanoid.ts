@@ -328,10 +328,41 @@ function nodesNamed(root: THREE.Object3D, name: string) {
   return found;
 }
 
+function garmentMesh(name: string) {
+  return (
+    name.startsWith("top_") ||
+    name.startsWith("bottom_") ||
+    name.startsWith("shoes_") ||
+    name.startsWith("hat_") ||
+    name === "jacket" ||
+    name === "hoodie" ||
+    name === "pants" ||
+    name === "shorts" ||
+    name === "skirt" ||
+    name === "base_briefs"
+  );
+}
+
 function tint(mesh: THREE.Mesh, color: string) {
   const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
   for (const material of list) {
     if (material && "color" in material && material.color instanceof THREE.Color) material.color.set(color);
+  }
+}
+
+/** Knit stays solid at office and creator camera distances. */
+function sealGarment(mesh: THREE.Mesh) {
+  const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  for (const material of list) {
+    if (!material) continue;
+    material.transparent = false;
+    material.opacity = 1;
+    material.depthWrite = true;
+    material.alphaTest = 0;
+    material.polygonOffset = true;
+    material.polygonOffsetFactor = -4;
+    material.polygonOffsetUnits = -4;
+    material.needsUpdate = true;
   }
 }
 
@@ -419,6 +450,7 @@ export function bindHumanoid(source: THREE.Object3D, config: CharacterConfig): H
     const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     const cloned = list.map((material) => material.clone());
     mesh.material = cloned.length === 1 ? cloned[0]! : cloned;
+    if (garmentMesh(mesh.name)) sealGarment(mesh);
   });
   const skeleton = meshes[0]?.skeleton;
   if (skeleton) {

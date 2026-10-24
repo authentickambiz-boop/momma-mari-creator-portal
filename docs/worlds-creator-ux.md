@@ -4,9 +4,9 @@ The creator at `/worlds/create` (production mount `/portal/worlds/create`) edits
 
 ## Mesh
 
-The studio and the office both draw `CharacterFigure` from `public/worlds/humanoid.glb` (the full-body mesh on PR #210 after the crew-collar cleanup). Saving a look still writes version 1, and office You wears that same rig.
+The studio and the office both draw `CharacterFigure` from `public/worlds/humanoid.glb` (the full-body mesh on PR #210 after the crew-neck and chest cleanup). Saving a look still writes version 1, and office You wears that same rig.
 
-Arm QC passed for stand, walk, and sit with continuous arms. The #210 crew collar closes the earlier jagged collar. The studio uses that cleaned file.
+Arm QC passed for stand, walk, and sit with continuous arms. The #210 crew collar closes the earlier jagged collar. The chest knit stays opaque, so the tan skin panel does not show through the sweater. The studio uses that cleaned file.
 
 ## Gaps
 
