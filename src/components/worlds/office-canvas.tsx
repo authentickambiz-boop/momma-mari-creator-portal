@@ -1059,7 +1059,7 @@ function YouFashion({
       transform
       sprite
       position={[0, 0, 0]}
-      distanceFactor={16}
+      distanceFactor={3.2}
       zIndexRange={[12, 0]}
       style={{ pointerEvents: "none", transform: "translate(-50%, -100%)" }}
     >

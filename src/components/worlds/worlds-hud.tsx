@@ -122,7 +122,8 @@ export function WorldsHud({
                 if (!locked) onOpen(item.id);
               }}
             >
-              {locked ? <IconLock /> : <RailIcon id={item.id} />}
+              <span className="worlds-rail-glyph"><RailIcon id={item.id} /></span>
+              {locked ? <span className="worlds-lock" aria-hidden="true"><IconLock /></span> : null}
             </button>
           );
         })}

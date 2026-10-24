@@ -113,6 +113,8 @@ describe("Worlds HUD and follow camera", () => {
     assert.match(html, /aria-label="Tasks"/);
     assert.match(html, /aria-label="Settings"/);
     assert.match(html, /aria-label="Inventory, locked"/);
+    assert.match(html, /worlds-lock/);
+    assert.match(html, /worlds-rail-glyph/);
     assert.match(html, /worlds-rail/);
     assert.match(html, /worlds-quest/);
     const app = source("src/components/worlds/office-app.tsx");

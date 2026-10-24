@@ -420,95 +420,116 @@ body:has(.bot-office) .home-bar { display: none; }
 .worlds-hud button { pointer-events: auto; }
 .worlds-currencies {
   position: absolute;
-  top: calc(12px + env(safe-area-inset-top, 0px));
-  left: calc(12px + env(safe-area-inset-left, 0px));
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: calc(10px + env(safe-area-inset-left, 0px));
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 .worlds-money {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 48px;
-  padding: 4px 14px 4px 4px;
-  border: 0;
+  min-height: 44px;
+  padding: 3px 12px 3px 3px;
+  border: 3px solid #fff;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 8px 18px rgba(16, 40, 70, 0.18);
+  box-shadow: 0 4px 0 rgba(20, 48, 80, 0.22);
   color: #1c2430;
   font: inherit;
   cursor: pointer;
 }
 .worlds-money-icon {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   color: #fff;
   font-weight: 800;
-  font-size: 20px;
+  font-size: 18px;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
 }
 .worlds-money-icon.is-wallet { background: #2f9e57; }
 .worlds-money-icon.is-bank { background: #e2a31a; color: #3d2a04; }
-.worlds-money-copy { display: grid; text-align: left; line-height: 1.05; }
-.worlds-money-label { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #5c6b7a; }
-.worlds-money-value { font-size: 18px; font-weight: 800; }
+.worlds-money-copy { display: grid; text-align: left; line-height: 1; }
+.worlds-money-label { font-size: 10px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; color: #6a7b8c; }
+.worlds-money-value { font-size: 18px; font-weight: 900; letter-spacing: -0.03em; }
 .worlds-quest {
   position: absolute;
-  top: calc(14px + env(safe-area-inset-top, 0px));
+  top: calc(12px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
-  width: min(460px, calc(100vw - 280px));
-  min-height: 52px;
+  width: min(440px, calc(100vw - 280px));
+  min-height: 56px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 16px 8px 8px;
-  border: 4px solid #7ec8f8;
+  padding: 5px 18px 5px 5px;
+  border: 5px solid #49b7f5;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 8px 18px rgba(16, 40, 70, 0.16);
+  background: #fff;
+  box-shadow: 0 5px 0 rgba(24, 92, 150, 0.28), 0 12px 24px rgba(16, 40, 70, 0.16);
   color: #1c2430;
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 .worlds-quest-mark {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: #ffe08a;
-  color: #8a5a00;
-  font-weight: 800;
+  background: linear-gradient(#ffe56b, #f0b000);
+  color: #7a4a00;
+  font-weight: 900;
+  font-size: 22px;
   flex: none;
+  box-shadow: inset 0 -3px 0 rgba(160, 90, 0, 0.35);
 }
-.worlds-quest-copy { display: grid; min-width: 0; }
-.worlds-quest-kicker { color: #e0a106; font-size: 12px; font-weight: 900; letter-spacing: 0.04em; }
-.worlds-quest-text { color: #1d6fb8; font-size: 16px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.worlds-quest-copy { display: grid; min-width: 0; gap: 1px; }
+.worlds-quest-kicker { color: #f0a000; font-size: 13px; font-weight: 900; letter-spacing: 0.08em; }
+.worlds-quest-text { color: #1780d4; font-size: 18px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .worlds-rail {
   position: absolute;
-  top: calc(12px + env(safe-area-inset-top, 0px));
-  right: calc(12px + env(safe-area-inset-right, 0px));
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  right: calc(10px + env(safe-area-inset-right, 0px));
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 .worlds-rail button {
+  position: relative;
   width: 52px;
   height: 52px;
   padding: 0;
   border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, 0.92);
+  border: 3px solid #fff;
   background: #1b2430;
   color: #fff;
-  box-shadow: 0 8px 16px rgba(16, 40, 70, 0.22);
+  box-shadow: 0 4px 0 rgba(16, 40, 70, 0.28);
   cursor: pointer;
 }
-.worlds-rail button svg { width: 26px; height: 26px; display: block; margin: 0 auto; }
+.worlds-rail-glyph { display: grid; place-items: center; }
+.worlds-rail button svg { width: 26px; height: 26px; display: block; }
 .worlds-rail button.is-active { background: #1d6fb8; }
-.worlds-rail button.is-locked { background: #3d4654; color: #d5dde6; }
+.worlds-rail button.is-locked { background: #2a3544; }
+.worlds-rail button.is-locked .worlds-rail-glyph { opacity: 0.55; }
+.worlds-lock {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #ffd24a;
+  color: #3d2a04;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 0 rgba(16, 40, 70, 0.25);
+}
+.worlds-lock svg { width: 13px; height: 13px; }
 .worlds-rail button:focus-visible,
 .worlds-money:focus-visible,
 .worlds-quest:focus-visible,
@@ -523,7 +544,7 @@ body:has(.bot-office) .home-bar { display: none; }
   display: grid;
   place-items: center;
   padding: 24px 16px;
-  background: rgba(12, 28, 44, 0.28);
+  background: rgba(8, 20, 36, 0.28);
 }
 .worlds-backdrop.is-closed { display: none; }
 .worlds-backdrop .office-panel.office-sheet {
@@ -533,13 +554,43 @@ body:has(.bot-office) .home-bar { display: none; }
   top: auto;
   bottom: auto;
   transform: none;
-  width: min(520px, 100%);
+  width: min(480px, 100%);
   max-height: min(78vh, 680px);
   margin: 0;
-  border: 6px solid #3aa0e8;
+  padding: 16px 16px 14px;
+  border: 6px solid #3ec0ff;
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 18px 50px rgba(16, 40, 70, 0.28);
+  box-shadow: 0 8px 0 rgba(20, 80, 130, 0.22), 0 22px 48px rgba(16, 40, 70, 0.28);
+  color: #16324a;
+}
+.worlds-backdrop .office-row { position: relative; min-height: 48px; margin-bottom: 8px; }
+.worlds-backdrop .office-panel h2 {
+  flex: 1;
+  margin: 0;
+  padding-left: 48px;
+  text-align: center;
+  color: #1780d4;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+.worlds-backdrop .office-kicker { color: #3d6f90; font-weight: 700; }
+.worlds-backdrop .office-actions button,
+.worlds-backdrop .office-layers button,
+.worlds-backdrop .office-chips button {
+  border: 3px solid #9fd6f5;
+  border-radius: 999px;
+  background: #fff;
+  color: #176eab;
+  font-weight: 800;
+}
+.worlds-backdrop .office-actions button[aria-pressed="true"],
+.worlds-backdrop .office-layers button[aria-pressed="true"],
+.worlds-backdrop .office-chips button[aria-pressed="true"] {
+  background: #2fbe57;
+  border-color: #1c8d3c;
+  color: #fff;
 }
 .worlds-backdrop .office-minimap,
 .worlds-backdrop .office-nav {
@@ -551,21 +602,26 @@ body:has(.bot-office) .home-bar { display: none; }
 }
 .worlds-backdrop .office-minimap { width: 100%; height: 140px; margin-top: 8px; }
 .worlds-backdrop .office-close {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
-  background: #ff4b4b;
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  border-radius: 14px;
+  background: #ff3b3b;
   color: #fff;
-  font-size: 32px;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 0 #c41818;
+  font-size: 30px;
+  font-weight: 800;
   line-height: 1;
 }
 .worlds-section {
   margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: #e8f6ff;
+  padding: 12px 12px 10px;
+  border-radius: 18px;
+  background: #e7f6ff;
+  border: 3px solid #b7e4ff;
 }
-.worlds-section h3 { margin: 0 0 8px; color: #1d6fb8; font-size: 15px; }
+.worlds-section h3 { margin: 0 0 8px; color: #1780d4; font-size: 16px; font-weight: 900; }
 .worlds-slider { width: 100%; accent-color: #3ecf6e; min-height: 44px; }
 .worlds-table { width: 100%; border-collapse: collapse; }
 .worlds-table th { text-align: left; font-size: 13px; color: #5c6b7a; padding: 6px 4px; border-bottom: 1px solid #d5e3ee; }
