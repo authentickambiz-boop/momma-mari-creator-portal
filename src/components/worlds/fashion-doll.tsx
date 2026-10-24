@@ -491,15 +491,18 @@ export function FashionDoll({
   view,
   emote = "idle",
   forceDoll = false,
+  forceGlam = false,
 }: {
   config: CharacterConfig;
   view: FashionView;
   emote?: FashionEmote;
-  /** Preview figure. Skips the locked glam portrait so the sheet and the dresser share this doll. */
+  /** Plain paper doll. The creator sheet does not use this for its hero. */
   forceDoll?: boolean;
+  /** Locked glam portrait, including while a wardrobe piece is only a preview. */
+  forceGlam?: boolean;
 }) {
   const gid = useId().replace(/:/g, "");
-  if (!forceDoll && isGlamSilhouette(config)) {
+  if (forceGlam || (!forceDoll && isGlamSilhouette(config))) {
     return <GlamPortrait config={config} view={view} emote={emote} />;
   }
   const paint = paints(config);

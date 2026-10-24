@@ -28,7 +28,7 @@ import {
 } from "@/lib/worlds/character";
 import { GAME_CATALOG } from "@/lib/worlds/game-wallet";
 import { CharacterStage } from "./character-stage";
-import { FashionDoll } from "./fashion-doll";
+import { FashionDoll, type FashionView } from "./fashion-doll";
 import "./character.css";
 
 const CATEGORIES = [
@@ -659,7 +659,9 @@ export function CharacterCreator({
         {arm ? (
           <div className="character-preview" role="region" aria-label="Item preview">
             <div className="character-preview-stage">
-              <FashionDoll config={arm.onCharacter} view="front" emote="idle" forceDoll />
+              {(["front", "side", "back", "profile"] as FashionView[]).map((view) => (
+                <FashionDoll key={view} config={arm.onCharacter} view={view} emote="idle" forceGlam />
+              ))}
             </div>
             <div className="character-preview-copy">
               <p className="character-kicker">Preview</p>

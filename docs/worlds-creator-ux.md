@@ -8,7 +8,7 @@ Player-facing avatars are a layered 2D fashion paper doll (`FashionDoll`). The c
 
 Office bots still use `CharacterFigure` and `public/worlds/humanoid.glb`. The player default is the paper doll.
 
-A new owner look is the locked glam portrait: long plum hair, no headwear, a fitted pink blouse, a teal pencil skirt, and pink heeled boots. Earrings and the pendant are painted into that portrait. Hair, blouse, skirt, boots, and skin colors tint the matching region. A different piece (headphones, a bag, another haircut) falls back to the simpler paper doll so the choice still shows. Shop items stay locked.
+A new owner look is the locked glam portrait: long plum hair, no headwear, a fitted pink blouse, a teal pencil skirt, and pink heeled boots. Earrings and the pendant are painted into that portrait. Hair, blouse, skirt, boots, and skin colors tint the matching region. A different piece (headphones, a bag, another haircut) stays on that locked portrait in the creator. Office You falls back to the simpler paper doll so the saved choice still shows there. Shop items stay locked.
 
 ## Gaps
 
@@ -23,4 +23,4 @@ The preview is a two-by-two sheet on neutral light gray `#e6e6e6`: front, side, 
 
 On a narrow viewport the picker is a bottom sheet. The concept sheet sits in the band above it. Tapping the sheet scrim hides the picker.
 
-The selection panel is a dresser: category pills, item chips, grouped color swatches, and a sticky footer with Randomize, Reset, and Save look. Hover or a first tap previews that piece on the dresser and on the concept sheet. Both draw the same fashion figure in that outfit. Apply, or a second tap, keeps it. Cancel, or moving off a hover, puts the character back on the worn look. A tap holds the preview until Apply, Cancel, or another category. Shop pieces can be previewed and stay locked. Shop prices use a Kash mark that is a K crossed by a horizontal line.
+The selection panel is a dresser: category pills, item chips, grouped color swatches, and a sticky footer with Randomize, Reset, and Save look. Hover or a first tap previews that piece on the dresser and on the concept sheet. Both keep the locked glam portrait, front, side, back, and profile. Apply, or a second tap, keeps it. Cancel, or moving off a hover, puts the character back on the worn look. A tap holds the preview until Apply, Cancel, or another category. Shop pieces can be previewed and stay locked. Shop prices use a Kash mark that is a K crossed by a horizontal line.

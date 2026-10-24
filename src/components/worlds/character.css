@@ -536,12 +536,20 @@
   background: #fff;
 }
 .character-preview-stage {
-  width: 92px;
-  height: 200px;
+  width: 168px;
+  height: 196px;
   flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
   overflow: hidden;
   border-radius: 12px;
   background: #e6e6e6;
+}
+.character-preview-stage .fashion-glam-frame {
+  min-width: 0;
+  min-height: 0;
 }
 .character-preview-copy {
   flex: 1 1 auto;
@@ -680,8 +688,8 @@
     border-radius: 22px;
   }
   .character-preview-stage {
-    width: 64px;
-    height: 140px;
+    width: 112px;
+    height: 132px;
   }
   .character-sheet-bar,
   .character-emotes,

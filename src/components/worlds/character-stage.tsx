@@ -144,7 +144,7 @@ export function CharacterStage({
             const before = compare && item.id === "profile";
             return (
               <figure key={item.id} data-view={item.id}>
-                <FashionDoll config={before ? baseline : config} view={item.id} emote={pose} forceDoll={Boolean(previewName) && !before} />
+                <FashionDoll config={before ? baseline : config} view={item.id} emote={pose} forceGlam />
                 <figcaption>{before ? "Profile · Before" : previewName ? `${item.label} · Preview` : compare && item.id === "front" ? "Front · After" : item.label}</figcaption>
               </figure>
             );
