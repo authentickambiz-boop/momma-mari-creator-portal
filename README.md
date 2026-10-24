@@ -687,7 +687,7 @@ curl -sS -X POST \
 
 ## Worlds City task QC
 
-`/worlds/city` stays off unless `WORLDS_CITY` is exactly `true`, and it stays owner-only. `npm run worlds:qc` scores every city task on a throwaway session. `LIVE_SOCIAL_ACTIONS` and `LIVE_EMAIL_SEND` stay false, so the run does not post or send email. Per-building JSON and markdown reports are written to `src/lib/worlds/city/qc-reports/`. The map and the task rules are in `src/lib/worlds/city/README.md`.
+`/worlds/city` stays off unless `WORLDS_CITY` is exactly `true`, and it stays owner-only. `npm run worlds:qc` scores every city task on a throwaway session. `npm run worlds:smoke` opens each building panel in a browser as the owner. `LIVE_SOCIAL_ACTIONS` and `LIVE_EMAIL_SEND` stay false, so the run does not post or send email. Per-building JSON and markdown reports are written to `src/lib/worlds/city/qc-reports/`. The map and the task rules are in `src/lib/worlds/city/README.md`. The shop matrix, Studio through Mansion, is `tests/worlds-city-shop.test.ts`.
 
 <!-- worlds-qc:start -->
 `npm run worlds:qc` prints this table. `LIVE_SOCIAL_ACTIONS` and `LIVE_EMAIL_SEND` stay false. Nothing is posted or emailed.

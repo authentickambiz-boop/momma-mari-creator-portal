@@ -1,3 +1,12 @@
+.city-smoke-note {
+  position: absolute;
+  z-index: 4;
+  left: 12px;
+  bottom: 12px;
+  margin: 0;
+  color: #fbf8f3;
+  font-size: 14px;
+}
 .city-map-anchor {
   position: absolute;
   z-index: 5;

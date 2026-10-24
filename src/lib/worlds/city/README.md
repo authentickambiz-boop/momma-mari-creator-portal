@@ -12,6 +12,8 @@ Quality runs in order: an auto check, then a peer or bot score, then an owner ga
 
 `src/lib/worlds/city/practice.ts` is the owner practice harness. `runPracticeTask` and `runPracticeLocation` run Social club, Library, and Call center tasks on a throwaway owner session with a mocked note, the real quality checks, and a Kash payout. The harness does not post or send. `tests/worlds-city.test.ts` runs that harness for every task in those three buildings, and once more for every city task, before this draft is a public release. `WORLDS_CITY` defaults off. The route still requires the owner.
 
+`npm run worlds:smoke` opens `/worlds/city/smoke` in Playwright as the owner and checks every building panel: the task list and a **Submit in the city** button, or the shop's **Buy with Kash** button when the building has no scored tasks. That page 404s unless `WORLDS_CITY` and `WORLDS_CITY_SMOKE` are both exactly `true`. It is not a login return path. `tests/worlds-city-shop.test.ts` walks Studio, Apartment, House, Creator loft, and Mansion against every clothing and furniture item.
+
 `npm run worlds:qc` runs that harness for every building. Each task has to pass the auto check, the peer or bot score path, the owner gate when the work is external, `sent: false`, the Kash payout, and the daily cap. The command prints a pass/fail table and writes `src/lib/worlds/city/qc-reports/<building>.json` and `.md`. Spam comments are rejected, NSFW notes are blocked, an apartment cannot buy a yard item, a non-owner cannot enter the office, and an office roster bot cannot leave HQ. `LIVE_SOCIAL_ACTIONS` and `LIVE_EMAIL_SEND` stay false.
 
 ## Task QC

@@ -55,9 +55,12 @@ test("the city flag defaults off and the route stays owner-only", () => {
 
   assert.equal(isBotOfficePath("/worlds/city"), true);
   assert.equal(isBotOfficePath("/portal/worlds/city", "/portal"), true);
+  assert.equal(isBotOfficePath("/worlds/city/smoke"), true);
+  assert.equal(isBotOfficePath("/portal/worlds/city/smoke", "/portal"), true);
   assert.equal(isBotOfficePath("/worlds/extra"), false);
   assert.equal(worldsReturnPath("/worlds/city"), "/worlds/city");
   assert.equal(worldsReturnPath("/portal/worlds/city"), "/worlds/city");
+  assert.equal(worldsReturnPath("/worlds/city/smoke"), null);
   assert.equal(worldsReturnPath("/worlds/extra"), null);
 
   const page = source("src/app/worlds/city/page.tsx");
