@@ -16,6 +16,8 @@ import { OWNER_LOOK_SEED, defaultCharacter, nameTagFrame, type CharacterConfig, 
 import { CharacterFigure } from "./character-figure";
 import "./character.css";
 import { FashionDoll, type FashionEmote } from "./fashion-doll";
+import { OfficeGlamPlate } from "./fashion-figure";
+import { isLockedGlam } from "@/lib/worlds/fashion-glam-lock";
 import {
   desiredFollowPose,
   followOrbitBehind,
@@ -1049,10 +1051,13 @@ function YouFashion({
   poseRef: RefObject<CharacterPose | null>;
 }) {
   const [emote, setEmote] = useState<FashionEmote>("idle");
-  useFrame(() => {
+  const [step, setStep] = useState(0);
+  useFrame(({ clock }) => {
     const pose = poseRef.current;
     const next: FashionEmote = pose?.wave ? "wave" : pose?.moving ? "walk" : pose?.seated ? "sit" : "idle";
+    const nextStep = next === "walk" ? Math.floor(clock.elapsedTime * 6) % 8 : 0;
     setEmote((current) => (current === next ? current : next));
+    setStep((current) => (current === nextStep ? current : nextStep));
   });
   return (
     <Html
@@ -1064,7 +1069,7 @@ function YouFashion({
       style={{ pointerEvents: "none", transform: "translate(-50%, -100%)" }}
     >
       <div className="fashion-office" style={{ width: 140, height: 272 }}>
-        <FashionDoll config={look} view="front" emote={emote} />
+        {isLockedGlam(look) ? <OfficeGlamPlate config={look} emote={emote} step={step} /> : <FashionDoll config={look} view="front" emote={emote} />}
       </div>
     </Html>
   );

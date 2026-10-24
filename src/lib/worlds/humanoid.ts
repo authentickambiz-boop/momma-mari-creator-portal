@@ -3,6 +3,8 @@
  * public/worlds/humanoid.glb from CC0 MakeHuman assets, with Quaternius CC0
  * motion retargeted onto that skeleton. See humanoid-license.md.
  * Saved looks stay on character version 1; item ids map onto those parts.
+ * Roster bots in the office still wear this mesh. The player stays the fashion
+ * billboard unless NEXT_PUBLIC_WORLDS_HUMANOID=true.
  */
 
 import * as THREE from "three";
