@@ -7,7 +7,7 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import type { BotStatus } from "@/lib/worlds/office-catalog";
 import { OWNER_ACTOR_ID, type OfficeLayout, type OfficeRoom, type OfficeSection } from "@/lib/worlds/office-layout";
-import { deskFacing, isSeated, yawToward, type OfficeSimStore } from "@/lib/worlds/office-sim";
+import { deskFacing, isSeated, stepOwner, yawToward, type OfficeSimStore } from "@/lib/worlds/office-sim";
 import { boardStations, type OfficeKey } from "@/lib/worlds/office-state";
 import { vaultPilePlan } from "@/lib/worlds/office-wallets";
 import { fogDistances, skyColor, sunPosition, type OfficeWeather } from "@/lib/worlds/office-weather";
@@ -16,7 +16,16 @@ import { OWNER_LOOK_SEED, defaultCharacter, nameTagFrame, type CharacterConfig, 
 import { CharacterFigure } from "./character-figure";
 import "./character.css";
 import { FashionDoll, type FashionEmote } from "./fashion-doll";
-import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, zoomOffset, type Stick } from "@/lib/worlds/office-move";
+import {
+  desiredFollowPose,
+  followOrbitBehind,
+  orbitFollow,
+  smoothFollowValue,
+  zoomFollowDistance,
+  type CameraMode,
+  type FollowOrbit,
+} from "@/lib/worlds/follow-camera";
+import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, PLAYER_WALK_SPEED, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, zoomOffset, type Stick } from "@/lib/worlds/office-move";
 import { OfficeSite } from "./office-grounds";
 
 export type BoardPanel = "calendar" | "todos" | "notes";
@@ -1074,6 +1083,7 @@ function Robot({
   onSelect,
   layout,
   sim,
+  hideClicks = false,
 }: {
   id: string;
   name: string;
@@ -1086,6 +1096,7 @@ function Robot({
   onSelect: (id: string) => void;
   layout: OfficeLayout;
   sim: OfficeSimStore;
+  hideClicks?: boolean;
 }) {
   const canOpen = useContext(TapContext);
   const root = useRef<THREE.Group>(null);
@@ -1093,12 +1104,16 @@ function Robot({
   const ring = useRef<THREE.Mesh>(null);
   const poseRef = useRef<CharacterPose | null>({ phase: 0, moving: false, seated: false });
   const home = layout.homes[id];
+  const live = sim.state.bots[id];
+  const spawnX = live?.x ?? home?.x ?? 0;
+  const spawnZ = live?.z ?? home?.z ?? 0;
   useFrame(({ camera }) => {
     const bot = sim.state.bots[id];
     if (!bot || !root.current) return;
     root.current.position.set(bot.x, 0, bot.z);
-    const moving = bot.path.length > 0;
-    root.current.rotation.y = moving
+    const moving = bot.path.length > 0 || bot.act === "Walking";
+    const owner = id === OWNER_ACTOR_ID;
+    root.current.rotation.y = moving || owner
       ? bot.yaw
       : yawToward({ x: bot.x, z: bot.z }, { x: camera.position.x, z: camera.position.z });
     const seated = isSeated(bot, layout.homes[id]);
@@ -1109,7 +1124,7 @@ function Robot({
   return (
     <group
       ref={root}
-      position={[home?.x ?? 0, 0, home?.z ?? 0]}
+      position={[spawnX, 0, spawnZ]}
       userData={{ short }}
       {...pointerCursor}
       onClick={(event) => { event.stopPropagation(); if (canOpen()) onSelect(id); }}
@@ -1118,11 +1133,11 @@ function Robot({
         <capsuleGeometry args={[BOT_CAPSULE_RADIUS, BOT_CAPSULE_LENGTH, 4, 8]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
-      <mesh name="bot-hover" position={BOT_CAPSULE_CENTER} visible={hot}>
+      <mesh name="bot-hover" position={BOT_CAPSULE_CENTER} visible={hot && !hideClicks}>
         <capsuleGeometry args={[BOT_CAPSULE_RADIUS, BOT_CAPSULE_LENGTH, 5, 10]} />
         <meshBasicMaterial color="#f2c14e" transparent opacity={0.22} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
-      <mesh name="bot-hover-ring" visible={hot} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.07, 0]}>
+      <mesh name="bot-hover-ring" visible={hot && !hideClicks} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.07, 0]}>
         <ringGeometry args={[BOT_CAPSULE_RADIUS * 0.72, BOT_CAPSULE_RADIUS * 0.9, 40]} />
         <meshBasicMaterial color="#f2c14e" depthTest={false} />
       </mesh>
@@ -1547,6 +1562,301 @@ function CameraGuard({
   return null;
 }
 
+const MOVE_KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+
+function typingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable;
+}
+
+/** Smooth follow. Orbit and zoom edit the orbit ref; this only chases the character. */
+function FollowRig({
+  sim,
+  orbitRef,
+}: {
+  sim: OfficeSimStore;
+  orbitRef: React.MutableRefObject<FollowOrbit>;
+}) {
+  const camera = useThree((state) => state.camera);
+  const focus = useRef<{ x: number; z: number } | null>(null);
+  const primed = useRef(false);
+  useLayoutEffect(() => {
+    const bot = sim.state.bots[OWNER_ACTOR_ID];
+    if (!bot) return;
+    if (!primed.current) {
+      orbitRef.current = followOrbitBehind(bot.yaw);
+      primed.current = true;
+    }
+    focus.current = { x: bot.x, z: bot.z };
+    const pose = desiredFollowPose(focus.current, orbitRef.current);
+    camera.position.set(pose.position.x, pose.position.y, pose.position.z);
+    camera.lookAt(pose.target.x, pose.target.y, pose.target.z);
+  }, [camera, sim, orbitRef]);
+  useFrame((_, dt) => {
+    const bot = sim.state.bots[OWNER_ACTOR_ID];
+    if (!bot) return;
+    const prev = focus.current ?? { x: bot.x, z: bot.z };
+    const next = {
+      x: smoothFollowValue(prev.x, bot.x, dt),
+      z: smoothFollowValue(prev.z, bot.z, dt),
+    };
+    focus.current = next;
+    const pose = desiredFollowPose(next, orbitRef.current);
+    camera.position.set(pose.position.x, pose.position.y, pose.position.z);
+    camera.lookAt(pose.target.x, pose.target.y, pose.target.z);
+  });
+  return null;
+}
+
+function FollowGestures({
+  orbitRef,
+  gesture,
+}: {
+  orbitRef: React.MutableRefObject<FollowOrbit>;
+  gesture: React.MutableRefObject<MapGesture>;
+}) {
+  const gl = useThree((state) => state.gl);
+  useEffect(() => {
+    const el = gl.domElement;
+    const pointers = new Map<number, { x: number; y: number }>();
+    let pinch = 0;
+    let midX = 0;
+    let midY = 0;
+    let mouseId = -1;
+    let mouseButton = -1;
+    let startX = 0;
+    let startY = 0;
+    let lastX = 0;
+    let lastY = 0;
+    let dragging = false;
+
+    function viewHeight() {
+      return el.getBoundingClientRect().height || el.clientHeight || 1;
+    }
+
+    function onDown(event: PointerEvent) {
+      if (event.pointerType === "touch") {
+        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (pointers.size === 2) {
+          const pts = [...pointers.values()];
+          const a = pts[0];
+          const b = pts[1];
+          if (!a || !b) return;
+          pinch = Math.hypot(a.x - b.x, a.y - b.y);
+          midX = (a.x + b.x) / 2;
+          midY = (a.y + b.y) / 2;
+          gesture.current.dragged = true;
+        }
+        return;
+      }
+      if (event.button !== 0 && event.button !== 2) return;
+      mouseId = event.pointerId;
+      mouseButton = event.button;
+      startX = lastX = event.clientX;
+      startY = lastY = event.clientY;
+      dragging = false;
+    }
+
+    function onMove(event: PointerEvent) {
+      if (event.pointerType === "touch") {
+        if (!pointers.has(event.pointerId)) return;
+        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (pointers.size < 2) return;
+        const pts = [...pointers.values()];
+        const a = pts[0];
+        const b = pts[1];
+        if (!a || !b) return;
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        if (pinch > 0 && dist > 0) {
+          orbitRef.current = {
+            ...orbitRef.current,
+            distance: zoomFollowDistance(orbitRef.current.distance, pinch / dist),
+          };
+        }
+        orbitRef.current = orbitFollow(orbitRef.current, mx - midX, my - midY, viewHeight());
+        pinch = dist;
+        midX = mx;
+        midY = my;
+        gesture.current.dragged = true;
+        return;
+      }
+      if (event.pointerId !== mouseId) return;
+      const dx = event.clientX - lastX;
+      const dy = event.clientY - lastY;
+      if (!dragging) {
+        if (Math.hypot(event.clientX - startX, event.clientY - startY) <= PAN_DRAG_PX) return;
+        dragging = true;
+        gesture.current.dragged = true;
+      }
+      if (mouseButton === 0 || mouseButton === 2) {
+        orbitRef.current = orbitFollow(orbitRef.current, dx, dy, viewHeight());
+      }
+      lastX = event.clientX;
+      lastY = event.clientY;
+    }
+
+    function onUp(event: PointerEvent) {
+      pointers.delete(event.pointerId);
+      if (pointers.size < 2) pinch = 0;
+      if (event.pointerId === mouseId) {
+        mouseId = -1;
+        dragging = false;
+      }
+    }
+
+    function onWheel(event: WheelEvent) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const factor = wheelZoomFactor(event.deltaY, event.deltaMode);
+      if (factor === 1) return;
+      orbitRef.current = {
+        ...orbitRef.current,
+        distance: zoomFollowDistance(orbitRef.current.distance, factor),
+      };
+    }
+
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
+    el.addEventListener("wheel", onWheel, { capture: true, passive: false });
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+      el.removeEventListener("wheel", onWheel, { capture: true });
+    };
+  }, [gl, orbitRef, gesture]);
+  return null;
+}
+
+function PlayerDriver({
+  stickRef,
+  sim,
+  layout,
+  enabled,
+}: {
+  stickRef: React.MutableRefObject<Stick>;
+  sim: OfficeSimStore;
+  layout: OfficeLayout;
+  enabled: boolean;
+}) {
+  const keys = useRef<Stick>({ x: 0, y: 0 });
+  const camera = useThree((state) => state.camera);
+  useEffect(() => {
+    if (!enabled) {
+      keys.current = { x: 0, y: 0 };
+      return;
+    }
+    const down = new Set<string>();
+    function sync() {
+      let x = 0;
+      let y = 0;
+      if (down.has("KeyA") || down.has("ArrowLeft")) x -= 1;
+      if (down.has("KeyD") || down.has("ArrowRight")) x += 1;
+      if (down.has("KeyW") || down.has("ArrowUp")) y += 1;
+      if (down.has("KeyS") || down.has("ArrowDown")) y -= 1;
+      const len = Math.hypot(x, y);
+      keys.current = len > 0 ? { x: x / len, y: y / len } : { x: 0, y: 0 };
+    }
+    function onDown(event: KeyboardEvent) {
+      if (typingTarget(event.target) || !MOVE_KEYS.has(event.code)) return;
+      event.preventDefault();
+      down.add(event.code);
+      sync();
+    }
+    function onUp(event: KeyboardEvent) {
+      if (!down.has(event.code)) return;
+      down.delete(event.code);
+      sync();
+    }
+    function onBlur() {
+      down.clear();
+      sync();
+    }
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+      window.removeEventListener("blur", onBlur);
+      keys.current = { x: 0, y: 0 };
+    };
+  }, [enabled]);
+  useFrame((_, dt) => {
+    const bot = sim.state.bots[OWNER_ACTOR_ID];
+    if (!bot) return;
+    if (!enabled) {
+      if (bot.act === "Walking") bot.act = "";
+      return;
+    }
+    const stick = stickRef.current;
+    const key = keys.current;
+    const input = key.x !== 0 || key.y !== 0 ? key : stick;
+    if (input.x === 0 && input.y === 0) {
+      if (bot.act === "Walking") bot.act = "";
+      return;
+    }
+    const step = Math.min(Math.max(dt, 0), 0.05);
+    const delta = moveDelta(input, camera.position.x - bot.x, camera.position.z - bot.z, step, PLAYER_WALK_SPEED);
+    stepOwner(bot, layout, delta);
+  });
+  return null;
+}
+
+function CameraBridge({
+  cameraMode,
+  cameraApiRef,
+  controls,
+  home,
+  orbitRef,
+  sim,
+}: {
+  cameraMode: CameraMode;
+  cameraApiRef: React.MutableRefObject<OfficeCameraApi | null>;
+  controls: React.RefObject<OrbitControlsType | null>;
+  home: ReturnType<typeof mapHome>;
+  orbitRef: React.MutableRefObject<FollowOrbit>;
+  sim: OfficeSimStore;
+}) {
+  useLayoutEffect(() => {
+    cameraApiRef.current = {
+      reset() {
+        if (cameraMode === "follow") {
+          const bot = sim.state.bots[OWNER_ACTOR_ID];
+          orbitRef.current = followOrbitBehind(bot?.yaw ?? 0);
+          return;
+        }
+        const orbit = controls.current;
+        if (!orbit) return;
+        orbit.object.position.copy(home.position);
+        orbit.target.copy(home.target);
+        orbit.update();
+      },
+      zoomBy(factor) {
+        if (cameraMode === "follow") {
+          orbitRef.current = {
+            ...orbitRef.current,
+            distance: zoomFollowDistance(orbitRef.current.distance, factor),
+          };
+          return;
+        }
+        const orbit = controls.current;
+        if (!orbit) return;
+        applyDistanceZoom(orbit, home.aim, factor);
+      },
+    };
+    return () => {
+      cameraApiRef.current = null;
+    };
+  }, [cameraApiRef, cameraMode, controls, home, orbitRef, sim]);
+  return null;
+}
+
 function Scene({
   layout,
   sections,
@@ -1570,6 +1880,9 @@ function Scene({
   stickRef,
   gesture,
   detailed,
+  cameraMode,
+  drivePlayer,
+  hideClicks,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1593,32 +1906,18 @@ function Scene({
   stickRef: React.MutableRefObject<Stick>;
   gesture: React.MutableRefObject<MapGesture>;
   detailed: boolean;
+  cameraMode: CameraMode;
+  drivePlayer: boolean;
+  hideClicks: boolean;
 }) {
   const mats = useOfficeMaterials(layout);
   const controls = useRef<OrbitControlsType>(null);
+  const orbitRef = useRef<FollowOrbit>(followOrbitBehind(0));
   const [hotId, setHotId] = useState<string | null>(null);
   const sky = skyColor(weather);
   const fog = fogDistances(weather);
   const home = useMemo(() => mapHome(layout), [layout]);
-  useLayoutEffect(() => {
-    cameraApiRef.current = {
-      reset() {
-        const orbit = controls.current;
-        if (!orbit) return;
-        orbit.object.position.copy(home.position);
-        orbit.target.copy(home.target);
-        orbit.update();
-      },
-      zoomBy(factor) {
-        const orbit = controls.current;
-        if (!orbit) return;
-        applyDistanceZoom(orbit, home.aim, factor);
-      },
-    };
-    return () => {
-      cameraApiRef.current = null;
-    };
-  }, [cameraApiRef, home]);
+  const follow = cameraMode === "follow";
   return (
     <>
       <color attach="background" args={[sky]} />
@@ -1648,6 +1947,7 @@ function Scene({
           onSelect={onSelect}
           layout={layout}
           sim={sim}
+          hideClicks={hideClicks}
         />
       )) : null}
       </MatsContext.Provider>
@@ -1661,10 +1961,21 @@ function Scene({
         onSelect={onSelect}
         onHover={setHotId}
       />
-      <MapGestures controls={controls} layout={layout} gesture={gesture} />
-      <StickMover stickRef={stickRef} controls={controls} layout={layout} />
-      <CameraGuard controls={controls} layout={layout} />
-      <MapControls
+      {follow ? (
+        <>
+          <FollowRig sim={sim} orbitRef={orbitRef} />
+          <FollowGestures orbitRef={orbitRef} gesture={gesture} />
+          <PlayerDriver stickRef={stickRef} sim={sim} layout={layout} enabled={drivePlayer} />
+        </>
+      ) : (
+        <>
+          <MapGestures controls={controls} layout={layout} gesture={gesture} />
+          <StickMover stickRef={stickRef} controls={controls} layout={layout} />
+          <CameraGuard controls={controls} layout={layout} />
+        </>
+      )}
+      <CameraBridge cameraMode={cameraMode} cameraApiRef={cameraApiRef} controls={controls} home={home} orbitRef={orbitRef} sim={sim} />
+      {follow ? null : <MapControls
         ref={controls}
         makeDefault
         enableDamping
@@ -1693,7 +2004,7 @@ function Scene({
           const orbit = controls.current;
           if (orbit) clampMapTarget(orbit, layout);
         }}
-      />
+      />}
     </>
   );
 }
@@ -1750,6 +2061,9 @@ export default function OfficeCanvas({
   layers,
   quality,
   stickRef,
+  cameraMode = "follow",
+  drivePlayer = true,
+  hideClicks = false,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1770,6 +2084,9 @@ export default function OfficeCanvas({
   layers: OfficeLayers;
   quality: OfficeQuality;
   stickRef: React.MutableRefObject<Stick>;
+  cameraMode?: CameraMode;
+  drivePlayer?: boolean;
+  hideClicks?: boolean;
 }) {
   const meetingRef = useRef(meeting);
   const botsRef = useRef(bots);
@@ -1821,6 +2138,17 @@ export default function OfficeCanvas({
     botsRef.current = bots;
   }, [meeting, bots]);
   const camera = useMemo(() => {
+    if (cameraMode === "follow") {
+      const bot = sim.state.bots[OWNER_ACTOR_ID];
+      const home = bot ?? layout.homes[OWNER_ACTOR_ID] ?? { x: layout.width / 2, z: layout.depth / 2 };
+      const pose = desiredFollowPose({ x: home.x, z: home.z }, followOrbitBehind(bot?.yaw ?? 0));
+      return {
+        position: [pose.position.x, pose.position.y, pose.position.z] as [number, number, number],
+        fov: OFFICE_FOV,
+        near: 0.1,
+        far: 800,
+      };
+    }
     const home = mapHome(layout);
     return {
       position: home.position.toArray() as [number, number, number],
@@ -1828,7 +2156,7 @@ export default function OfficeCanvas({
       near: 0.1,
       far: 800,
     };
-  }, [layout]);
+  }, [layout, cameraMode, sim]);
   if (failure) {
     return (
       <OfficeNotice
@@ -1917,6 +2245,9 @@ export default function OfficeCanvas({
         stickRef={stickRef}
         gesture={gesture}
         detailed={detailed}
+        cameraMode={cameraMode}
+        drivePlayer={drivePlayer}
+        hideClicks={hideClicks}
       />
     </Canvas>
     ) : null}

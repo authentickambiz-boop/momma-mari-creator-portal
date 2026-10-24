@@ -7,9 +7,11 @@ import { stickFromDrag, type Stick } from "@/lib/worlds/office-move";
 export function OfficeJoystick({
   stickRef,
   lifted,
+  label = "Move",
 }: {
   stickRef: React.MutableRefObject<Stick>;
   lifted: boolean;
+  label?: string;
 }) {
   const baseRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
@@ -47,7 +49,7 @@ export function OfficeJoystick({
         ref={baseRef}
         className="office-joystick-base"
         role="group"
-        aria-label="Move the camera"
+        aria-label={label}
         onPointerDown={(event) => {
           if (event.pointerType === "mouse" && event.button !== 0) return;
           event.preventDefault();

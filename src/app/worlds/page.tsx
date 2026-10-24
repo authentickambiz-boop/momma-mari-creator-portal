@@ -4,6 +4,7 @@ import { OfficeApp } from "@/components/worlds/office-app";
 import { isOwner } from "@/lib/authz";
 import { requireViewer } from "@/lib/current-user";
 import { canOpenCharacterCreator } from "@/lib/worlds/character";
+import { worldsCityEnabled } from "@/lib/worlds/follow-camera";
 
 export const dynamic = "force-dynamic";
 
@@ -15,5 +16,5 @@ export const metadata: Metadata = {
 export default async function WorldsPage() {
   const viewer = await requireViewer("/worlds");
   if (!isOwner(viewer)) notFound();
-  return <OfficeApp charactersEnabled={canOpenCharacterCreator(viewer)} />;
+  return <OfficeApp charactersEnabled={canOpenCharacterCreator(viewer)} place="office" cityEnabled={worldsCityEnabled()} />;
 }

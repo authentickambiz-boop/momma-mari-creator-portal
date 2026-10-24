@@ -27,6 +27,9 @@ export const PAN_DRAG_PX = 10;
 /** World units per second when the stick is pushed all the way. */
 export const STICK_SPEED = 12;
 
+/** Walk speed for the player's character. Slower than the map pan. */
+export const PLAYER_WALK_SPEED = 3.4;
+
 export function stickFromDrag(dx: number, dy: number, radius: number): Stick {
   if (!(radius > 0)) return { x: 0, y: 0 };
   const dist = Math.hypot(dx, dy);

@@ -83,6 +83,59 @@ export function createSimState(layout: OfficeLayout, botIds: string[]): SimState
   return { bots, tripTimer: 3.2, meetingKey: "", uiVersion: 0 };
 }
 
+/** Ground the player can walk. Includes the lawn around the building. */
+export function walkBounds(layout: { width: number; depth: number }) {
+  return {
+    minX: -8,
+    maxX: layout.width + 8,
+    minZ: -8,
+    maxZ: layout.depth + 22,
+  };
+}
+
+function clampWalk(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return (min + max) / 2;
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Move the owner's character. The sim does not path "you", so this is the
+ * only thing that walks them. A zero delta leaves them where they are.
+ */
+export function stepOwner(bot: SimBot, layout: { width: number; depth: number }, delta: { x: number; z: number }) {
+  if (!Number.isFinite(delta.x) || !Number.isFinite(delta.z)) return false;
+  if (delta.x === 0 && delta.z === 0) return false;
+  const bounds = walkBounds(layout);
+  const x = clampWalk(bot.x + delta.x, bounds.minX, bounds.maxX);
+  const z = clampWalk(bot.z + delta.z, bounds.minZ, bounds.maxZ);
+  const movedX = x - bot.x;
+  const movedZ = z - bot.z;
+  if (movedX === 0 && movedZ === 0) return false;
+  bot.x = x;
+  bot.z = z;
+  bot.path = [];
+  bot.plan = "home";
+  bot.wait = 0;
+  bot.act = "Walking";
+  bot.yaw = Math.atan2(movedX, movedZ);
+  bot.phase += Math.hypot(movedX, movedZ) * 4;
+  return true;
+}
+
+/** City spawn: on the lawn in front of the building, facing it. */
+export function placeOwnerOutdoors(state: SimState, layout: { width: number; depth: number }) {
+  const bot = state.bots[OWNER_ACTOR_ID];
+  if (!bot) return;
+  bot.x = layout.width / 2;
+  bot.z = layout.depth + 8;
+  bot.yaw = Math.PI;
+  bot.path = [];
+  bot.plan = "home";
+  bot.wait = 0;
+  bot.act = "";
+  bot.arrive = "";
+}
+
 export function isSeated(bot: SimBot, home: Vec | undefined) {
   if (!home || bot.path.length || bot.plan !== "home") return false;
   return Math.hypot(bot.x - home.x, bot.z - home.z) < 0.2;
