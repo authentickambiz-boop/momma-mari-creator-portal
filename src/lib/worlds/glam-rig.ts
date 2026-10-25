@@ -69,7 +69,7 @@ function gloss(color: string, extra: THREE.MeshPhysicalMaterialParameters = {}) 
   });
 }
 
-function latheLimb(name: string, radii: number[], length: number, surface: THREE.Material) {
+function latheLimb(name: string, radii: number[], length: number, surface: THREE.Material, capScale = 0.4) {
   const points = radii.map(
     (radius, index) => new THREE.Vector2(Math.max(0.008, radius), -length * (index / (radii.length - 1))),
   ).reverse();
@@ -80,7 +80,7 @@ function latheLimb(name: string, radii: number[], length: number, surface: THREE
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   joint.add(mesh);
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(radii[0] * 0.92, 18, 12), surface);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(radii[0] * capScale, 16, 10), surface);
   cap.castShadow = true;
   joint.add(cap);
   return joint;
@@ -174,31 +174,38 @@ function irisTexture() {
       const index = (y * size + x) * 4;
       if (dist > 1) continue;
       const angle = Math.atan2(v, u);
-      const fiber = 0.62 + 0.38 * Math.sin(angle * 18 + dist * 11) * Math.sin(angle * 7);
-      let red = 90;
-      let green = 42;
-      let blue = 78;
+      const fiber = 0.9 + 0.1 * Math.sin(angle * 4);
+      let red = 86;
+      let green = 34;
+      let blue = 72;
       if (dist < 0.2) {
-        red = 12;
-        green = 8;
-        blue = 16;
-      } else if (dist > 0.84) {
-        red = 28;
-        green = 12;
-        blue = 32;
+        red = 10;
+        green = 6;
+        blue = 14;
+      } else if (dist < 0.38) {
+        red = 118 * fiber;
+        green = 36;
+        blue = 86;
+      } else if (dist < 0.58) {
+        red = 156 * fiber;
+        green = 52;
+        blue = 104;
+      } else if (dist < 0.8) {
+        red = 96;
+        green = 34;
+        blue = 70;
       } else {
-        const tone = (dist - 0.2) / 0.64;
-        red = (92 + fiber * 70) * (1 - tone * 0.35);
-        green = (48 + fiber * 24) * (1 - tone * 0.4);
-        blue = (64 + fiber * 40) * (1 - tone * 0.2);
+        red = 24;
+        green = 10;
+        blue = 28;
       }
-      if (Math.hypot(u - 0.32, v - 0.28) < 0.1) {
+      if (Math.hypot(u - 0.24, v - 0.22) < 0.07) {
         red = 255;
-        green = 252;
+        green = 250;
         blue = 255;
       }
-      if (Math.hypot(u + 0.16, v + 0.08) < 0.045) {
-        red = 210;
+      if (Math.hypot(u + 0.18, v + 0.14) < 0.03) {
+        red = 214;
         green = 196;
         blue = 214;
       }
@@ -226,29 +233,29 @@ function fashionSkull() {
     let x = position.getX(i);
     let y = position.getY(i);
     let z = position.getZ(i);
-    x *= 0.7;
-    y = y * 1.26 - 0.02;
-    z *= 0.86;
-    if (y < -0.05) {
-      const taper = THREE.MathUtils.clamp((-0.05 - y) / 0.95, 0, 1);
-      x *= 1 - taper * 0.55;
-      z *= 1 - taper * 0.12;
+    x *= 0.76;
+    y *= 1.06;
+    z *= 0.9;
+    if (y < 0) {
+      const taper = THREE.MathUtils.clamp(-y / 1.06, 0, 1);
+      y = -Math.pow(taper, 1.35) * 0.55;
+      x *= 1 - taper * 0.16;
     }
-    const cheek = Math.exp(-((y - 0.02) ** 2) / 0.05) * Math.exp(-((Math.abs(x) - 0.34) ** 2) / 0.03);
-    if (z > -0.1) {
+    const cheek = Math.exp(-((y - 0.08) ** 2) / 0.04) * Math.exp(-((Math.abs(x) - 0.4) ** 2) / 0.035);
+    if (z > -0.05) {
       x += Math.sign(x || 1) * cheek * 0.1;
-      z += cheek * 0.06;
+      z += cheek * 0.045;
     }
-    const hollow = Math.exp(-((y + 0.22) ** 2) / 0.04) * Math.exp(-((Math.abs(x) - 0.28) ** 2) / 0.03);
-    if (z > 0) z -= hollow * 0.05;
-    if (y > 0.35 && y < 0.62 && z > 0.1) z += 0.045;
+    const hollow = Math.exp(-((y + 0.1) ** 2) / 0.028) * Math.exp(-((Math.abs(x) - 0.32) ** 2) / 0.02);
+    if (z > 0) z -= hollow * 0.04;
+    if (y > 0.32 && y < 0.55 && z > 0.05) z += 0.03;
     for (const side of [-1, 1]) {
-      const dx = x - side * 0.24;
-      const dy = y - 0.16;
-      const socket = dx * dx * 1.8 + dy * dy * 1.3;
-      if (socket < 0.05 && z > 0) z -= (0.05 - socket) * 1.35;
+      const dx = x - side * 0.28;
+      const dy = y - 0.12;
+      const socket = dx * dx * 2.1 + dy * dy * 1.5;
+      if (socket < 0.045 && z > 0) z -= (0.045 - socket) * 0.65;
     }
-    if (Math.abs(x) < 0.08 && y > -0.05 && y < 0.22 && z > 0.2) z += 0.04;
+    if (Math.abs(x) < 0.07 && y > -0.02 && y < 0.18 && z > 0.12) z += 0.035;
     position.setXYZ(i, x, y, z);
     const tone = skin.clone();
     if (cheek > 0.25 && z > 0) tone.lerp(blush, 0.55);
@@ -261,87 +268,78 @@ function fashionSkull() {
   }
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   geometry.computeVertexNormals();
-  geometry.scale(0.086, 0.086, 0.086);
+  geometry.scale(0.074, 0.074, 0.074);
   return geometry;
 }
 
 function eye(side: number, irisMap: THREE.Texture, skinMat: THREE.Material, linerMat: THREE.Material, browMat: THREE.Material) {
   const root = new THREE.Group();
   root.name = side < 0 ? "eyeL" : "eyeR";
-  root.position.set(side * 0.028, 0.01, 0.07);
-  root.rotation.z = side * -0.26;
+  root.position.set(side * 0.022, 0.006, 0.066);
+  root.rotation.z = side * -0.16;
 
-  const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.016, 24, 16), material("#fffaf8", { roughness: 0.22 }));
-  sclera.scale.set(1.75, 0.95, 0.55);
+  const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.011, 24, 16), material("#fffaf8", { roughness: 0.24 }));
+  sclera.scale.set(2.05, 0.58, 0.4);
   root.add(sclera);
 
-  const irisMat = gloss("#ffffff", { map: irisMap, roughness: 0.18, metalness: 0.04, clearcoat: 0.55, clearcoatRoughness: 0.2 });
-  const iris = new THREE.Mesh(new THREE.CircleGeometry(0.011, 36), irisMat);
+  const irisMat = gloss("#ffffff", { map: irisMap, roughness: 0.2, metalness: 0.02, clearcoat: 0.45, clearcoatRoughness: 0.22 });
+  const iris = new THREE.Mesh(new THREE.CircleGeometry(0.0084, 36), irisMat);
   iris.name = "iris";
-  iris.position.z = 0.009;
-  iris.scale.y = 1.05;
+  iris.position.z = 0.0046;
+  iris.scale.y = 0.92;
   root.add(iris);
 
-  const catchlight = new THREE.Mesh(new THREE.CircleGeometry(0.0018, 10), new THREE.MeshBasicMaterial({ color: "#ffffff" }));
-  catchlight.position.set(side * -0.003, 0.0032, 0.0082);
+  const catchlight = new THREE.Mesh(new THREE.CircleGeometry(0.0013, 8), new THREE.MeshBasicMaterial({ color: "#ffffff" }));
+  catchlight.position.set(-0.0022, 0.0018, 0.0054);
   root.add(catchlight);
 
-  const lid = new THREE.Mesh(new THREE.SphereGeometry(0.0165, 18, 12), skinMat);
-  lid.scale.set(1.7, 0.32, 0.34);
-  lid.position.set(0, 0.011, 0.001);
+  const lid = new THREE.Mesh(new THREE.SphereGeometry(0.0115, 18, 12), skinMat);
+  lid.scale.set(2.05, 0.34, 0.36);
+  lid.position.set(0, 0.0055, 0.0004);
   root.add(lid);
 
   const smoke = new THREE.Mesh(
-    new THREE.SphereGeometry(0.015, 14, 10),
-    new THREE.MeshBasicMaterial({ color: "#3c2a48", transparent: true, opacity: 0.5, depthWrite: false }),
+    new THREE.SphereGeometry(0.012, 12, 8),
+    new THREE.MeshBasicMaterial({ color: "#3a2844", transparent: true, opacity: 0.55, depthWrite: false }),
   );
-  smoke.scale.set(1.35, 0.28, 0.24);
-  smoke.position.set(side * 0.002, 0.009, 0.006);
+  smoke.scale.set(1.5, 0.22, 0.2);
+  smoke.position.set(side * 0.002, 0.006, 0.0035);
   root.add(smoke);
 
   const linerShape = new THREE.Shape();
-  linerShape.moveTo(-0.02, 0);
-  linerShape.quadraticCurveTo(0, 0.008, 0.018, 0.004);
-  linerShape.quadraticCurveTo(0.03, 0.008, 0.038, 0.001);
-  linerShape.lineTo(0.03, -0.003);
-  linerShape.quadraticCurveTo(0.01, 0.002, -0.018, -0.004);
+  linerShape.moveTo(-0.016, 0);
+  linerShape.quadraticCurveTo(0, 0.006, 0.014, 0.003);
+  linerShape.quadraticCurveTo(0.026, 0.006, 0.032, 0.001);
+  linerShape.lineTo(0.026, -0.002);
+  linerShape.quadraticCurveTo(0.008, 0.001, -0.014, -0.003);
   const liner = new THREE.Mesh(new THREE.ShapeGeometry(linerShape), linerMat);
-  liner.position.set(0, 0.004, 0.008);
+  liner.position.set(0, 0.0032, 0.005);
   root.add(liner);
 
-  for (let i = 0; i < 5; i += 1) {
-    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.0008, 0.006, 4), linerMat);
-    const t = i / 4;
-    spike.position.set(-0.01 + t * 0.022, 0.007 + Math.sin(t * Math.PI) * 0.003, 0.0085);
-    spike.rotation.z = -0.4 + t * 0.35;
-    spike.rotation.x = 0.45;
-    root.add(spike);
-  }
-
-  const brow = new THREE.Mesh(new THREE.CapsuleGeometry(0.0022, 0.032, 2, 6), browMat);
-  brow.rotation.z = Math.PI / 2 + side * -0.36;
-  brow.position.set(side * 0.002, 0.022, 0.009);
+  const brow = new THREE.Mesh(new THREE.CapsuleGeometry(0.0015, 0.028, 2, 6), browMat);
+  brow.rotation.z = Math.PI / 2 + side * -0.2;
+  brow.position.set(side * 0.001, 0.014, 0.005);
   root.add(brow);
   return root;
 }
 
 function lipMesh(lipMat: THREE.Material) {
   const upper = new THREE.Shape();
-  upper.moveTo(-0.024, 0);
-  upper.quadraticCurveTo(-0.012, 0.012, 0, 0.004);
-  upper.quadraticCurveTo(0.012, 0.012, 0.024, 0);
-  upper.quadraticCurveTo(0, -0.004, -0.024, 0);
+  upper.moveTo(-0.02, 0);
+  upper.quadraticCurveTo(-0.01, 0.01, 0, 0.0035);
+  upper.quadraticCurveTo(0.01, 0.01, 0.02, 0);
+  upper.quadraticCurveTo(0, -0.003, -0.02, 0);
   const lower = new THREE.Shape();
-  lower.moveTo(-0.026, 0);
-  lower.quadraticCurveTo(0, -0.018, 0.026, 0);
-  lower.quadraticCurveTo(0, 0.005, -0.026, 0);
+  lower.moveTo(-0.022, 0);
+  lower.quadraticCurveTo(0, -0.014, 0.022, 0);
+  lower.quadraticCurveTo(0, 0.004, -0.022, 0);
   const group = new THREE.Group();
   group.name = "lips";
   const extrude = { depth: 0.005, bevelEnabled: true, bevelThickness: 0.0016, bevelSize: 0.0016, bevelSegments: 2 };
   const topLip = new THREE.Mesh(new THREE.ExtrudeGeometry(upper, extrude), lipMat);
-  topLip.position.set(0, -0.034, 0.064);
+  topLip.position.set(0, -0.016, 0.05);
   const bottomLip = new THREE.Mesh(new THREE.ExtrudeGeometry(lower, extrude), lipMat);
-  bottomLip.position.set(0, -0.044, 0.062);
+  bottomLip.position.set(0, -0.024, 0.049);
   group.add(topLip, bottomLip);
   return group;
 }
@@ -350,45 +348,49 @@ function boot(name: string, surface: THREE.Material, laceMat: THREE.Material, sh
   const joint = new THREE.Group();
   joint.name = name;
   const shaft = new THREE.Mesh(new THREE.LatheGeometry([
-    new THREE.Vector2(0.038, -0.06),
-    new THREE.Vector2(0.04, -0.03),
-    new THREE.Vector2(0.042, 0.02),
-    new THREE.Vector2(0.048, 0.075),
-  ], 24), surface);
+    new THREE.Vector2(0.034, -0.02),
+    new THREE.Vector2(0.038, 0.02),
+    new THREE.Vector2(0.04, 0.055),
+    new THREE.Vector2(0.036, 0.09),
+  ], 22), surface);
   shaft.castShadow = true;
   joint.add(shaft);
-  const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.048, 0.0045, 8, 22), shade);
+  const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.037, 0.004, 8, 20), shade);
   cuff.rotation.x = Math.PI / 2;
-  cuff.position.y = 0.072;
+  cuff.position.y = 0.088;
   joint.add(cuff);
-  const foot = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.034, 0.1), surface);
-  foot.position.set(0, -0.082, 0.03);
+  const ankle = new THREE.Mesh(new THREE.CircleGeometry(0.032, 18), shade);
+  ankle.rotation.x = -Math.PI / 2;
+  ankle.position.y = 0.086;
+  joint.add(ankle);
+  const foot = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.032, 0.11), surface);
+  foot.position.set(0, -0.03, 0.028);
   foot.castShadow = true;
   joint.add(foot);
-  const toe = new THREE.Mesh(new THREE.SphereGeometry(0.024, 16, 12), surface);
-  toe.scale.set(0.9, 0.46, 1.7);
-  toe.position.set(0, -0.086, 0.1);
+  const toe = new THREE.Mesh(new THREE.SphereGeometry(0.02, 16, 12), surface);
+  toe.scale.set(0.85, 0.42, 1.85);
+  toe.position.set(0, -0.034, 0.095);
   toe.castShadow = true;
   joint.add(toe);
-  const heel = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.004, 0.105, 8), surface);
-  heel.position.set(0, -0.14, -0.01);
+  const sole = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.008, 0.14), shade);
+  sole.position.set(0, -0.05, 0.03);
+  joint.add(sole);
+  const heel = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.0035, 0.09, 8), surface);
+  heel.position.set(0, -0.092, -0.02);
   heel.castShadow = true;
   joint.add(heel);
-  const tip = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.006, 0.03), shade);
-  tip.position.set(0, -0.19, -0.01);
+  const tip = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.005, 0.028), shade);
+  tip.position.set(0, -0.136, -0.02);
   joint.add(tip);
-  const seam = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.1, 0.004), shade);
-  seam.position.set(0.03, 0.01, 0.028);
-  joint.add(seam);
   for (let i = 0; i < 4; i += 1) {
-    const y = 0.045 - i * 0.024;
-    const left = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.0032, 0.003), laceMat);
+    const y = 0.05 - i * 0.02;
+    const left = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.0028, 0.0026), laceMat);
     left.rotation.z = 0.7;
-    left.position.set(0, y, 0.044);
+    left.position.set(0, y, 0.04);
     left.name = "lace";
     const right = left.clone();
     right.rotation.z = -0.7;
-    right.position.z = 0.046;
+    right.position.z = 0.041;
     right.name = "lace";
     joint.add(left, right);
   }
@@ -434,7 +436,14 @@ export function createGlamRig() {
   });
   const bootShade = material("#c42d68", { roughness: 0.4 });
   const lace = material("#f6e4ea", { roughness: 0.35 });
-  const jewel = gloss(JEWEL, { roughness: 0.12, metalness: 0.82, clearcoat: 0.8, clearcoatRoughness: 0.15 });
+  const jewel = gloss(JEWEL, {
+    roughness: 0.15,
+    metalness: 0.35,
+    clearcoat: 0.7,
+    clearcoatRoughness: 0.2,
+    emissive: "#f7f4ef",
+    emissiveIntensity: 0.35,
+  });
   const linerMat = material(LINER, { roughness: 0.4 });
   const browMat = material(BROW, { roughness: 0.55 });
   const lipMat = gloss(LIP, { roughness: 0.22, metalness: 0.04, clearcoat: 0.7, clearcoatRoughness: 0.18 });
@@ -458,30 +467,30 @@ export function createGlamRig() {
   const skirt = new THREE.Group();
   skirt.name = "skirt";
   const skirtMesh = new THREE.Mesh(new THREE.LatheGeometry([
-    new THREE.Vector2(0.126, -0.17),
-    new THREE.Vector2(0.122, -0.1),
-    new THREE.Vector2(0.118, 0),
-    new THREE.Vector2(0.112, 0.08),
-    new THREE.Vector2(0.1, 0.16),
+    new THREE.Vector2(0.118, -0.2),
+    new THREE.Vector2(0.116, -0.1),
+    new THREE.Vector2(0.112, 0),
+    new THREE.Vector2(0.108, 0.1),
+    new THREE.Vector2(0.102, 0.2),
   ], 32), skirtMat);
-  skirtMesh.position.y = -0.16;
+  skirtMesh.position.y = -0.12;
   skirtMesh.castShadow = true;
   skirtMesh.receiveShadow = true;
   skirt.add(skirtMesh);
-  const waistband = new THREE.Mesh(new THREE.CylinderGeometry(0.104, 0.108, 0.028, 24), skirtShade);
-  waistband.position.y = -0.01;
+  const waistband = new THREE.Mesh(new THREE.CylinderGeometry(0.104, 0.108, 0.03, 24), skirtShade);
+  waistband.position.y = 0.06;
   skirt.add(waistband);
   const skirtSeam = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.3, 0.005), skirtShade);
   skirtSeam.position.set(0.08, -0.16, 0.07);
   skirt.add(skirtSeam);
-  const hem = new THREE.Mesh(new THREE.TorusGeometry(0.126, 0.004, 6, 28), skirtShade);
+  const hem = new THREE.Mesh(new THREE.TorusGeometry(0.118, 0.004, 6, 28), skirtShade);
   hem.rotation.x = Math.PI / 2;
-  hem.position.y = -0.33;
+  hem.position.y = -0.32;
   skirt.add(hem);
   hips.add(skirt);
 
-  const thighL = latheLimb("thighL", [0.05, 0.048, 0.042, 0.034], THIGH, skin);
-  const thighR = latheLimb("thighR", [0.05, 0.048, 0.042, 0.034], THIGH, skin);
+  const thighL = latheLimb("thighL", [0.048, 0.046, 0.04, 0.032], THIGH, skin, 0.22);
+  const thighR = latheLimb("thighR", [0.048, 0.046, 0.04, 0.032], THIGH, skin, 0.22);
   thighL.position.x = 0.05;
   thighR.position.x = -0.05;
   hips.add(thighL, thighR);
@@ -506,14 +515,14 @@ export function createGlamRig() {
   hips.add(chest);
 
   const torso = new THREE.Mesh(new THREE.LatheGeometry([
-    new THREE.Vector2(0.09, -0.14),
-    new THREE.Vector2(0.07, -0.04),
-    new THREE.Vector2(0.078, 0.02),
-    new THREE.Vector2(0.096, 0.055),
-    new THREE.Vector2(0.108, 0.095),
-    new THREE.Vector2(0.1, 0.13),
-    new THREE.Vector2(0.096, 0.16),
-    new THREE.Vector2(0.108, 0.195),
+    new THREE.Vector2(0.1, -0.22),
+    new THREE.Vector2(0.078, -0.08),
+    new THREE.Vector2(0.072, -0.02),
+    new THREE.Vector2(0.084, 0.03),
+    new THREE.Vector2(0.1, 0.08),
+    new THREE.Vector2(0.096, 0.12),
+    new THREE.Vector2(0.092, 0.155),
+    new THREE.Vector2(0.104, 0.19),
   ], 40), top);
   torso.name = "top";
   torso.scale.z = 0.76;
@@ -540,8 +549,8 @@ export function createGlamRig() {
   frontSeam.position.set(0, 0.08, 0.084);
   chest.add(frontSeam);
 
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.036, 0.1, 16), skin);
-  neck.position.y = 0.24;
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.038, 0.08, 16), skin);
+  neck.position.y = 0.21;
   neck.castShadow = true;
   chest.add(neck);
 
@@ -557,7 +566,7 @@ export function createGlamRig() {
 
   const head = new THREE.Group();
   head.name = "head";
-  head.position.y = 0.36;
+  head.position.y = 0.3;
   chest.add(head);
 
   const skull = new THREE.Mesh(fashionSkull(), skinFace);
@@ -566,13 +575,13 @@ export function createGlamRig() {
   head.add(skull);
   head.add(eye(-1, irisMap, skin, linerMat, browMat), eye(1, irisMap, skin, linerMat, browMat));
 
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.0048, 12, 8), skin);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.0042, 12, 8), skin);
   nose.name = "nose";
-  nose.scale.set(0.5, 0.85, 0.7);
-  nose.position.set(0, -0.004, 0.07);
+  nose.scale.set(0.55, 0.7, 0.6);
+  nose.position.set(0, -0.002, 0.058);
   head.add(nose);
-  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.0035, 0.018, 0.004), skin);
-  bridge.position.set(0, 0.008, 0.066);
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.014, 0.003), skin);
+  bridge.position.set(0, 0.008, 0.055);
   head.add(bridge);
   head.add(lipMesh(lipMat));
   for (const side of [-1, 1]) {
@@ -585,29 +594,35 @@ export function createGlamRig() {
     const hook = new THREE.Mesh(new THREE.TorusGeometry(0.006, 0.001, 4, 10), jewel);
     hook.position.set(side * 0.062, 0.004, 0.01);
     head.add(hook);
-    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.007, 12, 8), jewel);
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.006, 12, 8), jewel);
     drop.name = "earring";
-    drop.scale.set(0.5, 1.45, 0.32);
-    drop.position.set(side * 0.064, -0.012, 0.012);
+    drop.scale.set(0.45, 1.5, 0.28);
+    drop.position.set(side * 0.055, -0.01, 0.02);
     head.add(drop);
   }
 
   const hair = new THREE.Group();
   hair.name = "hair";
   head.add(hair);
-  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.062, 28, 18), hairMat);
-  crown.scale.set(1.15, 0.62, 0.78);
-  crown.position.set(0.008, 0.055, -0.05);
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.058, 28, 18), hairMat);
+  crown.scale.set(1.25, 0.58, 0.9);
+  crown.position.set(0, 0.048, -0.04);
   crown.castShadow = true;
   hair.add(crown);
+  const curtain = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.08, 0.12, 0.72, 28, 8, true, Math.PI * 1.02, Math.PI * 0.96),
+    material(HAIR_DEEP, { roughness: 0.48, side: THREE.DoubleSide }),
+  );
+  curtain.position.set(0, -0.28, -0.02);
+  curtain.castShadow = true;
+  hair.add(curtain);
 
-  const backTones = [HAIR_DEEP, HAIR, HAIR_MID, HAIR, HAIR_DEEP, HAIR_MID, HAIR, HAIR_DEEP, HAIR, HAIR_MID];
+  const backTones = [HAIR_DEEP, HAIR, HAIR_MID, HAIR, HAIR_DEEP, HAIR_MID, HAIR, HAIR_DEEP];
   backTones.forEach((tone, index) => {
-    const side = (index - 4.5) / 4.5;
-    const depth = index % 2 === 0 ? -0.055 : -0.09;
+    const side = (index - 3.5) / 3.5;
     hair.add(ribbon(
-      wave(side * 0.085, depth, 0.02, 0.01, 0.07, -0.8, index * 0.65),
-      0.04,
+      wave(side * 0.07, -0.06, 0.04, 0.016, 0.06, -0.78, index * 0.9),
+      0.058,
       tone,
       HAIR_LIGHT,
       hairCard,
@@ -615,34 +630,34 @@ export function createGlamRig() {
   });
   for (const side of [-1, 1]) {
     hair.add(ribbon([
-      [side * 0.04, 0.062, 0.008],
-      [side * 0.072, 0.02, 0.012],
-      [side * 0.095, -0.1, -0.01],
-      [side * 0.11, -0.28, -0.04],
-    ], 0.02, HAIR, HAIR_LIGHT, hairCard));
+      [side * 0.03, 0.05, 0.01],
+      [side * 0.07, 0.01, 0.02],
+      [side * 0.1, -0.12, 0.0],
+      [side * 0.12, -0.32, -0.03],
+    ], 0.028, HAIR_MID, HAIR_LIGHT, hairCard));
     hair.add(ribbon(
-      wave(side * 0.12, -0.05, 0.016, 0.01, 0.04, -0.72, side * 0.8),
-      0.03,
-      side < 0 ? HAIR_MID : HAIR_DEEP,
+      wave(side * 0.11, -0.04, 0.028, 0.012, 0.04, -0.7, side),
+      0.04,
+      side < 0 ? HAIR : HAIR_DEEP,
       HAIR_LIGHT,
       hairCard,
     ));
   }
   hair.add(ribbon([
-    [0.03, 0.072, 0.006],
-    [0.0, 0.058, 0.02],
-    [-0.028, 0.046, 0.016],
-  ], 0.014, HAIR_DEEP, HAIR_MID, hairCard));
+    [0.028, 0.055, 0.012],
+    [0.0, 0.042, 0.028],
+    [-0.02, 0.032, 0.02],
+  ], 0.016, HAIR_DEEP, HAIR_MID, hairCard));
   hair.add(ribbon([
-    [-0.02, 0.07, -0.02],
-    [0.025, 0.098, -0.015],
-    [0.04, 0.068, -0.04],
-  ], 0.042, HAIR, HAIR_LIGHT, hairCard));
+    [-0.03, 0.05, -0.01],
+    [0.02, 0.078, -0.02],
+    [0.04, 0.05, -0.04],
+  ], 0.05, HAIR, HAIR_LIGHT, hairCard));
   hair.add(ribbon([
-    [0.015, 0.078, -0.03],
-    [-0.03, 0.092, -0.04],
-    [-0.045, 0.06, -0.05],
-  ], 0.036, HAIR_MID, HAIR_LIGHT, hairCard));
+    [0.02, 0.06, -0.02],
+    [-0.02, 0.075, -0.03],
+    [-0.04, 0.045, -0.045],
+  ], 0.042, HAIR_MID, HAIR_LIGHT, hairCard));
 
   const armL = latheLimb("armL", [0.038, 0.032, 0.028], 0.28, top);
   const armR = latheLimb("armR", [0.038, 0.032, 0.028], 0.28, top);
