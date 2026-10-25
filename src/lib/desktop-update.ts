@@ -85,6 +85,48 @@ export function desktopDownloadUrl(name: string) {
   return `https://www.mommamari.com/portal/api/desktop/download/${encodeURIComponent(name)}`;
 }
 
+/** Tag from a GitHub `/releases/tag/` or `/releases/latest` redirect. Other hosts are refused. */
+export function worldsTagFromGithubLocation(location: string) {
+  try {
+    const url = new URL(location);
+    if (url.protocol !== "https:" || url.hostname !== "github.com") return null;
+    const prefix = `/${GITHUB_RELEASES_REPO}/releases/tag/`;
+    if (!url.pathname.startsWith(prefix)) return null;
+    const tag = decodeURIComponent(url.pathname.slice(prefix.length).split("/")[0] || "");
+    if (!worldsReleaseVersion(tag)) return null;
+    return tag;
+  } catch {
+    return null;
+  }
+}
+
+/** Newest worlds-v tags in a public releases Atom feed, newest first. */
+export function worldsTagsFromAtom(xml: string) {
+  const tags: string[] = [];
+  const pattern = /\/releases\/tag\/(worlds-v\d+\.\d+\.\d+)\b/g;
+  for (const match of xml.matchAll(pattern)) {
+    const tag = match[1];
+    if (worldsReleaseVersion(tag) && !tags.includes(tag)) tags.push(tag);
+  }
+  tags.sort((left, right) => compareVersions(worldsReleaseVersion(right) || "0.0.0", worldsReleaseVersion(left) || "0.0.0"));
+  return tags;
+}
+
+export function publicLatestJsonUrl(tag: string) {
+  if (!worldsReleaseVersion(tag)) return null;
+  return `https://github.com/${GITHUB_RELEASES_REPO}/releases/download/${tag}/latest.json`;
+}
+
+/**
+ * 200 and redirects mean the asset can be downloaded without a login.
+ * 404 is how GitHub hides a private release. 403 is often a shared-IP limit.
+ */
+export function githubAssetIsPublic(status: number, hasToken: boolean) {
+  if (status === 200 || status === 206 || status === 301 || status === 302) return true;
+  if (status === 404 || status === 401) return false;
+  return !hasToken;
+}
+
 /** A public GitHub release asset. No login is required while the repo stays public. */
 export function isWorldsGithubAsset(url: string) {
   try {
