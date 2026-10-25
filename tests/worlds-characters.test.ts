@@ -342,6 +342,8 @@ describe("Worlds characters", () => {
     assert.equal(canvas.includes("OfficeGlamPlate"), false);
     assert.equal(canvas.includes("distanceFactor={3.2}"), false);
     assert.match(source("src/lib/worlds/glam-rig.ts"), /glam-rig/);
+    assert.equal(source("src/lib/worlds/glam-rig.ts").includes("face-plate"), false);
+    assert.equal(source("src/components/worlds/glam-figure.tsx").includes("glam-head"), false);
     const rig = createGlamRig();
     let headphones = false;
     rig.traverse((node) => {
