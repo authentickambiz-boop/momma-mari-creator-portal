@@ -1,10 +1,11 @@
 /**
  * Locked glam Office You.
- * One skinned hourglass body, one painted head, and a few thick tapered hair locks.
- * Other looks stay on the humanoid rig.
+ * Continuous skinned limbs, one pencil skirt, and the locked illustration
+ * projected onto the head. Other looks stay on the humanoid rig.
  */
 
 import * as THREE from "three";
+import { GLAM_FACE_H, GLAM_FACE_RGBA, GLAM_FACE_W } from "./glam-face-bake";
 
 export const GLAM_HEIGHT = 1.74;
 
@@ -75,7 +76,11 @@ type Surface = {
 };
 
 type RGB = [number, number, number];
-type Mark = { u: number; v: number };
+
+function smoothstep(t: number) {
+  const x = Math.min(1, Math.max(0, t));
+  return x * x * (3 - 2 * x);
+}
 
 function toon(color: string, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) {
   const material = new THREE.MeshStandardMaterial({
@@ -195,6 +200,77 @@ function pushTube(
   if (caps === "both" || caps === "end") cap(rows - 1, 1);
 }
 
+/** One tube along a bent chain. No open ring at the joint, so knees and elbows stay closed. */
+function pushChain(
+  surface: Surface,
+  knots: THREE.Vector3[],
+  radiusAt: (t: number) => number,
+  weightAt: (dist: number, total: number) => [number, number, number],
+  radial = 24,
+  samples = 36,
+  caps: "both" | "start" | "end" | "none" = "none",
+) {
+  const curve = new THREE.CatmullRomCurve3(knots, false, "centripetal");
+  const lengths = curve.getLengths(samples);
+  const total = Math.max(lengths[samples] ?? lengths[lengths.length - 1] ?? 1, 0.001);
+  const base = surface.positions.length / 3;
+  const tangent = new THREE.Vector3();
+  const bin = new THREE.Vector3();
+  const offset = new THREE.Vector3();
+  const t0 = curve.getTangent(0).normalize();
+  const helper = Math.abs(t0.y) > 0.85 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+  const normal = new THREE.Vector3().crossVectors(t0, helper).normalize();
+  for (let i = 0; i <= samples; i += 1) {
+    const t = i / samples;
+    const center = curve.getPoint(t);
+    tangent.copy(curve.getTangent(t)).normalize();
+    normal.addScaledVector(tangent, -normal.dot(tangent));
+    if (normal.lengthSq() < 1e-8) normal.crossVectors(tangent, helper);
+    normal.normalize();
+    bin.crossVectors(tangent, normal).normalize();
+    const dist = lengths[i] ?? t * total;
+    const radius = radiusAt(total < 1e-4 ? 0 : dist / total);
+    const [boneA, boneB, wB] = weightAt(dist, total);
+    for (let j = 0; j < radial; j += 1) {
+      const angle = (j / radial) * Math.PI * 2;
+      offset
+        .copy(normal)
+        .multiplyScalar(Math.cos(angle) * radius)
+        .addScaledVector(bin, Math.sin(angle) * radius);
+      surface.positions.push(center.x + offset.x, center.y + offset.y, center.z + offset.z);
+      weight(surface, boneA, boneB, wB);
+    }
+  }
+  for (let i = 0; i < samples; i += 1) {
+    for (let j = 0; j < radial; j += 1) {
+      const j2 = (j + 1) % radial;
+      const a = base + i * radial + j;
+      const b = base + i * radial + j2;
+      const c = base + (i + 1) * radial + j;
+      const d = base + (i + 1) * radial + j2;
+      surface.indices.push(a, b, c, b, d, c);
+    }
+  }
+  const cap = (row: number, inward: number) => {
+    const centerIndex = surface.positions.length / 3;
+    const t = row / samples;
+    const center = curve.getPoint(t);
+    surface.positions.push(center.x, center.y, center.z);
+    const dist = lengths[row] ?? t * total;
+    const [boneA, boneB, wB] = weightAt(dist, total);
+    weight(surface, boneA, boneB, wB);
+    for (let j = 0; j < radial; j += 1) {
+      const j2 = (j + 1) % radial;
+      const a = base + row * radial + j;
+      const b = base + row * radial + j2;
+      if (inward > 0) surface.indices.push(centerIndex, a, b);
+      else surface.indices.push(centerIndex, b, a);
+    }
+  };
+  if (caps === "both" || caps === "start") cap(0, -1);
+  if (caps === "both" || caps === "end") cap(samples, 1);
+}
+
 function surfaceGeometry(surface: Surface) {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(surface.positions, 3));
@@ -212,158 +288,65 @@ function hipPoint(bone: THREE.Object3D, hips: THREE.Object3D, local = new THREE.
   return point;
 }
 
-function paintFace(marks: { eyeL: Mark; eyeR: Mark; browL: Mark; browR: Mark; nose: Mark; lip: Mark }) {
-  const size = 512;
-  const data = new Uint8Array(size * size * 4);
-  const blend = (x: number, y: number, rgb: RGB, alpha: number) => {
-    const ix = Math.round(x);
-    const iy = Math.round(y);
-    if (ix < 0 || iy < 0 || ix >= size || iy >= size || alpha <= 0) return;
-    const i = (iy * size + ix) * 4;
-    const t = Math.min(1, alpha);
-    data[i] = data[i] * (1 - t) + rgb[0] * t;
-    data[i + 1] = data[i + 1] * (1 - t) + rgb[1] * t;
-    data[i + 2] = data[i + 2] * (1 - t) + rgb[2] * t;
-    data[i + 3] = 255;
-  };
-  const skin: RGB = [242, 196, 168];
-  const highlight: RGB = [255, 224, 206];
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const u = x / (size - 1);
-      const v = y / (size - 1);
-      const dx = (u - 0.5) * 1.35;
-      const dy = (v - 0.58) * 1.15;
-      const shade = Math.min(1, dx * dx + dy * dy);
-      const jaw = v < 0.34 ? (0.34 - v) * 0.45 : 0;
-      blend(x, y, [
-        highlight[0] * (1 - shade) + skin[0] * shade - jaw * 18,
-        highlight[1] * (1 - shade) + skin[1] * shade - jaw * 22,
-        highlight[2] * (1 - shade) + skin[2] * shade - jaw * 18,
-      ], 1);
-    }
-  }
-  const ellipse = (u: number, v: number, ru: number, rv: number, rgb: RGB, softness = 0.35, opacity = 1) => {
-    const cx = u * (size - 1);
-    const cy = v * (size - 1);
-    const rx = Math.max(1.2, ru * (size - 1));
-    const ry = Math.max(1.2, rv * (size - 1));
-    for (let y = Math.floor(cy - ry - 2); y <= Math.ceil(cy + ry + 2); y += 1) {
-      for (let x = Math.floor(cx - rx - 2); x <= Math.ceil(cx + rx + 2); x += 1) {
-        const e = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
-        if (e > 1) continue;
-        const edge = Math.min(1, (1 - e) / Math.max(0.04, softness));
-        blend(x, y, rgb, edge * opacity);
-      }
-    }
-  };
-
-  const gap = Math.max(0.16, Math.abs(marks.eyeR.u - marks.eyeL.u));
-  const eyeRu = 0.064;
-  const eyeRv = 0.022;
-  ellipse(marks.eyeL.u - 0.01, marks.eyeL.v - eyeRv * 1.15, 0.055, 0.028, [230, 142, 128], 0.9, 0.55);
-  ellipse(marks.eyeR.u + 0.01, marks.eyeR.v - eyeRv * 1.15, 0.055, 0.028, [230, 142, 128], 0.9, 0.55);
-
-  const paintEye = (mark: Mark, side: number) => {
-    const cx = mark.u * (size - 1);
-    const cy = mark.v * (size - 1);
-    const rx = eyeRu * (size - 1);
-    const ry = Math.max(8, eyeRv * (size - 1));
-    const irisCx = cx - side * rx * 0.04;
-    const irisCy = cy - ry * 0.05;
-    const irisR = Math.min(rx * 0.5, ry * 1.05);
-    for (let y = Math.floor(cy - ry * 1.8); y <= Math.ceil(cy + ry * 1.7); y += 1) {
-      for (let x = Math.floor(cx - rx * 1.25); x <= Math.ceil(cx + rx * 1.25); x += 1) {
-        const nx = (x - cx) / rx;
-        const ny = (y - cy) / ry;
-        const edge = Math.sqrt(Math.max(0, 1 - nx * nx));
-        const upper = 0.72 * edge;
-        const lower = -0.95 * edge;
-        const inOpening = Math.abs(nx) <= 1 && ny <= upper && ny >= lower;
-        if (!inOpening) continue;
-        const dIris = Math.hypot(x - irisCx, y - irisCy);
-        if (dIris < irisR) {
-          const r = dIris / irisR;
-          let rgb: RGB = [150, 54, 176];
-          if (r < 0.2) rgb = [24, 10, 22];
-          else if (r < 0.48) rgb = [206, 112, 214];
-          else if (r < 0.78) rgb = [156, 48, 184];
-          else rgb = [78, 24, 102];
-          blend(x, y, rgb, 1);
-        } else {
-          blend(x, y, [255, 250, 247], 1);
-        }
-      }
-    }
-    for (let y = Math.floor(cy - ry * 0.2); y <= Math.ceil(cy + ry * 1.35); y += 1) {
-      for (let x = Math.floor(cx - rx * 1.35); x <= Math.ceil(cx + rx * 1.35); x += 1) {
-        const nx = (x - cx) / rx;
-        const edge = Math.sqrt(Math.max(0, 1 - Math.min(1, nx * nx)));
-        const lidY = cy + 0.72 * edge * ry;
-        const dist = Math.abs(y - lidY);
-        if (Math.abs(nx) < 1.05 && dist < 2.4 && y > lidY - 3) {
-          blend(x, y, [16, 8, 14], Math.min(1, (2.4 - dist) * 0.7));
-        }
-        if (Math.abs(nx) < 0.92 && y > lidY && y < lidY + ry * 0.55) {
-          const smoke = 1 - (y - lidY) / (ry * 0.55);
-          blend(x, y, [84, 42, 72], smoke * 0.45);
-        }
-        const outer = nx * side;
-        if (outer > 0.78 && outer < 1.35 && y > cy - ry * 0.2 && y < lidY + 4) {
-          blend(x, y, [16, 8, 14], 0.85);
-        }
-      }
-    }
-    for (let i = 0; i < 7; i += 1) {
-      const t = i / 6;
-      const nx = side * (t * 2 - 1);
-      const edge = Math.sqrt(Math.max(0, 1 - (t * 2 - 1) ** 2));
-      const x0 = cx + nx * rx * 0.92;
-      const y0 = cy + 0.72 * edge * ry;
-      ellipse(x0 / (size - 1), (y0 + 5) / (size - 1), 0.003, 0.012, [12, 6, 10], 0.4, 0.9);
-    }
-    ellipse((irisCx - irisR * 0.28) / (size - 1), (irisCy + irisR * 0.32) / (size - 1), 0.01, 0.008, [255, 255, 255], 0.15, 1);
-    ellipse((irisCx + irisR * 0.22) / (size - 1), (irisCy - irisR * 0.12) / (size - 1), 0.004, 0.004, [255, 255, 255], 0.2, 0.95);
-  };
-  paintEye(marks.eyeL, -1);
-  paintEye(marks.eyeR, 1);
-
-  const paintBrow = (mark: Mark, side: number) => {
-    for (let i = 0; i <= 26; i += 1) {
-      const t = i / 26;
-      const x = mark.u + side * (t - 0.42) * gap * 0.62;
-      const arch = Math.sin(Math.max(0, t) * Math.PI);
-      const y = mark.v + arch * gap * 0.055 - t * gap * 0.012;
-      const thick = (0.4 + arch * 0.7) * gap * 0.028;
-      ellipse(x, y, thick * 1.35, thick * 0.72, [42, 24, 32], 0.28, 0.95);
-    }
-  };
-  paintBrow(marks.browL, -1);
-  paintBrow(marks.browR, 1);
-
-  const nose = marks.nose;
-  ellipse(nose.u, nose.v + 0.03, 0.012, 0.045, [255, 226, 208], 0.75, 0.85);
-  ellipse(nose.u, nose.v - 0.012, 0.016, 0.012, [214, 158, 136], 0.55, 0.7);
-  ellipse(nose.u - 0.014, nose.v - 0.016, 0.009, 0.006, [176, 112, 102], 0.4, 0.8);
-  ellipse(nose.u + 0.014, nose.v - 0.016, 0.009, 0.006, [176, 112, 102], 0.4, 0.8);
-
-  const lip = marks.lip;
-  const half = 0.055;
-  ellipse(lip.u, lip.v + 0.007, half * 0.9, 0.012, [206, 72, 98], 0.22, 1);
-  ellipse(lip.u, lip.v + 0.014, half * 0.14, 0.006, skin, 0.5, 0.8);
-  ellipse(lip.u, lip.v - 0.008, half, 0.016, [226, 96, 118], 0.2, 1);
-  ellipse(lip.u, lip.v + 0.001, half * 0.78, 0.004, [132, 48, 68], 0.35, 0.9);
-  ellipse(lip.u - half * 0.18, lip.v - 0.008, half * 0.28, 0.005, [255, 214, 220], 0.35, 0.85);
-  ellipse(lip.u, lip.v - 0.03, half * 0.7, 0.01, [214, 160, 142], 0.8, 0.35);
-
-  const texture = new THREE.DataTexture(data, size, size);
+function faceTexture() {
+  const bin = atob(GLAM_FACE_RGBA.replace(/\s+/g, ""));
+  const data = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) data[i] = bin.charCodeAt(i);
+  const texture = new THREE.DataTexture(data, GLAM_FACE_W, GLAM_FACE_H);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
   texture.magFilter = THREE.LinearFilter;
   texture.minFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.flipY = false;
+  return texture;
+}
+
+function paintHair() {
+  const w = 96;
+  const h = 384;
+  const data = new Uint8Array(w * h * 4);
+  const mix = (a: RGB, b: RGB, t: number): RGB => [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+    a[2] + (b[2] - a[2]) * t,
+  ];
+  const deep: RGB = [52, 18, 82];
+  const mid: RGB = [118, 58, 158];
+  const light: RGB = [214, 176, 230];
+  for (let y = 0; y < h; y += 1) {
+    const v = y / (h - 1);
+    const base = mix(deep, mid, Math.min(1, v * 1.15));
+    const tip = mix(base, light, Math.max(0, (v - 0.55) * 1.5));
+    for (let x = 0; x < w; x += 1) {
+      const u = x / (w - 1);
+      let rgb = tip;
+      for (let k = 0; k < 2; k += 1) {
+        const center = 0.5 + 0.27 * Math.sin(v * Math.PI * 1.65 + k * 2.2);
+        const width = 0.12;
+        const band = Math.max(0, 1 - Math.abs(u - center) / width);
+        rgb = mix(rgb, k === 0 ? light : [240, 220, 248], band * band * 0.9);
+      }
+      const shade = 0.76 + 0.24 * Math.sin(Math.min(1, Math.max(0, u)) * Math.PI);
+      const i = (y * w + x) * 4;
+      data[i] = Math.min(255, rgb[0] * shade);
+      data[i + 1] = Math.min(255, rgb[1] * shade);
+      data[i + 2] = Math.min(255, rgb[2] * shade);
+      data[i + 3] = 255;
+    }
+  }
+  const texture = new THREE.DataTexture(data, w, h);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.flipY = false;
+  texture.needsUpdate = true;
   return texture;
 }
 
@@ -375,82 +358,51 @@ function fashionHead() {
     let x = position.getX(i);
     let y = position.getY(i);
     let z = position.getZ(i);
-    x *= 0.82;
-    y *= 1.08;
-    z *= 0.93;
-    if (y < -0.22) {
-      const t = Math.min(1, (-y - 0.22) / 0.9);
+    x *= 0.8;
+    y *= 1.04;
+    z *= 0.82;
+    if (y < 0) {
+      const t = Math.min(1, -y / 1.02);
       const s = t * t * (3 - 2 * t);
-      x *= 1 - s * 0.5;
-      z *= 1 - s * 0.22;
+      x *= 1 - s * 0.28;
+      z *= 1 - s * 0.08;
     }
-    const cheek = Math.exp(-((y - 0.02) ** 2) / 0.08) * Math.exp(-((Math.abs(x) - 0.28) ** 2) / 0.04);
-    if (z > 0) z += cheek * 0.05;
-    const socket = ((Math.abs(x) - 0.13) ** 2) / 0.03 + ((y - 0.12) ** 2) / 0.012;
-    if (socket < 1 && z > 0.05) z -= (1 - socket) * 0.03;
-    const brow = Math.exp(-((Math.abs(x) - 0.12) ** 2) / 0.035) * Math.exp(-((y - 0.24) ** 2) / 0.01);
-    if (z > 0) z += brow * 0.03;
-    const nose = Math.exp(-(x * x) / 0.008) * Math.exp(-(y * y) / 0.018);
-    if (z > 0.05) z += nose * 0.11;
-    const lip = Math.exp(-(x * x) / 0.022) * Math.exp(-((y + 0.18) ** 2) / 0.006);
-    if (z > 0.05) z += lip * 0.04;
-    const front = z > 0.02;
-    if (front) {
-      uv[i * 2] = THREE.MathUtils.clamp(0.5 + x * 0.58, 0.06, 0.94);
-      uv[i * 2 + 1] = THREE.MathUtils.clamp(0.5 + y * 0.4, 0.06, 0.94);
+    if (z > 0.22) z = 0.22 + (z - 0.22) * 0.62;
+    const nose = Math.exp(-(x * x) / 0.014) * Math.exp(-((y + 0.04) ** 2) / 0.045);
+    if (z > 0.04) z += nose * 0.055;
+    if (z > 0) {
+      uv[i * 2] = THREE.MathUtils.clamp(0.5 + x / 1.5, 0, 1);
+      uv[i * 2 + 1] = THREE.MathUtils.clamp(0.5 + y / 1.98, 0, 1);
     } else {
-      uv[i * 2] = x < 0 ? 0.03 : 0.97;
-      uv[i * 2 + 1] = 0.03;
+      uv[i * 2] = x < 0 ? 0.01 : 0.99;
+      uv[i * 2 + 1] = THREE.MathUtils.clamp(0.5 + y / 1.98, 0.02, 0.98);
     }
     position.setXYZ(i, x, y, z);
   }
-  const nearest = (x: number, y: number): Mark => {
-    let best = Infinity;
-    let u = 0.5;
-    let v = 0.5;
-    for (let i = 0; i < position.count; i += 1) {
-      const px = position.getX(i);
-      const py = position.getY(i);
-      const pz = position.getZ(i);
-      if (pz < 0.15) continue;
-      const score = (px - x) ** 2 + (py - y) ** 2;
-      if (score < best) {
-        best = score;
-        u = uv[i * 2];
-        v = uv[i * 2 + 1];
-      }
-    }
-    return { u, v };
-  };
   geometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
-  const marks = {
-    eyeL: nearest(-0.125, 0.11),
-    eyeR: nearest(0.125, 0.11),
-    browL: nearest(-0.12, 0.24),
-    browR: nearest(0.12, 0.24),
-    nose: nearest(0, 0.0),
-    lip: nearest(0, -0.18),
-  };
   geometry.computeVertexNormals();
   geometry.scale(HEAD_SCALE, HEAD_SCALE, HEAD_SCALE);
-  return { geometry, marks };
+  return geometry;
 }
 
-function hairLock(points: [number, number, number][], radius0: number, radius1: number, material: THREE.Material) {
+function hairLock(
+  points: [number, number, number][],
+  radius0: number,
+  radius1: number,
+  material: THREE.Material,
+  phase = 0,
+) {
   const curve = new THREE.CatmullRomCurve3(
     points.map((point) => new THREE.Vector3(...point)),
     false,
     "catmullrom",
-    0.4,
+    0.45,
   );
-  const steps = 36;
-  const radial = 16;
+  const steps = 42;
+  const radial = 18;
   const positions: number[] = [];
-  const colors: number[] = [];
+  const uvs: number[] = [];
   const indices: number[] = [];
-  const root = new THREE.Color(HAIR_DEEP);
-  const mid = new THREE.Color(HAIR);
-  const tip = new THREE.Color(HAIR_LIGHT);
   let normal = new THREE.Vector3(1, 0, 0);
   const tangent = new THREE.Vector3();
   const bin = new THREE.Vector3();
@@ -463,21 +415,15 @@ function hairLock(points: [number, number, number][], radius0: number, radius1: 
     if (normal.lengthSq() < 1e-6) normal.set(1, 0, 0);
     normal.normalize();
     bin.crossVectors(tangent, normal).normalize();
-    const radius = THREE.MathUtils.lerp(radius0, radius1, t * t * (3 - 2 * t) * 0.35 + t * 0.65);
-    const tone = root.clone().lerp(mid, Math.min(1, t * 1.25)).lerp(tip, Math.max(0, (t - 0.55) * 1.8));
+    const radius = THREE.MathUtils.lerp(radius0, radius1, smoothstep(t));
     for (let j = 0; j < radial; j += 1) {
-      const angle = (j / radial) * Math.PI * 2;
+      const angle = (j / radial) * Math.PI * 2 + Math.PI;
       offset
         .copy(normal)
         .multiplyScalar(Math.cos(angle) * radius)
-        .addScaledVector(bin, Math.sin(angle) * radius * 0.9);
+        .addScaledVector(bin, Math.sin(angle) * radius * 0.86);
       positions.push(center.x + offset.x, center.y + offset.y, center.z + offset.z);
-      const shine = Math.max(0, Math.cos(angle)) * 0.08 * (1 - t * 0.45);
-      colors.push(
-        Math.min(1, tone.r + shine),
-        Math.min(1, tone.g + shine * 0.45),
-        Math.min(1, tone.b + shine * 0.8),
-      );
+      uvs.push(j / radial, (t * 0.84 + phase) % 1);
     }
   }
   for (let i = 0; i < steps; i += 1) {
@@ -495,8 +441,7 @@ function hairLock(points: [number, number, number][], radius0: number, radius1: 
     const t = row / steps;
     const center = curve.getPoint(t);
     positions.push(center.x, center.y, center.z);
-    const tone = row === 0 ? root : tip;
-    colors.push(tone.r, tone.g, tone.b);
+    uvs.push(0.5, (t * 0.84 + phase) % 1);
     for (let j = 0; j < radial; j += 1) {
       const j2 = (j + 1) % radial;
       const a = row * radial + j;
@@ -509,7 +454,7 @@ function hairLock(points: [number, number, number][], radius0: number, radius1: 
   capRow(steps, 1);
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   const mesh = new THREE.Mesh(geometry, material);
@@ -521,37 +466,24 @@ function hairLock(points: [number, number, number][], radius0: number, radius1: 
 function addHair(hair: THREE.Object3D, hairMat: THREE.Material, hairSolid: THREE.Material) {
   const cap = new THREE.Mesh(new THREE.SphereGeometry(0.09, 40, 28), hairSolid);
   cap.name = "scalp";
-  cap.scale.set(1.16, 0.72, 0.9);
-  cap.position.set(0, 0.09, -0.02);
+  cap.scale.set(1.18, 0.55, 0.78);
+  cap.position.set(0, 0.058, -0.05);
   cap.castShadow = true;
   hair.add(cap);
 
-  hair.add(hairLock([
-    [-0.02, 0.09, -0.01],
-    [-0.07, 0.02, -0.03],
-    [-0.11, -0.16, -0.04],
-    [-0.09, -0.36, -0.02],
-    [-0.06, -0.56, 0.0],
-  ], 0.072, 0.028, hairMat));
-  hair.add(hairLock([
-    [0.02, 0.09, -0.015],
-    [0.07, 0.0, -0.04],
-    [0.1, -0.18, -0.035],
-    [0.08, -0.38, -0.015],
-    [0.05, -0.55, 0.0],
-  ], 0.064, 0.024, hairMat));
-  hair.add(hairLock([
-    [0.0, 0.095, -0.03],
-    [0.0, -0.05, -0.07],
-    [0.01, -0.28, -0.05],
-    [-0.01, -0.5, -0.02],
-  ], 0.07, 0.026, hairMat));
-  hair.add(hairLock([
-    [0.04, 0.055, 0.03],
-    [0.01, 0.046, 0.055],
-    [-0.035, 0.036, 0.05],
-    [-0.06, 0.028, 0.03],
-  ], 0.022, 0.01, hairMat));
+  // Layered S-waves beside and behind the face. The painted portrait owns the front.
+  const locks: [number, number, number][][] = [
+    [[0.045, 0.1, -0.01], [0.12, 0.02, 0.0], [0.16, -0.14, 0.015], [0.075, -0.3, -0.01], [0.15, -0.46, 0.02], [0.07, -0.66, 0.0]],
+    [[0.02, 0.1, -0.03], [0.08, -0.02, -0.015], [0.12, -0.18, -0.005], [0.04, -0.34, -0.02], [0.1, -0.5, 0.0], [0.035, -0.68, -0.01]],
+    [[-0.04, 0.1, -0.01], [-0.125, 0.0, 0.0], [-0.165, -0.15, 0.01], [-0.07, -0.31, -0.015], [-0.15, -0.47, 0.015], [-0.06, -0.66, 0.0]],
+    [[-0.015, 0.1, -0.035], [-0.085, -0.04, -0.03], [-0.125, -0.2, -0.045], [-0.04, -0.36, -0.02], [-0.11, -0.52, -0.01], [-0.04, -0.68, -0.02]],
+    [[0.0, 0.11, -0.05], [0.055, -0.08, -0.085], [-0.05, -0.26, -0.075], [0.05, -0.44, -0.05], [-0.02, -0.64, -0.03]],
+    [[0.03, 0.1, -0.055], [0.09, -0.12, -0.065], [0.02, -0.3, -0.08], [0.08, -0.48, -0.045], [0.02, -0.67, -0.03]],
+  ];
+  const radii: [number, number][] = [[0.034, 0.016], [0.03, 0.014], [0.034, 0.016], [0.028, 0.013], [0.032, 0.015], [0.026, 0.012]];
+  locks.forEach((points, index) => {
+    hair.add(hairLock(points, radii[index][0], radii[index][1], hairMat, index * 0.17));
+  });
 }
 
 function boot(surface: THREE.Material, laceMat: THREE.Material, heelMat: THREE.Material) {
@@ -632,14 +564,14 @@ function handOf(fore: THREE.Object3D) {
 /** Build the locked glam figure. Feet rest near y=0. She faces +Z. */
 export function createGlamRig() {
   const skin = toon(SKIN);
-  const hairSolid = toon(HAIR);
-  const top = toon(TOP);
-  const skirtMat = toon(SKIRT, { side: THREE.DoubleSide });
+  const hairSolid = toon(HAIR, { roughness: 0.78 });
+  const top = toon(TOP, { roughness: 0.72 });
+  const skirtMat = toon(SKIRT, { roughness: 0.88, metalness: 0 });
   const bootMat = toon(BOOT);
   const heelMat = toon("#2a1820");
   const lace = toon("#fff7f4");
   const jewel = toon(JEWEL);
-  const hairMat = toon("#ffffff", { vertexColors: true });
+  const hairMat = toon("#ffffff", { map: paintHair(), roughness: 0.8 });
   const rig = new THREE.Group();
   rig.name = "glam-rig";
 
@@ -737,34 +669,25 @@ export function createGlamRig() {
   const sleeve = (arm: THREE.Object3D, fore: THREE.Object3D, armId: number, foreId: number) => {
     const shoulder = hipPoint(arm, hips);
     const chestPoint = hipPoint(chest, hips, new THREE.Vector3(0, 0.12, 0));
-    shoulder.lerp(chestPoint, 0.38);
+    shoulder.lerp(chestPoint, 0.42);
     const elbow = hipPoint(fore, hips);
     const wrist = hipPoint(fore, hips, new THREE.Vector3(0, -FORE, 0));
     const upperLen = shoulder.distanceTo(elbow);
-    const foreLen = elbow.distanceTo(wrist);
-    pushTube(
+    const pre = elbow.clone().lerp(shoulder, 0.14);
+    const post = elbow.clone().lerp(wrist, 0.14);
+    pushChain(
       outfit,
-      shoulder,
-      elbow,
-      [0.064, 0.056, 0.048, 0.042, 0.037, 0.034],
-      BONE.chest,
-      armId,
-      upperLen * 0.08,
-      upperLen * 0.55,
+      [shoulder, pre, elbow, post, wrist],
+      (t) => 0.06 + (0.027 - 0.06) * smoothstep(t),
+      (dist, total) => {
+        if (dist < upperLen - 0.02) {
+          return [BONE.chest, armId, smoothstep((dist - upperLen * 0.04) / (upperLen * 0.46))];
+        }
+        const span = Math.max(0.04, total - upperLen);
+        return [armId, foreId, smoothstep((dist - (upperLen - 0.02)) / (span * 0.42))];
+      },
       26,
-      "none",
-    );
-    const foreStart = elbow.clone().lerp(shoulder, 0.06);
-    pushTube(
-      outfit,
-      foreStart,
-      wrist,
-      [0.034, 0.032, 0.03, 0.028, 0.026],
-      armId,
-      foreId,
-      foreLen * 0.05,
-      foreLen * 0.4,
-      24,
+      34,
       "end",
     );
   };
@@ -783,31 +706,21 @@ export function createGlamRig() {
     const knee = hipPoint(shin, hips);
     const ankle = hipPoint(shin, hips, new THREE.Vector3(0, -SHIN, 0));
     const thighLen = hip.distanceTo(knee);
-    const shinLen = knee.distanceTo(ankle);
-    pushTube(
+    const pre = knee.clone().lerp(hip, 0.12);
+    const post = knee.clone().lerp(ankle, 0.12);
+    const keys = [0.078, 0.07, 0.06, 0.052, 0.036];
+    pushChain(
       legs,
-      hip,
-      knee,
-      [0.076, 0.074, 0.068, 0.06, 0.054, 0.05],
-      thighId,
-      thighId,
-      thighLen,
-      thighLen + 1,
-      28,
-      "start",
-    );
-    const shinStart = knee.clone().lerp(hip, 0.05);
-    pushTube(
-      legs,
-      shinStart,
-      ankle,
-      [0.05, 0.046, 0.052, 0.048, 0.04, 0.034],
-      thighId,
-      shinId,
-      shinLen * 0.06,
-      shinLen * 0.42,
-      26,
-      "end",
+      [hip, pre, knee, post, ankle],
+      (t) => {
+        const scaled = t * (keys.length - 1);
+        const index = Math.min(keys.length - 2, Math.floor(scaled));
+        return THREE.MathUtils.lerp(keys[index], keys[index + 1], smoothstep(scaled - index));
+      },
+      (dist) => [thighId, shinId, smoothstep((dist - (thighLen - 0.055)) / 0.11)],
+      30,
+      40,
+      "both",
     );
   };
   limb(thighL, shinL, BONE.thighL, BONE.shinL);
@@ -822,19 +735,38 @@ export function createGlamRig() {
 
   const skirt = new THREE.Group();
   skirt.name = "skirt";
-  const skirtPoints: THREE.Vector2[] = [];
-  for (let i = 0; i <= 28; i += 1) {
-    const t = i / 28;
-    const y = 0.078 - t * 0.32;
-    const hipBulge = Math.exp(-((t - 0.26) ** 2) / 0.04);
-    const hem = t > 0.9 ? ((t - 0.9) / 0.1) * 0.008 : 0;
-    const radius = 0.09 + hipBulge * 0.042 - t * 0.01 + hem;
-    skirtPoints.push(new THREE.Vector2(radius, y));
+  const skirtRows = 64;
+  const skirtRadial = 112;
+  const skirtPos: number[] = [];
+  const skirtIdx: number[] = [];
+  for (let i = 0; i <= skirtRows; i += 1) {
+    const t = i / skirtRows;
+    const y = 0.1 + ( -0.36 - 0.1) * t;
+    const hip = Math.sin(Math.min(1, t / 0.34) * Math.PI * 0.5);
+    const ease = smoothstep(t);
+    const rx = 0.106 + hip * 0.036 - ease * 0.012;
+    const rz = 0.128 + hip * 0.078 - ease * 0.02;
+    const lip = t > 0.97 ? Math.sin(((t - 0.97) / 0.03) * Math.PI) * 0.004 : 0;
+    for (let j = 0; j < skirtRadial; j += 1) {
+      const angle = (j / skirtRadial) * Math.PI * 2;
+      skirtPos.push(Math.cos(angle) * (rx + lip), y, Math.sin(angle) * (rz + lip));
+    }
   }
-  const skirtGeo = new THREE.LatheGeometry(skirtPoints, 72);
+  for (let i = 0; i < skirtRows; i += 1) {
+    for (let j = 0; j < skirtRadial; j += 1) {
+      const j2 = (j + 1) % skirtRadial;
+      const a = i * skirtRadial + j;
+      const b = i * skirtRadial + j2;
+      const c = a + skirtRadial;
+      const d = b + skirtRadial;
+      skirtIdx.push(a, b, c, b, d, c);
+    }
+  }
+  const skirtGeo = new THREE.BufferGeometry();
+  skirtGeo.setAttribute("position", new THREE.Float32BufferAttribute(skirtPos, 3));
+  skirtGeo.setIndex(skirtIdx);
   skirtGeo.computeVertexNormals();
   const skirtMesh = new THREE.Mesh(skirtGeo, skirtMat);
-  skirtMesh.scale.z = 0.86;
   skirtMesh.castShadow = true;
   skirtMesh.receiveShadow = true;
   skirt.add(skirtMesh);
@@ -850,9 +782,8 @@ export function createGlamRig() {
   pendant.position.set(0, 0.162, 0.048);
   chest.add(pendant);
 
-  const sculpt = fashionHead();
-  const faceMat = toon("#ffffff", { map: paintFace(sculpt.marks) });
-  const skull = new THREE.Mesh(sculpt.geometry, faceMat);
+  const faceMat = toon("#ffffff", { map: faceTexture(), roughness: 0.94, metalness: 0 });
+  const skull = new THREE.Mesh(fashionHead(), faceMat);
   skull.name = "face";
   skull.castShadow = true;
   head.add(skull);
