@@ -1,4 +1,5 @@
 import { containsPrivateOfficeDetail } from "./office-catalog";
+import { worldsTextRejection } from "./safety";
 
 /** Wallet kinds the vault knows. A label for the balance, not a linked account. */
 export const WALLET_TYPES = ["cash", "bank", "gold", "other"] as const;
@@ -117,6 +118,8 @@ export function parseWalletWrite(body: unknown): Parsed {
   if (containsPrivateOfficeDetail(name) || /\d{8,}/.test(name)) {
     return fail(400, "A wallet name is a label. Leave account and card numbers out.");
   }
+  const blocked = worldsTextRejection(name);
+  if (blocked) return fail(400, blocked);
   if (typeof body.type !== "string" || !isWalletType(body.type)) {
     return fail(400, "type must be cash, bank, gold, or other.");
   }

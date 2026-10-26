@@ -4,7 +4,7 @@ import { OfficeApp } from "@/components/worlds/office-app";
 import { isOwner } from "@/lib/authz";
 import { requireViewer } from "@/lib/current-user";
 import { canOpenCharacterCreator } from "@/lib/worlds/character";
-import { worldsCityEnabled } from "@/lib/worlds/follow-camera";
+import { worldsCityEnabled } from "@/lib/worlds/city/flag";
 
 export const dynamic = "force-dynamic";
 
