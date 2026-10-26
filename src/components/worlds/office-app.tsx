@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { withBasePath } from "@/lib/format";
 import { OWNER_ACTOR_ID, buildOfficeLayout } from "@/lib/worlds/office-layout";
 import {
@@ -48,6 +48,15 @@ import type { CameraMode } from "@/lib/worlds/follow-camera";
 import { nextUpLine, type WorldsRailId } from "@/lib/worlds/worlds-hud";
 import type { Stick } from "@/lib/worlds/office-move";
 import { WorldsHud } from "./worlds-hud";
+import { CityChrome } from "./city/city-panel";
+import { buildCityDistrict, locationById, plotForLocation, type CityLocationId, type CityLot } from "@/lib/worlds/city/locations";
+import { housingModelForTier, type DecorMode, type DecorSku, type DecorTurns } from "@/lib/worlds/city/decorate";
+import { cityDayWeather, cityNightWeather, interiorStand } from "@/lib/worlds/city/scene-shell";
+import { homeRoomShift, housingInteriorSize } from "@/lib/worlds/city/interiors";
+import { decideEnter, allowsWalkIn, type AccessRole } from "@/lib/worlds/city/access";
+import { officeInteractables } from "@/lib/worlds/city/interactables";
+import { emptyCitySession, type CitySession } from "@/lib/worlds/city/tasks";
+import type { HomeTier } from "@/lib/worlds/economy";
 import "./office.css";
 
 type GameCatalogItem = {
@@ -181,14 +190,20 @@ function dollars(amount: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
 }
 
+type CityAim =
+  | { kind: "focus"; x: number; z: number }
+  | { kind: "stand"; eye: [number, number, number]; aim: [number, number, number] };
+
 export function OfficeApp({
   charactersEnabled = false,
   place = "office",
   cityEnabled = false,
+  cityMode = false,
 }: {
   charactersEnabled?: boolean;
   place?: "office" | "city";
   cityEnabled?: boolean;
+  cityMode?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const cameraApiRef = useRef<OfficeCameraApi | null>(null);
@@ -215,7 +230,7 @@ export function OfficeApp({
   const [todoDue, setTodoDue] = useState("2026-10-24");
   const [todoImpact, setTodoImpact] = useState("0");
   const [todoOwner, setTodoOwner] = useState("kash");
-  const [weather, setWeather] = useState<OfficeWeather>(() => weatherFromClock(new Date()));
+  const [weather, setWeather] = useState<OfficeWeather>(() => (cityMode ? cityDayWeather(new Date()) : weatherFromClock(new Date())));
   const [wallets, setWallets] = useState<WalletList>({ wallets: [], total: 0, currency: "USD" });
   const [addingWallet, setAddingWallet] = useState(false);
   const [walletName, setWalletName] = useState("");
@@ -226,6 +241,49 @@ export function OfficeApp({
   const [gameError, setGameError] = useState("");
   const [interestPercent, setInterestPercent] = useState(String(ECONOMY.interest.defaultWeeklyPercent));
   const [bankAmount, setBankAmount] = useState("");
+  const [cityLocation, setCityLocation] = useState<string | null>(null);
+  const [cityPlot, setCityPlot] = useState<string | null>(null);
+  const [cityLotId, setCityLotId] = useState<string | null>(null);
+  const [viewerRole, setViewerRole] = useState<AccessRole>("owner");
+  const [citySession, setCitySession] = useState<CitySession>(() => emptyCitySession());
+  const cityAim = useRef<CityAim | null>(null);
+  const decorTry = useRef<(gx: number, gz: number) => void>(() => {});
+  const bindDecorTry = useCallback((fn: (gx: number, gz: number) => void) => {
+    decorTry.current = fn;
+  }, []);
+  const [decorHover, setDecorHover] = useState<DecorMode["hover"]>(null);
+  const [decorUi, setDecorUi] = useState<{ active: boolean; gridOn: boolean; sku: DecorSku; turns: DecorTurns; blocked: NonNullable<DecorMode["blocked"]> | null }>({
+    active: false,
+    gridOn: true,
+    sku: "plant",
+    turns: 0,
+    blocked: null,
+  });
+  const onDecorUi = useCallback((ui: typeof decorUi) => {
+    setDecorUi((current) => {
+      const sameBlocked = current.blocked?.gx === ui.blocked?.gx
+        && current.blocked?.gz === ui.blocked?.gz
+        && current.blocked?.sku === ui.blocked?.sku
+        && current.blocked?.turns === ui.blocked?.turns
+        && (current.blocked === null) === (ui.blocked === null);
+      if (current.active === ui.active && current.gridOn === ui.gridOn && current.sku === ui.sku && current.turns === ui.turns && sameBlocked) return current;
+      return ui;
+    });
+  }, []);
+  const onDecorHover = useCallback((cell: DecorMode["hover"]) => {
+    setDecorHover((current) => {
+      if (current?.gx === cell?.gx && current?.gz === cell?.gz) return current;
+      if (!current && !cell) return current;
+      return cell;
+    });
+  }, []);
+  const rememberCitySession = useCallback((next: CitySession) => {
+    setCitySession((current) => (current === next ? current : next));
+  }, []);
+  const [homeTier, setHomeTier] = useState<HomeTier>("studio");
+  const setTier = useCallback((tier: HomeTier) => {
+    setHomeTier((current) => (current === tier ? current : tier));
+  }, []);
   const bankKey = useRef("");
   const [savingGame, setSavingGame] = useState(false);
   const [savingWallet, setSavingWallet] = useState(false);
@@ -450,6 +508,7 @@ export function OfficeApp({
   }, []);
 
   useEffect(() => {
+    if (cityMode) return;
     let stop = false;
     async function loadWeather() {
       try {
@@ -467,7 +526,7 @@ export function OfficeApp({
       stop = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [cityMode]);
 
   const layoutKey = status ? layoutHold(status).key : "";
   const [hold, setHold] = useState<LayoutHold | null>(null);
@@ -485,6 +544,14 @@ export function OfficeApp({
       extraBotIds: hold.botIds,
     });
   }, [hold]);
+  const decorRoom = useMemo(() => {
+    if (!layout) return null;
+    const district = buildCityDistrict(layout, homeTier, citySession.apartmentUnits);
+    const plot = plotForLocation(district.plots, "home", homeTier);
+    if (!plot) return null;
+    const model = housingModelForTier(homeTier);
+    return { model, ...housingInteriorSize(model, plot.w, plot.d) };
+  }, [layout, homeTier, citySession.apartmentUnits]);
   const sim = useMemo(() => {
     if (!layout || !hold) return null;
     const store = createOfficeSimStore(layout, [...hold.botIds.filter((id) => id !== OWNER_ACTOR_ID), OWNER_ACTOR_ID]);
@@ -558,6 +625,7 @@ export function OfficeApp({
   }
 
   function chooseCamera(next: CameraMode) {
+    if (cityMode) return;
     if (place === "city") return;
     setCameraMode(next);
     savePref(CAMERA_KEY, next);
@@ -746,6 +814,84 @@ export function OfficeApp({
     else await node.requestFullscreen();
   }
 
+  function openCity(id: string) {
+    setSheet(null);
+    setBoard(null);
+    if (!layout) {
+      setCityLocation(id);
+      setCityPlot(null);
+      return;
+    }
+    const district = buildCityDistrict(layout, homeTier, citySession.apartmentUnits);
+    const lot = district.lots.find((item) => item.id === id);
+    if (lot) {
+      setCityLocation(null);
+      setCityPlot(null);
+      setCityLotId(lot.id);
+      cityAim.current = { kind: "focus", x: lot.x + lot.w / 2, z: lot.z + lot.d / 2 };
+      return;
+    }
+    setCityLotId(null);
+    const plots = district.plots;
+    const plot = plots.find((item) => item.id === id) ?? plotForLocation(plots, id as CityLocationId, citySession.homeTier);
+    if (!plot) {
+      setCityLocation(id);
+      setCityPlot(null);
+      return;
+    }
+    setCityLocation(plot.locationId);
+    setCityPlot(plot.id);
+    const location = locationById(plot.locationId);
+    const decision = location ? decideEnter(location, viewerRole, citySession, plot.propertyTier) : null;
+    const inside = location && decision ? allowsWalkIn(decision, location.interior) : false;
+    if (inside) {
+      const pose = interiorStand(plot, homeRoomShift(plot.model ?? "lab", plot.w, plot.d));
+      cityAim.current = {
+        kind: "stand",
+        eye: [pose.eye.x, pose.eye.y, pose.eye.z],
+        aim: [pose.aim.x, pose.aim.y, pose.aim.z],
+      };
+    } else {
+      cityAim.current = { kind: "focus", x: plot.entrance.x, z: plot.entrance.z };
+    }
+  }
+
+  useEffect(() => {
+    if (!cityMode) return;
+    if (cityLocation === null && cityLotId === null) return;
+    const aim = cityAim.current;
+    const api = cameraApiRef.current;
+    if (!aim || !api?.focus || !api.stand) return;
+    if (aim.kind === "focus") api.focus(aim.x, aim.z);
+    else api.stand(aim.eye[0], aim.eye[1], aim.eye[2], aim.aim[0], aim.aim[1], aim.aim[2]);
+    cityAim.current = null;
+  }, [cityMode, cityLocation, cityPlot, cityLotId, layout, homeTier, citySession.apartmentUnits, viewerRole]);
+
+  const cityVisit = useMemo(() => {
+    if (!cityMode || !layout || !cityLocation) return null;
+    const plots = buildCityDistrict(layout, homeTier, citySession.apartmentUnits).plots;
+    const plot = plots.find((item) => item.id === cityPlot) ?? null;
+    const location = locationById(cityLocation);
+    if (!location) return null;
+    const decision = decideEnter(location, viewerRole, citySession, plot?.propertyTier);
+    return {
+      plot,
+      interiorOpen: allowsWalkIn(decision, location.interior),
+      locked: !decision.open,
+    };
+  }, [cityMode, layout, homeTier, cityLocation, cityPlot, viewerRole, citySession]);
+
+  const cityLot = useMemo<CityLot | null>(() => {
+    if (!cityMode || !layout || !cityLotId) return null;
+    return buildCityDistrict(layout, homeTier, citySession.apartmentUnits).lots.find((item) => item.id === cityLotId) ?? null;
+  }, [cityMode, layout, homeTier, cityLotId, citySession.apartmentUnits]);
+
+  const officeTaps = useMemo(
+    () => (cityMode && layout && status ? officeInteractables(layout, status.sections, status.bots) : []),
+    [cityMode, layout, status],
+  );
+
+  const cityInspecting = cityMode && (cityLocation !== null || cityLotId !== null);
   const reviewCount = status ? notesForView(status.notes, "review").length : 0;
   const boardNotes = status && board ? status.notes.filter((note) => note.office === board.office) : [];
 
@@ -778,9 +924,31 @@ export function OfficeApp({
             bankBalance={gameWallet?.wallet.bank ?? 0}
             onOpenBank={() => openBank()}
             stickRef={stickRef}
-            cameraMode={place === "city" ? "follow" : cameraMode}
-            drivePlayer={sheet === null && (place === "city" || cameraMode === "follow")}
+            cameraMode={cityInspecting ? "overview" : place === "city" ? "follow" : cameraMode}
+            drivePlayer={sheet === null && !cityInspecting && (place === "city" || cameraMode === "follow")}
             hideClicks={hideClicks}
+            city={cityMode ? {
+              homeTier,
+              apartmentUnits: citySession.apartmentUnits,
+              claimedLotIds: citySession.claimedLotIds,
+              selectedId: cityLotId ?? cityPlot,
+              interiorOpen: cityVisit?.interiorOpen ?? false,
+              locked: cityVisit?.locked ?? false,
+              onOpenLocation: openCity,
+              decor: {
+                model: decorRoom?.model ?? housingModelForTier(homeTier),
+                placements: citySession.decorPlacements,
+                mode: decorUi.active ? {
+                  gridOn: decorUi.gridOn,
+                  sku: decorUi.sku,
+                  turns: decorUi.turns,
+                  hover: decorHover,
+                  blocked: decorUi.blocked,
+                  onHover: onDecorHover,
+                  onCell: (cell) => decorTry.current(cell.gx, cell.gz),
+                } : null,
+              },
+            } : null}
           />
         ) : (
           <div className="office-loading">{error || "Opening the bot office…"}</div>
@@ -809,7 +977,30 @@ export function OfficeApp({
         }}
       />
 
-      <OfficeJoystick stickRef={stickRef} lifted={sheet !== null} label={place === "city" || cameraMode === "follow" ? "Move" : "Move the camera"} />
+      <OfficeJoystick stickRef={stickRef} lifted={sheet !== null || cityLocation !== null || cityLotId !== null} label={place === "city" || cameraMode === "follow" ? "Move" : "Move the camera"} />
+
+      {cityMode ? (
+        <CityChrome
+          locationId={cityLocation}
+          officeTaps={officeTaps}
+          onOpenLocation={openCity}
+          lot={cityLot}
+          onClose={() => {
+            setCityLocation(null);
+            setCityPlot(null);
+            setCityLotId(null);
+          }}
+          onOpenBank={() => openBank()}
+          onTier={setTier}
+          onSession={rememberCitySession}
+          propertyTier={cityVisit?.plot?.propertyTier}
+          viewerRole={viewerRole}
+          onViewerRole={setViewerRole}
+          decorRoom={decorRoom}
+          onDecorUi={onDecorUi}
+          bindDecorTry={bindDecorTry}
+        />
+      ) : null}
 
       <div
         className={sheet ? "worlds-backdrop" : "worlds-backdrop is-closed"}
@@ -913,6 +1104,11 @@ export function OfficeApp({
                 <button type="button" aria-pressed={cameraMode === "overview"} onClick={() => chooseCamera("overview")}>Overview</button>
               </div>
             ) : <p className="office-kicker">The city stays on the follow camera.</p>}
+            {cityMode ? (
+              <button type="button" aria-pressed={weather.sunElevation <= 0} aria-label="Night lighting" onClick={() => setWeather((current) => (current.sunElevation <= 0 ? cityDayWeather(new Date()) : cityNightWeather(new Date())))}>
+                {weather.sunElevation <= 0 ? "Day" : "Night"}
+              </button>
+            ) : null}
             <p className="office-kicker">Follow keeps the camera on you. Right-drag, left-drag, or two fingers orbit. Scroll or pinch changes distance. WASD, arrows, or the joystick walk. Overview is the office map.</p>
             <button type="button" aria-pressed={panelsEnabled} onClick={() => persistPanels(!panelsEnabled)}>Panels</button>
             <div className="office-layers" role="group" aria-label="Map layers">

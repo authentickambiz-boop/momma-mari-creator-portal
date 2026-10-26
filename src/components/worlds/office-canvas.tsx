@@ -26,7 +26,12 @@ import {
   type FollowOrbit,
 } from "@/lib/worlds/follow-camera";
 import { MAP_MAX_DISTANCE, MAP_MAX_POLAR, MAP_MIN_DISTANCE, MAP_MIN_POLAR, OFFICE_FOV, PAN_DRAG_PX, PLAYER_WALK_SPEED, grabPanDelta, moveDelta, officeCameraHome, officeCameraPoseOk, rayGroundPoint, rotateOffset, wheelZoomFactor, zoomOffset, type Stick } from "@/lib/worlds/office-move";
+import { cityOverviewHome, officeTargetBounds, poseInsideBounds, type TargetBounds } from "@/lib/worlds/city/scene-shell";
+import { buildCityDistrict } from "@/lib/worlds/city/locations";
+import type { HomeTier } from "@/lib/worlds/economy";
 import { OfficeSite } from "./office-grounds";
+import { WorldSceneShell } from "./city/scene-shell";
+import { CityLayer } from "./city/city-layer";
 
 export type BoardPanel = "calendar" | "todos" | "notes";
 export type BoardOpen = { office: OfficeKey; panel: BoardPanel };
@@ -34,6 +39,23 @@ export type BoardOpen = { office: OfficeKey; panel: BoardPanel };
 export type OfficeCameraApi = {
   reset: () => void;
   zoomBy: (factor: number) => void;
+  focus: (x: number, z: number) => void;
+  stand: (eyeX: number, eyeY: number, eyeZ: number, aimX: number, aimY: number, aimZ: number) => void;
+};
+
+export type CitySceneMode = {
+  homeTier: HomeTier;
+  apartmentUnits: number;
+  claimedLotIds: readonly string[];
+  selectedId: string | null;
+  interiorOpen: boolean;
+  locked: boolean;
+  onOpenLocation: (id: string) => void;
+  decor?: {
+    model: import("@/lib/worlds/city/decorate").HousingModel;
+    placements: readonly import("@/lib/worlds/city/decorate").DecorPlacement[];
+    mode: import("@/lib/worlds/city/decorate").DecorMode | null;
+  } | null;
 };
 
 export type OfficeLayers = {
@@ -70,14 +92,10 @@ function applyDistanceZoom(orbit: OrbitControlsType, aim: THREE.Vector3, factor:
   place();
 }
 
-function clampMapTarget(orbit: OrbitControlsType, layout: OfficeLayout) {
-  const minX = -14;
-  const maxX = layout.width + 14;
-  const minZ = -14;
-  const maxZ = layout.depth + 28;
-  const x = THREE.MathUtils.clamp(orbit.target.x, minX, maxX);
-  const y = THREE.MathUtils.clamp(orbit.target.y, 0.4, 3.2);
-  const z = THREE.MathUtils.clamp(orbit.target.z, minZ, maxZ);
+function clampMapTarget(orbit: OrbitControlsType, bounds: TargetBounds) {
+  const x = THREE.MathUtils.clamp(orbit.target.x, bounds.minX, bounds.maxX);
+  const y = THREE.MathUtils.clamp(orbit.target.y, bounds.minY, bounds.maxY);
+  const z = THREE.MathUtils.clamp(orbit.target.z, bounds.minZ, bounds.maxZ);
   const dx = x - orbit.target.x;
   const dy = y - orbit.target.y;
   const dz = z - orbit.target.z;
@@ -1169,7 +1187,7 @@ function Robot({
   );
 }
 
-function Lights({ layout, weather, quality }: { layout: OfficeLayout; weather: OfficeWeather; quality: OfficeQuality }) {
+function Lights({ layout, weather, quality, city = false }: { layout: OfficeLayout; weather: OfficeWeather; quality: OfficeQuality; city?: boolean }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const sun = sunPosition(weather.hour, layout);
   const day = THREE.MathUtils.clamp((weather.sunElevation + 0.08) / 1.05, 0, 1);
@@ -1196,11 +1214,11 @@ function Lights({ layout, weather, quality }: { layout: OfficeLayout; weather: O
         shadow-mapSize-height={quality === "fast" ? 1024 : 2048}
         shadow-bias={-0.0004}
         shadow-camera-near={2}
-        shadow-camera-far={140}
-        shadow-camera-left={-(layout.width + 24)}
-        shadow-camera-right={layout.width + 24}
-        shadow-camera-top={layout.depth + 30}
-        shadow-camera-bottom={-(layout.depth + 20)}
+        shadow-camera-far={city ? 280 : 140}
+        shadow-camera-left={-(layout.width + (city ? 120 : 24))}
+        shadow-camera-right={layout.width + (city ? 120 : 24)}
+        shadow-camera-top={layout.depth + (city ? 110 : 30)}
+        shadow-camera-bottom={-(layout.depth + (city ? 100 : 20))}
       />
       {weather.sunElevation > 0.05 && weather.kind === "clear" ? (
         <mesh position={[sun.x, sun.y, sun.z]}>
@@ -1377,10 +1395,12 @@ function MapGestures({
   controls,
   layout,
   gesture,
+  boundsRef,
 }: {
   controls: React.RefObject<OrbitControlsType | null>;
   layout: OfficeLayout;
   gesture: React.MutableRefObject<MapGesture>;
+  boundsRef: React.MutableRefObject<TargetBounds>;
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -1461,7 +1481,7 @@ function MapGestures({
       if (button === 0) {
         const hit = groundAt(event);
         if (anchor && hit) {
-          nudgeTarget(orbit, grabPanDelta(anchor, hit), layout);
+          nudgeTarget(orbit, grabPanDelta(anchor, hit), boundsRef.current);
           anchor = groundAt(event) ?? hit;
         }
       } else if (button === 2) {
@@ -1502,27 +1522,27 @@ function MapGestures({
       window.removeEventListener("pointerup", finish);
       window.removeEventListener("pointercancel", finish);
     };
-  }, [camera, gl, controls, layout, gesture, aim]);
+  }, [camera, gl, controls, layout, gesture, aim, boundsRef]);
   return null;
 }
 
-function nudgeTarget(orbit: OrbitControlsType, delta: { x: number; z: number }, layout: OfficeLayout) {
+function nudgeTarget(orbit: OrbitControlsType, delta: { x: number; z: number }, bounds: TargetBounds) {
   orbit.target.x += delta.x;
   orbit.target.z += delta.z;
   orbit.object.position.x += delta.x;
   orbit.object.position.z += delta.z;
-  clampMapTarget(orbit, layout);
+  clampMapTarget(orbit, bounds);
   orbit.update();
 }
 
 function StickMover({
   stickRef,
   controls,
-  layout,
+  boundsRef,
 }: {
   stickRef: React.MutableRefObject<Stick>;
   controls: React.RefObject<OrbitControlsType | null>;
-  layout: OfficeLayout;
+  boundsRef: React.MutableRefObject<TargetBounds>;
 }) {
   // Stay on the default priority. A positive one makes React Three Fiber skip drawing the scene.
   useFrame((_, dt) => {
@@ -1538,7 +1558,7 @@ function StickMover({
       step,
     );
     if (delta.x === 0 && delta.z === 0) return;
-    nudgeTarget(orbit, delta, layout);
+    nudgeTarget(orbit, delta, boundsRef.current);
   });
   return null;
 }
@@ -1546,15 +1566,22 @@ function StickMover({
 function CameraGuard({
   controls,
   layout,
+  boundsRef,
+  home,
 }: {
   controls: React.RefObject<OrbitControlsType | null>;
   layout: OfficeLayout;
+  boundsRef: React.MutableRefObject<TargetBounds>;
+  home: { position: THREE.Vector3; target: THREE.Vector3 };
 }) {
-  const home = useMemo(() => mapHome(layout), [layout]);
   useFrame(() => {
     const orbit = controls.current;
     if (!orbit) return;
-    if (officeCameraPoseOk(orbit.object.position, orbit.target, layout)) return;
+    const bounds = boundsRef.current;
+    const ok = bounds.kind === "city"
+      ? poseInsideBounds(orbit.object.position, orbit.target, bounds)
+      : officeCameraPoseOk(orbit.object.position, orbit.target, layout);
+    if (ok) return;
     orbit.object.position.copy(home.position);
     orbit.target.copy(home.target);
     orbit.update();
@@ -1815,6 +1842,7 @@ function CameraBridge({
   home,
   orbitRef,
   sim,
+  boundsRef,
 }: {
   cameraMode: CameraMode;
   cameraApiRef: React.MutableRefObject<OfficeCameraApi | null>;
@@ -1822,6 +1850,7 @@ function CameraBridge({
   home: ReturnType<typeof mapHome>;
   orbitRef: React.MutableRefObject<FollowOrbit>;
   sim: OfficeSimStore;
+  boundsRef: React.MutableRefObject<TargetBounds>;
 }) {
   useLayoutEffect(() => {
     cameraApiRef.current = {
@@ -1849,11 +1878,40 @@ function CameraBridge({
         if (!orbit) return;
         applyDistanceZoom(orbit, home.aim, factor);
       },
+      focus(x: number, z: number) {
+        if (cameraMode === "follow") return;
+        const orbit = controls.current;
+        if (!orbit) return;
+        const dx = x - orbit.target.x;
+        const dz = z - orbit.target.z;
+        const dy = 1.2 - orbit.target.y;
+        orbit.target.set(x, 1.2, z);
+        orbit.object.position.x += dx;
+        orbit.object.position.y += dy;
+        orbit.object.position.z += dz;
+        const offset = orbit.object.position.clone().sub(orbit.target);
+        const next = THREE.MathUtils.clamp(Math.min(offset.length(), 22), MAP_MIN_DISTANCE, MAP_MAX_DISTANCE);
+        if (offset.lengthSq() > 1e-8) {
+          offset.setLength(next);
+          orbit.object.position.copy(orbit.target).add(offset);
+        }
+        clampMapTarget(orbit, boundsRef.current);
+        orbit.update();
+      },
+      stand(eyeX: number, eyeY: number, eyeZ: number, aimX: number, aimY: number, aimZ: number) {
+        if (cameraMode === "follow") return;
+        const orbit = controls.current;
+        if (!orbit) return;
+        orbit.target.set(aimX, aimY, aimZ);
+        orbit.object.position.set(eyeX, eyeY, eyeZ);
+        clampMapTarget(orbit, boundsRef.current);
+        orbit.update();
+      },
     };
     return () => {
       cameraApiRef.current = null;
     };
-  }, [cameraApiRef, cameraMode, controls, home, orbitRef, sim]);
+  }, [cameraApiRef, cameraMode, controls, home, orbitRef, sim, boundsRef]);
   return null;
 }
 
@@ -1883,6 +1941,7 @@ function Scene({
   cameraMode,
   drivePlayer,
   hideClicks,
+  city = null,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -1909,21 +1968,43 @@ function Scene({
   cameraMode: CameraMode;
   drivePlayer: boolean;
   hideClicks: boolean;
+  city?: CitySceneMode | null;
 }) {
   const mats = useOfficeMaterials(layout);
   const controls = useRef<OrbitControlsType>(null);
   const orbitRef = useRef<FollowOrbit>(followOrbitBehind(0));
   const [hotId, setHotId] = useState<string | null>(null);
   const sky = skyColor(weather);
-  const fog = fogDistances(weather);
-  const home = useMemo(() => mapHome(layout), [layout]);
+  const baseFog = fogDistances(weather);
+  const fog = city ? { near: Math.max(baseFog.near, 48), far: Math.max(baseFog.far, 240) } : baseFog;
+  const tier = city?.homeTier ?? "studio";
+  const apartmentUnits = city?.apartmentUnits ?? 0;
+  const cityOn = city != null;
+  const district = useMemo(
+    () => (cityOn ? buildCityDistrict(layout, tier, apartmentUnits) : null),
+    [cityOn, layout, tier, apartmentUnits],
+  );
+  const boundsRef = useRef<TargetBounds>(officeTargetBounds(layout));
+  useLayoutEffect(() => {
+    boundsRef.current = district?.bounds ?? officeTargetBounds(layout);
+  }, [district, layout]);
+  const officeHome = useMemo(() => mapHome(layout), [layout]);
+  const home = useMemo(() => {
+    if (!cityOn || cameraMode === "follow") return officeHome;
+    const pulled = cityOverviewHome(layout);
+    return {
+      position: pulled.position,
+      target: pulled.target,
+      aim: pulled.position.clone().sub(pulled.target),
+    };
+  }, [cityOn, cameraMode, layout, officeHome]);
   const follow = cameraMode === "follow";
   return (
     <>
       <color attach="background" args={[sky]} />
       {layers.weather ? <fog attach="fog" args={[sky, fog.near, fog.far]} /> : null}
       <StudioEnv enabled={detailed} />
-      <Lights layout={layout} weather={weather} quality={quality} />
+      <Lights layout={layout} weather={weather} quality={quality} city={cityOn} />
       <group>
       <OfficeSite layout={layout} weather={weather} showGrounds={layers.outdoor} showRoof={layers.roof} showWeather={layers.weather} />
       <TapContext.Provider value={canOpen}>
@@ -1950,6 +2031,24 @@ function Scene({
           hideClicks={hideClicks}
         />
       )) : null}
+      {city && district ? (
+        <WorldSceneShell>
+          <CityLayer
+            district={district}
+            quality={quality}
+            detailed={detailed}
+            selectedId={city.selectedId}
+            interiorOpen={city.interiorOpen}
+            locked={city.locked}
+            canOpen={canOpen}
+            onEnter={city.onOpenLocation}
+            tier={tier}
+            weather={weather}
+            claimedLotIds={city.claimedLotIds}
+            decor={city.decor ?? null}
+          />
+        </WorldSceneShell>
+      ) : null}
       </MatsContext.Provider>
       </TapContext.Provider>
       </group>
@@ -1969,12 +2068,12 @@ function Scene({
         </>
       ) : (
         <>
-          <MapGestures controls={controls} layout={layout} gesture={gesture} />
-          <StickMover stickRef={stickRef} controls={controls} layout={layout} />
-          <CameraGuard controls={controls} layout={layout} />
+          <MapGestures controls={controls} layout={layout} gesture={gesture} boundsRef={boundsRef} />
+          <StickMover stickRef={stickRef} controls={controls} boundsRef={boundsRef} />
+          <CameraGuard controls={controls} layout={layout} boundsRef={boundsRef} home={home} />
         </>
       )}
-      <CameraBridge cameraMode={cameraMode} cameraApiRef={cameraApiRef} controls={controls} home={home} orbitRef={orbitRef} sim={sim} />
+      <CameraBridge cameraMode={cameraMode} cameraApiRef={cameraApiRef} controls={controls} home={home} orbitRef={orbitRef} sim={sim} boundsRef={boundsRef} />
       {follow ? null : <MapControls
         ref={controls}
         makeDefault
@@ -2002,7 +2101,7 @@ function Scene({
         }}
         onChange={() => {
           const orbit = controls.current;
-          if (orbit) clampMapTarget(orbit, layout);
+          if (orbit) clampMapTarget(orbit, boundsRef.current);
         }}
       />}
     </>
@@ -2064,6 +2163,7 @@ export default function OfficeCanvas({
   cameraMode = "follow",
   drivePlayer = true,
   hideClicks = false,
+  city = null,
 }: {
   layout: OfficeLayout;
   sections: OfficeSection[];
@@ -2087,6 +2187,7 @@ export default function OfficeCanvas({
   cameraMode?: CameraMode;
   drivePlayer?: boolean;
   hideClicks?: boolean;
+  city?: CitySceneMode | null;
 }) {
   const meetingRef = useRef(meeting);
   const botsRef = useRef(bots);
@@ -2248,10 +2349,11 @@ export default function OfficeCanvas({
         cameraMode={cameraMode}
         drivePlayer={drivePlayer}
         hideClicks={hideClicks}
+        city={city}
       />
     </Canvas>
     ) : null}
-    {presented ? null : <div className="office-loading" role="status">Opening the bot office…</div>}
+    {presented ? null : <div className="office-loading" role="status">{city ? "Opening the city…" : "Opening the bot office…"}</div>}
     </OfficeViewBoundary>
   );
 }

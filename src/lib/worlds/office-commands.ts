@@ -18,6 +18,7 @@
  */
 
 import { containsPrivateOfficeDetail } from "./office-catalog";
+import { worldsTextRejection } from "./safety";
 import { HQ_BOT_ID } from "./office-layout";
 import {
   managerForOffice,
@@ -104,6 +105,8 @@ function text(value: unknown, label: string, max = 400): OfficeResult<string> {
   const trimmed = value.trim();
   if (trimmed.length > max) return fail(400, `${label} is too long.`);
   if (containsPrivateOfficeDetail(trimmed)) return fail(400, `${label} includes a private detail. Leave it out of the office.`);
+  const blocked = worldsTextRejection(trimmed);
+  if (blocked) return fail(400, blocked);
   return { ok: true, value: trimmed };
 }
 
@@ -177,6 +180,8 @@ export function parseOfficeCommand(body: unknown, record: OfficeRecord): OfficeR
     if (body.decision !== "approve" && body.decision !== "hold") return fail(400, "decision must be approve or hold.");
     const note = record.notes.find((item) => item.id === noteId.value);
     if (!note) return fail(404, "Note not found.");
+    const blocked = worldsTextRejection(note.idea) ?? worldsTextRejection(note.whyNow);
+    if (blocked) return fail(400, blocked);
     const verb = body.decision === "approve" ? "Approve" : "Hold";
     const ids = [...new Set([record.hqBotId || HQ_BOT_ID, note.bot])];
     return {
@@ -258,6 +263,8 @@ export function parseOfficeCommand(body: unknown, record: OfficeRecord): OfficeR
     if (!todoId.ok) return todoId;
     const todo = record.todos.find((item) => item.id === todoId.value);
     if (!todo) return fail(404, "To-do not found.");
+    const blocked = worldsTextRejection(todo.task);
+    if (blocked) return fail(400, blocked);
     return {
       ok: true,
       value: draft({

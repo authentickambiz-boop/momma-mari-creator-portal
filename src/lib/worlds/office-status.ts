@@ -7,6 +7,7 @@ import {
   OFFICE_STATUS_PATH,
   applyOfficeWrite,
   notesForView,
+  officeCopyRejection,
   officeStatusDocument,
   parseOfficeSnapshot,
   recordFromStored,
@@ -47,6 +48,8 @@ export async function loadOfficeRecord(db: PortalDb) {
 export async function saveOfficeSnapshot(db: PortalDb, body: unknown) {
   const parsed = parseOfficeSnapshot(body);
   if (!parsed.ok) return parsed;
+  const blocked = officeCopyRejection(parsed.value);
+  if (blocked) return { ok: false as const, status: 400, error: blocked };
   const { row } = await readRow(db);
   return { ok: true as const, status: 200, body: await writeRecord(db, row, parsed.value) };
 }

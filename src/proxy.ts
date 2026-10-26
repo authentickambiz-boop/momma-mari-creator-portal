@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { worldsCityEnabled } from "@/lib/worlds/follow-camera";
+import { worldsCityEnabled } from "@/lib/worlds/city/flag";
 import { isBotOfficePath, isWorldsCityPath } from "@/lib/worlds/office-path";
 
 /** Mark the bot office so the root layout can skip site chrome. */
