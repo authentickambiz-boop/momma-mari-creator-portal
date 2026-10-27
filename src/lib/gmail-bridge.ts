@@ -9,6 +9,7 @@ import {
   deals,
   gmailBridgeAudit,
   gmailBridgeMessages,
+  gmailBridgeStarts,
   gmailBridgeThreads,
   gmailSeenMessages,
 } from "@/db/schema";
@@ -313,11 +314,13 @@ export async function syncConnectedMailboxes(
 ) {
   if (!gmailSyncEnabled()) return { enabled: false as const, mailboxes: [] as { mailbox: string; ok: boolean; filed?: number; error?: string }[] };
   const rows = await db.select().from(creators);
+  const started = new Set((await db.select({ creatorId: gmailBridgeStarts.creatorId }).from(gmailBridgeStarts)).map((row) => row.creatorId));
   const read = options?.read ?? (async ({ refreshToken }) => defaultRead(refreshToken));
   const mailboxes: { mailbox: string; ok: boolean; filed?: number; error?: string }[] = [];
   for (const row of rows) {
     const mailbox = normalizeEmail(row.gmailEmail ?? "");
     if (!mailbox || !row.gmailRefreshToken) continue;
+    if (!started.has(row.id)) continue;
     if (creatorForMailbox(mailbox)) continue;
     let refreshToken = "";
     try {

@@ -5,6 +5,7 @@ import { canManageCreatorAccounts, mappedConnectionNote, storedConnectionStatus 
 import { loadPortal } from "@/lib/current-user";
 import { withBasePath } from "@/lib/format";
 import { gmailBridgeConnectHref, gmailSyncEnabled, gmailSyncStatusLine } from "@/lib/gmail-bridge";
+import { gmailBridgeFirstLoginPrompt } from "@/lib/gmail-bridge-start";
 import { WATCH_MAILBOXES } from "@/lib/gmail-push";
 import { emailSetupFor, gmailConnectionState } from "@/lib/onboarding";
 
@@ -43,6 +44,9 @@ export default async function ConnectPage({
   const connections = await Promise.all(creators.map((creator) => gmailConnectionState(portal.db, creator.id)));
   const drives = await Promise.all(creators.map((creator) => driveConnectionState(portal.db, creator.id)));
   const setups = await Promise.all(creators.map((creator) => emailSetupFor(portal.db, creator.id)));
+  const ownPrompt = portal.viewer.role === "creator" && portal.viewer.creatorId
+    ? await gmailBridgeFirstLoginPrompt(portal.db, portal.viewer.creatorId)
+    : null;
   const gmailError = params.gmail && params.gmail !== "connected" && params.gmail !== "disconnected"
     ? mappedConnectionNote(GMAIL_ERRORS, params.gmail)
     : null;
@@ -64,6 +68,7 @@ export default async function ConnectPage({
       {gmailError ? <p className="private-note">{gmailError}</p> : null}
       {driveNote ? <p className={params.drive === "connected" ? "note" : "private-note"}>{driveNote}</p> : null}
       {accountNote ? <p className={params.account === "disconnected" ? "note" : "private-note"}>{accountNote}</p> : null}
+      {ownPrompt ? <p className="callout">{ownPrompt}</p> : null}
       <section className="card" style={{ marginBottom: 16 }}>
         <h2>Brand inbox</h2>
         <p className="note">{gmailSyncStatusLine(portal.viewer.role)} The connect button asks Google for read-only access. It does not send mail.</p>

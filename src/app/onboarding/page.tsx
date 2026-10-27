@@ -11,6 +11,7 @@ import { emailSetupLabel, STRIPE_CATALOG } from "@/lib/email-setup";
 import { publicBasePath } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
 import { onboardingPlatformId, onboardingPlatformLabel } from "@/lib/onboarding-fields";
+import { gmailBridgeFirstLoginPrompt } from "@/lib/gmail-bridge-start";
 import { emailSetupFor, gmailConnectionState, onboardingForCreator } from "@/lib/onboarding";
 import { finishErrorNote } from "@/lib/finish-notes";
 import { canOpenCharacterCreator } from "@/lib/worlds/character";
@@ -47,6 +48,9 @@ export default async function OnboardingPage({
       : "niches") as QuestionStepId;
   const gmailError = params.gmail ? GMAIL_ERRORS[params.gmail] ?? CONNECTION_RETRY_NOTE : null;
   const choice = setup?.choice ?? null;
+  const gmailPrompt = creator && own && choice !== "hosted"
+    ? await gmailBridgeFirstLoginPrompt(portal.db, creator.id)
+    : null;
   const readyForProfile = Boolean(connection?.connected) || (choice === "hosted" && Boolean(setup?.hostedEmailAddress));
   const finishNote = params.error
     ? finishErrorNote(params.error) ?? "That profile was not saved. Add a niche, a content style, rates, and at least one platform."
@@ -70,6 +74,7 @@ export default async function OnboardingPage({
     >
       <CheckoutSuccessNote checkout={params.checkout} />
       {gmailError ? <p className="private-note" role="alert">{gmailError}</p> : null}
+      {gmailPrompt ? <p className="callout">{gmailPrompt}</p> : null}
       {finishNote && !wizardOpen ? <p className="private-note" role="alert">{finishNote}</p> : null}
       {params.connected === "1" ? <p className="callout">Email connected. Finish the questions below.</p> : null}
       {params.done === "1" ? <p className="callout">You&apos;re set. Kamron has &quot;New creator ready for bot&quot; and will set the bot up with you.</p> : null}
