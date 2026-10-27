@@ -539,13 +539,13 @@ describe("sponsored post tracking", () => {
 
     const capturedLate = sponsoredCheckpointPlan({
       ...early,
-      snapshots: [{ ...blank, id: "early-24", checkpoint: "24h", checkpointLabel: "24 hours", updatedAt: "2026-11-04T18:00:00.000Z" }],
+      snapshots: [{ checkpoint: "24h", updatedAt: "2026-11-04T18:00:00.000Z" }],
     }, now);
     assert.equal(capturedLate?.checkpoints.find((item) => item.checkpoint === "24h")?.status, "captured");
     assert.equal(capturedLate?.checkpoints.find((item) => item.checkpoint === "24h")?.capturedLabel, "Nov 4, 2026, 1:00 PM EST");
     const otherWindow = sponsoredCheckpointPlan({
       ...early,
-      snapshots: [{ ...blank, id: "early-14", checkpoint: "14d", checkpointLabel: "14 days", updatedAt: now }],
+      snapshots: [{ checkpoint: "14d", updatedAt: now }],
     }, now);
     assert.equal(otherWindow?.checkpoints.every((item) => item.status !== "captured"), true);
 
@@ -568,8 +568,7 @@ describe("sponsored post tracking", () => {
     const reminderText = Object.values(SNAPSHOT_REMINDERS).join("\n");
     assert.equal(/\$|floor|minimum|payout|80\s*\/\s*20|\brates?\b/i.test(reminderText), false);
 
-    const brand = { ...admin, email: "brand@harbor.example", role: "brand", name: "Harbor" } as Viewer;
-    for (const viewer of [mariclare, manager, brand]) {
+    for (const viewer of [mariclare, manager, abby]) {
       const denied = sponsoredSnapshotsDue(viewer, [early, middle, fresh], now);
       assert.equal(denied.ok, false);
       if (denied.ok) return;
