@@ -13,10 +13,13 @@ import {
   SNAPSHOT_METRICS,
   snapshotMetricPairs,
   SPONSORED_CHECKPOINTS,
+  sponsoredCheckpointPlan,
   sponsoredPostHref,
   type GroupRollup,
   type MetricStat,
+  type SnapshotDueStatus,
   type SponsoredChoices,
+  type SponsoredDueItem,
   type SponsoredPostView,
   type SponsoredRollup,
   type SponsoredSnapshotView,
@@ -90,6 +93,13 @@ function SortHeader({ label, column, filters }: { label: string; column: Sponsor
       </Link>
     </th>
   );
+}
+
+function dueChip(status: SnapshotDueStatus) {
+  if (status === "late") return "c-red";
+  if (status === "due") return "c-sun";
+  if (status === "captured") return "c-sage";
+  return "c-gray";
 }
 
 function views(post: SponsoredPostView, checkpoint: string) {
@@ -187,7 +197,7 @@ function SnapshotForm({ postId, snapshot, filters }: { postId: string; snapshot?
         Another checkpoint
         <input name="checkpointOther" defaultValue={snapshot && !standard ? snapshot.checkpoint : ""} placeholder="14d" maxLength={20} />
       </label>
-      <p className="note">If you fill the other box, that checkpoint is the one saved. A later window is its own row.</p>
+      <p className="note">If you fill the other box, that checkpoint is the one saved. A later window is its own row. In the note, label where each count came from, and keep paid or whitelisted spend separate from organic.</p>
       {SNAPSHOT_METRICS.map((metric) => (
         <label key={metric}>
           {metricLabel(metric)}
@@ -211,6 +221,8 @@ export function SponsoredPostLog({
   saved,
   error,
   creatorName,
+  asOf,
+  due,
 }: {
   canManage: boolean;
   list: { posts: SponsoredPostView[]; rollup: SponsoredRollup; brands: string[] };
@@ -219,6 +231,8 @@ export function SponsoredPostLog({
   saved: string | null;
   error: string | null;
   creatorName: string | null;
+  asOf: string;
+  due: SponsoredDueItem[] | null;
 }) {
   const views7 = metricStat(list.rollup, "7d", "views");
   const savedNote = saved ? SAVED[saved] ?? null : null;
@@ -226,6 +240,28 @@ export function SponsoredPostLog({
     <div className="stack" data-sponsored="log">
       {savedNote ? <p className="note">{savedNote}</p> : null}
       {error ? <p className="private-note" role="alert">{error}</p> : null}
+      {canManage && due ? (
+        <section aria-labelledby="snapshots-due-title" data-sponsored-due="owner">
+          <h2 id="snapshots-due-title">Snapshots due</h2>
+          <p className="note">Times use America/New_York. Go-live is 12:00 AM ET on the post date. The 24-hour snapshot is due the next day and late after two days. The 7-day and 30-day snapshots are due on those days and late after two more days. This list is every live post, including ones outside the filter below. Nothing is emailed.</p>
+          {due.length === 0 ? <p className="note empty">No snapshots are due right now.</p> : (
+            <ul className="sponsored-due">
+              {due.map((item) => (
+                <li key={`${item.postId}-${item.checkpoint}`} className="card">
+                  <p>
+                    <span className={`chip ${dueChip(item.status)}`}>{item.statusLabel}</span>
+                    {" "}
+                    <a href={`${listHref(filters, { creator: "all", brand: "" })}#post-${item.postId}`}>{item.label}</a>
+                    {" · "}{item.brand} · {item.creatorName} · {item.platform}
+                  </p>
+                  <p className="note">Posted {formatSponsoredDay(item.postedOn)}. Due {item.dueLabel}. Late after {item.lateLabel}.</p>
+                  <p>{item.reminder}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
       <p className="note">
         {creatorName
           ? `Averages on this page are for ${creatorName}. Choose All creators to see the whole log.`
@@ -334,6 +370,7 @@ export function SponsoredPostLog({
             {href ? <p><a href={href} rel="noopener noreferrer">Open post</a></p> : null}
             <p className="note">{post.dealId ? `Linked deal: ${deal ?? "Linked"}` : "No linked deal"}{campaign ? ` · Linked campaign: ${campaign}` : ""}</p>
             <p className="note">Logged by {shownText(post.createdByName)}{canManage ? ` (${post.createdBy})` : ""}</p>
+            {canManage ? <CheckpointSchedule post={post} asOf={asOf} /> : null}
             {post.snapshots.length === 0 ? <p className="note">No checkpoints yet.</p> : post.snapshots.map((snapshot) => (
               <SnapshotReadout key={snapshot.id} snapshot={snapshot} canManage={canManage} />
             ))}
@@ -379,6 +416,28 @@ export function SponsoredPostLog({
           <button className="btn" type="submit">Add post</button>
         </form>
       ) : null}
+    </div>
+  );
+}
+
+function CheckpointSchedule({ post, asOf }: { post: SponsoredPostView; asOf: string }) {
+  const plan = sponsoredCheckpointPlan(post, asOf);
+  if (!plan) return null;
+  return (
+    <div>
+      <p className="note">Go-live {plan.goLiveLabel}.</p>
+      <ul className="sponsored-schedule">
+        {plan.checkpoints.map((item) => (
+          <li key={item.checkpoint}>
+            <span className={`chip ${dueChip(item.status)}`}>{item.statusLabel}</span>
+            {" "}<b>{item.label}</b>
+            <p className="note">
+              Due {item.dueLabel}. Late after {item.lateLabel}.
+              {item.status === "captured" && item.capturedLabel ? ` Captured ${item.capturedLabel}.` : ""}
+            </p>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

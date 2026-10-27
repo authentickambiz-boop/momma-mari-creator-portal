@@ -17,6 +17,7 @@ import {
   canonicalPlatform,
   formatSponsoredAverage,
   isPrivateSponsoredText,
+  formatSponsoredInstant,
   listSponsoredPosts,
   metricStat,
   normalizeCheckpoint,
@@ -26,10 +27,14 @@ import {
   saveSponsoredPost,
   saveSponsoredSnapshot,
   setSponsoredPostArchived,
+  SNAPSHOT_REMINDERS,
   sortSponsoredPosts,
   sponsoredBrandRecap,
+  sponsoredCheckpointPlan,
+  sponsoredMidnight,
   sponsoredPostChoices,
   sponsoredRecapText,
+  sponsoredSnapshotsDue,
   SPONSORED_ERRORS,
   type SponsoredPostView,
 } from "../src/lib/sponsored-posts";
@@ -435,5 +440,154 @@ describe("sponsored post tracking", () => {
     assert.deepEqual(await db.select().from(payments).where(eq(payments.dealId, "kosbling")), beforePayments);
     const campaign = (await db.select().from(campaigns).where(eq(campaigns.id, "camp-sponsored")))[0];
     assert.equal(campaign?.budgetCents, 424242);
+  });
+
+  test("checkpoint clocks use America/New_York, including the daylight-saving edges", () => {
+    assert.equal(sponsoredMidnight("2026-10-31")?.toISOString(), "2026-10-31T04:00:00.000Z");
+    assert.equal(formatSponsoredInstant("2026-10-31T04:00:00.000Z"), "Oct 31, 2026, 12:00 AM EDT");
+    assert.equal(sponsoredMidnight("2026-11-01")?.toISOString(), "2026-11-01T04:00:00.000Z");
+    assert.equal(sponsoredMidnight("2026-11-02")?.toISOString(), "2026-11-02T05:00:00.000Z");
+    assert.equal(formatSponsoredInstant("2026-11-02T05:00:00.000Z"), "Nov 2, 2026, 12:00 AM EST");
+    assert.equal(sponsoredMidnight("2026-03-07")?.toISOString(), "2026-03-07T05:00:00.000Z");
+    assert.equal(sponsoredMidnight("2026-03-08")?.toISOString(), "2026-03-08T05:00:00.000Z");
+    assert.equal(sponsoredMidnight("2026-03-09")?.toISOString(), "2026-03-09T04:00:00.000Z");
+    assert.equal(sponsoredMidnight("2026-02-31"), null);
+    assert.equal(sponsoredMidnight("2026-11-02T15:00:00.000Z"), null);
+
+    const fallBack = sponsoredCheckpointPlan({ postedOn: "2026-11-01", snapshots: [] }, "2026-11-02T04:30:00.000Z");
+    assert.ok(fallBack);
+    const fallDay = fallBack.checkpoints.find((item) => item.checkpoint === "24h");
+    assert.equal(fallBack.goLiveAt, "2026-11-01T04:00:00.000Z");
+    assert.equal(fallDay?.dueAt, "2026-11-02T05:00:00.000Z");
+    assert.equal(fallDay?.lateAt, "2026-11-03T05:00:00.000Z");
+    assert.equal(fallDay?.status, "upcoming");
+    assert.equal(fallDay?.dueLabel, "Nov 2, 2026, 12:00 AM EST");
+    const fallWeek = fallBack.checkpoints.find((item) => item.checkpoint === "7d");
+    const fallMonth = fallBack.checkpoints.find((item) => item.checkpoint === "30d");
+    assert.equal(fallWeek?.dueAt, "2026-11-08T05:00:00.000Z");
+    assert.equal(fallWeek?.lateAt, "2026-11-10T05:00:00.000Z");
+    assert.equal(fallMonth?.dueAt, "2026-12-01T05:00:00.000Z");
+    assert.equal(fallMonth?.lateAt, "2026-12-03T05:00:00.000Z");
+
+    const spring = sponsoredCheckpointPlan({ postedOn: "2026-03-07", snapshots: [] }, "2026-03-07T12:00:00.000Z");
+    assert.equal(spring?.checkpoints.find((item) => item.checkpoint === "24h")?.dueAt, "2026-03-08T05:00:00.000Z");
+    assert.equal(spring?.checkpoints.find((item) => item.checkpoint === "24h")?.lateAt, "2026-03-09T04:00:00.000Z");
+    assert.equal(spring?.checkpoints.find((item) => item.checkpoint === "24h")?.lateLabel, "Mar 9, 2026, 12:00 AM EDT");
+  });
+
+  test("a checkpoint is upcoming, due, late, or captured, and only the owner sees the due list", () => {
+    const blank = {
+      views: null, likes: null, comments: null, shares: null, saves: null, clicks: null, promoCodeUses: null, installs: null,
+      note: null, enteredBy: "kamron@mommamari.com", enteredByName: "Kamron",
+    };
+    const early = post({
+      id: "early",
+      brand: "Northwind",
+      creatorId: "mariclare",
+      creatorName: "MariClare",
+      platform: "TikTok",
+      postedOn: "2026-11-01",
+    });
+    const middle = post({
+      id: "middle",
+      brand: "Harbor",
+      creatorId: "abby",
+      creatorName: "Abby Theriot",
+      platform: "Instagram",
+      postedOn: "2026-11-10",
+    });
+    const fresh = post({
+      id: "fresh",
+      brand: "Northwind",
+      creatorId: "mariclare",
+      creatorName: "MariClare",
+      platform: "YouTube",
+      postedOn: "2026-11-14",
+      snapshots: [{
+        ...blank,
+        id: "fresh-24",
+        checkpoint: "24h",
+        checkpointLabel: "24 hours",
+        updatedAt: "2026-11-15T15:00:00.000Z",
+      }],
+    });
+    const open = post({
+      id: "open",
+      brand: "Harbor",
+      creatorId: "abby",
+      creatorName: "Abby Theriot",
+      platform: "TikTok",
+      postedOn: "2026-11-14",
+    });
+    const hidden = post({
+      id: "hidden",
+      brand: "Northwind",
+      creatorId: "mariclare",
+      creatorName: "MariClare",
+      postedOn: "2026-10-01",
+      archived: true,
+    });
+    const now = "2026-11-15T16:00:00.000Z";
+
+    const atDue = sponsoredCheckpointPlan(early, "2026-11-02T05:00:00.000Z");
+    assert.equal(atDue?.checkpoints.find((item) => item.checkpoint === "24h")?.status, "due");
+    const stillDue = sponsoredCheckpointPlan(early, "2026-11-03T04:59:59.999Z");
+    assert.equal(stillDue?.checkpoints.find((item) => item.checkpoint === "24h")?.status, "due");
+    const justLate = sponsoredCheckpointPlan(early, "2026-11-03T05:00:00.000Z");
+    assert.equal(justLate?.checkpoints.find((item) => item.checkpoint === "24h")?.status, "late");
+    assert.equal(justLate?.checkpoints.find((item) => item.checkpoint === "7d")?.status, "upcoming");
+
+    const capturedLate = sponsoredCheckpointPlan({
+      ...early,
+      snapshots: [{ ...blank, id: "early-24", checkpoint: "24h", checkpointLabel: "24 hours", updatedAt: "2026-11-04T18:00:00.000Z" }],
+    }, now);
+    assert.equal(capturedLate?.checkpoints.find((item) => item.checkpoint === "24h")?.status, "captured");
+    assert.equal(capturedLate?.checkpoints.find((item) => item.checkpoint === "24h")?.capturedLabel, "Nov 4, 2026, 1:00 PM EST");
+    const otherWindow = sponsoredCheckpointPlan({
+      ...early,
+      snapshots: [{ ...blank, id: "early-14", checkpoint: "14d", checkpointLabel: "14 days", updatedAt: now }],
+    }, now);
+    assert.equal(otherWindow?.checkpoints.every((item) => item.status !== "captured"), true);
+
+    const ownerDue = sponsoredSnapshotsDue(admin, [open, early, middle, fresh, hidden], now);
+    assert.equal(ownerDue.ok, true);
+    if (!ownerDue.ok) return;
+    assert.deepEqual(ownerDue.items.map((item) => `${item.postId}:${item.checkpoint}:${item.status}`), [
+      "early:24h:late",
+      "early:7d:late",
+      "middle:24h:late",
+      "open:24h:due",
+    ]);
+    assert.equal(ownerDue.items.some((item) => item.postId === "hidden"), false);
+    assert.equal(ownerDue.items.some((item) => item.checkpoint === "30d"), false);
+    assert.equal(ownerDue.items[0]?.reminder, SNAPSHOT_REMINDERS["24h"]);
+    assert.match(ownerDue.items[0]?.reminder ?? "", /disclosure/i);
+    assert.match(ownerDue.items[0]?.reminder ?? "", /source label/i);
+    assert.match(SNAPSHOT_REMINDERS["7d"], /organic and paid/i);
+    assert.match(SNAPSHOT_REMINDERS["30d"], /boost spend/i);
+    const reminderText = Object.values(SNAPSHOT_REMINDERS).join("\n");
+    assert.equal(/\$|floor|minimum|payout|80\s*\/\s*20|\brates?\b/i.test(reminderText), false);
+
+    const brand = { ...admin, email: "brand@harbor.example", role: "brand", name: "Harbor" } as Viewer;
+    for (const viewer of [mariclare, manager, brand]) {
+      const denied = sponsoredSnapshotsDue(viewer, [early, middle, fresh], now);
+      assert.equal(denied.ok, false);
+      if (denied.ok) return;
+      assert.equal(denied.error, SPONSORED_ERRORS.due);
+      assert.equal(JSON.stringify(denied).includes("Northwind"), false);
+    }
+
+    const log = source("src/components/sponsored-post-log.tsx");
+    const page = source("src/app/sponsored-posts/page.tsx");
+    const recap = source("src/app/sponsored-posts/recap/page.tsx");
+    assert.match(log, /Snapshots due/);
+    assert.match(log, /canManage && due/);
+    assert.match(log, /data-sponsored-due="owner"/);
+    assert.match(page, /creatorId: "all"/);
+    assert.match(page, /dueList && dueList\.ok \? sponsoredSnapshotsDue/);
+    assert.match(page, /const dueList = canManage \?/);
+    assert.equal(recap.includes("Snapshots due"), false);
+    assert.equal(recap.includes("sponsoredSnapshotsDue"), false);
+    assert.equal(recap.includes("SNAPSHOT_REMINDERS"), false);
   });
 });
