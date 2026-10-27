@@ -1306,6 +1306,10 @@ p.note.empty, .empty-state {
 .member-crop img { width: 120px; height: 120px; object-fit: cover; object-position: center center; border-radius: 16px; }
 .member-crop-avatar canvas, .member-crop-avatar img { width: 160px; height: 160px; border-radius: 50%; }
 .member-crop input[type="range"] { padding: 0; min-height: 44px; border: 0; background: transparent; }
+.sponsored-due, .sponsored-schedule { list-style: none; padding: 0; margin: 0; }
+.sponsored-due { display: grid; gap: 10px; }
+.sponsored-due .card { margin: 0; }
+.sponsored-schedule li { margin: 8px 0 0; }
 .sponsored-log > summary, .sponsored-log details > summary { cursor: pointer; }
 .sponsored-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 8px; margin: 10px 0; }
 .sponsored-metrics div { background: var(--sand); border-radius: 12px; padding: 8px 10px; }

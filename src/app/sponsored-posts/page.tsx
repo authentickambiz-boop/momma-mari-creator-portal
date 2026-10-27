@@ -3,7 +3,7 @@ import { SponsoredPostLog } from "@/components/sponsored-post-log";
 import { isOwner } from "@/lib/authz";
 import { loadPortal } from "@/lib/current-user";
 import { sponsoredErrorNote } from "@/lib/sponsored-post-notes";
-import { listSponsoredPosts, sponsoredPostChoices } from "@/lib/sponsored-posts";
+import { listSponsoredPosts, sponsoredPostChoices, sponsoredSnapshotsDue } from "@/lib/sponsored-posts";
 
 export const dynamic = "force-dynamic";
 
@@ -30,13 +30,16 @@ export default async function SponsoredPostsPage({
     dir: params.dir ?? null,
   });
   const choices = canManage ? await sponsoredPostChoices(portal.db, portal.viewer) : null;
+  const asOf = new Date().toISOString();
+  const dueList = canManage ? await listSponsoredPosts(portal.db, portal.viewer, { creatorId: "all" }) : null;
+  const due = dueList && dueList.ok ? sponsoredSnapshotsDue(portal.viewer, dueList.posts, asOf) : null;
   return (
     <PortalFrame
       viewer={portal.viewer}
       tab="sponsored-posts"
       creators={portal.creators}
       viewedId={portal.viewedId}
-      hello={<div className="hello"><div><h1>Sponsored posts</h1><p>Every sponsored post a creator delivers, with counts at 24 hours, 7 days, and 30 days. A creator can read her own posts. Nothing here is emailed.</p></div></div>}
+      hello={<div className="hello"><div><h1>Sponsored posts</h1><p>Every sponsored post a creator delivers, with counts at 24 hours, 7 days, and 30 days. The owner sees which snapshots are due. A creator can read her own posts. Nothing here is emailed.</p></div></div>}
     >
       {!list.ok ? <p className="note">{list.error}</p> : (
         <SponsoredPostLog
@@ -53,6 +56,8 @@ export default async function SponsoredPostsPage({
           saved={params.saved ?? null}
           error={sponsoredErrorNote(params.sponsoredError)}
           creatorName={portal.viewed?.name ?? null}
+          asOf={asOf}
+          due={due && due.ok ? due.items : null}
         />
       )}
     </PortalFrame>

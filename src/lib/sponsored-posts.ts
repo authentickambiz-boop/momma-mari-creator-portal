@@ -28,6 +28,7 @@ export const SPONSORED_ERRORS = {
   metric: "Enter a whole number, or leave the box empty.",
   note: "Keep the note under 400 characters.",
   archived: "Choose whether to archive this post.",
+  due: "Snapshot reminders stay with the owner.",
 } as const;
 
 export const SPONSORED_CHECKPOINTS = [
@@ -259,6 +260,245 @@ export function formatSponsoredDay(isoDate: string) {
   const date = new Date(Date.UTC(year, month - 1, day, 12));
   if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return isoDate;
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
+}
+
+/** Checkpoint clocks stay on New York time even if the agency zone is overridden. */
+export const SPONSORED_TIME_ZONE = "America/New_York";
+
+export const SNAPSHOT_DUE_CHECKPOINTS = ["24h", "7d", "30d"] as const;
+export type SnapshotDueCheckpoint = (typeof SNAPSHOT_DUE_CHECKPOINTS)[number];
+export type SnapshotDueStatus = "upcoming" | "due" | "late" | "captured";
+
+/**
+ * Short owner reminders from the sponsored-post checklist.
+ * Organic counts and paid or whitelisted spend stay on separate rows.
+ */
+export const SNAPSHOT_REMINDERS: Record<SnapshotDueCheckpoint, string> = {
+  "24h": "Confirm the link works, the disclosure label is present, and tracking is active. Record organic metrics with a source label. Put paid or whitelisted spend in a separate row.",
+  "7d": "Re-capture the same metrics with a source label and the time you captured them. Split organic and paid again. Add clicks, code uses, or orders only where that data exists.",
+  "30d": "Re-capture the full metric set with source labels. Record the final organic versus paid split and any boost spend, or none. Add final clicks, code uses, and orders where known.",
+};
+
+const DUE_OFFSET_DAYS: Record<SnapshotDueCheckpoint, { dueDays: number; lateDays: number }> = {
+  "24h": { dueDays: 1, lateDays: 2 },
+  "7d": { dueDays: 7, lateDays: 9 },
+  "30d": { dueDays: 30, lateDays: 32 },
+};
+
+const DUE_STATUS_LABEL: Record<SnapshotDueStatus, string> = {
+  upcoming: "Upcoming",
+  due: "Due now",
+  late: "Late",
+  captured: "Captured",
+};
+
+export type SponsoredCheckpointSchedule = {
+  checkpoint: SnapshotDueCheckpoint;
+  label: string;
+  status: SnapshotDueStatus;
+  statusLabel: string;
+  dueAt: string;
+  lateAt: string;
+  dueLabel: string;
+  lateLabel: string;
+  reminder: string;
+  capturedAt: string | null;
+  capturedLabel: string | null;
+};
+
+export type SponsoredCheckpointPlan = {
+  goLiveAt: string;
+  goLiveLabel: string;
+  checkpoints: SponsoredCheckpointSchedule[];
+};
+
+export type SponsoredDueItem = SponsoredCheckpointSchedule & {
+  postId: string;
+  brand: string;
+  creatorName: string;
+  platform: string;
+  postedOn: string;
+};
+
+type DuePost = {
+  id: string;
+  brand: string;
+  creatorName: string;
+  platform: string;
+  postedOn: string;
+  archived: boolean;
+  snapshots: { checkpoint: string; updatedAt?: string | null }[];
+};
+
+function wallClock(date: Date, timeZone: string) {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = Object.fromEntries(
+    fmt.formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]),
+  );
+  let hour = Number(parts.hour);
+  if (hour === 24) hour = 0;
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour,
+    minute: Number(parts.minute),
+    second: Number(parts.second),
+  };
+}
+
+/** UTC instant for midnight on a calendar day in America/New_York. */
+export function sponsoredMidnight(isoDate: string) {
+  const day = parseDay(isoDate);
+  if (!day) return null;
+  const match = day.match(DAY);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const date = Number(match[3]);
+  const target = Date.UTC(year, month - 1, date, 0, 0, 0);
+  let utc = target;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const parts = wallClock(new Date(utc), SPONSORED_TIME_ZONE);
+    const key = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+    const delta = target - key;
+    if (delta === 0) return new Date(utc);
+    utc += delta;
+  }
+  return null;
+}
+
+function addCalendarDays(isoDate: string, days: number) {
+  const match = isoDate.match(DAY);
+  if (!match) return null;
+  const utc = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + days));
+  const year = utc.getUTCFullYear();
+  const month = String(utc.getUTCMonth() + 1).padStart(2, "0");
+  const date = String(utc.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${date}`;
+}
+
+export function formatSponsoredInstant(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: SPONSORED_TIME_ZONE,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
+}
+
+function asOfDate(now: Date | string) {
+  const date = now instanceof Date ? now : new Date(now);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function checkpointStatus(now: Date, dueAt: Date, lateAt: Date, captured: boolean): SnapshotDueStatus {
+  if (captured) return "captured";
+  if (now.getTime() < dueAt.getTime()) return "upcoming";
+  if (now.getTime() < lateAt.getTime()) return "due";
+  return "late";
+}
+
+/**
+ * Go-live is 12:00 AM America/New_York on the post date. Each mark is that
+ * same clock time on a later calendar day: 24 hours is the next day and late
+ * after two days; 7 days and 30 days are late two days after their mark.
+ * A saved snapshot row for that checkpoint counts as captured.
+ */
+export function sponsoredCheckpointPlan(
+  post: { postedOn: string; snapshots: { checkpoint: string; updatedAt?: string | null }[] },
+  now: Date | string,
+): SponsoredCheckpointPlan | null {
+  const clock = asOfDate(now);
+  const postedOn = parseDay(post.postedOn);
+  const goLive = postedOn ? sponsoredMidnight(postedOn) : null;
+  if (!clock || !postedOn || !goLive) return null;
+  const checkpoints = SNAPSHOT_DUE_CHECKPOINTS.flatMap((checkpoint) => {
+    const offset = DUE_OFFSET_DAYS[checkpoint];
+    const dueDay = addCalendarDays(postedOn, offset.dueDays);
+    const lateDay = addCalendarDays(postedOn, offset.lateDays);
+    const dueAt = dueDay ? sponsoredMidnight(dueDay) : null;
+    const lateAt = lateDay ? sponsoredMidnight(lateDay) : null;
+    if (!dueAt || !lateAt) return [];
+    const snapshot = post.snapshots.find((item) => item.checkpoint === checkpoint);
+    const capturedStamp = snapshot?.updatedAt ? new Date(snapshot.updatedAt) : null;
+    const capturedAt = capturedStamp && !Number.isNaN(capturedStamp.getTime()) ? capturedStamp.toISOString() : null;
+    const status = checkpointStatus(clock, dueAt, lateAt, Boolean(snapshot));
+    return [{
+      checkpoint,
+      label: checkpointLabel(checkpoint),
+      status,
+      statusLabel: DUE_STATUS_LABEL[status],
+      dueAt: dueAt.toISOString(),
+      lateAt: lateAt.toISOString(),
+      dueLabel: formatSponsoredInstant(dueAt.toISOString()),
+      lateLabel: formatSponsoredInstant(lateAt.toISOString()),
+      reminder: SNAPSHOT_REMINDERS[checkpoint],
+      capturedAt,
+      capturedLabel: capturedAt ? formatSponsoredInstant(capturedAt) : null,
+    }];
+  });
+  if (checkpoints.length !== SNAPSHOT_DUE_CHECKPOINTS.length) return null;
+  return {
+    goLiveAt: goLive.toISOString(),
+    goLiveLabel: formatSponsoredInstant(goLive.toISOString()),
+    checkpoints,
+  };
+}
+
+function dueRank(item: SponsoredDueItem) {
+  return item.status === "late" ? 0 : 1;
+}
+
+/** Owner-only. Late checkpoints come first, then ones still inside the due window. */
+export function sponsoredSnapshotsDue(viewer: Viewer, posts: DuePost[], now: Date | string) {
+  if (!isOwner(viewer)) return { ok: false as const, error: SPONSORED_ERRORS.due };
+  const clock = asOfDate(now);
+  if (!clock) return { ok: true as const, items: [] as SponsoredDueItem[] };
+  const items: SponsoredDueItem[] = [];
+  for (const post of posts) {
+    if (post.archived) continue;
+    const plan = sponsoredCheckpointPlan(post, clock);
+    if (!plan) continue;
+    for (const checkpoint of plan.checkpoints) {
+      if (checkpoint.status !== "due" && checkpoint.status !== "late") continue;
+      items.push({
+        ...checkpoint,
+        postId: post.id,
+        brand: post.brand,
+        creatorName: post.creatorName,
+        platform: post.platform,
+        postedOn: post.postedOn,
+      });
+    }
+  }
+  items.sort((a, b) => {
+    const rank = dueRank(a) - dueRank(b);
+    if (rank) return rank;
+    const byMark = a.status === "late" ? a.dueAt.localeCompare(b.dueAt) : a.lateAt.localeCompare(b.lateAt);
+    if (byMark) return byMark;
+    const byPosted = a.postedOn.localeCompare(b.postedOn);
+    if (byPosted) return byPosted;
+    const byPost = a.postId.localeCompare(b.postId);
+    if (byPost) return byPost;
+    return compareCheckpoints(a.checkpoint, b.checkpoint);
+  });
+  return { ok: true as const, items };
 }
 
 export function sponsoredPostHref(url: string) {

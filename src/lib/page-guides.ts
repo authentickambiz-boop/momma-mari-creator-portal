@@ -120,10 +120,11 @@ export const PAGE_GUIDES: { [K in PortalTab]: PageGuide } = {
   "sponsored-posts": {
     id: "sponsored-posts",
     who: "The owner logs every sponsored post. A creator can read only her own posts.",
-    purpose: "Log each sponsored post and the counts at 24 hours, 7 days, and 30 days.",
+    purpose: "Log each sponsored post and the counts at 24 hours, 7 days, and 30 days. The owner sees which snapshots are due.",
     principle: "These counts can be copied into a brand recap later. Nothing is emailed from this page.",
     steps: [
       "Add the brand, the creator, the platform, the live link, and what was promised.",
+      "Read Snapshots due at the top. Capture a checkpoint when it says due now, and still capture it when it says late.",
       "Enter 24 hours, 7 days, or 30 days when those counts are in. Leave a box empty when a count was not available.",
       "Read average 7-day views by brand and by creator. Open a brand recap to copy the summary.",
       "Archive hides a post from the list and the averages. The row stays in the log.",
