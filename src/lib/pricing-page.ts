@@ -9,6 +9,7 @@ import {
   type PaymentPrice,
   type SubscriptionPlanId,
 } from "./payments-config";
+import { BUY_NOW_LABEL, STRIPE_PAYMENT_LINKS } from "./stripe-payment-links";
 
 /** Shown on the owner preview when a catalog row has no price. Never shown publicly. */
 export const PRICE_NOT_SET = "Price not set yet.";
@@ -58,6 +59,8 @@ export type ShownService = {
   plus: string | null;
   pro: string | null;
   business: string | null;
+  quoteHref: string | null;
+  quoteLabel: string | null;
 };
 
 export type ShownGroup = {
@@ -116,6 +119,7 @@ function serviceView(id: string, offers: PaymentOffer[], preview: boolean): Show
   const listed = listedPrice(offer?.prices.find((price) => price.interval === "one_time") ?? offer?.prices[0]);
   if (!listed && !preview) return null;
   const members = listed ? memberLines(listed.amountCents) : null;
+  const link = listed ? STRIPE_PAYMENT_LINKS.find((item) => item.id === id) : undefined;
   return {
     id,
     name: offer?.name ?? SERVICE_NAMES[id] ?? id,
@@ -124,6 +128,8 @@ function serviceView(id: string, offers: PaymentOffer[], preview: boolean): Show
     plus: members?.plus ?? null,
     pro: members?.pro ?? null,
     business: members?.business ?? null,
+    quoteHref: link?.href ?? null,
+    quoteLabel: link ? BUY_NOW_LABEL : null,
   };
 }
 

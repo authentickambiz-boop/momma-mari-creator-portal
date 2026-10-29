@@ -33,8 +33,8 @@ describe("site review follow-up", { concurrency: 1 }, () => {
     const snapshotsBefore = (await db.select().from(analyticsSnapshots)).length;
 
     assert.equal(LEGAL_EFFECTIVE_BANNER, "Effective Oct 20, 2026, pending legal review");
-    assert.match(source("src/app/privacy/page.tsx"), /LEGAL_EFFECTIVE_BANNER/);
-    assert.match(source("src/app/terms/page.tsx"), /LEGAL_EFFECTIVE_BANNER/);
+    assert.doesNotMatch(source("src/app/privacy/page.tsx"), /LEGAL_EFFECTIVE_BANNER/);
+    assert.doesNotMatch(source("src/app/terms/page.tsx"), /LEGAL_EFFECTIVE_BANNER/);
 
     const hidden = hideWeakPublicStats([
       {

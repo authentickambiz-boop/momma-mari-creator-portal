@@ -63,6 +63,7 @@ describe("brand packages", { concurrency: 1 }, () => {
     assert.match(page, /packagePublicView/);
     assert.match(page, /quoteHref/);
     assert.match(page, /quoteLabel/);
+    assert.match(page, /PaymentLinkCards/);
     assert.equal(page.includes("Placeholder price"), false);
     assert.equal(page.includes("TODO: owner approval"), false);
     assert.equal(page.includes("$750"), false);

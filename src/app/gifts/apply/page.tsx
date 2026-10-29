@@ -32,7 +32,7 @@ export default async function GiftedBenchApplyPage({ searchParams }: { searchPar
       <p>This is for people already on the free bench. If you are on the roster, sign in and apply from the portal. Momma Mari reviews each request. This list is free.</p>
       {params.saved === "applied" ? <p className="note">Applied. Momma Mari will review your request.</p> : null}
       {giftsError ? <p className="private-note">{giftsError}</p> : null}
-      <GiftedTermsNotice />
+      <GiftedTermsNotice publicPage />
       {board.length === 0 ? <p className="note empty">No free products yet.</p> : null}
       <div className="stack">
         {board.map((offer) => (

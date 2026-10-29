@@ -41,13 +41,14 @@ describe("site gap fixes", { concurrency: 1 }, () => {
     assert.match(footer, /mommamari\.com/);
     assert.match(footer, /href="\/privacy"/);
     assert.match(footer, /href="\/terms"/);
-    assert.match(footer, /Momma Mari LLC \(NC\)/);
+    assert.match(footer, /© \{year\} Momma Mari</);
+    assert.doesNotMatch(footer, /LLC/);
     assert.match(notice, /By submitting you agree to our/);
     assert.match(notice, /Privacy Policy/);
     assert.match(source("src/components/brand-brief-form.tsx"), /PrivacyNotice/);
     assert.match(source("src/app/apply/page.tsx"), /PrivacyNotice/);
-    assert.match(privacy, /LEGAL_EFFECTIVE_BANNER/);
-    assert.match(terms, /LEGAL_EFFECTIVE_BANNER/);
+    assert.doesNotMatch(privacy, /LEGAL_EFFECTIVE_BANNER|Momma Mari LLC/);
+    assert.doesNotMatch(terms, /LEGAL_EFFECTIVE_BANNER|Momma Mari LLC/);
     assert.match(source("src/lib/legal-banner.ts"), /Effective Oct 20, 2026, pending legal review/);
     assert.equal(privacy.includes("Effective October 20, 2026"), false);
     assert.equal(terms.includes("Effective October 20, 2026"), false);

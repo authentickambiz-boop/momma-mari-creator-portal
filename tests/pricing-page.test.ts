@@ -17,6 +17,7 @@ import {
   paymentsEnabled,
 } from "../src/lib/payments-config";
 import { PRICE_NOT_SET, pricingPageModel } from "../src/lib/pricing-page";
+import { publicPaymentLinks } from "../src/lib/stripe-payment-links";
 import { robotsAllowPaths, sitemapPublicPaths } from "../src/lib/public-meta";
 import { isPublicMarketingPath } from "../src/lib/public-site";
 import { getDealForViewer } from "../src/lib/queries";
@@ -44,7 +45,7 @@ describe("plans and services page", { concurrency: 1 }, () => {
     db = openTestDb();
   });
 
-  test("the public page is a waitlist until payments are on, and the preview keeps catalog prices", async () => {
+  test("the public page sells one-time services, plans stay coming soon, and the preview keeps catalog prices", async () => {
     const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
 
     assert.equal(sitemapPublicPaths().includes("/pricing"), true);
@@ -121,12 +122,42 @@ describe("plans and services page", { concurrency: 1 }, () => {
     const packed = JSON.stringify(pricingPageModel(true));
     assert.equal(packed.toLowerCase().includes("minimum"), false);
     assert.equal(packed.toLowerCase().includes("floor"), false);
+    const links = publicPaymentLinks();
+    assert.deepEqual(links.map((item) => [item.id, item.name, item.priceLabel, item.amountCents, item.quoteHref, item.quoteLabel]), [
+      ["media_kit_build", "Media Kit Build", "$149", 14900, "https://buy.stripe.com/7sYeV697ndFk1ge0hr18c00", "Buy now"],
+      ["rate_card_build", "Rate Card Build", "$79", 7900, "https://buy.stripe.com/fZubIUdnD44K4sqd4d18c01", "Buy now"],
+      ["media_kit_bundle", "Media Kit + Rate Card Bundle", "$199", 19900, "https://buy.stripe.com/4gM5kw2IZ0Sy4sq7JT18c02", "Buy now"],
+      ["contract_review", "Contract Review", "$125", 12500, "https://buy.stripe.com/00w14gfvL7gW7ECc0918c03", "Buy now"],
+      ["starter_kit_basic", "Creator Starter Kit Basic", "$149", 14900, "https://buy.stripe.com/3cIaEQgzPgRw1geggp18c04", "Buy now"],
+      ["starter_kit_pro", "Creator Starter Kit Pro", "$299", 29900, "https://buy.stripe.com/6oU9AMfvL44Kf74d4d18c05", "Buy now"],
+      ["starter_kit_plus", "Creator Starter Kit Plus", "$499", 49900, "https://buy.stripe.com/dRmeV6abr0Syf742pz18c06", "Buy now"],
+    ]);
+    assert.equal(links.some((item) => item.id === "plus" || item.id === "pro" || item.id === "business"), false);
+    assert.equal(links.some((item) => item.amountCents === 2500 || item.priceLabel === "$25"), false);
+    for (const link of links) {
+      const service = services.find((item) => item.id === link.id);
+      assert.equal(service?.price, link.priceLabel);
+      assert.equal(service?.quoteHref, link.quoteHref);
+      assert.equal(service?.quoteLabel, "Buy now");
+    }
+    assert.equal(model.plans.every((plan) => !("quoteHref" in plan)), true);
+
     const page = source("src/app/pricing/page.tsx");
     const previewPage = source("src/app/pricing/preview/page.tsx");
     const catalog = source("src/components/pricing-catalog.tsx");
     const lib = source("src/lib/pricing-page.ts");
+    const packagesPage = source("src/app/packages/page.tsx");
+    const cards = source("src/components/payment-link-cards.tsx");
     assert.match(page, /paymentsEnabled\(\)/);
-    assert.match(page, /PricingWaitlist/);
+    assert.match(page, /PricingServices/);
+    assert.equal(page.includes("PricingWaitlist"), false);
+    assert.equal(page.includes("Coming soon, join waitlist"), false);
+    assert.match(source("src/components/pricing-services.tsx"), /Plus, Pro, and Business plans are coming soon/);
+    assert.match(source("src/components/pricing-services.tsx"), /href="\/packages"/);
+    assert.match(packagesPage, /PaymentLinkCards/);
+    assert.match(cards, /quoteHref/);
+    assert.match(cards, /quoteLabel/);
+    assert.equal(cards.includes("api.stripe.com"), false);
     const redirects = source("next.config.ts");
     assert.match(redirects, /source:\s*"\/plans"/);
     assert.match(redirects, /destination:\s*"\/pricing"/);
