@@ -21,6 +21,7 @@ function ServiceCard({ service }: { service: ShownService }) {
           {service.plus ? <p className="note">{service.plus}</p> : null}
           {service.pro ? <p className="note">{service.pro}</p> : null}
           {service.business ? <p className="note">{service.business}</p> : null}
+          {service.quoteHref ? <p><a className="btn" href={service.quoteHref}>{service.quoteLabel}</a></p> : null}
         </>
       )}
     </article>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { bookPackageAction } from "@/app/package-actions";
+import { PaymentLinkCards } from "@/components/payment-link-cards";
 import { PrivacyNotice } from "@/components/privacy-notice";
 import { PublicShell } from "@/components/public-shell";
 import { packageForBudget, packagePublicView, parseBudgetDollars } from "@/lib/brand-packages";
@@ -41,6 +42,9 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
         <button className="btn" type="submit">See the package for this budget</button>
       </form>
       {match ? <p className="note">A budget in this range books {match.name}.</p> : null}
+      <div className="sec-title">One-time services</div>
+      <p className="note">These open a Stripe payment page. Nothing is charged until you pay there.</p>
+      <PaymentLinkCards />
       <div className="public-grid" style={{ marginTop: 16 }}>
         {view.cards.map((item) => (
           <article key={item.id} className="card" data-package={item.id} data-matched={match?.id === item.id ? "true" : "false"}>
