@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { PublicShell } from "@/components/public-shell";
-import { LEGAL_EFFECTIVE_BANNER } from "@/lib/legal-banner";
 import { publicPageMeta } from "@/lib/public-meta";
 import { PUBLIC_ROBOTS, REPLY_PROMISE } from "@/lib/public-site";
 
@@ -16,9 +15,8 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <PublicShell title="Terms" lede="These terms cover mommamari.com and the Momma Mari creator portal.">
-      <p className="legal-banner">{LEGAL_EFFECTIVE_BANNER}</p>
       <div className="card stack">
-        <p>Momma Mari LLC is a North Carolina company. Using the site or the portal means you agree to these terms and to the Privacy Policy.</p>
+        <p>Momma Mari is based in North Carolina. Using the site or the portal means you agree to these terms and to the Privacy Policy.</p>
         <h2>The portal</h2>
         <p>Creators see their own deals. Brands use the public brief to tell us about a campaign. A form submission is a request, not a confirmed booking. {REPLY_PROMISE}</p>
         <h2>Campaigns</h2>
@@ -26,7 +24,7 @@ export default function TermsPage() {
         <h2>Accounts</h2>
         <p>Sign in with the Google account we have on file. Do not share that access. We can close an account that breaks a campaign agreement or these terms.</p>
         <h2>Contact</h2>
-        <p>Momma Mari LLC · Kamron@mommamari.com · mommamari.com</p>
+        <p>Momma Mari · Kamron@mommamari.com · mommamari.com</p>
       </div>
     </PublicShell>
   );

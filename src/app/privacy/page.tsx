@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { PublicShell } from "@/components/public-shell";
-import { LEGAL_EFFECTIVE_BANNER } from "@/lib/legal-banner";
 import { publicPageMeta } from "@/lib/public-meta";
 import { PUBLIC_ROBOTS } from "@/lib/public-site";
 
 export const metadata: Metadata = {
   ...publicPageMeta({
     title: "Privacy Policy · Momma Mari",
-    description: "How Momma Mari LLC collects and uses information from creators and brands.",
+    description: "How Momma Mari collects and uses information from creators and brands.",
     path: "/privacy",
   }),
   robots: PUBLIC_ROBOTS,
@@ -15,8 +14,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <PublicShell title="Privacy Policy" lede="Momma Mari LLC, a North Carolina company, runs mommamari.com and this creator portal.">
-      <p className="legal-banner">{LEGAL_EFFECTIVE_BANNER}</p>
+    <PublicShell title="Privacy Policy" lede="Momma Mari, based in North Carolina, runs mommamari.com and this creator portal.">
       <div className="card stack">
         <p>This policy covers the public site and the portal. It describes what we collect, why we keep it, and how to reach us.</p>
         <h2>What we collect</h2>
@@ -26,7 +24,7 @@ export default function PrivacyPage() {
         <h2>How long we keep it</h2>
         <p>Deal and brief records stay while we are working with you and for the time we need them for contracts, payments, and taxes. You can ask us to delete a brief that has not become a campaign.</p>
         <h2>Contact</h2>
-        <p>Questions go to Kamron at Kamron@mommamari.com, or by mail to Momma Mari LLC in North Carolina.</p>
+        <p>Questions go to Kamron at Kamron@mommamari.com, or by mail to Momma Mari in North Carolina.</p>
       </div>
     </PublicShell>
   );

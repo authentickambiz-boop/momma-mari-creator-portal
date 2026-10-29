@@ -19,7 +19,7 @@ export function SiteFooter() {
         <Link href="/terms">Terms</Link>
         <Link href="/our-standard">Kids in content</Link>
       </nav>
-      <p>© {year} Momma Mari LLC (NC)</p>
+      <p>© {year} Momma Mari</p>
     </footer>
   );
 }
