@@ -14,10 +14,11 @@ import {
   PAYMENT_OFFERS,
   memberPriceCents,
   memberServiceIncluded,
+  oneTimeMemberNote,
   paymentsEnabled,
 } from "../src/lib/payments-config";
 import { PRICE_NOT_SET, pricingPageModel } from "../src/lib/pricing-page";
-import { publicPaymentLinks } from "../src/lib/stripe-payment-links";
+import { BUY_NOW_LABEL, publicPaymentLinks, publicPlans } from "../src/lib/stripe-payment-links";
 import { robotsAllowPaths, sitemapPublicPaths } from "../src/lib/public-meta";
 import { isPublicMarketingPath } from "../src/lib/public-site";
 import { getDealForViewer } from "../src/lib/queries";
@@ -45,7 +46,7 @@ describe("plans and services page", { concurrency: 1 }, () => {
     db = openTestDb();
   });
 
-  test("the public page sells one-time services, plans stay coming soon, and the preview keeps catalog prices", async () => {
+  test("the public page sells plans and one-time services, and the preview keeps catalog prices", async () => {
     const kosblingBefore = await getDealForViewer(db, admin, "kosbling");
 
     assert.equal(sitemapPublicPaths().includes("/pricing"), true);
@@ -134,6 +135,22 @@ describe("plans and services page", { concurrency: 1 }, () => {
     ]);
     assert.equal(links.some((item) => item.id === "plus" || item.id === "pro" || item.id === "business"), false);
     assert.equal(links.some((item) => item.amountCents === 2500 || item.priceLabel === "$25"), false);
+    const plans = publicPlans();
+    assert.deepEqual(plans.map((plan) => [plan.id, plan.name, plan.prices.map((price) => [price.interval, price.label, price.amountCents, price.href])]), [
+      ["plus", "Plus", [
+        ["month", "$19/mo", 1900, "https://buy.stripe.com/4gM5kw83jat87EC4xH18c09"],
+        ["year", "$190/yr", 19000, "https://buy.stripe.com/cNi28kfvL8l01ged4d18c0a"],
+      ]],
+      ["pro", "Pro", [
+        ["month", "$39/mo", 3900, "https://buy.stripe.com/7sY7sEerH58Of745BL18c0b"],
+        ["year", "$390/yr", 39000, "https://buy.stripe.com/eVq9AMfvLfNsgb8fcl18c0c"],
+      ]],
+      ["business", "Business", [
+        ["month", "$199/mo", 19900, "https://buy.stripe.com/3cI4gs2IZ1WCgb84xH18c07"],
+        ["year", "$1,990/yr", 199000, "https://buy.stripe.com/3cI4gsgzPat8gb80hr18c08"],
+      ]],
+    ]);
+    assert.equal(`${plans.flatMap((plan) => plan.features).join(" ")} Signed creators get them included.`, oneTimeMemberNote());
     for (const link of links) {
       const service = services.find((item) => item.id === link.id);
       assert.equal(service?.price, link.priceLabel);
@@ -152,7 +169,13 @@ describe("plans and services page", { concurrency: 1 }, () => {
     assert.match(page, /PricingServices/);
     assert.equal(page.includes("PricingWaitlist"), false);
     assert.equal(page.includes("Coming soon, join waitlist"), false);
-    assert.match(source("src/components/pricing-services.tsx"), /Plus, Pro, and Business plans are coming soon/);
+    assert.equal(source("src/components/pricing-services.tsx").includes("plans are coming soon"), false);
+    assert.match(source("src/components/pricing-services.tsx"), /PlanBuyCards/);
+    assert.match(source("src/components/pricing-services.tsx"), /PaymentLinkCards/);
+    assert.match(source("src/components/plan-buy-cards.tsx"), /Monthly/);
+    assert.match(source("src/components/plan-buy-cards.tsx"), /Yearly/);
+    assert.match(source("src/components/plan-buy-cards.tsx"), /BUY_NOW_LABEL/);
+    assert.equal(BUY_NOW_LABEL, "Buy now");
     assert.match(source("src/components/pricing-services.tsx"), /href="\/packages"/);
     assert.match(packagesPage, /PaymentLinkCards/);
     assert.match(cards, /quoteHref/);

@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: "Plans & Services · Momma Mari",
       description: open
         ? "Plus, Pro, and Business plans, plus media kits, rate cards, contract reviews, and starter kits."
-        : "Media kits, rate cards, contract reviews, and starter kits. Monthly plans are coming soon.",
+        : "Plus, Pro, and Business plans, plus media kits, rate cards, contract reviews, and starter kits.",
       path: "/pricing",
     }),
     robots: PUBLIC_ROBOTS,
