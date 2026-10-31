@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PaymentLinkCards } from "@/components/payment-link-cards";
 import { PlanBuyCards } from "@/components/plan-buy-cards";
+import { PricingComparison } from "@/components/pricing-comparison";
 import { PublicShell } from "@/components/public-shell";
 import { pricingFeeCopy } from "@/lib/pricing-page";
 import { publicPlans } from "@/lib/stripe-payment-links";
@@ -11,6 +12,7 @@ export function PricingServices() {
   return (
     <PublicShell title="Plans & Services" lede="Plus, Pro, and Business, plus one-time help for media kits, rate cards, contract reviews, and starter kits.">
       <div className="sec-title">Plans</div>
+      <PricingComparison />
       <PlanBuyCards plans={publicPlans()} />
       <div className="sec-title">Services</div>
       <PaymentLinkCards />

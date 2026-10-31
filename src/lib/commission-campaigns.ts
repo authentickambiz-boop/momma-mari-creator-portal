@@ -1,6 +1,8 @@
 import { and, asc, eq, gte } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { benchCreators, commissionCampaignInterest, commissionCampaigns, creators } from "@/db/schema";
+import { creatorIsFree } from "./account-tier";
+import { redactCommissionForFree } from "./commission-access";
 import { nowIso } from "./format";
 import type { Viewer } from "./types";
 
@@ -90,10 +92,14 @@ export async function listOpenCommissionCampaigns(db: PortalDb, viewer: Viewer) 
     db.select().from(commissionCampaignInterest).where(eq(commissionCampaignInterest.creatorId, viewer.creatorId)),
   ]);
   const interested = new Set(mine.map((row) => row.campaignId));
-  return rows.map((row) => ({
-    ...toCampaign(row, counts.get(row.id) ?? 0),
-    interested: interested.has(row.id),
-  }));
+  const free = await creatorIsFree(db, viewer.creatorId);
+  return rows.map((row) => {
+    const campaign = {
+      ...toCampaign(row, counts.get(row.id) ?? 0),
+      interested: interested.has(row.id),
+    };
+    return free ? redactCommissionForFree(campaign) : campaign;
+  });
 }
 
 export async function creatorIsOpenRoster(db: PortalDb, creatorId: string) {

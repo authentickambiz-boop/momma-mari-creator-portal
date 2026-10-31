@@ -5,8 +5,12 @@ export function SiteFooter() {
   return (
     <footer className="site-footer wrap">
       <nav aria-label="Site">
-        <a href="https://www.mommamari.com">mommamari.com</a>
+        <a href="https://www.mommamari.com/">Home</a>
+        <a href="https://www.mommamari.com/creators">Creators</a>
         <a href="https://www.mommamari.com/brands">Brands</a>
+        <a href="https://www.mommamari.com/partner-with-us">Partner With Us</a>
+        <a href="mailto:Kamron@mommamari.com">Kamron@mommamari.com</a>
+        <a href="https://www.mommamari.com">mommamari.com</a>
         <Link href="/about">About</Link>
         <Link href="/contact">Contact</Link>
         <Link href="/faq">FAQ</Link>

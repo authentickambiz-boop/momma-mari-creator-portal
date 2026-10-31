@@ -33,6 +33,15 @@ export function PortalFrame({
   return (
     <>
       <a className="skip" href="#main">Skip to content</a>
+      <nav className="site-nav portal-site-nav" aria-label="Momma Mari">
+        <a href="https://www.mommamari.com/">Home</a>
+        <a href="https://www.mommamari.com/creators">Creators</a>
+        <a href="https://www.mommamari.com/brands">Brands</a>
+        <Link href="/about" prefetch>About</Link>
+        <Link href="/contact" prefetch>Contact</Link>
+        <Link href="/login" prefetch>Creator login</Link>
+        <Link className="nav-apply" href="/apply" prefetch>Apply Now</Link>
+      </nav>
       <div className="demo-bar">
         Pilot. MariClare&apos;s deals are seed data from her inbox as of Oct 17, 2026. TBD means the emails don&apos;t say yet.
       </div>
@@ -43,7 +52,7 @@ export function PortalFrame({
         </Link>
         <TabRow>
           {tabs.map((item) => (
-            <Link key={item.id} href={`${item.href}${query(viewedId)}`} className={item.id === tab ? "on" : ""} aria-current={item.id === tab ? "page" : undefined}>
+            <Link key={item.id} href={`${item.href}${query(viewedId)}`} prefetch className={item.id === tab ? "on" : ""} aria-current={item.id === tab ? "page" : undefined}>
               {item.label}
             </Link>
           ))}

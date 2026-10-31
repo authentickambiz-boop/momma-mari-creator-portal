@@ -32,10 +32,13 @@ import { calendarOwnerId, readPrimaryCalendarId, saveCalendarConnection } from "
 import { saveDriveConnection } from "@/lib/account-connections";
 import { AGENCY_MAILBOX_ID, saveAgencyMailbox } from "@/lib/agency-mailbox";
 import { rememberCreatorLogin, rememberGmailConsent } from "@/lib/gmail-bridge-start";
+import { creatorBlockedFromConnections } from "@/lib/account-tier";
 import { saveGmailConnection } from "@/lib/onboarding";
+import { PORTAL_HOME_COOKIE, portalHomeCookie } from "@/lib/portal-return";
 import { creatorStartPath } from "@/lib/questionnaire";
 import { resolveLogin } from "@/lib/queries";
 import { createSession, sessionCookieName, sessionCookieOptions } from "@/lib/session";
+import { completeFreeSignup, FREE_SIGNUP_COOKIE, readCookie, SIGNUP_GRANT_COOKIE } from "@/lib/signup-codes";
 import { WORLDS_RETURN_COOKIE, worldsReturnCookie } from "@/lib/worlds/office-return";
 
 export async function GET(request: Request) {
@@ -56,6 +59,7 @@ export async function GET(request: Request) {
   }
   const cookie = request.headers.get("cookie") ?? "";
   const worlds = worldsReturnCookie(cookie);
+  const home = portalHomeCookie(cookie);
   const stateCookie = cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${oauthStateCookieName()}=`))?.split("=").slice(1).join("=");
   const valid = await verifyOAuthState(stateCookie ? decodeURIComponent(stateCookie) : undefined, state);
   if (!valid || !code) return loginRedirect("oauth", worlds);
@@ -63,15 +67,32 @@ export async function GET(request: Request) {
   if (!email) return loginRedirect("oauth", worlds);
   const db = await getDb();
   const login = await resolveLogin(db, email);
-  if (!login.ok) return loginRedirect("not_allowed", worlds);
-  const session = await createSession(db, login.viewer);
-  await rememberCreatorLogin(db, login.viewer);
-  const start = worlds ?? await creatorStartPath(db, login.viewer);
+  const signingUp = readCookie(cookie, FREE_SIGNUP_COOKIE) === "1";
+  if (!login.ok && !signingUp) return loginRedirect("not_allowed", worlds);
+  const viewer = login.ok ? login.viewer : null;
+  const created = viewer ? null : await completeFreeSignup(db, email, readCookie(cookie, SIGNUP_GRANT_COOKIE));
+  if (!viewer && created && !created.ok) {
+    const response = NextResponse.redirect(`${appBaseUrl()}/signup?error=${created.error}`);
+    clearSignupCookies(response);
+    return response;
+  }
+  const person = viewer ?? (created && created.ok ? created.viewer : null);
+  if (!person) return loginRedirect("not_allowed", worlds);
+  const session = await createSession(db, person);
+  await rememberCreatorLogin(db, person);
+  const start = worlds ?? home ?? await creatorStartPath(db, person);
   const response = NextResponse.redirect(`${appBaseUrl()}${start}`);
   response.cookies.set(sessionCookieName(), session.cookieValue, sessionCookieOptions());
   response.cookies.set(oauthStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });
   response.cookies.set(WORLDS_RETURN_COOKIE, "", { ...sessionCookieOptions(), maxAge: 0 });
+  response.cookies.set(PORTAL_HOME_COOKIE, "", { ...sessionCookieOptions(), maxAge: 0 });
+  clearSignupCookies(response);
   return response;
+}
+
+function clearSignupCookies(response: NextResponse) {
+  response.cookies.set(FREE_SIGNUP_COOKIE, "", { ...sessionCookieOptions(), maxAge: 0 });
+  response.cookies.set(SIGNUP_GRANT_COOKIE, "", { ...sessionCookieOptions(), maxAge: 0 });
 }
 
 function loginRedirect(error: string, worlds: string | null) {
@@ -95,6 +116,9 @@ async function finishGmailBridge(code: string | null, state: string | null) {
   const creatorId = await readWatchCreatorCookie(jar.get(gmailBridgeCreatorCookieName())?.value);
   const allowed = creatorId && (viewer?.role === "admin" || (viewer?.role === "creator" && viewer.creatorId === creatorId));
   if (!allowed || !creatorId) return fail("creator_only");
+  if (viewer && await creatorBlockedFromConnections(await getDb(), viewer)) {
+    return NextResponse.redirect(`${appBaseUrl()}/pricing?locked=connect`);
+  }
   const mailbox = await exchangeGmailCode(code);
   if (!mailbox) return fail("no_refresh");
   const db = await getDb();
@@ -146,6 +170,9 @@ async function finishGmailConnect(code: string | null, state: string | null) {
     return response;
   }
   if (!viewer || viewer.role !== "creator" || !viewer.creatorId) return fail("creator_only");
+  if (await creatorBlockedFromConnections(db, viewer)) {
+    return NextResponse.redirect(`${appBaseUrl()}/pricing?locked=connect`);
+  }
   const saved = await saveGmailConnection(db, viewer.creatorId, mailbox);
   if (!saved.ok) return fail(saved.status === 503 ? "not_configured" : "oauth");
   await rememberGmailConsent(db, viewer.creatorId);
@@ -166,6 +193,9 @@ async function finishDriveConnect(code: string | null, state: string | null) {
   if (!valid || !code) return fail("oauth");
   const viewer = await currentViewer();
   if (!viewer || viewer.role !== "creator" || !viewer.creatorId) return fail("creator_only");
+  if (await creatorBlockedFromConnections(await getDb(), viewer)) {
+    return NextResponse.redirect(`${appBaseUrl()}/pricing?locked=connect`);
+  }
   const drive = await exchangeDriveCode(code);
   if (!drive) return fail("no_refresh");
   const db = await getDb();
@@ -188,6 +218,9 @@ async function finishCalendarConnect(code: string | null, state: string | null) 
   const viewer = await currentViewer();
   const ownerId = viewer ? calendarOwnerId(viewer) : null;
   if (!ownerId) return fail("own");
+  if (viewer && await creatorBlockedFromConnections(await getDb(), viewer)) {
+    return NextResponse.redirect(`${appBaseUrl()}/pricing?locked=connect`);
+  }
   const calendar = await exchangeCalendarCode(code);
   if (!calendar) return fail("refresh");
   const calendarEmail = await readPrimaryCalendarId(calendar.accessToken);

@@ -163,6 +163,10 @@ export async function saveEmailSetup(
 }
 
 export async function finishOnboarding(db: PortalDb, creatorId: string, input: OnboardingInput) {
+  const { creatorIsFree } = await import("./account-tier");
+  if (await creatorIsFree(db, creatorId)) {
+    return { ok: false as const, status: 403, error: "Free accounts do not include a custom bot." };
+  }
   const setup = await emailSetupFor(db, creatorId);
   const connection = await gmailConnectionState(db, creatorId);
   const hostedReady = setup.choice === "hosted" && Boolean(setup.hostedEmailAddress);

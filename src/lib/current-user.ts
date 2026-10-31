@@ -1,9 +1,11 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { adminDisplayName, resolveViewedCreator } from "./authz";
 import { assignedCreatorIds, findManagerByEmail } from "./managers";
 import { findCreatorById, listCreators } from "./queries";
+import { creatorIsFree } from "./account-tier";
 import { profileIntakeMissing } from "./profile-intake";
 import { readSession, sessionCookieName } from "./session";
 import type { CreatorProfile, Viewer } from "./types";
@@ -24,10 +26,12 @@ export function hideAccountCredentials(creator: CreatorProfile): CreatorProfile 
   };
 }
 
-export async function currentViewer(): Promise<Viewer | null> {
+export const currentViewer = cache(async (): Promise<Viewer | null> => {
   const jar = await cookies();
+  const raw = jar.get(sessionCookieName())?.value;
+  if (!raw) return null;
   const db = await getDb();
-  const session = await readSession(db, jar.get(sessionCookieName())?.value);
+  const session = await readSession(db, raw);
   if (!session) return null;
   if (session.role === "admin") {
     return { email: session.email, role: "admin", creatorId: null, name: adminDisplayName(), initials: "K" };
@@ -56,7 +60,7 @@ export async function currentViewer(): Promise<Viewer | null> {
     name: creator.name,
     initials: creator.initials,
   };
-}
+});
 
 export async function requireViewer(returnPath?: string) {
   const viewer = await currentViewer();
@@ -72,7 +76,8 @@ export async function loadPortal(requested: string | null, options?: { allowInco
   const viewer = await requireViewer();
   const db = await getDb();
   if (!options?.allowIncompleteProfile && viewer.role === "creator" && viewer.creatorId) {
-    if (await profileIntakeMissing(db, viewer.creatorId)) redirect("/profile/intake");
+    const free = await creatorIsFree(db, viewer.creatorId);
+    if (!free && await profileIntakeMissing(db, viewer.creatorId)) redirect("/profile/intake");
   }
   const everyone = await listCreators(db);
   const assigned = viewer.role === "manager"

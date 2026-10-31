@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PlanBuyCards } from "@/components/plan-buy-cards";
+import { PricingComparison } from "@/components/pricing-comparison";
 import { PublicShell } from "@/components/public-shell";
 import { PRICE_NOT_SET, pricingPageModel, type ShownPrice, type ShownService } from "@/lib/pricing-page";
 import { publicPlans } from "@/lib/stripe-payment-links";
@@ -40,6 +41,7 @@ export function PricingCatalog({ preview }: { preview: boolean }) {
         </p>
       ) : null}
       <div className="sec-title">Plans</div>
+      <PricingComparison />
       {preview ? (
         <div className="public-grid">
           {model.plans.map((plan) => (

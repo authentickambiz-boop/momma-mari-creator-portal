@@ -539,6 +539,20 @@ label.contract-choices {
 .payment-how h2 { font-size: 18px; line-height: 1.3; margin: 0 0 4px; }
 .payment-how p { margin: 0; }
 .private-note { background: var(--sun-l); border-radius: 16px; padding: 12px 14px; margin-top: 14px; }
+.route-progress { height: 3px; width: 40%; margin: 0 auto 12px; background: var(--terra); border-radius: 99px; animation: route-slide 0.8s ease-in-out infinite; }
+@keyframes route-slide { 50% { width: 70%; } }
+.site-nav { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.site-nav a { color: #1f1f1f; font-weight: 650; min-height: 44px; display: inline-flex; align-items: center; }
+.portal-site-nav { padding: 10px 16px; background: #fffded; border-bottom: 1px solid var(--line); }
+.nav-apply { background: #265941; color: #fff !important; border-radius: 10px; padding: 8px 16px; }
+.tier-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.tier-action.is-highlight .btn { background: #265941; }
+.tier-table-wrap { overflow-x: auto; }
+.tier-table { width: 100%; border-collapse: collapse; }
+.tier-table th, .tier-table td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
+.tier-table .is-highlight { background: #e7eee8; }
+.tier-table .is-top { background: #1f3b2d; color: #fffded; }
+.tier-table th span { display: block; font-weight: 500; }
 .progress { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 10px; }
 .progress span { display: block; height: 100%; background: var(--terra); }
 .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }

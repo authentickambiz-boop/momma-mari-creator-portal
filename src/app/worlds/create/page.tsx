@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { CharacterCreator } from "@/components/worlds/character-creator";
 import { getDb } from "@/db/getDb";
 import { isOwner } from "@/lib/authz";
+import { creatorBlockedFromConnections } from "@/lib/account-tier";
 import { requireViewer } from "@/lib/current-user";
 import { canOpenCharacterCreator, characterSubjectForViewer, type CharacterSubject } from "@/lib/worlds/character";
 import { readCharacter } from "@/lib/worlds/character-store";
@@ -23,6 +24,7 @@ export default async function CreateCharacterPage({
 }) {
   const viewer = await requireViewer("/worlds/create");
   if (!canOpenCharacterCreator(viewer)) notFound();
+  if (await creatorBlockedFromConnections(await getDb(), viewer)) redirect("/pricing?locked=bot");
   const params = await searchParams;
   let subject: CharacterSubject | null = characterSubjectForViewer(viewer);
   let title = "Your character";

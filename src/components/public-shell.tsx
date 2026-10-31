@@ -10,9 +10,16 @@ export function PublicShell({ title, lede, children }: { title: string; lede: st
     <main id="main" className="wrap">
       <header className="public-head">
         <BrandMark sub="Creator management" />
-        <nav className="public-nav" aria-label="Public">
-          <Link href="/services">Services</Link>
-          <Link href="/packages">Packages</Link>
+        <nav className="public-nav site-nav" aria-label="Public">
+          <a href="https://www.mommamari.com/">Home</a>
+          <a href="https://www.mommamari.com/creators">Creators</a>
+          <a href="https://www.mommamari.com/brands">Brands</a>
+          <Link href="/about" prefetch>About</Link>
+          <Link href="/contact" prefetch>Contact</Link>
+          <Link href="/login" prefetch>Creator login</Link>
+          <Link className="nav-apply" href="/apply" prefetch>Apply Now</Link>
+          <Link href="/services" prefetch>Services</Link>
+          <Link href="/packages" prefetch>Packages</Link>
           <Link href="/pricing">Plans</Link>
           <Link href={MEET_HREF}>{MEET_LABEL}</Link>
           <Link href="/work">Work</Link>

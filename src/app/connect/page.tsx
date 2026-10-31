@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { AccountActions, ConnectPanel } from "@/components/connect-panel";
 import { PortalFrame } from "@/components/portal-frame";
+import { creatorBlockedFromConnections } from "@/lib/account-tier";
 import { driveConnectionState, driveConnectHref, gmailConnectHref } from "@/lib/account-connections";
 import { canManageCreatorAccounts, mappedConnectionNote, storedConnectionStatus } from "@/lib/account-connection-status";
 import { loadPortal } from "@/lib/current-user";
@@ -40,6 +42,17 @@ export default async function ConnectPage({
 }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
+  if (await creatorBlockedFromConnections(portal.db, portal.viewer)) {
+    return (
+      <PortalFrame viewer={portal.viewer} tab="connect" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>Connect accounts</h1></div>}>
+        <div className="card stack" data-locked="connect">
+          <h2>Connections are locked</h2>
+          <p>Free accounts type @handles and upload stats. Platform connections and custom bots unlock on Plus, Pro, and Business.</p>
+          <p><Link href="/pricing">See plans</Link></p>
+        </div>
+      </PortalFrame>
+    );
+  }
   const creators = portal.viewed ? [portal.viewed] : portal.creators;
   const connections = await Promise.all(creators.map((creator) => gmailConnectionState(portal.db, creator.id)));
   const drives = await Promise.all(creators.map((creator) => driveConnectionState(portal.db, creator.id)));

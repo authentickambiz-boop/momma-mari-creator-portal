@@ -8,6 +8,7 @@ import { currentViewer } from "@/lib/current-user";
 import { publicBasePath } from "@/lib/format";
 import { googleConfigured } from "@/lib/google-oauth";
 import { listManagers } from "@/lib/managers";
+import { portalHomeReturn } from "@/lib/portal-return";
 import { listCreators } from "@/lib/queries";
 import { creatorStartPath } from "@/lib/questionnaire";
 import { worldsReturnPath } from "@/lib/worlds/office-return";
@@ -22,12 +23,17 @@ const ERRORS: Record<string, string> = {
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
   const viewer = await currentViewer();
   const params = await searchParams;
-  const db = await getDb();
   const worldsNext = worldsReturnPath(params.next);
+  const portalNext = portalHomeReturn(params.next);
   const backToWorlds = worldsNext === "/worlds";
-  if (viewer) redirect(worldsNext ?? await creatorStartPath(db, viewer));
-  const creators = devLoginEnabled() ? await listCreators(db) : [];
-  const managers = devLoginEnabled() ? (await listManagers(db)).filter((manager) => manager.active) : [];
+  if (viewer) {
+    const db = await getDb();
+    redirect(worldsNext ?? portalNext ?? await creatorStartPath(db, viewer));
+  }
+  const practice = devLoginEnabled();
+  const db = practice ? await getDb() : null;
+  const creators = db ? await listCreators(db) : [];
+  const managers = db ? (await listManagers(db)).filter((manager) => manager.active) : [];
   const error = params.error ? ERRORS[params.error] ?? "Sign-in didn't finish. Try again. Nothing was changed." : null;
   const showApplyHint = params.error === "not_allowed" || params.error === "oauth";
   const base = publicBasePath();
@@ -41,12 +47,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         {error ? <p className="private-note" role="alert">{error}</p> : null}
         {showApplyHint ? <p className="note">If you are new, apply to join Momma Mari. We review each application and reply within 5 business days.</p> : null}
         {backToWorlds ? null : <Link className="btn" href="/apply">New creator? Apply to join Momma Mari</Link>}
+        {backToWorlds ? null : <Link className="btn ghost" href="/signup">Create a free account</Link>}
         {googleConfigured() ? (
-          <a className="btn google" href={worldsNext ? `${base}/api/auth/google?next=${worldsNext}` : `${base}/api/auth/google`}>Continue with Google</a>
+          <a className="btn google" href={worldsNext ? `${base}/api/auth/google?next=${worldsNext}` : portalNext ? `${base}/api/auth/google?next=${portalNext}` : `${base}/api/auth/google`}>Continue with Google</a>
         ) : (
           <p className="note">Google sign-in is waiting on a client id and secret. The steps are in the README.</p>
         )}
-        {devLoginEnabled() ? (
+        {practice ? (
           <>
             <div className="sec-title" style={{ marginTop: 18 }}>Practice sign-in</div>
             <p className="note">Local only. These buttons skip Google so you can click through the seed data. Turn AUTH_DEV_LOGIN off before this is on the real site.</p>

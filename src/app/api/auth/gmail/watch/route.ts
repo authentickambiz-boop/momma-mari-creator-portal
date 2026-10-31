@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getDb } from "@/db/getDb";
+import { creatorBlockedFromConnections } from "@/lib/account-tier";
 import { appBaseUrl } from "@/lib/format";
 import { currentViewer } from "@/lib/current-user";
 import { mailboxForCreator } from "@/lib/gmail-push";
@@ -23,6 +25,9 @@ export async function GET(request: Request) {
   if (!mailbox) return NextResponse.redirect(`${appBaseUrl()}/connect?gmail=oauth`);
   const allowed = viewer.role === "admin" || (viewer.role === "creator" && viewer.creatorId === mailbox.creatorId);
   if (!allowed) return NextResponse.redirect(`${appBaseUrl()}/connect?gmail=creator_only`);
+  if (await creatorBlockedFromConnections(await getDb(), viewer)) {
+    return NextResponse.redirect(`${appBaseUrl()}/pricing?locked=connect`);
+  }
   if (!googleConfigured() || !tokenEncryptionConfigured()) {
     return NextResponse.redirect(`${appBaseUrl()}/connect?gmail=not_configured`);
   }
