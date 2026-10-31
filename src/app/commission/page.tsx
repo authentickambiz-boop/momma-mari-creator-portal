@@ -1,10 +1,13 @@
 import { showCommissionInterestAction } from "@/app/commission-actions";
+import { requestProductAction } from "@/app/free-actions";
 import { PortalFrame } from "@/components/portal-frame";
+import { creatorIsFree } from "@/lib/account-tier";
+import { openProductRequest } from "@/lib/commission-access";
 import { creatorIsOpenRoster, listOpenCommissionCampaigns } from "@/lib/commission-campaigns";
 import { commissionErrorNote } from "@/lib/commission-notes";
 import { loadPortal } from "@/lib/current-user";
 
-export default async function CommissionPage({ searchParams }: { searchParams: Promise<{ saved?: string; commissionError?: string }> }) {
+export default async function CommissionPage({ searchParams }: { searchParams: Promise<{ saved?: string; commissionError?: string; requestError?: string; requested?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(null);
   const note = commissionErrorNote(params.commissionError);
@@ -17,6 +20,8 @@ export default async function CommissionPage({ searchParams }: { searchParams: P
   }
   const campaigns = await listOpenCommissionCampaigns(portal.db, portal.viewer);
   const openRoster = await creatorIsOpenRoster(portal.db, portal.viewer.creatorId);
+  const free = await creatorIsFree(portal.db, portal.viewer.creatorId);
+  const openRequest = free ? await openProductRequest(portal.db, portal.viewer.creatorId) : null;
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -35,6 +40,8 @@ export default async function CommissionPage({ searchParams }: { searchParams: P
       }
     >
       {note ? <p className="private-note">{note}</p> : null}
+      {params.requestError ? <p className="private-note" role="alert">{params.requestError}</p> : null}
+      {openRequest ? <p className="callout">You already have an open product request. Wait until it is approved, declined, or cancelled.</p> : null}
       {params.saved === "1" ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {campaigns.length === 0 ? <p className="note empty">No open campaigns yet.</p> : null}
       {campaigns.map((campaign) => (
@@ -46,7 +53,14 @@ export default async function CommissionPage({ searchParams }: { searchParams: P
           <p className="note">Rate {campaign.rate}</p>
           <p className="note">{campaign.trackingPending ? "Tracking link pending." : campaign.trackingLink}</p>
           <p className="note">{campaign.bonusPending ? "Bonus pending." : `Bonus: ${campaign.bonus}`}</p>
-          {campaign.interested ? (
+          {free ? (
+            openRequest ? null : (
+              <form action={requestProductAction}>
+                <input type="hidden" name="campaignId" value={campaign.id} />
+                <button className="btn" type="submit">Request this product</button>
+              </form>
+            )
+          ) : campaign.interested ? (
             <p className="note">You showed interest.</p>
           ) : (
             <form action={showCommissionInterestAction}>

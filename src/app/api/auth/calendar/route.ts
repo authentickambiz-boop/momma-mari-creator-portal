@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getDb } from "@/db/getDb";
+import { creatorBlockedFromConnections } from "@/lib/account-tier";
 import { appBaseUrl } from "@/lib/format";
 import { currentViewer } from "@/lib/current-user";
 import { calendarOwnerId } from "@/lib/google-calendar";
@@ -17,6 +19,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const viewer = await currentViewer();
   if (!viewer) return NextResponse.redirect(`${appBaseUrl()}/login`);
+  if (await creatorBlockedFromConnections(await getDb(), viewer)) {
+    return NextResponse.redirect(`${appBaseUrl()}/pricing?locked=connect`);
+  }
   if (!calendarOwnerId(viewer)) {
     return NextResponse.redirect(`${appBaseUrl()}/calendar?calendarError=own`);
   }

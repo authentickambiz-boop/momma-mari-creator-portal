@@ -6,8 +6,6 @@ import { applyFormNote, CREATOR_BENEFITS } from "@/lib/creator-apply";
 import { intakeFormNote, isIntakeStep, loadResumeDraft, type IntakeSubmission } from "@/lib/intake-form";
 import { publicPageMeta } from "@/lib/public-meta";
 import { PUBLIC_ROBOTS } from "@/lib/public-site";
-import { SIGN_FOLLOWER_MINIMUM } from "@/lib/signing-thresholds";
-
 export const metadata = {
   ...publicPageMeta({
     title: "Apply to join Momma Mari",
@@ -57,7 +55,7 @@ export default async function ApplyPage({ searchParams }: { searchParams: Promis
       <aside className="apply-side">
         <p className="eyebrow">Apply to join</p>
         <h2>Let&apos;s see if we&apos;re a fit.</h2>
-        <p>We read every application. There is no fee. Creators with {SIGN_FOLLOWER_MINIMUM.toLocaleString("en-US")} followers or more on a platform are reviewed for the roster. If you are still growing, we send you to the creator curriculum.</p>
+        <p>We read every application. There is no fee. If you are still growing, start with a free account and the where-to-start lessons, or send this application for management.</p>
         <ol className="apply-steps">
           <li><span>1</span><div><strong>We review</strong><p>Contact, address, platforms, goals, and analytics stay on the owner&apos;s dashboard.</p></div></li>
           <li><span>2</span><div><strong>We let you know</strong><p>If it&apos;s a fit, your portal account opens. You&apos;ll hear from us within 5 business days.</p></div></li>

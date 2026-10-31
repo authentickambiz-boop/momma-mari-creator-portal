@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { saveSkillLessonAction } from "@/app/learn-actions";
 import { PortalFrame } from "@/components/portal-frame";
+import { creatorIsFree } from "@/lib/account-tier";
 import { loadPortal } from "@/lib/current-user";
+import { freeOnboardingState } from "@/lib/free-onboarding";
+import { analyticsLevel, whereToStart } from "@/lib/where-to-start";
+import { markWhereToStartSeen } from "@/lib/welcome-checklist";
 import { roadmapPath } from "@/lib/program-roadmaps";
 import { SKILL_TOPICS, listSkillLessons, type SkillLessonView } from "@/lib/skill-lessons";
 import type { CreatorProfile } from "@/lib/types";
@@ -21,6 +25,19 @@ function lessonNote(code: string | undefined, saved: string | undefined) {
 export default async function LearnPage({ searchParams }: { searchParams: Promise<{ creator?: string; error?: string; saved?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
+  const free = portal.viewer.role === "creator" && portal.viewer.creatorId
+    ? await creatorIsFree(portal.db, portal.viewer.creatorId)
+    : false;
+  const guide = free && portal.viewer.creatorId ? await (async () => {
+    await markWhereToStartSeen(portal.db, portal.viewer);
+    const state = await freeOnboardingState(portal.db, portal.viewer.creatorId!);
+    const level = analyticsLevel({
+      followers: state.handles.reduce<number | null>((max, row) => row.followers == null ? max : Math.max(max ?? 0, row.followers), null),
+      views: state.handles.reduce<number | null>((max, row) => row.views == null ? max : Math.max(max ?? 0, row.views), null),
+      uploads: state.uploadCount,
+    });
+    return whereToStart(state.niche.split(",")[0] || null, level);
+  })() : null;
   const focus = portal.viewedId === "all" ? "all" : portal.viewedId;
   const library = await listSkillLessons(portal.db, portal.viewer, focus);
   const note = lessonNote(params.error, params.saved);
@@ -34,6 +51,14 @@ export default async function LearnPage({ searchParams }: { searchParams: Promis
       hello={<div className="hello"><div><h1>Learn</h1><p>Short lessons on the work itself: hooks, filming, editing, posting, growth, and UGC. A lesson for everyone shows for every creator. A lesson for one creator shows only on her sign-in.</p></div></div>}
     >
       {note ? <p className="note">{note}</p> : null}
+      {guide ? (
+        <section className="card" data-where-to-start="true">
+          <div className="sec-title">Where to start</div>
+          <h2>{guide.headline}</h2>
+          <p>{guide.body}</p>
+          <p><Link href={`#learn-${guide.topic}`}>Open the lesson</Link></p>
+        </section>
+      ) : null}
       <div className="stack">
         <section className="card">
           <div className="sec-title">Program roadmaps</div>
@@ -43,7 +68,7 @@ export default async function LearnPage({ searchParams }: { searchParams: Promis
         {SKILL_TOPICS.map((topic) => {
           const items = library.lessons.filter((lesson) => lesson.topic === topic.id);
           return (
-            <section key={topic.id} className="card">
+            <section key={topic.id} className="card" id={`learn-${topic.id}`}>
               <div className="sec-title">{topic.label}</div>
               {items.length === 0 ? <p className="note empty">No lesson in this topic yet.</p> : null}
               {items.map((lesson) => (

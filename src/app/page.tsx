@@ -8,7 +8,11 @@ import { PlatformInviteCard } from "@/components/platform-invite-card";
 import { PortalFrame } from "@/components/portal-frame";
 import { dealPowers } from "@/lib/authz";
 import { longDate } from "@/lib/format";
-import { loadPortal } from "@/lib/current-user";
+import { currentViewer, loadPortal } from "@/lib/current-user";
+import { creatorIsFree } from "@/lib/account-tier";
+import { welcomeChecklist } from "@/lib/welcome-checklist";
+import { dismissChecklistAction } from "@/app/free-actions";
+import { ensureInviteCode } from "@/lib/signup-codes";
 import { analyticsBoard, withJulyHeadline } from "@/lib/analytics-snapshots";
 import { countOwnPayouts, creatorBrandDealNeedsAction, creatorHomeCards, creatorNeedsYou, firstName } from "@/lib/creator-home";
 import { listManagerNotices, needsYou } from "@/lib/managers";
@@ -38,7 +42,15 @@ const TODO_NOTES: Record<string, string> = {
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ creator?: string; passed?: string; invite?: string; noticeError?: string; checkout?: string; todo?: string }> }) {
   const params = await searchParams;
+  if (!(await currentViewer())) redirect("/login?next=/");
   const portal = await loadPortal(params.creator ?? null);
+  const freeHome = portal.viewer.role === "creator" && portal.viewer.creatorId
+    ? await creatorIsFree(portal.db, portal.viewer.creatorId)
+    : false;
+  const checklist = freeHome && portal.viewer.creatorId ? await welcomeChecklist(portal.db, portal.viewer.creatorId) : null;
+  const inviteCode = portal.viewer.role === "creator" && portal.viewer.creatorId
+    ? await ensureInviteCode(portal.db, portal.viewer.creatorId)
+    : null;
   if (portal.viewer.role === "admin") await ensureOpenDeposits(portal.db);
   else if (portal.viewer.creatorId) await ensureCreatorDeposits(portal.db, portal.viewer.creatorId);
   else if (portal.viewedId && portal.viewedId !== "all") await ensureCreatorDeposits(portal.db, portal.viewedId);
@@ -102,9 +114,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const reviewWaiting = dealReviews.filter(creatorReviewNeedsAction);
   const pendingReviews = dealReviews.some((offer) => !offer.decision);
   const actionDeals = creatorHome ? deals.filter(creatorBrandDealNeedsAction) : deals;
-  if (quiz && !quiz.finished && !quiz.paused && !pendingReviews) {
+  if (!freeHome && quiz && !quiz.finished && !quiz.paused && !pendingReviews) {
     redirect(params.checkout === "success" ? "/onboarding?checkout=success" : "/onboarding");
   }
+  const noDeals = portal.viewer.role === "creator" && deals.length === 0;
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -126,17 +139,42 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       }
     >
       <CheckoutSuccessNote checkout={params.checkout} />
+      {noDeals ? (
+        <p className="note empty" data-empty-deals="true">You have no deals yet. Check back daily, or browse our <Link href="/commission">commission-only section</Link>.</p>
+      ) : null}
+      {freeHome ? (
+        <div className="card stack" style={{ marginBottom: 14 }}>
+          <h2>Your free account</h2>
+          <p><Link href="/apply">Apply for management</Link> or <Link href="/pricing">see Plus $19/mo, Pro $39/mo, and Business $199/mo</Link>. One-time services run from $79 to $499.</p>
+        </div>
+      ) : null}
+      {checklist && !checklist.dismissed ? (
+        <section className="card stack" data-welcome-checklist="true" style={{ marginBottom: 14 }}>
+          <h2>Welcome checklist</h2>
+          <ul>
+            {checklist.items.map((item) => (
+              <li key={item.id}>{item.done ? "Done" : "Open"} · <Link href={item.href}>{item.label}</Link></li>
+            ))}
+          </ul>
+          {checklist.complete ? (
+            <form action={dismissChecklistAction}><button className="btn ghost" type="submit">Dismiss checklist</button></form>
+          ) : null}
+        </section>
+      ) : null}
+      {inviteCode && !inviteCode.disabledAt ? (
+        <p className="note">Your invite code is <b>{inviteCode.code}</b>. Share it with someone starting a free account. {inviteCode.useCount} of {inviteCode.usageCap} uses.</p>
+      ) : null}
       {inviteErrorNote(params.invite) ? <p className="private-note">{inviteErrorNote(params.invite)}</p> : null}
       {params.noticeError ? <p className="note alert" role="alert">{noticeErrorNote(params.noticeError) ?? "That notice was not dismissed. Nothing was changed."}</p> : null}
       {platformInvites.map((invite) => <PlatformInviteCard key={invite.id} invite={invite} />)}
-      {creatorHome ? <CreatorTodos tasks={openTasks} note={todoNote} /> : null}
+      {creatorHome && !freeHome ? <CreatorTodos tasks={openTasks} note={todoNote} /> : null}
       {creatorHome && offersWaiting.length + reviewWaiting.length > 0 ? (
         <div className="callout">
           <b>{offersWaiting.length + reviewWaiting.length === 1 ? "A brand offer is in your inbox." : `${offersWaiting.length + reviewWaiting.length} brand offers are in your inbox.`}</b>{" "}
           <Link href="/offers">Open offers</Link>
         </div>
       ) : null}
-      {quiz && !quiz.finished ? (
+      {!freeHome && quiz && !quiz.finished ? (
         <div className="callout">
           <b>Finish your setup.</b> Your answers match brand deals and fill in your profile. <Link href="/onboarding">Continue</Link>
         </div>

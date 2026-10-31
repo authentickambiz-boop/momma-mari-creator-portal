@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/getDb";
 import { appBaseUrl } from "@/lib/format";
 import { currentViewer } from "@/lib/current-user";
+import { creatorBlockedFromConnections } from "@/lib/account-tier";
 import { beginGmailBridgeConnect } from "@/lib/gmail-bridge";
 import { createWatchCreatorCookie, gmailBridgeCreatorCookieName, gmailBridgeStateCookieName } from "@/lib/google-oauth";
 import { findCreatorById } from "@/lib/queries";
@@ -15,6 +16,9 @@ export async function GET(request: Request) {
   const requested = new URL(request.url).searchParams.get("creator") ?? "";
   const creatorId = requested || (viewer.role === "creator" ? viewer.creatorId ?? "" : "");
   const db = await getDb();
+  if (await creatorBlockedFromConnections(db, viewer)) {
+    return NextResponse.redirect(`${appBaseUrl()}/pricing?locked=connect`);
+  }
   const creator = creatorId ? await findCreatorById(db, creatorId) : null;
   const started = await beginGmailBridgeConnect(viewer, creatorId, creator?.email ?? viewer.email);
   if (!started.ok || !creator) {

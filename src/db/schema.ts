@@ -31,6 +31,8 @@ export const creators = sqliteTable("creators", {
   hostedEmailAddress: text("hosted_email_address"),
   signerIsMinor: integer("signer_is_minor", { mode: "boolean" }).notNull().default(false),
   contracted: integer("contracted", { mode: "boolean" }).notNull().default(false),
+  /** free for self-serve sign-ups. Existing roster rows stay managed. */
+  accountTier: text("account_tier").notNull().default("managed"),
   primaryManagerId: text("primary_manager_id"),
   backupManagerId: text("backup_manager_id"),
   isSeed: integer("is_seed", { mode: "boolean" }).notNull(),
@@ -1843,3 +1845,86 @@ export const sponsoredPostSnapshots = sqliteTable(
   },
   (table) => [uniqueIndex("sponsored_post_snapshots_post_checkpoint").on(table.postId, table.checkpoint)],
 );
+
+/** Owner switches, including whether free sign-up requires an invite code. */
+export const portalSettings = sqliteTable("portal_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** One shareable code for a signed creator or a Pro-or-higher member. */
+export const signupInviteCodes = sqliteTable("signup_invite_codes", {
+  id: text("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  ownerCreatorId: text("owner_creator_id").notNull(),
+  usageCap: integer("usage_cap").notNull(),
+  useCount: integer("use_count").notNull().default(0),
+  disabledAt: text("disabled_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** Who referred a free account. One referrer per new account. */
+export const signupReferrals = sqliteTable("signup_referrals", {
+  id: text("id").primaryKey(),
+  codeId: text("code_id").notNull(),
+  referrerCreatorId: text("referrer_creator_id").notNull(),
+  referredCreatorId: text("referred_creator_id").notNull().unique(),
+  createdAt: text("created_at").notNull(),
+});
+
+/** Signup and invite-code checks, counted per IP for rate limits. */
+export const signupRateEvents = sqliteTable("signup_rate_events", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  ip: text("ip").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const freeOnboarding = sqliteTable("free_onboarding", {
+  creatorId: text("creator_id").primaryKey(),
+  niche: text("niche"),
+  nicheOther: text("niche_other"),
+  statNote: text("stat_note"),
+  skippedAt: text("skipped_at"),
+  finishedAt: text("finished_at"),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const creatorPlatformHandles = sqliteTable("creator_platform_handles", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  platform: text("platform").notNull(),
+  handle: text("handle").notNull(),
+  followers: integer("followers"),
+  views: integer("views"),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const creatorStatUploads = sqliteTable("creator_stat_uploads", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  platform: text("platform").notNull(),
+  fileName: text("file_name").notNull(),
+  contentType: text("content_type").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  bodyBase64: text("body_base64").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const commissionProductRequests = sqliteTable("commission_product_requests", {
+  id: text("id").primaryKey(),
+  creatorId: text("creator_id").notNull(),
+  campaignId: text("campaign_id").notNull(),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+  resolvedAt: text("resolved_at"),
+});
+
+export const welcomeChecklists = sqliteTable("welcome_checklists", {
+  creatorId: text("creator_id").primaryKey(),
+  guideSeenAt: text("guide_seen_at"),
+  dismissedAt: text("dismissed_at"),
+  updatedAt: text("updated_at").notNull(),
+});

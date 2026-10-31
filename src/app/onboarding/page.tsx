@@ -10,6 +10,9 @@ import { CONNECTION_RETRY_NOTE } from "@/lib/account-connection-status";
 import { emailSetupLabel, STRIPE_CATALOG } from "@/lib/email-setup";
 import { publicBasePath } from "@/lib/format";
 import { loadPortal } from "@/lib/current-user";
+import { FreeOnboardingForm, freeStepError, freeStepFrom } from "@/components/free-onboarding-form";
+import { creatorIsFree } from "@/lib/account-tier";
+import { freeOnboardingState } from "@/lib/free-onboarding";
 import { onboardingPlatformId, onboardingPlatformLabel } from "@/lib/onboarding-fields";
 import { gmailBridgeFirstLoginPrompt } from "@/lib/gmail-bridge-start";
 import { emailSetupFor, gmailConnectionState, onboardingForCreator } from "@/lib/onboarding";
@@ -28,7 +31,7 @@ const GMAIL_ERRORS: Record<string, string> = {
 export default async function OnboardingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ creator?: string; connected?: string; done?: string; error?: string; gmail?: string; emailError?: string; setup?: string; hosted?: string; step?: string; questionError?: string; checkout?: string }>;
+  searchParams: Promise<{ creator?: string; connected?: string; done?: string; error?: string; gmail?: string; emailError?: string; setup?: string; hosted?: string; step?: string; questionError?: string; checkout?: string; freeError?: string }>;
 }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
@@ -38,6 +41,28 @@ export default async function OnboardingPage({
   const profile = creator ? await onboardingForCreator(portal.db, creator.id) : null;
   const setup = creator ? await emailSetupFor(portal.db, creator.id) : null;
   const own = portal.viewer.role === "creator";
+  if (creator && own && portal.viewer.creatorId && await creatorIsFree(portal.db, portal.viewer.creatorId)) {
+    const state = await freeOnboardingState(portal.db, portal.viewer.creatorId);
+    const step = freeStepFrom(state.firstIncomplete, params.step);
+    return (
+      <PortalFrame
+        viewer={portal.viewer}
+        tab="profile"
+        creators={portal.creators}
+        viewedId={portal.viewedId}
+        hello={<div className="hello"><div><h1>Set up your free account</h1><p>Three steps. Each one saves when you press Next. You can skip and finish later.</p></div></div>}
+      >
+        <FreeOnboardingForm
+          step={step}
+          handles={state.handles}
+          niche={state.niche}
+          nicheOther={state.nicheOther}
+          statNote={state.statNote}
+          error={freeStepError(params.freeError)}
+        />
+      </PortalFrame>
+    );
+  }
   const quiz = creator && own ? await questionnaireFor(portal.db, creator.id) : null;
   const requested = params.step && stepIndex(params.step) >= 0 ? params.step : quiz?.step;
   const savedIndex = stepIndex(quiz?.step && quiz.step !== "done" ? quiz.step : "bot");

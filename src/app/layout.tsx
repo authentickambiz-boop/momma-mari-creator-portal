@@ -29,19 +29,22 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const headerList = await headers();
   const office = headerList.get("x-bot-office") === "1";
-  const seasonal = await loadSeasonalPresentation();
+  const fast = headerList.get("x-portal-fast") === "1";
+  const seasonal = office || fast
+    ? { active: null, hidden: null, override: "auto" as const }
+    : await loadSeasonalPresentation();
   const pageStyle: CSSProperties | undefined = seasonal.active
     ? ({ "--cream": seasonal.active.palette.page } as CSSProperties)
     : undefined;
   return (
     <html lang="en" className={`${inter.variable} ${fraunces.variable}`} data-seasonal={seasonal.active?.id} style={pageStyle}>
       <body>
-        {office ? null : <SeasonalThemeFrame presentation={{ active: seasonal.active, hidden: seasonal.hidden }} />}
+        {office || fast ? null : <SeasonalThemeFrame presentation={{ active: seasonal.active, hidden: seasonal.hidden }} />}
         {children}
         <AnalyticsHooks />
         {office ? null : <SiteFooter />}
-        {office ? null : <CommunityPanel />}
-        {office ? null : <HomeScreen />}
+        {office || fast ? null : <CommunityPanel />}
+        {office || fast ? null : <HomeScreen />}
       </body>
     </html>
   );

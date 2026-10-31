@@ -513,6 +513,15 @@ function applyPatch(current: QuestionnaireAnswers, patch: Partial<QuestionnaireA
 }
 
 export async function creatorStartPath(db: PortalDb, viewer: Viewer) {
+  if (viewer.role === "creator" && viewer.creatorId) {
+    const { creatorIsFree } = await import("./account-tier");
+    if (await creatorIsFree(db, viewer.creatorId)) {
+      const { freeOnboardingState } = await import("./free-onboarding");
+      const state = await freeOnboardingState(db, viewer.creatorId);
+      if (!state.finished && !state.skipped) return "/onboarding";
+      return "/";
+    }
+  }
   if (viewer.role === "creator" && viewer.creatorId && await profileIntakeMissing(db, viewer.creatorId)) {
     return "/profile/intake";
   }
