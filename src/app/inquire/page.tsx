@@ -3,6 +3,7 @@ import { BrandBriefForm } from "@/components/brand-brief-form";
 import { GiftGuideForm } from "@/components/gift-guide-form";
 import { PublicShell } from "@/components/public-shell";
 import { getDb } from "@/db/getDb";
+import { inquiryCreatorIds } from "@/lib/brand-brief";
 import { brandInquiryPrefill } from "@/lib/brand-recap";
 import { GIFT_GUIDE_OFFER, giftGuideErrorNote } from "@/lib/gift-guide";
 import { inquiryErrorNote } from "@/lib/inquiry-notes";
@@ -36,9 +37,19 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   };
 }
 
-export default async function InquirePage({ searchParams }: { searchParams: Promise<{ sent?: string; error?: string; with?: string; brand?: string; program?: string }> }) {
+export default async function InquirePage({ searchParams }: {
+  searchParams: Promise<{
+    sent?: string;
+    error?: string;
+    with?: string;
+    brand?: string;
+    program?: string;
+    creator?: string | string[];
+  }>;
+}) {
   const params = await searchParams;
   const giftGuide = params.program === GIFT_GUIDE_OFFER.program;
+  const selectedIds = inquiryCreatorIds(params.creator);
   const note = params.sent
     ? null
     : params.error
@@ -67,7 +78,7 @@ export default async function InquirePage({ searchParams }: { searchParams: Prom
         <>
           {note ? <p className="note">{note}</p> : null}
           {featured ? <p className="note">This brief starts with {featured.name}.</p> : null}
-          {giftGuide ? <GiftGuideForm /> : <BrandBriefForm featuredId={featured?.id} brand={brand} />}
+          {giftGuide ? <GiftGuideForm /> : <BrandBriefForm featuredId={featured?.id} selectedIds={selectedIds} brand={brand} />}
         </>
       )}
     </PublicShell>
