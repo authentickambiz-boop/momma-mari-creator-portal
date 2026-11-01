@@ -38,6 +38,7 @@ import { PORTAL_HOME_COOKIE, portalHomeCookie } from "@/lib/portal-return";
 import { creatorStartPath } from "@/lib/questionnaire";
 import { resolveLogin } from "@/lib/queries";
 import { createSession, sessionCookieName, sessionCookieOptions } from "@/lib/session";
+import { warmSessionProfile } from "@/lib/session-profile";
 import { completeFreeSignup, FREE_SIGNUP_COOKIE, readCookie, SIGNUP_GRANT_COOKIE } from "@/lib/signup-codes";
 import { WORLDS_RETURN_COOKIE, worldsReturnCookie } from "@/lib/worlds/office-return";
 
@@ -79,8 +80,10 @@ export async function GET(request: Request) {
   const person = viewer ?? (created && created.ok ? created.viewer : null);
   if (!person) return loginRedirect("not_allowed", worlds);
   const session = await createSession(db, person);
+  const warmed = warmSessionProfile(db, session.record, person);
   await rememberCreatorLogin(db, person);
   const start = worlds ?? home ?? await creatorStartPath(db, person);
+  await warmed;
   const response = NextResponse.redirect(`${appBaseUrl()}${start}`);
   response.cookies.set(sessionCookieName(), session.cookieValue, sessionCookieOptions());
   response.cookies.set(oauthStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });

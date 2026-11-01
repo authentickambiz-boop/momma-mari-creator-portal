@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { publicPageCacheControl } from "@/lib/public-cache";
 import { worldsCityEnabled } from "@/lib/worlds/city/flag";
 import { isBotOfficePath, isWorldsCityPath } from "@/lib/worlds/office-path";
 
@@ -18,9 +19,15 @@ export function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   if (office) requestHeaders.set("x-bot-office", "1");
   if (fast) requestHeaders.set("x-portal-fast", "1");
-  return NextResponse.next({
+  const response = NextResponse.next({
     request: { headers: requestHeaders },
   });
+  const cache = fast ? publicPageCacheControl(pathname, request.cookies.has("mm_session")) : null;
+  if (cache) {
+    response.headers.set("Cache-Control", cache);
+    response.headers.set("CDN-Cache-Control", cache);
+  }
+  return response;
 }
 
 export const config = {

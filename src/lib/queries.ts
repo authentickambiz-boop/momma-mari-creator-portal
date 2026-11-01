@@ -192,7 +192,12 @@ export async function resolveLogin(db: PortalDb, email: string) {
       },
     };
   }
-  const manager = await findManagerByEmail(db, normalized);
+  const [managerResult, creatorResult] = await Promise.allSettled([
+    findManagerByEmail(db, normalized),
+    findCreatorByEmail(db, normalized),
+  ]);
+  if (managerResult.status === "rejected") throw managerResult.reason;
+  const manager = managerResult.value;
   if (manager?.active) {
     return {
       ok: true as const,
@@ -206,7 +211,8 @@ export async function resolveLogin(db: PortalDb, email: string) {
       },
     };
   }
-  const creator = await findCreatorByEmail(db, normalized);
+  if (creatorResult.status === "rejected") throw creatorResult.reason;
+  const creator = creatorResult.value;
   if (!creator) return { ok: false as const, reason: "not_allowed" as const };
   return {
     ok: true as const,
@@ -224,8 +230,8 @@ async function creatorNameMap(db: PortalDb) {
   return new Map(rows.map((creator) => [creator.id, creator.name]));
 }
 
-export async function listDealsForViewer(db: PortalDb, viewer: Viewer, creatorId: string | "all") {
-  const names = await creatorNameMap(db);
+export async function listDealsForViewer(db: PortalDb, viewer: Viewer, creatorId: string | "all", names?: Map<string, string>) {
+  const resolved = names ?? await creatorNameMap(db);
   const rows = await db.select().from(deals).orderBy(asc(deals.sortOrder), asc(deals.brand));
   return rows
     .filter((row) => {
@@ -234,7 +240,7 @@ export async function listDealsForViewer(db: PortalDb, viewer: Viewer, creatorId
       if (viewer.role === "creator" && row.creatorId !== viewer.creatorId) return false;
       return true;
     })
-    .map((row) => hideMoney(toSummary(row, names.get(row.creatorId) ?? (row.creatorId === AGENCY_MAILBOX_ID ? "Kamron" : "Creator")), viewer));
+    .map((row) => hideMoney(toSummary(row, resolved.get(row.creatorId) ?? (row.creatorId === AGENCY_MAILBOX_ID ? "Kamron" : "Creator")), viewer));
 }
 
 function hideMoney<T extends DealSummary>(summary: T, viewer: Viewer): T {

@@ -123,8 +123,12 @@ describe("public company pages", { concurrency: 1 }, () => {
     assert.match(source("src/app/faq/page.tsx"), /href="\/contact"/);
     assert.match(source("src/app/faq/page.tsx"), /href="\/help"/);
     assert.match(source("src/app/press/page.tsx"), /withBasePath\("\/momma-logo.png"\)/);
-    for (const href of ["/about", "/contact", "/faq", "/careers", "/press"]) {
+    assert.match(footer, /https:\/\/www\.mommamari\.com\/about/);
+    assert.match(footer, /https:\/\/www\.mommamari\.com\/contact/);
+    for (const href of ["/faq", "/careers", "/press"]) {
       assert.match(footer, new RegExp(`href="${href}"`));
+    }
+    for (const href of ["/about", "/contact", "/faq", "/careers", "/press"]) {
       assert.match(shell, new RegExp(`href="${href}"`));
       assert.equal(sitemapPublicPaths().includes(href), true);
       assert.equal(isPublicMarketingPath(href, ""), true);

@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ["node:sqlite"],
   experimental: {
+    // Dynamic portal tabs stay in the client cache so a second visit is instant.
+    staleTimes: {
+      dynamic: 60,
+      static: 300,
+    },
     // Next 16 turns this on by default. In dev it waits on the HMR debug
     // channel before hydrating, and that socket handshake fails in Chrome
     // (permessage-deflate). Client buttons and uploads then never attach.

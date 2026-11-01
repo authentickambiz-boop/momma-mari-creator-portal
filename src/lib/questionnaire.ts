@@ -513,23 +513,24 @@ function applyPatch(current: QuestionnaireAnswers, patch: Partial<QuestionnaireA
 }
 
 export async function creatorStartPath(db: PortalDb, viewer: Viewer) {
-  if (viewer.role === "creator" && viewer.creatorId) {
-    const { creatorIsFree } = await import("./account-tier");
-    if (await creatorIsFree(db, viewer.creatorId)) {
-      const { freeOnboardingState } = await import("./free-onboarding");
-      const state = await freeOnboardingState(db, viewer.creatorId);
-      if (!state.finished && !state.skipped) return "/onboarding";
-      return "/";
-    }
+  if (viewer.role !== "creator" || !viewer.creatorId) return "/";
+  const { creatorIsFree } = await import("./account-tier");
+  const { gather } = await import("./parallel");
+  const id = viewer.creatorId;
+  const free = await creatorIsFree(db, id);
+  if (free) {
+    const { freeOnboardingState } = await import("./free-onboarding");
+    const state = await freeOnboardingState(db, id);
+    if (!state.finished && !state.skipped) return "/onboarding";
+    return "/";
   }
-  if (viewer.role === "creator" && viewer.creatorId && await profileIntakeMissing(db, viewer.creatorId)) {
-    return "/profile/intake";
-  }
-  if (viewer.role === "creator" && viewer.creatorId && (await needsQuestionnaire(db, viewer.creatorId))) {
-    const reviews = await listCreatorDealReviews(db, viewer.creatorId);
-    if (reviews.some((offer) => !offer.decision)) return "/";
-    return "/onboarding";
-  }
+  const [missing, quiz, reviews] = await gather([
+    () => profileIntakeMissing(db, id),
+    () => needsQuestionnaire(db, id),
+    () => listCreatorDealReviews(db, id),
+  ]);
+  if (missing) return "/profile/intake";
+  if (quiz && !reviews.some((offer) => !offer.decision)) return "/onboarding";
   return "/";
 }
 

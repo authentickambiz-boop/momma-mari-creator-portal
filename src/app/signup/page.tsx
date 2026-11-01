@@ -27,7 +27,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
   const note = signupErrorNote(params.error);
   const base = publicBasePath();
   return (
-    <PublicShell title="Create a free account" lede="Type your handles, upload your stats, and read where to start. Platform connections and a custom bot unlock on a paid plan.">
+    <PublicShell showFoot={false} title="Create a free account" lede="Type your handles, upload your stats, and read where to start. Platform connections and a custom bot unlock on a paid plan.">
       {note ? <p className="private-note" role="alert">{note}</p> : null}
       {required ? <p>Sign-up is invite-only right now. Use the code from a signed creator or a Pro or Business member.</p> : <p>An invite code is optional right now. You can still enter one if someone shared theirs.</p>}
       <form action={beginFreeSignupAction} className="card stack">

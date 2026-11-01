@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { saveSkillLessonAction } from "@/app/learn-actions";
 import { PortalFrame } from "@/components/portal-frame";
-import { creatorIsFree } from "@/lib/account-tier";
 import { loadPortal } from "@/lib/current-user";
 import { freeOnboardingState } from "@/lib/free-onboarding";
 import { analyticsLevel, whereToStart } from "@/lib/where-to-start";
@@ -25,9 +24,7 @@ function lessonNote(code: string | undefined, saved: string | undefined) {
 export default async function LearnPage({ searchParams }: { searchParams: Promise<{ creator?: string; error?: string; saved?: string }> }) {
   const params = await searchParams;
   const portal = await loadPortal(params.creator ?? null);
-  const free = portal.viewer.role === "creator" && portal.viewer.creatorId
-    ? await creatorIsFree(portal.db, portal.viewer.creatorId)
-    : false;
+  const free = portal.creatorFree;
   const guide = free && portal.viewer.creatorId ? await (async () => {
     await markWhereToStartSeen(portal.db, portal.viewer);
     const state = await freeOnboardingState(portal.db, portal.viewer.creatorId!);

@@ -36,6 +36,7 @@ import { creatorStartPath, saveQuestionnaireStep } from "@/lib/questionnaire";
 import { worldsReturnPath } from "@/lib/worlds/office-return";
 import { resolveLogin } from "@/lib/queries";
 import { rememberCreatorLogin } from "@/lib/gmail-bridge-start";
+import { warmSessionProfile } from "@/lib/session-profile";
 import { createSession, destroySession, sessionCookieName, sessionCookieOptions } from "@/lib/session";
 import { requestClientIp } from "@/lib/request-ip";
 
@@ -645,9 +646,12 @@ export async function devLoginAction(formData: FormData) {
   const result = await resolveLogin(db, email);
   if (!result.ok) redirect("/login?error=not_allowed");
   const session = await createSession(db, result.viewer);
+  const warmed = warmSessionProfile(db, session.record, result.viewer);
   await rememberCreatorLogin(db, result.viewer);
   const jar = await cookies();
   jar.set(sessionCookieName(), session.cookieValue, sessionCookieOptions());
   const next = worldsReturnPath(String(formData.get("next") ?? ""));
-  redirect(next ?? await creatorStartPath(db, result.viewer));
+  const start = next ?? await creatorStartPath(db, result.viewer);
+  await warmed;
+  redirect(start);
 }

@@ -3527,6 +3527,7 @@ test("a monthly report is one page, and the email waits in the approval queue", 
     visibleToCreator: true,
   });
   assert.equal(created.status, 201);
+  await db.update(deals).set({ createdAt: "2026-10-02T00:00:00.000Z", updatedAt: "2026-10-05T00:00:00.000Z" }).where(eq(deals.id, "phase15-report"));
   const payment = await upsertPayment(db, {
     dealId: "phase15-report",
     creatorSplitPercent: 70,
