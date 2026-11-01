@@ -34,6 +34,23 @@ export const BRIEF_CREATORS = [
 ] as const;
 
 const CREATOR_IDS = new Set<string>(BRIEF_CREATORS.map((creator) => creator.id));
+const CREATOR_ID_BY_SLUG = new Map(BRIEF_CREATORS.map((creator) => [creator.id.toLowerCase(), creator.id]));
+
+/** Creator checkboxes named by `?creator=` on the public inquiry page. Matching is case-insensitive. Unknown slugs are dropped. */
+export function inquiryCreatorIds(value: string | readonly string[] | null | undefined): string[] {
+  const raw = Array.isArray(value) ? value : value ? [value] : [];
+  const chosen: string[] = [];
+  const seen = new Set<string>();
+  for (const piece of raw) {
+    for (const part of piece.split(",")) {
+      const id = CREATOR_ID_BY_SLUG.get(part.trim().toLowerCase());
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      chosen.push(id);
+    }
+  }
+  return chosen;
+}
 
 export type BrandBriefInput = {
   brand: string;

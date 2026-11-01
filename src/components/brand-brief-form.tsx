@@ -11,7 +11,17 @@ import {
 } from "@/lib/brand-brief";
 import { INQUIRY_SUBMIT_LABEL, REPLY_PROMISE } from "@/lib/public-site";
 
-export function BrandBriefForm({ featuredId, brand }: { featuredId?: string | null; brand?: string | null }) {
+export function BrandBriefForm({
+  featuredId,
+  selectedIds,
+  brand,
+}: {
+  featuredId?: string | null;
+  selectedIds?: readonly string[] | null;
+  brand?: string | null;
+}) {
+  const selected = new Set(selectedIds ?? []);
+  if (featuredId) selected.add(featuredId);
   return (
     <form action={brandInquiryAction} className="card stack public-form">
       <label>Brand / company name
@@ -45,7 +55,7 @@ export function BrandBriefForm({ featuredId, brand }: { featuredId?: string | nu
         <legend>Creators</legend>
         {BRIEF_CREATORS.map((creator) => (
           <label key={creator.id} className="contract-choices">
-            <input type="checkbox" name="creators" value={creator.id} defaultChecked={featuredId === creator.id} />
+            <input type="checkbox" name="creators" value={creator.id} defaultChecked={selected.has(creator.id)} />
             {creator.label}
           </label>
         ))}
