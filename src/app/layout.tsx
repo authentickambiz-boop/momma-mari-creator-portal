@@ -6,7 +6,9 @@ import { AnalyticsHooks } from "@/components/analytics-hooks";
 import { CommunityPanel } from "@/components/community-panel";
 import { HomeScreen } from "@/components/home-screen";
 import { SeasonalThemeFrame } from "@/components/seasonal-theme";
+import { NavProgress } from "@/components/nav-progress";
 import { SiteFooter } from "@/components/site-footer";
+import { portalAssetOrigin } from "@/lib/asset-origin";
 import { withBasePath } from "@/lib/format";
 import { loadSeasonalPresentation } from "@/lib/seasonal-theme-request";
 import "./globals.css";
@@ -36,9 +38,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const pageStyle: CSSProperties | undefined = seasonal.active
     ? ({ "--cream": seasonal.active.palette.page } as CSSProperties)
     : undefined;
+  const assetOrigin = await portalAssetOrigin();
   return (
     <html lang="en" className={`${inter.variable} ${fraunces.variable}`} data-seasonal={seasonal.active?.id} style={pageStyle}>
+      <head>
+        {assetOrigin ? <link rel="preconnect" href={assetOrigin} crossOrigin="" /> : null}
+        {assetOrigin ? <link rel="dns-prefetch" href={assetOrigin} /> : null}
+      </head>
       <body>
+        <NavProgress />
         {office || fast ? null : <SeasonalThemeFrame presentation={{ active: seasonal.active, hidden: seasonal.hidden }} />}
         {children}
         <AnalyticsHooks />

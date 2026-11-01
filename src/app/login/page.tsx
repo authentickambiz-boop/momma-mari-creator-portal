@@ -80,7 +80,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </div>
           </>
         ) : null}
-        {backToWorlds ? null : <p className="note" style={{ marginTop: 16 }}><Link href="https://mommamari.com">Back to mommamari.com</Link></p>}
+        {backToWorlds ? null : <p className="note" style={{ marginTop: 16 }}><Link href="https://www.mommamari.com">Back to mommamari.com</Link></p>}
       </div>
       <aside className="login-forest">
         <p className="eyebrow">Your creator portal</p>

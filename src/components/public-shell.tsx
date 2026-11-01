@@ -3,7 +3,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { KIDS_STANDARD_PATH } from "@/lib/kids-standard";
 import { MEET_HREF, MEET_LABEL } from "@/lib/public-creators";
 
-export function PublicShell({ title, lede, children }: { title: string; lede: string; children: React.ReactNode }) {
+export function PublicShell({ title, lede, children, showFoot = true }: { title: string; lede: string; children: React.ReactNode; showFoot?: boolean }) {
   return (
     <>
     <a className="skip" href="#main">Skip to content</a>
@@ -32,6 +32,7 @@ export function PublicShell({ title, lede, children }: { title: string; lede: st
       <h1>{title}</h1>
       <p>{lede}</p>
       {children}
+      {showFoot ? (
       <footer className="public-foot">
         <Link href="/about">About</Link>
         <Link href="/contact">Contact</Link>
@@ -40,6 +41,7 @@ export function PublicShell({ title, lede, children }: { title: string; lede: st
         <Link href="/press">Press</Link>
         <Link href={KIDS_STANDARD_PATH}>Kids in content</Link>
       </footer>
+      ) : null}
     </main>
     </>
   );

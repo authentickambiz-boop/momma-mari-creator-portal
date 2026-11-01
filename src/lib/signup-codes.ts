@@ -41,11 +41,26 @@ export function signupCookieOptions() {
   return { ...sessionCookieOptions(), maxAge: 600 };
 }
 
-/** Missing row means codes are required. The owner turns this off later. */
-export async function signupCodeRequired(db: PortalDb) {
+const CODE_REQUIRED_TTL_MS = 30_000;
+let codeRequiredCache: { at: number; value: boolean } | null = null;
+
+export function clearSignupCodeCache() {
+  codeRequiredCache = null;
+}
+
+async function readSignupCodeRequired(db: PortalDb) {
   const rows = await db.select().from(portalSettings).where(eq(portalSettings.key, CODE_REQUIRED_KEY));
   if (!rows[0]) return true;
   return rows[0].value !== "false";
+}
+
+/** Missing row means codes are required. The owner turns this off later. */
+export async function signupCodeRequired(db: PortalDb, options?: { cache?: boolean }) {
+  const cache = options?.cache ?? (typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers");
+  if (cache && codeRequiredCache && Date.now() - codeRequiredCache.at < CODE_REQUIRED_TTL_MS) return codeRequiredCache.value;
+  const value = await readSignupCodeRequired(db);
+  if (cache) codeRequiredCache = { at: Date.now(), value };
+  return value;
 }
 
 export async function setSignupCodeRequired(db: PortalDb, viewer: Viewer, required: boolean) {
@@ -58,6 +73,7 @@ export async function setSignupCodeRequired(db: PortalDb, viewer: Viewer, requir
   } else {
     await db.insert(portalSettings).values({ key: CODE_REQUIRED_KEY, value, updatedAt: timestamp });
   }
+  clearSignupCodeCache();
   return { ok: true as const, required };
 }
 

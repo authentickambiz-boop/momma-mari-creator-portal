@@ -39,8 +39,8 @@ describe("site gap fixes", { concurrency: 1 }, () => {
     const terms = source("src/app/terms/page.tsx");
     assert.match(layout, /SiteFooter/);
     assert.match(footer, /mommamari\.com/);
-    assert.match(footer, /href="\/privacy"/);
-    assert.match(footer, /href="\/terms"/);
+    assert.match(footer, /https:\/\/www\.mommamari\.com\/privacy/);
+    assert.match(footer, /https:\/\/www\.mommamari\.com\/terms/);
     assert.match(footer, /© \{year\} Momma Mari</);
     assert.doesNotMatch(footer, /LLC/);
     assert.match(notice, /By submitting you agree to our/);

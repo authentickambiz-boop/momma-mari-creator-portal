@@ -7,7 +7,8 @@ import { assignedCreatorIds, findManagerByEmail } from "./managers";
 import { findCreatorById, listCreators } from "./queries";
 import { creatorIsFree } from "./account-tier";
 import { profileIntakeMissing } from "./profile-intake";
-import { readSession, sessionCookieName } from "./session";
+import { gather } from "./parallel";
+import { readSession, rememberSessionProfile, sessionProfileFresh, sessionCookieName, type SessionRecord } from "./session";
 import type { CreatorProfile, Viewer } from "./types";
 import { worldsReturnPath } from "./worlds/office-return";
 
@@ -26,6 +27,36 @@ export function hideAccountCredentials(creator: CreatorProfile): CreatorProfile 
   };
 }
 
+function viewerFromSession(session: SessionRecord): Viewer | null {
+  const profile = session.profile;
+  if (!profile || !sessionProfileFresh(profile)) return null;
+  if (session.role === "admin") {
+    return { email: session.email, role: "admin", creatorId: null, name: profile.name, initials: profile.initials || "K" };
+  }
+  if (session.role === "manager" && profile.managerId && profile.permissions && profile.assignedCreatorIds) {
+    return {
+      email: session.email,
+      role: "manager",
+      creatorId: null,
+      name: profile.name,
+      initials: profile.initials,
+      managerId: profile.managerId,
+      permissions: profile.permissions,
+      assignedCreatorIds: profile.assignedCreatorIds,
+    };
+  }
+  if (session.role === "creator" && session.creatorId && profile.initials) {
+    return {
+      email: session.email,
+      role: "creator",
+      creatorId: session.creatorId,
+      name: profile.name,
+      initials: profile.initials,
+    };
+  }
+  return null;
+}
+
 export const currentViewer = cache(async (): Promise<Viewer | null> => {
   const jar = await cookies();
   const raw = jar.get(sessionCookieName())?.value;
@@ -33,15 +64,19 @@ export const currentViewer = cache(async (): Promise<Viewer | null> => {
   const db = await getDb();
   const session = await readSession(db, raw);
   if (!session) return null;
+  const cached = viewerFromSession(session);
+  if (cached) return cached;
   if (session.role === "admin") {
-    return { email: session.email, role: "admin", creatorId: null, name: adminDisplayName(), initials: "K" };
+    const viewer = { email: session.email, role: "admin" as const, creatorId: null, name: adminDisplayName(), initials: "K" };
+    await rememberSessionProfile(session, viewer);
+    return viewer;
   }
   if (session.role === "manager") {
     const manager = await findManagerByEmail(db, session.email);
     if (!manager || !manager.active) return null;
-    return {
+    const viewer = {
       email: manager.email,
-      role: "manager",
+      role: "manager" as const,
       creatorId: null,
       name: manager.name,
       initials: manager.name.slice(0, 1).toUpperCase(),
@@ -49,17 +84,21 @@ export const currentViewer = cache(async (): Promise<Viewer | null> => {
       permissions: manager.permissions,
       assignedCreatorIds: await assignedCreatorIds(db, manager.id),
     };
+    await rememberSessionProfile(session, viewer);
+    return viewer;
   }
   if (!session.creatorId) return null;
   const creator = await findCreatorById(db, session.creatorId);
   if (!creator) return null;
-  return {
+  const viewer = {
     email: creator.email,
-    role: "creator",
+    role: "creator" as const,
     creatorId: creator.id,
     name: creator.name,
     initials: creator.initials,
   };
+  await rememberSessionProfile(session, viewer);
+  return viewer;
 });
 
 export async function requireViewer(returnPath?: string) {
@@ -75,11 +114,13 @@ export async function requireViewer(returnPath?: string) {
 export async function loadPortal(requested: string | null, options?: { allowIncompleteProfile?: boolean }) {
   const viewer = await requireViewer();
   const db = await getDb();
-  if (!options?.allowIncompleteProfile && viewer.role === "creator" && viewer.creatorId) {
-    const free = await creatorIsFree(db, viewer.creatorId);
-    if (!free && await profileIntakeMissing(db, viewer.creatorId)) redirect("/profile/intake");
-  }
-  const everyone = await listCreators(db);
+  const creatorId = viewer.role === "creator" ? viewer.creatorId : null;
+  const [creatorFree, intakeMissing, everyone] = await gather([
+    () => creatorId ? creatorIsFree(db, creatorId) : Promise.resolve(false),
+    () => creatorId && !options?.allowIncompleteProfile ? profileIntakeMissing(db, creatorId) : Promise.resolve(false),
+    () => listCreators(db),
+  ]);
+  if (!options?.allowIncompleteProfile && creatorId && !creatorFree && intakeMissing) redirect("/profile/intake");
   const assigned = viewer.role === "manager"
     ? everyone.filter((creator) => (viewer.assignedCreatorIds ?? []).includes(creator.id))
     : everyone;
@@ -90,5 +131,5 @@ export async function loadPortal(requested: string | null, options?: { allowInco
     creators.map((creator) => creator.id),
   );
   const viewed = viewedId === "all" ? null : (creators.find((creator) => creator.id === viewedId) ?? null);
-  return { db, viewer, creators, viewedId, viewed };
+  return { db, viewer, creators, viewedId, viewed, creatorFree };
 }

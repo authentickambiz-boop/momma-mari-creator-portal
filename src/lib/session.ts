@@ -5,6 +5,17 @@ import { getKv } from "@/db";
 import type { Viewer } from "./types";
 import { nowIso } from "./format";
 
+export const SESSION_PROFILE_TTL_MS = 60_000;
+
+export type SessionProfile = {
+  name: string;
+  initials: string;
+  managerId?: string | null;
+  permissions?: Viewer["permissions"];
+  assignedCreatorIds?: string[];
+  profileCheckedAt: string;
+};
+
 const COOKIE = "mm_session";
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_SECONDS = 14 * 24 * 60 * 60;
@@ -74,14 +85,47 @@ export async function readSignedSessionId(raw: string | undefined | null) {
   return diff === 0 ? id : null;
 }
 
-type SessionRecord = {
+export type SessionRecord = {
   id: string;
   email: string;
   creatorId: string | null;
   role: string;
   createdAt: string;
   expiresAt: string;
+  profile?: SessionProfile;
 };
+
+export function sessionProfileFresh(profile: SessionProfile | undefined, now = Date.now()) {
+  if (!profile?.profileCheckedAt) return false;
+  const checked = Date.parse(profile.profileCheckedAt);
+  if (Number.isNaN(checked)) return false;
+  return now - checked < SESSION_PROFILE_TTL_MS;
+}
+
+export function sessionProfileFromViewer(viewer: Viewer, now = nowIso()): SessionProfile | null {
+  if (!viewer.name) return null;
+  if (viewer.role === "creator" && !viewer.initials) return null;
+  if (viewer.role === "manager" && (!viewer.managerId || !viewer.permissions || !viewer.assignedCreatorIds)) return null;
+  return {
+    name: viewer.name,
+    initials: viewer.initials || (viewer.role === "admin" ? "K" : viewer.name.slice(0, 1).toUpperCase()),
+    managerId: viewer.managerId,
+    permissions: viewer.permissions,
+    assignedCreatorIds: viewer.assignedCreatorIds,
+    profileCheckedAt: now,
+  };
+}
+
+function storedSession(record: SessionRecord) {
+  return {
+    id: record.id,
+    email: record.email,
+    creatorId: record.creatorId,
+    role: record.role,
+    createdAt: record.createdAt,
+    expiresAt: record.expiresAt,
+  };
+}
 
 async function writeKv(record: SessionRecord) {
   const kv = await getKv();
@@ -107,9 +151,15 @@ export async function createSession(db: PortalDb, viewer: Viewer) {
     createdAt,
     expiresAt,
   };
-  await db.insert(sessions).values(record);
+  await db.insert(sessions).values(storedSession(record));
   await writeKv(record);
-  return { id, cookieValue: await signSessionId(id), expiresAt };
+  return { id, cookieValue: await signSessionId(id), expiresAt, record };
+}
+
+export async function rememberSessionProfile(record: SessionRecord, viewer: Viewer) {
+  const profile = sessionProfileFromViewer(viewer);
+  if (!profile) return;
+  await writeKv({ ...storedSession(record), profile });
 }
 
 export async function readSession(db: PortalDb, rawCookie: string | undefined | null): Promise<SessionRecord | null> {
