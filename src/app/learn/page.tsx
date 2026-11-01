@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { saveSkillLessonAction } from "@/app/learn-actions";
 import { PortalFrame } from "@/components/portal-frame";
+import { WhereToStartGuide } from "@/components/where-to-start-guide";
 import { loadPortal } from "@/lib/current-user";
 import { freeOnboardingState } from "@/lib/free-onboarding";
 import { analyticsLevel, whereToStart } from "@/lib/where-to-start";
@@ -48,14 +49,7 @@ export default async function LearnPage({ searchParams }: { searchParams: Promis
       hello={<div className="hello"><div><h1>Learn</h1><p>Short lessons on the work itself: hooks, filming, editing, posting, growth, and UGC. A lesson for everyone shows for every creator. A lesson for one creator shows only on her sign-in.</p></div></div>}
     >
       {note ? <p className="note">{note}</p> : null}
-      {guide ? (
-        <section className="card" data-where-to-start="true">
-          <div className="sec-title">Where to start</div>
-          <h2>{guide.headline}</h2>
-          <p>{guide.body}</p>
-          <p><Link href={`#learn-${guide.topic}`}>Open the lesson</Link></p>
-        </section>
-      ) : null}
+      {guide ? <WhereToStartGuide guide={guide} /> : null}
       <div className="stack">
         <section className="card">
           <div className="sec-title">Program roadmaps</div>

@@ -576,6 +576,9 @@ a.deal, button.deal, a.card { max-width: 100%; }
 .btn.ghost:disabled,
 .btn.ghost:disabled:hover { background: #E4DDD2; color: #3E4742; border-color: transparent; }
 .note { font-size: 12.5px; color: var(--muted); }
+.where-start-basics { margin: 0; padding-left: 1.2rem; }
+.where-start-basics li { margin: 6px 0; }
+.where-start-safety { margin: 0; }
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
