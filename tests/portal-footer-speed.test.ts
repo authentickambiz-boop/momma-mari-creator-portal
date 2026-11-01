@@ -1,13 +1,21 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, test } from "node:test";
+import { build } from "esbuild";
 import { assetOriginFromPrefix } from "../src/lib/asset-origin";
-import { gather } from "../src/lib/parallel";
+import { ensureCreatorDeposits, ensureOpenDeposits } from "../src/lib/brand-deposits";
+import { listCreatorOpenTasks } from "../src/lib/creator-tasks";
+import { gather, queriesInParallel } from "../src/lib/parallel";
 import { publicPageCacheControl } from "../src/lib/public-cache";
+import { listDealsForViewer } from "../src/lib/queries";
 import { clearSignupCodeCache, setSignupCodeRequired, signupCodeRequired } from "../src/lib/signup-codes";
 import { sessionProfileFresh, sessionProfileFromViewer, SESSION_PROFILE_TTL_MS } from "../src/lib/session";
-import { admin, openTestDb } from "./harness";
+import type { Viewer } from "../src/lib/types";
+import { admin, mariclare, openTestDb } from "./harness";
+import { homeDepositStubs } from "./home-deposit-order-stubs";
 
 function source(file: string) {
   return readFileSync(path.join(process.cwd(), file), "utf8");
@@ -100,5 +108,158 @@ describe("portal footer and speed", () => {
     assert.equal(await signupCodeRequired(db, { cache: true }), true);
     assert.equal((await setSignupCodeRequired(db, admin, false)).ok, true);
     assert.equal(await signupCodeRequired(db, { cache: true }), false);
+  });
+
+  test("deposits are ensured before listDealsForViewer when parallel queries are on", async () => {
+    const home = source("src/app/page.tsx");
+    const depositBlock = [
+      "  if (portal.viewer.role === \"admin\") await ensureOpenDeposits(portal.db);",
+      "  else if (portal.viewer.creatorId) await ensureCreatorDeposits(portal.db, portal.viewer.creatorId);",
+      "  else if (portal.viewedId && portal.viewedId !== \"all\") await ensureCreatorDeposits(portal.db, portal.viewedId);",
+    ].join("\n");
+    const depositAt = home.indexOf(depositBlock);
+    const gatherAt = home.indexOf("gather(");
+    assert.ok(depositAt > 0);
+    assert.equal(home.split(depositBlock).length, 2);
+    assert.ok(gatherAt > depositAt);
+    assert.ok(home.indexOf("listCreatorOpenTasks(") > gatherAt);
+
+    const previous = process.env.PORTAL_PARALLEL_QUERIES;
+    process.env.PORTAL_PARALLEL_QUERIES = "1";
+    try {
+      assert.equal(queriesInParallel(), true);
+      const db = openTestDb();
+      const g = globalThis as typeof globalThis & {
+        __homeDepositOrder?: { depositsDone: boolean; events: string[]; inflight: number; max: number };
+        __homeDepositPortal?: {
+          db: ReturnType<typeof openTestDb>;
+          viewer: Viewer;
+          creators: { id: string; name: string }[];
+          viewedId: string;
+          viewed: { id: string; name: string } | null;
+          creatorFree: boolean;
+        };
+        __homeDepositRun?: {
+          ensureOpenDeposits: typeof ensureOpenDeposits;
+          ensureCreatorDeposits: typeof ensureCreatorDeposits;
+          listDealsForViewer: typeof listDealsForViewer;
+          listCreatorOpenTasks: typeof listCreatorOpenTasks;
+        };
+      };
+      let dealsRan = 0;
+      let tasksRan = 0;
+      g.__homeDepositRun = {
+        async ensureOpenDeposits(database) {
+          await ensureOpenDeposits(database);
+        },
+        async ensureCreatorDeposits(database, creatorId) {
+          await ensureCreatorDeposits(database, creatorId);
+        },
+        async listDealsForViewer(database, viewer, creatorId, names) {
+          dealsRan += 1;
+          assert.equal(g.__homeDepositOrder?.depositsDone, true);
+          return listDealsForViewer(database, viewer, creatorId, names);
+        },
+        async listCreatorOpenTasks(database, creatorId) {
+          tasksRan += 1;
+          assert.equal(g.__homeDepositOrder?.depositsDone, true);
+          return listCreatorOpenTasks(database, creatorId);
+        },
+      };
+      const bundled = await build({
+        absWorkingDir: process.cwd(),
+        entryPoints: [path.join(process.cwd(), "src/app/page.tsx")],
+        bundle: true,
+        format: "esm",
+        platform: "node",
+        jsx: "automatic",
+        write: false,
+        logLevel: "silent",
+        plugins: [{
+          name: "home-deposit-stubs",
+          setup(esbuild) {
+            esbuild.onResolve({ filter: /.*/ }, (args) => {
+              if (args.kind === "entry-point") return undefined;
+              if (args.path === "@/lib/parallel") return { path: path.join(process.cwd(), "src/lib/parallel.ts") };
+              if (args.path in homeDepositStubs) return { path: args.path, namespace: "home-deposit-stub" };
+              if (args.path.startsWith("@/") || args.path.startsWith("next/")) {
+                return { errors: [{ text: `Home page import needs a test stub: ${args.path}` }] };
+              }
+              return undefined;
+            });
+            esbuild.onLoad({ filter: /.*/, namespace: "home-deposit-stub" }, (args) => ({
+              contents: homeDepositStubs[args.path],
+              loader: "js",
+            }));
+          },
+        }],
+      });
+      const file = bundled.outputFiles[0];
+      assert.ok(file);
+      const outfile = path.join(mkdtempSync(path.join(tmpdir(), "home-deposit-")), "home.mjs");
+      writeFileSync(outfile, file.text);
+      const page = (await import(pathToFileURL(outfile).href) as { default: (props: { searchParams: Promise<Record<string, string | undefined>> }) => Promise<unknown> }).default;
+
+      const manager: Viewer = {
+        email: "riley.manager@example.com",
+        role: "manager",
+        creatorId: null,
+        name: "Riley",
+        managerId: "riley",
+        assignedCreatorIds: ["mariclare"],
+      };
+      const cases = [
+        {
+          viewer: admin,
+          viewedId: "all",
+          viewed: null,
+          ensure: "ensureOpenDeposits",
+          tasks: false,
+        },
+        {
+          viewer: mariclare,
+          viewedId: "mariclare",
+          viewed: { id: "mariclare", name: "MariClare" },
+          ensure: "ensureCreatorDeposits",
+          tasks: true,
+        },
+        {
+          viewer: manager,
+          viewedId: "mariclare",
+          viewed: { id: "mariclare", name: "MariClare" },
+          ensure: "ensureCreatorDeposits",
+          tasks: false,
+        },
+      ];
+      for (const item of cases) {
+        g.__homeDepositOrder = { depositsDone: false, events: [], inflight: 0, max: 0 };
+        g.__homeDepositPortal = {
+          db,
+          viewer: item.viewer,
+          creators: [{ id: "mariclare", name: "MariClare" }],
+          viewedId: item.viewedId,
+          viewed: item.viewed,
+          creatorFree: false,
+        };
+        await page({ searchParams: Promise.resolve({}) });
+        const state = g.__homeDepositOrder;
+        assert.ok(state);
+        assert.equal(state.events.includes("listDeals-before"), false);
+        assert.equal(state.events.includes("tasks-before"), false);
+        assert.ok(state.events.indexOf(item.ensure) >= 0);
+        assert.ok(state.events.indexOf(item.ensure) < state.events.indexOf("listDeals-after"));
+        if (item.tasks) {
+          assert.ok(state.events.indexOf("listDeals-after") < state.events.indexOf("tasks-after"));
+        } else {
+          assert.equal(state.events.includes("tasks-after"), false);
+        }
+        assert.ok(state.max >= 2);
+      }
+      assert.equal(dealsRan, 3);
+      assert.equal(tasksRan, 1);
+    } finally {
+      if (previous === undefined) delete process.env.PORTAL_PARALLEL_QUERIES;
+      else process.env.PORTAL_PARALLEL_QUERIES = previous;
+    }
   });
 });

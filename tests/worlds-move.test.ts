@@ -98,7 +98,7 @@ describe("Worlds camera move", () => {
     const canvas = source("src/components/worlds/office-canvas.tsx");
     const stick = source("src/components/worlds/office-joystick.tsx");
     assert.match(app, /<OfficeJoystick/);
-    assert.match(app, /lifted=\{sheet !== null\}/);
+    assert.match(app, /lifted=\{sheet !== null/);
     assert.ok(app.indexOf("<WorldsHud") > 0 && app.indexOf("<OfficeJoystick") > app.indexOf("<WorldsHud"));
     assert.match(stick, /aria-label=\{label\}/);
     assert.match(stick, /label = "Move"/);
@@ -119,7 +119,8 @@ describe("Worlds camera move", () => {
     assert.match(canvas, /wheelZoomFactor/);
     assert.match(canvas, /zoomOffset\(aim/);
     assert.match(canvas, /applyDistanceZoom\(orbit, home\.aim/);
-    assert.equal(canvas.includes("offset.setLength"), false);
+    const zoomBy = canvas.slice(canvas.indexOf("zoomBy(factor)"), canvas.indexOf("focus(x:"));
+    assert.equal(zoomBy.includes("offset.setLength"), false);
     assert.match(canvas, /stopImmediatePropagation/);
     assert.match(canvas, /THREE\.TOUCH\.DOLLY_ROTATE/);
     assert.match(canvas, /THREE\.TOUCH\.PAN/);

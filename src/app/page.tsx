@@ -48,12 +48,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const creatorId = portal.viewer.role === "creator" ? portal.viewer.creatorId : null;
   const creatorHome = portal.viewer.role === "creator" && Boolean(portal.viewed);
   const names = new Map(portal.creators.map((creator) => [creator.id, creator.name]));
-  const [, checklist, inviteCode, deals, notices, managerNotices, waiting, payoutsPending, analytics, inboxCount, creatorNotices, quiz, brandOffers, platformInvites, dealReviews] = await gather([
-    async () => {
-      if (portal.viewer.role === "admin") await ensureOpenDeposits(portal.db);
-      else if (creatorId) await ensureCreatorDeposits(portal.db, creatorId);
-      else if (portal.viewedId && portal.viewedId !== "all") await ensureCreatorDeposits(portal.db, portal.viewedId);
-    },
+  if (portal.viewer.role === "admin") await ensureOpenDeposits(portal.db);
+  else if (portal.viewer.creatorId) await ensureCreatorDeposits(portal.db, portal.viewer.creatorId);
+  else if (portal.viewedId && portal.viewedId !== "all") await ensureCreatorDeposits(portal.db, portal.viewedId);
+  const [checklist, inviteCode, deals, notices, managerNotices, waiting, payoutsPending, analytics, inboxCount, creatorNotices, quiz, brandOffers, platformInvites, dealReviews] = await gather([
     () => freeHome && creatorId ? welcomeChecklist(portal.db, creatorId) : Promise.resolve(null),
     () => creatorId ? ensureInviteCode(portal.db, creatorId) : Promise.resolve(null),
     () => listDealsForViewer(portal.db, portal.viewer, portal.viewedId, names),

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { withBasePath } from "@/lib/format";
 import { KIDS_STANDARD_PATH } from "@/lib/kids-standard";
 
 const MENU = [
@@ -46,7 +47,7 @@ export function SiteFooter() {
             </div>
           </nav>
           <div className="mm-foot-brand">
-            <Image src="/momma-mari-mark.png" alt="" width={48} height={48} className="mm-foot-mark" />
+            <Image src={withBasePath("/momma-mari-mark.png")} alt="" width={48} height={48} className="mm-foot-mark" />
             <h2>Momma Mari</h2>
             <a className="mm-foot-contact" href="mailto:Kamron@mommamari.com">
               <MailIcon />
