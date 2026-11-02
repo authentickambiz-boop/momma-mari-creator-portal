@@ -7,6 +7,7 @@ import { nowIso } from "./format";
 import type { Viewer } from "./types";
 
 let warnedUnsetLimit = false;
+let warnedInvalidCountMode = false;
 
 /**
  * Kamron sets this. There is no default number.
@@ -30,6 +31,80 @@ export function freeCommissionLimit() {
     return null;
   }
   return value;
+}
+
+/** How requests count toward FREE_COMMISSION_LIMIT. The cap itself stays that number. */
+export const FREE_COMMISSION_COUNT_MODES = [
+  "lifetime",
+  "lifetime_excluding_declined",
+  "monthly_excluding_declined",
+] as const;
+export type FreeCommissionCountMode = (typeof FREE_COMMISSION_COUNT_MODES)[number];
+
+/** Month windows for monthly_excluding_declined. Not AGENCY_TIMEZONE. */
+export const FREE_COMMISSION_MONTH_TIME_ZONE = "America/New_York";
+
+const LIFETIME_LIMIT_REACHED = "You've reached the free commission limit.";
+const MONTHLY_LIMIT_REACHED = "You've reached this month's free commission limit.";
+
+function isCountMode(value: string): value is FreeCommissionCountMode {
+  return (FREE_COMMISSION_COUNT_MODES as readonly string[]).includes(value);
+}
+
+/**
+ * Unset, blank, or unrecognized values are lifetime: declined and approved both count.
+ * That is the behavior already shipping when this variable is absent.
+ */
+export function freeCommissionCountMode(): FreeCommissionCountMode {
+  const raw = process.env.FREE_COMMISSION_COUNT_MODE;
+  if (raw == null || raw.trim() === "") return "lifetime";
+  const value = raw.trim();
+  if (isCountMode(value)) return value;
+  if (!warnedInvalidCountMode) {
+    warnedInvalidCountMode = true;
+    console.warn(
+      "FREE_COMMISSION_COUNT_MODE is not lifetime, lifetime_excluding_declined, or monthly_excluding_declined. Free commission requests count as a lifetime total.",
+    );
+  }
+  return "lifetime";
+}
+
+/** YYYY-MM in America/New_York, or null when the instant is not a real time. */
+export function newYorkYearMonth(instant: Date): string | null {
+  if (Number.isNaN(instant.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: FREE_COMMISSION_MONTH_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(instant);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  if (!year || !month) return null;
+  return `${year}-${month}`;
+}
+
+/**
+ * Cancelled requests never count.
+ * Declined requests count only in lifetime mode.
+ * Monthly mode counts a request in the America/New_York month of createdAt.
+ * Open and approved requests count whenever the other rules say so.
+ */
+export function countsTowardFreeCommissionLimit(
+  row: { status: string; createdAt: string },
+  mode: FreeCommissionCountMode,
+  now: Date,
+) {
+  if (row.status === "cancelled") return false;
+  if (row.status === "declined" && mode !== "lifetime") return false;
+  if (mode !== "monthly_excluding_declined") return true;
+  const createdMonth = newYorkYearMonth(new Date(row.createdAt));
+  const currentMonth = newYorkYearMonth(now);
+  if (!createdMonth || !currentMonth) return true;
+  return createdMonth === currentMonth;
+}
+
+export function freeCommissionLimitReachedMessage(mode: FreeCommissionCountMode) {
+  return mode === "monthly_excluding_declined" ? MONTHLY_LIMIT_REACHED : LIFETIME_LIMIT_REACHED;
 }
 
 export function redactCommissionForFree<T extends CommissionCampaign>(campaign: T): T {
@@ -65,7 +140,12 @@ export async function openProductRequest(db: PortalDb, creatorId: string) {
   return rows[0] ?? null;
 }
 
-export async function requestCommissionProduct(db: PortalDb, viewer: Viewer, campaignId: string) {
+export async function requestCommissionProduct(
+  db: PortalDb,
+  viewer: Viewer,
+  campaignId: string,
+  options?: { now?: Date },
+) {
   if (viewer.role !== "creator" || !viewer.creatorId) {
     return { ok: false as const, error: "Sign in as a creator to request a product." };
   }
@@ -78,19 +158,21 @@ export async function requestCommissionProduct(db: PortalDb, viewer: Viewer, cam
   if (!campaign || campaign.status !== "open") {
     return { ok: false as const, error: campaign ? "That campaign is closed." : "That campaign is not open." };
   }
+  const now = options?.now ?? new Date();
   const mine = await db.select().from(commissionProductRequests).where(eq(commissionProductRequests.creatorId, viewer.creatorId));
   if (mine.some((row) => row.status === "open")) {
     return { ok: false as const, error: "You already have an open product request. Wait until it is approved, declined, or cancelled." };
   }
-  const used = mine.filter((row) => row.status !== "cancelled").length;
-  if (used >= limit) return { ok: false as const, error: "You've reached the free commission limit." };
+  const mode = freeCommissionCountMode();
+  const used = mine.filter((row) => countsTowardFreeCommissionLimit(row, mode, now)).length;
+  if (used >= limit) return { ok: false as const, error: freeCommissionLimitReachedMessage(mode) };
   try {
     await db.insert(commissionProductRequests).values({
       id: crypto.randomUUID(),
       creatorId: viewer.creatorId,
       campaignId: campaign.id,
       status: "open",
-      createdAt: nowIso(),
+      createdAt: now.toISOString(),
       resolvedAt: null,
     });
   } catch {
