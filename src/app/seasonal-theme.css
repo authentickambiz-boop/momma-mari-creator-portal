@@ -1027,6 +1027,7 @@ html[data-seasonal] .site-footer .mm-band-heading,
 html[data-seasonal] .site-footer .mm-band-btn-ghost { color: #fff; }
 html[data-seasonal] .site-footer .mm-band-heading { font-family: var(--heading); }
 html[data-seasonal] .site-footer .mm-foot-brand h2,
+html[data-seasonal] .site-footer .mm-foot-followers,
 html[data-seasonal] .site-footer .mm-foot-label,
 html[data-seasonal] .site-footer .mm-band-btn-light { color: #1f3b2d; }
 html[data-seasonal] .site-footer .mm-foot-pill { color: #fff; background: #1f3b2d; }
