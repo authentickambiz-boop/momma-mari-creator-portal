@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
 import { decideCreatorDealReview } from "@/lib/creator-deal-review";
+import { freeDealSlotCode } from "@/lib/free-deal-slot";
 
 const CODES: Record<string, string> = {
   "Only the creator can answer this offer.": "role",
@@ -26,6 +27,6 @@ export async function decideDealReviewAction(formData: FormData) {
     decision: String(formData.get("decision") ?? ""),
     note: String(formData.get("note") ?? ""),
   });
-  if (!result.ok) redirect(`/offers?review=${CODES[result.error] ?? "1"}`);
+  if (!result.ok) redirect(`/offers?review=${freeDealSlotCode(result.error) ?? CODES[result.error] ?? "1"}`);
   redirect("/offers?review=saved");
 }

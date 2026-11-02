@@ -3,6 +3,7 @@ import type { PortalDb } from "@/db";
 import { commissionCampaigns, commissionProductRequests } from "@/db/schema";
 import { creatorIsFree } from "./account-tier";
 import type { CommissionCampaign } from "./commission-campaigns";
+import { freeDealSlot } from "./free-deal-slot";
 import { nowIso } from "./format";
 import type { Viewer } from "./types";
 
@@ -65,12 +66,31 @@ export async function openProductRequest(db: PortalDb, creatorId: string) {
   return rows[0] ?? null;
 }
 
+/**
+ * Reason to refuse another commission request, or null when the existing
+ * open-request and limit checks should speak instead.
+ * An open product request keeps its own message. A deal, a free product,
+ * or an approved request that is not drafted and posted returns the slot reason.
+ */
+export async function commissionRequestSlotBlock(db: PortalDb, creatorId: string) {
+  const slot = await freeDealSlot(db, creatorId);
+  if (!slot.allowed && slot.reason) {
+    const open = await openProductRequest(db, creatorId);
+    if (!open || open.id !== slot.blockingDealId) return slot.reason;
+  }
+  return null;
+}
+
 export async function requestCommissionProduct(db: PortalDb, viewer: Viewer, campaignId: string) {
   if (viewer.role !== "creator" || !viewer.creatorId) {
     return { ok: false as const, error: "Sign in as a creator to request a product." };
   }
   if (!(await creatorIsFree(db, viewer.creatorId))) {
     return { ok: false as const, error: "Product requests on this board are for free accounts." };
+  }
+  const heldDeal = await freeDealSlot(db, viewer.creatorId);
+  if (!heldDeal.allowed && heldDeal.reason && !(await blockingRowIsProductRequest(db, viewer.creatorId, heldDeal.blockingDealId))) {
+    return { ok: false as const, error: heldDeal.reason };
   }
   const limit = freeCommissionLimit();
   if (limit == null) return { ok: false as const, error: "Commission requests are coming soon." };
@@ -116,4 +136,14 @@ export async function resolveProductRequest(
   }
   await db.update(commissionProductRequests).set({ status, resolvedAt: nowIso() }).where(eq(commissionProductRequests.id, requestId));
   return { ok: true as const };
+}
+
+/** Product-request rows stay on the open-request and FREE_COMMISSION_LIMIT checks above this helper. */
+async function blockingRowIsProductRequest(db: PortalDb, creatorId: string, blockingDealId: string | null) {
+  if (!blockingDealId) return false;
+  const rows = await db.select({ id: commissionProductRequests.id }).from(commissionProductRequests).where(and(
+    eq(commissionProductRequests.id, blockingDealId),
+    eq(commissionProductRequests.creatorId, creatorId),
+  ));
+  return Boolean(rows[0]);
 }

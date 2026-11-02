@@ -3,6 +3,7 @@ import type { PortalDb } from "@/db";
 import { benchCreators, brandCrmEntries, creators, giftedApplications, giftedOffers } from "@/db/schema";
 import { GIFTED_FINDERS_FEE_CENTS, GIFTED_TERMS_VERSION } from "@/config/gifted-terms";
 import { brandKey } from "./brand-crm";
+import { freeDealSlot } from "./free-deal-slot";
 import { agencyTimeZone, normalizeEmail, nowIso } from "./format";
 import type { Viewer } from "./types";
 
@@ -173,6 +174,10 @@ export async function applyForGiftedOffer(
   const existing = await db.select().from(giftedApplications).where(eq(giftedApplications.offerId, offer.id));
   if (existing.some((row) => (creatorId && row.creatorId === creatorId) || (benchId && row.benchId === benchId))) {
     return { ok: false, status: 409, error: "You already applied for this product." };
+  }
+  if (creatorId) {
+    const slot = await freeDealSlot(db, creatorId);
+    if (!slot.allowed && slot.reason) return { ok: false, status: 409, error: slot.reason };
   }
   const timestamp = nowIso();
   const id = crypto.randomUUID();

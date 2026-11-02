@@ -10,6 +10,7 @@ import { addManager, assignCreatorManagers, setManagerActive, setManagerPermissi
 import { teamErrorCode } from "@/lib/team-notes";
 import { currentViewer } from "@/lib/current-user";
 import { logOfferScreening, recordCreatorInterest, releaseOffer } from "@/lib/creator-interest";
+import { offerErrorCode } from "@/lib/offer-notes";
 import { approveContract, requestContractRevisions, saveChecklist, saveContract, setSigningFormat } from "@/lib/contracts";
 import { countersignContract, setSignerIsMinor, signContract, uploadBrandSignedCopy } from "@/lib/signing";
 import { signerErrorCode } from "@/lib/signer-notes";
@@ -165,7 +166,7 @@ export async function creatorInterestAction(formData: FormData) {
   });
   const back = String(formData.get("back") ?? "");
   if (!result.ok) {
-    redirect(back === "offers" ? `/offers?offerError=1` : `/deals/${dealId}?interestError=${dealNoticeCode(result.error)}`);
+    redirect(back === "offers" ? `/offers?offerError=${offerErrorCode(result.error)}` : `/deals/${dealId}?interestError=${dealNoticeCode(result.error)}`);
   }
   if (back === "offers") redirect("/offers?saved=1");
   if (result.decision === "declined") redirect("/?passed=1");

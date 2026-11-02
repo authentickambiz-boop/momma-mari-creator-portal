@@ -5,6 +5,7 @@ import { brandKey, followUpValue, upsertBrandCrm } from "./brand-crm";
 import { optionalCalendarDay } from "./campaigns";
 import { latestRanks } from "./creator-rank";
 import { setDealStage } from "./deal-stage";
+import { freeDealSlot } from "./free-deal-slot";
 import { dollarsToCents, rulesFor, videoMinimumCents } from "./deal-rules";
 import { agencyTimeZone, formatMoney, nowIso } from "./format";
 import { notifyStaff } from "./managers";
@@ -335,6 +336,10 @@ export async function respondToOffer(
   const offerRows = await db.select().from(campaigns).where(eq(campaigns.id, row.campaignId));
   const offer = offerRows[0];
   if (!offer || offer.kind !== "offer") return { ok: false as const, error: "That offer is not on your list." };
+  if (decision === "accepted" && viewer.creatorId) {
+    const slot = await freeDealSlot(db, viewer.creatorId);
+    if (!slot.allowed && slot.reason) return { ok: false as const, error: slot.reason };
+  }
   const timestamp = nowIso();
   await db.update(campaignAllocations).set({
     response: decision,

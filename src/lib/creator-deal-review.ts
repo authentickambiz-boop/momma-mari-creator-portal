@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import type { PortalDb } from "@/db";
 import { approvalEmails, creatorOfferReviews, creators, deals } from "@/db/schema";
 import { setDealStage } from "./deal-stage";
+import { freeDealSlot } from "./free-deal-slot";
 import { nowIso } from "./format";
 import { notifyStaff } from "./managers";
 import { findCreatorByEmail, findCreatorById } from "./queries";
@@ -202,6 +203,10 @@ export async function decideCreatorDealReview(
   const before = (await db.select().from(approvalEmails)).length;
   const timestamp = nowIso();
   const note = input.decision === "counter" ? input.note?.trim().slice(0, 500) || null : null;
+  if (input.decision === "accept" && input.creatorId) {
+    const slot = await freeDealSlot(db, input.creatorId);
+    if (!slot.allowed && slot.reason) return { ok: false, status: 409, error: slot.reason };
+  }
   if (input.decision === "accept") {
     const placed = await placeAcceptedReview(db, offer, input.creatorId);
     if (!placed.ok) return placed;

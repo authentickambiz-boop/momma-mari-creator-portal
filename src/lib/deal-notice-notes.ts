@@ -1,3 +1,5 @@
+import { freeDealSlotCode } from "./free-deal-slot";
+
 const DEAL_NOTICE_TEXT = {
   owner: "Only Kamron can review deals.",
   missing: "Deal not found.",
@@ -32,6 +34,8 @@ export const DEAL_NOTICE_NOTES: Record<string, string> = {
 };
 
 export function dealNoticeCode(error: string) {
+  const slot = freeDealSlotCode(error);
+  if (slot) return slot;
   const match = (Object.keys(DEAL_NOTICE_TEXT) as (keyof typeof DEAL_NOTICE_TEXT)[])
     .find((code) => DEAL_NOTICE_TEXT[code] === error);
   return match ?? "1";

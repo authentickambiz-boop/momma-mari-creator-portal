@@ -8,11 +8,13 @@ export function CreatorDealReviewCard({
   note,
   title = "Needs your answer",
   visuals = {},
+  acceptLocked = false,
 }: {
   offers: CreatorDealReview[];
   note?: string | null;
   title?: string;
   visuals?: Record<string, PromoView>;
+  acceptLocked?: boolean;
 }) {
   const actionable = offers.filter(creatorReviewNeedsAction);
   if (!actionable.length && !note) return null;
@@ -23,7 +25,7 @@ export function CreatorDealReviewCard({
       {actionable.length === 0 ? <p className="note empty">{CREATOR_REVIEW_EMPTY}</p> : null}
       {actionable.map((offer) => {
         const status = offerReviewStatus(offer.decision);
-        const choices = reviewChoices(offer.reviewMode, offer.decision);
+        const choices = reviewChoices(offer.reviewMode, offer.decision).filter((choice) => !(acceptLocked && choice === "accept"));
         const closed = status === "passed" || status === "declined";
         return (
           <article key={offer.id} className="stack">
@@ -46,7 +48,7 @@ export function CreatorDealReviewCard({
                     <input type="hidden" name="decision" value="accept" />
                     <button className="btn" type="submit">I&apos;m interested</button>
                   </form>
-                ) : <p className="note">You can counter this. Accepting it is closed.</p>}
+                ) : acceptLocked ? null : <p className="note">You can counter this. Accepting it is closed.</p>}
                 {choices.includes("counter") ? (
                   <form action={decideDealReviewAction} className="stack">
                     <input type="hidden" name="offerId" value={offer.id} />

@@ -13,6 +13,7 @@ import { PortalFrame } from "@/components/portal-frame";
 import { GIFTED_TERMS_VERSION } from "@/config/gifted-terms";
 import { loadPortal } from "@/lib/current-user";
 import { formatMoney } from "@/lib/format";
+import { FREE_DEAL_SLOT_FALLBACK, freeDealSlot } from "@/lib/free-deal-slot";
 import { listGiftedBoard, listGiftedOverdue } from "@/lib/gifted";
 import { giftErrorNote } from "@/lib/gift-notes";
 import { promoErrorNote } from "@/lib/promo-notes";
@@ -41,6 +42,12 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
   const visuals = await promoViewsForGifts(portal.db, board);
   const overdue = portal.viewer.role === "admin" ? await listGiftedOverdue(portal.db, portal.viewer) : [];
   const creatorView = portal.viewer.role === "creator";
+  const slot = creatorView && portal.viewer.creatorId ? await freeDealSlot(portal.db, portal.viewer.creatorId) : null;
+  const slotReason = slot && !slot.allowed
+    ? (slot.reason ?? FREE_DEAL_SLOT_FALLBACK)
+    : params.giftsError === "deal-slot"
+      ? FREE_DEAL_SLOT_FALLBACK
+      : null;
   return (
     <PortalFrame
       viewer={portal.viewer}
@@ -56,7 +63,8 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
         </div>
       }
     >
-      {giftsError ? <p className="private-note">{giftsError}</p> : null}
+      {slotReason ? <p className="callout" role="status">{slotReason}</p> : null}
+      {params.giftsError === "deal-slot" ? null : giftsError ? <p className="private-note">{giftsError}</p> : null}
       {params.promo === "saved" ? <p className="note">Product image saved. Nothing was emailed.</p> : null}
       {promoErrorNote(params.promoError) ? <p className="private-note">{promoErrorNote(params.promoError)}</p> : null}
       {params.saved === "posted" ? <p className="note">Posted. The brand is tagged as a future paid prospect. Nothing was emailed.</p> : null}
@@ -119,7 +127,7 @@ export default async function GiftsPage({ searchParams }: { searchParams: Promis
             <p className="note"><Link href={`/gifts/${offer.id}`}>Product detail</Link></p>
             <p className="note">{offer.brand} · {offer.deliverable} · due {offer.dueOn}</p>
             <p>Retail value {formatMoney(offer.retailValueCents)}</p>
-            {creatorView && !offer.mine ? (
+            {creatorView && !offer.mine && !slotReason ? (
               <form action={applyGiftedOfferAction} className="stack">
                 <input type="hidden" name="offerId" value={offer.id} />
                 <input type="hidden" name="termsVersion" value={GIFTED_TERMS_VERSION} />

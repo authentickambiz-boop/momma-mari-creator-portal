@@ -53,6 +53,7 @@ export function DealBoard({
   canSign = false,
   stageError = false,
   interestError = false,
+  dealSlotReason = null,
   releaseError = null,
   reviewError = null,
   contractError = null,
@@ -78,6 +79,7 @@ export function DealBoard({
   canSign?: boolean;
   stageError?: boolean;
   interestError?: boolean;
+  dealSlotReason?: string | null;
   releaseError?: string | null;
   reviewError?: string | null;
   contractError?: string | null;
@@ -148,6 +150,7 @@ export function DealBoard({
             creatorQuery={creatorQuery}
             stageError={stageError}
             interestError={interestError}
+            dealSlotReason={dealSlotReason}
             releaseError={releaseError}
             reviewError={reviewError}
             contractError={contractError}
@@ -180,6 +183,7 @@ function DealDetailView({
   creatorQuery,
   stageError,
   interestError,
+  dealSlotReason,
   releaseError,
   reviewError,
   contractError,
@@ -203,6 +207,7 @@ function DealDetailView({
   creatorQuery: string;
   stageError: boolean;
   interestError: boolean;
+  dealSlotReason: string | null;
   releaseError: string | null;
   reviewError: string | null;
   contractError: string | null;
@@ -290,7 +295,8 @@ function DealDetailView({
         </form>
       ) : null}
       {deal.rateConfirmedAt && !canChangeStage ? <p className="stage-note">You confirmed the agreed rate.</p> : null}
-      {deal.canRespondToOffer ? (
+      {dealSlotReason ? <p className="callout" role="status">{dealSlotReason}</p> : null}
+      {deal.canRespondToOffer && !dealSlotReason ? (
         <form action={creatorInterestAction} className="stage-form">
           <input type="hidden" name="dealId" value={deal.id} />
           <label>

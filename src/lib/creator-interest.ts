@@ -3,6 +3,7 @@ import type { PortalDb } from "@/db";
 import { creatorInterest, creators, deals, offerScreenings } from "@/db/schema";
 import { createApprovalEmail } from "./approvals";
 import { setDealStage } from "./deal-stage";
+import { freeDealSlot } from "./free-deal-slot";
 import { normalizeEmail, nowIso } from "./format";
 import { assertStaffAccess, assignedManagersByCreator, notifyStaff, staffHistoryRole } from "./managers";
 import type { Viewer } from "./types";
@@ -204,6 +205,9 @@ export async function recordCreatorInterest(
 
   const brandEmail = released.brandEmail ?? firstEmail(deal.contact);
   if (!brandEmail) return { ok: false, status: 400, error: "This offer has no brand email yet." };
+
+  const slot = await freeDealSlot(db, input.creatorId);
+  if (!slot.allowed && slot.reason) return { ok: false, status: 409, error: slot.reason };
 
   const note = clean(input.note);
   const email = interestEmail(input.creatorName, deal.brand, note);
