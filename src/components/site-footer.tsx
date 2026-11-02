@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { COMBINED_FOLLOWERS } from "@/lib/combined-followers";
 import { withBasePath } from "@/lib/format";
 import { KIDS_STANDARD_PATH } from "@/lib/kids-standard";
 
@@ -49,6 +50,10 @@ export function SiteFooter() {
           <div className="mm-foot-brand">
             <Image src={withBasePath("/momma-mari-mark.png")} alt="" width={48} height={48} className="mm-foot-mark" />
             <h2>Momma Mari</h2>
+            <p className="mm-foot-followers">
+              <strong>{COMBINED_FOLLOWERS.figure}</strong>
+              <span>{COMBINED_FOLLOWERS.label}</span>
+            </p>
             <a className="mm-foot-contact" href="mailto:Kamron@mommamari.com">
               <MailIcon />
               <span>Kamron@mommamari.com</span>

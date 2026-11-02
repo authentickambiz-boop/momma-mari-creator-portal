@@ -282,6 +282,23 @@ nav.tabs a.on:hover { background: var(--terra-d); color: #fff; }
 .mm-foot-brand { order: -1; display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; text-align: center; }
 .mm-foot-mark { width: 48px; height: 48px; display: block; }
 .mm-foot-brand h2 { margin: 0; color: #1f3b2d; font-family: var(--heading); font-size: 2.2rem; font-weight: 400; line-height: 1.2; }
+.mm-foot-followers {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 100%;
+  color: #1f3b2d;
+  font-family: var(--body);
+  line-height: 1.15;
+}
+.mm-foot-followers strong {
+  font-family: var(--heading);
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1.1;
+}
+.mm-foot-followers span { font-size: 0.95rem; font-weight: 600; }
 .mm-foot-contact { display: inline-flex; align-items: center; gap: 12px; color: #4a534d; font-family: var(--body); font-size: 1.05rem; text-decoration: none; min-height: 44px; }
 .mm-foot-icon { width: 22px; height: 22px; flex: none; }
 .mm-foot-col { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
