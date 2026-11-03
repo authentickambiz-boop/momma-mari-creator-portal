@@ -1,0 +1,11 @@
+{
+  "id": "momma-mari-worlds",
+  "mode": "webview",
+  "url": "https://www.mommamari.com/portal/worlds",
+  "ownerOnly": true,
+  "localGame": {
+    "ready": false,
+    "entry": "index.html",
+    "art": "building.png"
+  }
+}

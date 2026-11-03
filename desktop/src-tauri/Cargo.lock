@@ -1929,7 +1929,7 @@ dependencies = [
 
 [[package]]
 name = "momma-mari-worlds"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "open",
  "serde_json",
