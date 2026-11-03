@@ -1,3 +1,5 @@
+import { FREE_DEAL_SLOT_FALLBACK, freeDealSlotCode } from "./free-deal-slot";
+
 const OFFER_ERROR_TEXT = {
   email: "Use a real contact email, or leave it blank. Nothing was emailed.",
   owner: "Only an owner can send a brand offer.",
@@ -22,10 +24,13 @@ const OFFER_ERROR_TEXT = {
 
 export const OFFER_NOTES: Record<string, string> = {
   ...OFFER_ERROR_TEXT,
+  "deal-slot": FREE_DEAL_SLOT_FALLBACK,
   "1": "That was not saved.",
 };
 
 export function offerErrorCode(error: string) {
+  const slot = freeDealSlotCode(error);
+  if (slot) return slot;
   const match = (Object.keys(OFFER_ERROR_TEXT) as (keyof typeof OFFER_ERROR_TEXT)[])
     .find((code) => OFFER_ERROR_TEXT[code] === error);
   return match ?? "1";

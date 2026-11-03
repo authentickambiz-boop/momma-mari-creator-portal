@@ -14,6 +14,7 @@ import { promoErrorNote } from "@/lib/promo-notes";
 import { promoViewsForDeals } from "@/lib/promo-visuals";
 import { ensureDealDeposit } from "@/lib/brand-deposits";
 import { depositErrorNote } from "@/lib/deposit-notes";
+import { FREE_DEAL_SLOT_FALLBACK, freeDealSlot } from "@/lib/free-deal-slot";
 
 export default async function DealPage({
   params,
@@ -38,8 +39,13 @@ export default async function DealPage({
   const hidden = deals.filter((deal) => !deal.visibleToCreator);
   const screening = selected ? await screeningForDeal(portal.db, portal.viewer, selected.id) : null;
   const categoryOverride = selected && portal.viewer.role === "admin" ? await categoryOverrideFor(portal.db, selected.id) : false;
+  const dealSlot = portal.viewer.role === "creator" && portal.viewer.creatorId
+    ? await freeDealSlot(portal.db, portal.viewer.creatorId)
+    : null;
+  const slotReason = dealSlot && !dealSlot.allowed ? (dealSlot.reason ?? FREE_DEAL_SLOT_FALLBACK) : null;
   const stageSpecific = dealNoticeSpecific(query.stageError);
   const interestSpecific = dealNoticeSpecific(query.interestError);
+  const interestSlot = query.interestError === "deal-slot";
   const releaseNote = query.releaseError
     ? (dealNoticeSpecific(query.releaseError) ?? "Add the brand's email, then release the offer.")
     : null;
@@ -128,7 +134,8 @@ export default async function DealPage({
         creatorQuery={creatorQuery}
         {...dealPowers(portal.viewer)}
         stageError={Boolean(query.stageError) && !stageSpecific}
-        interestError={Boolean(query.interestError) && !interestSpecific}
+        interestError={Boolean(query.interestError) && !interestSpecific && !interestSlot}
+        dealSlotReason={(selected?.canRespondToOffer && slotReason) || interestSlot ? (slotReason ?? FREE_DEAL_SLOT_FALLBACK) : null}
         releaseError={null}
         reviewError={query.reviewError ?? null}
         contractError={query.contractError ?? null}

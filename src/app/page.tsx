@@ -31,6 +31,7 @@ import { countDealInbox } from "@/lib/gmail-bridge";
 import { listPlatformInvites } from "@/lib/platform-invites";
 import { SeasonalGreeting } from "@/components/seasonal-greeting";
 import { promoViewsForDeals } from "@/lib/promo-visuals";
+import { freeDealSlot } from "@/lib/free-deal-slot";
 
 const TODO_NOTES: Record<string, string> = {
   done: "Marked done.",
@@ -73,6 +74,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     () => fallback ? getDealForViewer(portal.db, portal.viewer, fallback) : Promise.resolve(null),
     () => creatorHome && creatorId ? listCreatorOpenTasks(portal.db, creatorId) : Promise.resolve([]),
   ]);
+  const dealSlot = freeHome && creatorId ? await freeDealSlot(portal.db, creatorId) : null;
+  const dealSlotReason = selected?.canRespondToOffer && dealSlot && !dealSlot.allowed ? dealSlot.reason : null;
   const staff = portal.viewer.role === "admin" || portal.viewer.role === "manager";
   const creatorQuery = staff ? `?creator=${portal.viewedId}` : "";
   const visible = deals.filter((deal) => deal.visibleToCreator && deal.status !== "paid");
@@ -259,6 +262,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         creatorQuery={creatorQuery}
         emptyCopy={creatorHome ? CREATOR_REVIEW_EMPTY : null}
         visuals={visuals}
+        dealSlotReason={dealSlotReason}
         {...dealPowers(portal.viewer)}
       />
       </div>

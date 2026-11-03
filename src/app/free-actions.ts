@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/getDb";
 import { currentViewer } from "@/lib/current-user";
-import { requestCommissionProduct, resolveProductRequest } from "@/lib/commission-access";
+import { commissionRequestSlotBlock, requestCommissionProduct, resolveProductRequest } from "@/lib/commission-access";
 import { saveFreeHandles, saveFreeNiche, saveFreeStatNote, skipFreeOnboarding } from "@/lib/free-onboarding";
 import { saveStatUpload } from "@/lib/stat-uploads";
 import {
@@ -74,7 +74,12 @@ export async function dismissChecklistAction() {
 
 export async function requestProductAction(formData: FormData) {
   const viewer = await viewerOrLogin();
-  const result = await requestCommissionProduct(await getDb(), viewer, String(formData.get("campaignId") ?? ""));
+  const db = await getDb();
+  if (viewer.creatorId) {
+    const blocked = await commissionRequestSlotBlock(db, viewer.creatorId);
+    if (blocked) redirect(`/commission?requestError=${encodeURIComponent(blocked)}`);
+  }
+  const result = await requestCommissionProduct(db, viewer, String(formData.get("campaignId") ?? ""));
   if (!result.ok) redirect(`/commission?requestError=${encodeURIComponent(result.error)}`);
   redirect("/commission?requested=1");
 }

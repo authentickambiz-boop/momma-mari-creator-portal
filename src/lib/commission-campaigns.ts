@@ -3,6 +3,7 @@ import type { PortalDb } from "@/db";
 import { benchCreators, commissionCampaignInterest, commissionCampaigns, creators } from "@/db/schema";
 import { creatorIsFree } from "./account-tier";
 import { redactCommissionForFree } from "./commission-access";
+import { freeDealSlot } from "./free-deal-slot";
 import { nowIso } from "./format";
 import type { Viewer } from "./types";
 
@@ -136,6 +137,8 @@ export async function showCommissionInterest(db: PortalDb, viewer: Viewer, campa
     eq(commissionCampaignInterest.creatorId, viewer.creatorId),
   ));
   if (existing[0]) return { ok: true, already: true };
+  const slot = await freeDealSlot(db, viewer.creatorId);
+  if (!slot.allowed && slot.reason) return { ok: false, status: 409, error: slot.reason };
   await db.insert(commissionCampaignInterest).values({
     id: crypto.randomUUID(),
     campaignId: campaign.id,

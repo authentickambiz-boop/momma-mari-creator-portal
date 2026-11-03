@@ -1,3 +1,5 @@
+import { FREE_DEAL_SLOT_FALLBACK, freeDealSlotCode } from "./free-deal-slot";
+
 const GIFT_ERROR_TEXT = {
   photos: "Add at least one photo link.",
   six: "Use up to six photo links.",
@@ -28,10 +30,13 @@ const GIFT_ERROR_TEXT = {
 
 export const GIFT_NOTES: Record<string, string> = {
   ...GIFT_ERROR_TEXT,
+  "deal-slot": FREE_DEAL_SLOT_FALLBACK,
   "1": "That was not saved.",
 };
 
 export function giftErrorCode(error: string) {
+  const slot = freeDealSlotCode(error);
+  if (slot) return slot;
   const match = (Object.keys(GIFT_ERROR_TEXT) as (keyof typeof GIFT_ERROR_TEXT)[])
     .find((code) => GIFT_ERROR_TEXT[code] === error);
   return match ?? "1";

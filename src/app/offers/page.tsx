@@ -4,6 +4,7 @@ import { CreatorDealReviewCard } from "@/components/creator-deal-review";
 import { PortalFrame } from "@/components/portal-frame";
 import { TagPicker } from "@/components/tag-picker";
 import { listCreatorOffers, listOfferBoard, offerFlagLabel } from "@/lib/brand-offers";
+import { FREE_DEAL_SLOT_FALLBACK, freeDealSlot } from "@/lib/free-deal-slot";
 import { CREATOR_REVIEW_EMPTY, creatorReviewNeedsAction, listCreatorDealReviews } from "@/lib/creator-deal-review";
 import { listSharedOffers } from "@/lib/creator-interest";
 import { loadPortal } from "@/lib/current-user";
@@ -65,8 +66,11 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
     productName: offer.offerLabel,
     dealId: null,
   })));
-  const offerError = offerErrorNote(params.offerError);
-  const reviewNote = params.review ? REVIEW_NOTES[params.review] ?? REVIEW_NOTES["1"] : null;
+  const slot = creatorView && portal.viewer.creatorId ? await freeDealSlot(portal.db, portal.viewer.creatorId) : null;
+  const askedSlot = params.offerError === "deal-slot" || params.review === "deal-slot";
+  const slotReason = slot && !slot.allowed ? (slot.reason ?? FREE_DEAL_SLOT_FALLBACK) : askedSlot ? FREE_DEAL_SLOT_FALLBACK : null;
+  const offerError = params.offerError === "deal-slot" ? null : offerErrorNote(params.offerError);
+  const reviewNote = params.review === "deal-slot" ? null : params.review ? REVIEW_NOTES[params.review] ?? REVIEW_NOTES["1"] : null;
   const nothingToAnswer = creatorView && openInbox.length === 0 && openReviews.length === 0 && shared.length === 0;
   return (
     <PortalFrame
@@ -79,12 +83,13 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}
       {params.promo === "saved" ? <p className="note">Product image saved. Nothing was emailed.</p> : null}
       {promoErrorNote(params.promoError) ? <p className="private-note">{promoErrorNote(params.promoError)}</p> : null}
+      {slotReason ? <p className="callout" role="status">{slotReason}</p> : null}
       {reviewNote ? <p className="note">{reviewNote}</p> : null}
       {offerError ? <p className="private-note">{offerError}</p> : null}
       {creatorView ? (
         <div className="stack">
           {nothingToAnswer ? <p className="note empty">{CREATOR_REVIEW_EMPTY}</p> : null}
-          <CreatorDealReviewCard offers={openReviews} visuals={reviewVisuals} />
+          <CreatorDealReviewCard offers={openReviews} visuals={reviewVisuals} acceptLocked={Boolean(slotReason)} />
           {openInbox.map((offer) => (
             <article key={offer.id} className="card stack">
               <PromoVisual visual={offerVisuals[offer.campaignId]?.choice ?? null} brand={offer.brand} showCheck={false} />
@@ -96,11 +101,13 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
               {offer.question ? <p className="note">Counter you suggested: {offer.question}</p> : null}
               <p className="note"><Link href={`/offers/${offer.campaignId}`}>Product detail</Link></p>
               <div className="deal-review-actions">
-                <form action={respondToOfferAction}>
-                  <input type="hidden" name="allocationId" value={offer.id} />
-                  <input type="hidden" name="decision" value="accepted" />
-                  <button className="btn" type="submit">I&apos;m interested</button>
-                </form>
+                {slotReason ? null : (
+                  <form action={respondToOfferAction}>
+                    <input type="hidden" name="allocationId" value={offer.id} />
+                    <input type="hidden" name="decision" value="accepted" />
+                    <button className="btn" type="submit">I&apos;m interested</button>
+                  </form>
+                )}
                 {offer.response === "pending" ? (
                   <form action={respondToOfferAction} className="stack">
                     <input type="hidden" name="allocationId" value={offer.id} />
@@ -127,12 +134,14 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
               {offer.amountDisplay ? <p>The brand will pay {offer.amountDisplay} for this.</p> : null}
               {offer.counter ? <p className="note">Counter you suggested: {offer.counter}</p> : null}
               <div className="deal-review-actions">
-                <form action={creatorInterestAction}>
-                  <input type="hidden" name="dealId" value={offer.id} />
-                  <input type="hidden" name="decision" value="interested" />
-                  <input type="hidden" name="back" value="offers" />
-                  <button className="btn" type="submit">I&apos;m interested</button>
-                </form>
+                {slotReason ? null : (
+                  <form action={creatorInterestAction}>
+                    <input type="hidden" name="dealId" value={offer.id} />
+                    <input type="hidden" name="decision" value="interested" />
+                    <input type="hidden" name="back" value="offers" />
+                    <button className="btn" type="submit">I&apos;m interested</button>
+                  </form>
+                )}
                 <form action={counterSharedOfferAction} className="stack">
                   <input type="hidden" name="dealId" value={offer.id} />
                   <label>Suggest a counter
