@@ -842,6 +842,18 @@ Do this in Webflow. Nothing in this repo publishes the site.
 
 Local `next dev` serves the app at `/`, not at `/portal`. That is expected. The mount path exists only on Webflow Cloud.
 
+## Free commission requests
+
+Free creators can open the commission board. Brand names, links, and emails on that board stay hidden. A product request stays closed, and the creator sees that requests are coming soon, until `FREE_COMMISSION_LIMIT` is a positive whole number. That number is the cap. It has no default, and this repo does not set it.
+
+`FREE_COMMISSION_COUNT_MODE` chooses which requests count toward that cap. Leave it unset. Unset, blank, or any other value is `lifetime`, which is the behavior already shipping.
+
+- `lifetime`: N requests for the life of the account. Declined and approved requests both count.
+- `lifetime_excluding_declined`: the same lifetime cap. A declined request does not count.
+- `monthly_excluding_declined`: N requests in each calendar month. The month boundary is America/New_York, using the month the request was created. A declined request does not count. When the cap is reached, the creator sees "You've reached this month's free commission limit."
+
+A cancelled request does not count in any mode. Only one request may be open at a time. Paid tiers are not capped by these variables, and they do not request products on this board.
+
 ## Free products
 
 Gifted brand offers live on Free products. A creator, including someone new or on the free bench, can apply only after accepting the terms. The wording is in `src/config/gifted-terms.ts`, marked DRAFT, pending lawyer review. Missing the video after the product arrives flags the retail cost plus a $50 finder's fee. Nothing is charged. Stripe is a later step. The brand is tagged "future paid prospect" on the brand list.
