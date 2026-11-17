@@ -68,7 +68,7 @@ export async function readProductPageImage(pageUrl: string) {
   const safe = publicImagePageUrl(pageUrl);
   if (!safe) return null;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 4000);
+  const timer = setTimeout(() => controller.abort(), 1500);
   try {
     const response = await fetch(safe, {
       signal: controller.signal,
@@ -163,11 +163,18 @@ export async function loadPromoViews(db: PortalDb, subjects: PromoSubject[]): Pr
   ]);
   const storedByKey = new Map(storedRows.map((row) => [`${row.subjectType}:${row.subjectId}`, row]));
   const refreshed = new Map<string, StoredVisual>();
+  const started = Date.now();
   for (const subject of subjects) {
     if (subject.type === "review") continue;
     const row = storedByKey.get(`${subject.type}:${subject.id}`);
     if (!row || refreshed.has(row.id)) continue;
-    refreshed.set(row.id, await refreshWebsiteImage(db, row));
+    // A slow brand site must not hold the creator home open until the worker is killed.
+    if (Date.now() - started > 2000) continue;
+    try {
+      refreshed.set(row.id, await refreshWebsiteImage(db, row));
+    } catch {
+      refreshed.set(row.id, row);
+    }
   }
   for (const subject of subjects) {
     const lookupType = subject.type === "review" ? "review" : subject.type;

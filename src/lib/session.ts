@@ -169,8 +169,12 @@ export async function readSession(db: PortalDb, rawCookie: string | undefined | 
   if (kv) {
     const cached = await kv.get(`session:${id}`);
     if (cached) {
-      const record = JSON.parse(cached) as SessionRecord;
-      if (record.expiresAt > nowIso()) return record;
+      try {
+        const record = JSON.parse(cached) as SessionRecord;
+        if (record?.expiresAt > nowIso()) return record;
+      } catch {
+        console.error("[portal-error] session cache was not readable");
+      }
       await kv.delete(`session:${id}`);
     }
   }

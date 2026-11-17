@@ -44,8 +44,26 @@ import type {
 } from "./types";
 
 function chipsFrom(json: string): Chip[] {
-  const parsed = parseJson<[string, string][]>(json, []);
-  return parsed.map(([text, tone]) => ({ text, tone }));
+  const parsed = parseJson<unknown>(json, []);
+  if (!Array.isArray(parsed)) return [];
+  const chips: Chip[] = [];
+  for (const item of parsed) {
+    if (typeof item === "string" && item.trim()) {
+      chips.push({ text: item.trim(), tone: "c-gray" });
+      continue;
+    }
+    if (!Array.isArray(item) || typeof item[0] !== "string" || !item[0].trim()) continue;
+    const tone = typeof item[1] === "string" && item[1].trim() ? item[1].trim() : "c-gray";
+    chips.push({ text: item[0].trim(), tone });
+  }
+  return chips;
+}
+
+function stringList(json: string): string[] {
+  const parsed = parseJson<unknown>(json, []);
+  if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  if (typeof parsed === "string" && parsed.trim()) return [parsed.trim()];
+  return [];
 }
 
 function toCreator(row: typeof creators.$inferSelect): CreatorProfile {
@@ -348,7 +366,7 @@ export async function getDealForViewer(db: PortalDb, viewer: Viewer, dealId: str
     gmailThreadId: row.gmailThreadId,
     rateLabel: managerView ? null : row.rateLabel,
     rateCents: managerView ? null : row.rateCents,
-    deliverables: parseJson<string[]>(row.deliverablesJson, []),
+    deliverables: stringList(row.deliverablesJson),
     usageRights: row.usageRights,
     brief: row.brief,
     briefUrl: row.briefUrl,

@@ -32,6 +32,7 @@ import { calendarOwnerId, readPrimaryCalendarId, saveCalendarConnection } from "
 import { saveDriveConnection } from "@/lib/account-connections";
 import { AGENCY_MAILBOX_ID, saveAgencyMailbox } from "@/lib/agency-mailbox";
 import { rememberCreatorLogin, rememberGmailConsent } from "@/lib/gmail-bridge-start";
+import { logPortalError } from "@/lib/portal-error";
 import { creatorBlockedFromConnections } from "@/lib/account-tier";
 import { saveGmailConnection } from "@/lib/onboarding";
 import { PORTAL_HOME_COOKIE, portalHomeCookie } from "@/lib/portal-return";
@@ -82,8 +83,20 @@ export async function GET(request: Request) {
   const session = await createSession(db, person);
   const warmed = warmSessionProfile(db, session.record, person);
   await rememberCreatorLogin(db, person);
-  const start = worlds ?? home ?? await creatorStartPath(db, person);
-  await warmed;
+  let start = worlds ?? home ?? "/";
+  if (!worlds && !home) {
+    try {
+      start = await creatorStartPath(db, person);
+    } catch (error) {
+      logPortalError("creator start path", error);
+      start = "/";
+    }
+  }
+  try {
+    await warmed;
+  } catch (error) {
+    logPortalError("session profile", error);
+  }
   const response = NextResponse.redirect(`${appBaseUrl()}${start}`);
   response.cookies.set(sessionCookieName(), session.cookieValue, sessionCookieOptions());
   response.cookies.set(oauthStateCookieName(), "", { ...sessionCookieOptions(), maxAge: 0 });

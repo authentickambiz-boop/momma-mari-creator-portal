@@ -8,6 +8,7 @@ import { findCreatorById, listCreators } from "./queries";
 import { creatorIsFree } from "./account-tier";
 import { profileIntakeMissing } from "./profile-intake";
 import { gather } from "./parallel";
+import { guardPortal } from "./portal-error";
 import { readSession, rememberSessionProfile, sessionProfileFresh, sessionCookieName, type SessionRecord } from "./session";
 import type { CreatorProfile, Viewer } from "./types";
 import { worldsReturnPath } from "./worlds/office-return";
@@ -116,8 +117,10 @@ export async function loadPortal(requested: string | null, options?: { allowInco
   const db = await getDb();
   const creatorId = viewer.role === "creator" ? viewer.creatorId : null;
   const [creatorFree, intakeMissing, everyone] = await gather([
-    () => creatorId ? creatorIsFree(db, creatorId) : Promise.resolve(false),
-    () => creatorId && !options?.allowIncompleteProfile ? profileIntakeMissing(db, creatorId) : Promise.resolve(false),
+    () => creatorId ? guardPortal("account tier", false, () => creatorIsFree(db, creatorId)) : Promise.resolve(false),
+    () => creatorId && !options?.allowIncompleteProfile
+      ? guardPortal("profile intake", false, () => profileIntakeMissing(db, creatorId))
+      : Promise.resolve(false),
     () => listCreators(db),
   ]);
   if (!options?.allowIncompleteProfile && creatorId && !creatorFree && intakeMissing) redirect("/profile/intake");

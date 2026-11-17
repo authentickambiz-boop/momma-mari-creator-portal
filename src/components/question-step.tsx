@@ -30,8 +30,11 @@ export function QuestionStep({
   error: string | null;
   emailReady: boolean;
 }) {
-  const index = stepIndex(stepId);
+  const found = stepIndex(stepId);
+  const activeId: QuestionStepId = found >= 0 ? stepId : "niches";
+  const index = found >= 0 ? found : 0;
   const step = QUESTION_STEPS[index];
+  if (!step) return null;
   const previous = QUESTION_STEPS[index - 1]?.id;
   const width = Math.round(((index + 1) / QUESTION_STEPS.length) * 100);
   return (
@@ -42,8 +45,8 @@ export function QuestionStep({
       </div>
       <h2>{step.title}</h2>
       {error ? <p className="private-note" role="alert">{error}</p> : null}
-      {stepId === "niches" ? <NicheMultiSelect selected={answers.niches} nicheOther={answers.nicheOther ?? ""} /> : null}
-      {stepId === "platforms" ? (
+      {activeId === "niches" ? <NicheMultiSelect selected={answers.niches} nicheOther={answers.nicheOther ?? ""} /> : null}
+      {activeId === "platforms" ? (
         <PlatformFields
           options={PLATFORM_OPTIONS}
           labels={Object.fromEntries(PLATFORM_OPTIONS.map((platform) => [platform, platformLabel(platform)]))}
@@ -61,7 +64,7 @@ export function QuestionStep({
           analyticsProof={answers.analyticsProof ?? ""}
         />
       ) : null}
-      {stepId === "audience" ? (
+      {activeId === "audience" ? (
         <>
           <label>
             Audience size
@@ -87,8 +90,8 @@ export function QuestionStep({
           <TagPicker name="locations" label="Top locations" options={LOCATION_OPTIONS} selected={answers.locations} placeholder="Country or state" />
         </>
       ) : null}
-      {stepId === "formats" ? <TagPicker name="formats" label="Formats" options={FORMAT_OPTIONS} selected={answers.formats} /> : null}
-      {stepId === "frequency" ? (
+      {activeId === "formats" ? <TagPicker name="formats" label="Formats" options={FORMAT_OPTIONS} selected={answers.formats} /> : null}
+      {activeId === "frequency" ? (
         <label>
           Posting frequency
           <select name="frequency" defaultValue={answers.frequency}>
@@ -97,7 +100,7 @@ export function QuestionStep({
           </select>
         </label>
       ) : null}
-      {stepId === "rates" ? (
+      {activeId === "rates" ? (
         <>
           <p className="note">Your minimum stays on your sign-in. Brands and other creators never see it.</p>
           <label>
@@ -139,13 +142,13 @@ export function QuestionStep({
           </label>
         </>
       ) : null}
-      {stepId === "brands" ? (
+      {activeId === "brands" ? (
         <>
           <TagPicker name="brands" label="Brands you have worked with" options={BRAND_OPTIONS} selected={answers.brands} />
           <TagPicker name="blocked" label="Brands or categories you won't work with" options={BRAND_OPTIONS} selected={answers.blocked} placeholder="Search or add" />
         </>
       ) : null}
-      {stepId === "kids" ? (
+      {activeId === "kids" ? (
         <>
           <p className="note">Optional. Age ranges only. You can skip this.</p>
           <TagPicker name="kidAges" label="Kids' age ranges" options={AGE_RANGES} selected={answers.kidAges} />
@@ -155,7 +158,7 @@ export function QuestionStep({
           </label>
         </>
       ) : null}
-      {stepId === "camera" ? (
+      {activeId === "camera" ? (
         <label>
           On-camera comfort for your kids
           <select name="onCamera" defaultValue={answers.onCamera}>
@@ -164,7 +167,7 @@ export function QuestionStep({
           </select>
         </label>
       ) : null}
-      {stepId === "availability" ? (
+      {activeId === "availability" ? (
         <>
           <label>
             Availability
@@ -179,7 +182,7 @@ export function QuestionStep({
           </label>
         </>
       ) : null}
-      {stepId === "shipping" ? (
+      {activeId === "shipping" ? (
         <label>
           Shipping region
           <select name="shipping" defaultValue={answers.shipping}>
@@ -188,22 +191,22 @@ export function QuestionStep({
           </select>
         </label>
       ) : null}
-      {stepId === "languages" ? <TagPicker name="languages" label="Languages" options={LANGUAGE_OPTIONS} selected={answers.languages} /> : null}
-      {stepId === "bot" ? (
+      {activeId === "languages" ? <TagPicker name="languages" label="Languages" options={LANGUAGE_OPTIONS} selected={answers.languages} /> : null}
+      {activeId === "bot" ? (
         <p className="note">
           {emailReady
             ? "The last step is the bot profile below."
             : "Choose how brand email should work above, then finish the bot profile below. Nothing is sent from here."}
         </p>
       ) : null}
-      <input type="hidden" name="step" value={stepId} />
+      <input type="hidden" name="step" value={activeId} />
       <div className="wizard-actions">
-        {stepId === "bot" ? null : <button className="btn" type="submit">Continue</button>}
+        {activeId === "bot" ? null : <button className="btn" type="submit">Continue</button>}
         {step.optional ? <button className="btn ghost" type="submit" name="skip" value="1">Skip</button> : null}
         <button className="btn ghost" type="submit" name="pause" value="1">Finish later</button>
         {previous ? <Link href={`/onboarding?step=${previous}`}>Back</Link> : null}
       </div>
-      {stepId === "bot" ? null : <p className="note">Next: {QUESTION_STEPS.find((item) => item.id === nextStep(stepId))?.title ?? "Done"}</p>}
+      {activeId === "bot" ? null : <p className="note">Next: {QUESTION_STEPS.find((item) => item.id === nextStep(activeId))?.title ?? "Done"}</p>}
     </form>
   );
 }

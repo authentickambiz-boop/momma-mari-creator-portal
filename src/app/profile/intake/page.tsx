@@ -9,6 +9,7 @@ import { loadProfileIntake } from "@/lib/profile-intake";
 import { profileIntakeErrorNote } from "@/lib/profile-intake-notes";
 import { US_STATES } from "@/lib/profile-shared";
 import { creatorStartPath } from "@/lib/questionnaire";
+import { guardPortal } from "@/lib/portal-error";
 
 export default async function ProfileIntakePage({ searchParams }: { searchParams: Promise<{ saved?: string; intakeError?: string }> }) {
   const params = await searchParams;
@@ -22,10 +23,10 @@ export default async function ProfileIntakePage({ searchParams }: { searchParams
       </PortalFrame>
     );
   }
-  await ensureProfileIntakeTask(portal.db, portal.viewer.creatorId);
-  const savedForm = await loadProfileIntake(portal.db, portal.viewer);
+  await guardPortal("intake task", undefined, () => ensureProfileIntakeTask(portal.db, portal.viewer.creatorId!));
+  const savedForm = await guardPortal("intake form", null, () => loadProfileIntake(portal.db, portal.viewer));
   const handles = savedForm?.handles ?? [];
-  const next = await creatorStartPath(portal.db, portal.viewer);
+  const next = await guardPortal("start path", "/", () => creatorStartPath(portal.db, portal.viewer));
   return (
     <PortalFrame viewer={portal.viewer} tab="profile" creators={portal.creators} viewedId={portal.viewedId} hello={<div className="hello"><h1>Complete your profile</h1><p>Legal name, mailing address, phone, and handles for your contract. Nothing is emailed.</p></div>}>
       {params.saved ? <p className="note">Saved. Nothing was emailed.</p> : null}

@@ -118,6 +118,42 @@ export function stepIndex(id: string) {
   return QUESTION_STEPS.findIndex((step) => step.id === id);
 }
 
+export function knownQuestionStep(id: string | null | undefined): QuestionStepId {
+  if (id && stepIndex(id) >= 0) return id as QuestionStepId;
+  return "niches";
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.values(value).every((item) => typeof item === "string");
+}
+
+function stringList(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+/** A stored answer blob can be the wrong shape. Reading it must not crash the page, and this does not write. */
+export function normalizeQuestionnaireAnswers(value: unknown): QuestionnaireAnswers {
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const answers: QuestionnaireAnswers = { ...EMPTY };
+  for (const key of Object.keys(EMPTY) as (keyof typeof EMPTY)[]) {
+    const fallback = EMPTY[key];
+    if (Array.isArray(fallback)) answers[key] = stringList(raw[key]) as never;
+    else if (typeof fallback === "string") answers[key] = (typeof raw[key] === "string" ? raw[key] : fallback) as never;
+    else if (typeof fallback === "boolean") answers[key] = (raw[key] === true) as never;
+    else if (fallback && typeof fallback === "object") answers[key] = (isStringRecord(raw[key]) ? raw[key] : fallback) as never;
+  }
+  if (typeof raw.nicheOther === "string") answers.nicheOther = raw.nicheOther;
+  if (typeof raw.avgViewers === "string") answers.avgViewers = raw.avgViewers;
+  if (typeof raw.hoursPerWeek === "string") answers.hoursPerWeek = raw.hoursPerWeek;
+  if (typeof raw.streamCategories === "string") answers.streamCategories = raw.streamCategories;
+  if (typeof raw.analyticsProof === "string") answers.analyticsProof = raw.analyticsProof;
+  if (isStringRecord(raw.platformUrls)) answers.platformUrls = raw.platformUrls;
+  if (isStringRecord(raw.platformFollowers)) answers.platformFollowers = raw.platformFollowers;
+  return answers;
+}
+
 export function nextStep(id: string): QuestionStepId | "done" {
   const index = stepIndex(id);
   if (index < 0 || index >= QUESTION_STEPS.length - 1) return "done";
@@ -127,9 +163,11 @@ export function nextStep(id: string): QuestionStepId | "done" {
 export async function questionnaireFor(db: PortalDb, creatorId: string) {
   const rows = await db.select().from(creatorQuestionnaires).where(eq(creatorQuestionnaires.creatorId, creatorId));
   const row = rows[0];
+  const stored = row?.step || "niches";
+  const step = stored === "done" || stepIndex(stored) >= 0 ? stored : "niches";
   return {
-    step: (row?.step || "niches") as QuestionStepId | "done",
-    answers: { ...EMPTY, ...parseJson<Partial<QuestionnaireAnswers>>(row?.answersJson, {}) },
+    step: step as QuestionStepId | "done",
+    answers: normalizeQuestionnaireAnswers(parseJson<unknown>(row?.answersJson, {})),
     paused: Boolean(row?.pausedAt),
     finished: Boolean(row?.finishedAt),
   };

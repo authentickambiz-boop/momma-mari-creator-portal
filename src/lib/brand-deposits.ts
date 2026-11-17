@@ -386,13 +386,23 @@ export async function ensureDealDeposit(db: PortalDb, dealId: string) {
 }
 
 export async function ensureCreatorDeposits(db: PortalDb, creatorId: string) {
-  const rows = await db.select({ id: deals.id }).from(deals).where(eq(deals.creatorId, creatorId));
-  for (const row of rows) await ensureDealDeposit(db, row.id);
+  try {
+    const rows = await db.select({ id: deals.id }).from(deals).where(eq(deals.creatorId, creatorId));
+    for (const row of rows) await ensureDealDeposit(db, row.id);
+  } catch (error) {
+    const { logPortalError } = await import("./portal-error");
+    logPortalError("creator deposits", error);
+  }
 }
 
 export async function ensureOpenDeposits(db: PortalDb) {
-  const rows = await db.select({ id: deals.id }).from(deals);
-  for (const row of rows) await ensureDealDeposit(db, row.id);
+  try {
+    const rows = await db.select({ id: deals.id }).from(deals);
+    for (const row of rows) await ensureDealDeposit(db, row.id);
+  } catch (error) {
+    const { logPortalError } = await import("./portal-error");
+    logPortalError("open deposits", error);
+  }
 }
 
 export async function setDealDepositStatus(

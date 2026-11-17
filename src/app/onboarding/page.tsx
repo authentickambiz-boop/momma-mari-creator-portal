@@ -20,6 +20,7 @@ import { finishErrorNote } from "@/lib/finish-notes";
 import { canOpenCharacterCreator } from "@/lib/worlds/character";
 import { questionErrorNote } from "@/lib/question-notes";
 import { questionnaireFor, stepIndex, type QuestionStepId } from "@/lib/questionnaire";
+import { guardPortal } from "@/lib/portal-error";
 
 const GMAIL_ERRORS: Record<string, string> = {
   oauth: "Google didn't finish connecting your email. Try the button again.",
@@ -37,12 +38,21 @@ export default async function OnboardingPage({
   const portal = await loadPortal(params.creator ?? null);
   if (portal.viewer.role === "manager") redirect("/");
   const creator = portal.viewed;
-  const connection = creator ? await gmailConnectionState(portal.db, creator.id) : null;
-  const profile = creator ? await onboardingForCreator(portal.db, creator.id) : null;
-  const setup = creator ? await emailSetupFor(portal.db, creator.id) : null;
+  const connection = creator ? await guardPortal("gmail connection", null, () => gmailConnectionState(portal.db, creator.id)) : null;
+  const profile = creator ? await guardPortal("onboarding profile", null, () => onboardingForCreator(portal.db, creator.id)) : null;
+  const setup = creator ? await guardPortal("email setup", null, () => emailSetupFor(portal.db, creator.id)) : null;
   const own = portal.viewer.role === "creator";
   if (creator && own && portal.viewer.creatorId && await creatorIsFree(portal.db, portal.viewer.creatorId)) {
-    const state = await freeOnboardingState(portal.db, portal.viewer.creatorId);
+    const state = await guardPortal("free onboarding", {
+      handles: [],
+      niche: "",
+      nicheOther: "",
+      statNote: "",
+      skipped: false,
+      finished: false,
+      firstIncomplete: "handles" as const,
+      uploadCount: 0,
+    }, () => freeOnboardingState(portal.db, portal.viewer.creatorId!));
     const step = freeStepFrom(state.firstIncomplete, params.step);
     return (
       <PortalFrame
@@ -63,7 +73,7 @@ export default async function OnboardingPage({
       </PortalFrame>
     );
   }
-  const quiz = creator && own ? await questionnaireFor(portal.db, creator.id) : null;
+  const quiz = creator && own ? await guardPortal("questionnaire", null, () => questionnaireFor(portal.db, creator.id)) : null;
   const requested = params.step && stepIndex(params.step) >= 0 ? params.step : quiz?.step;
   const savedIndex = stepIndex(quiz?.step && quiz.step !== "done" ? quiz.step : "bot");
   const activeStep = (quiz && requested && stepIndex(requested) >= 0 && stepIndex(requested) <= savedIndex
@@ -74,7 +84,7 @@ export default async function OnboardingPage({
   const gmailError = params.gmail ? GMAIL_ERRORS[params.gmail] ?? CONNECTION_RETRY_NOTE : null;
   const choice = setup?.choice ?? null;
   const gmailPrompt = creator && own && choice !== "hosted"
-    ? await gmailBridgeFirstLoginPrompt(portal.db, creator.id)
+    ? await guardPortal("gmail prompt", null, () => gmailBridgeFirstLoginPrompt(portal.db, creator.id))
     : null;
   const readyForProfile = Boolean(connection?.connected) || (choice === "hosted" && Boolean(setup?.hostedEmailAddress));
   const finishNote = params.error

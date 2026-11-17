@@ -10,6 +10,7 @@ import { dealPowers } from "@/lib/authz";
 import { longDate } from "@/lib/format";
 import { currentViewer, loadPortal } from "@/lib/current-user";
 import { gather } from "@/lib/parallel";
+import { guardPortal } from "@/lib/portal-error";
 import { welcomeChecklist } from "@/lib/welcome-checklist";
 import { dismissChecklistAction } from "@/app/free-actions";
 import { ensureInviteCode } from "@/lib/signup-codes";
@@ -52,26 +53,29 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   else if (portal.viewer.creatorId) await ensureCreatorDeposits(portal.db, portal.viewer.creatorId);
   else if (portal.viewedId && portal.viewedId !== "all") await ensureCreatorDeposits(portal.db, portal.viewedId);
   const [checklist, inviteCode, deals, notices, managerNotices, waiting, payoutsPending, analytics, inboxCount, creatorNotices, quiz, brandOffers, platformInvites, dealReviews] = await gather([
-    () => freeHome && creatorId ? welcomeChecklist(portal.db, creatorId) : Promise.resolve(null),
-    () => creatorId ? ensureInviteCode(portal.db, creatorId) : Promise.resolve(null),
-    () => listDealsForViewer(portal.db, portal.viewer, portal.viewedId, names),
-    () => portal.viewer.role === "admin" ? listUnreadNotices(portal.db) : Promise.resolve([]),
-    () => portal.viewer.role === "manager" && portal.viewer.managerId ? listManagerNotices(portal.db, portal.viewer.managerId) : Promise.resolve([]),
-    () => portal.viewer.role === "manager" ? needsYou(portal.db, portal.viewer) : Promise.resolve([]),
-    () => creatorHome && creatorId ? countOwnPayouts(portal.db, creatorId) : Promise.resolve(0),
-    () => creatorHome ? analyticsBoard(portal.db, portal.viewer) : Promise.resolve(null),
-    () => creatorHome && creatorId ? countDealInbox(portal.db, portal.viewer, creatorId) : Promise.resolve(0),
-    () => creatorId ? listUnreadCreatorNotices(portal.db, creatorId) : Promise.resolve([]),
-    () => creatorId ? questionnaireFor(portal.db, creatorId) : Promise.resolve(null),
-    () => portal.viewer.role === "creator" ? listCreatorOffers(portal.db, portal.viewer) : Promise.resolve([]),
-    () => creatorHome ? listPlatformInvites(portal.db, portal.viewer) : Promise.resolve([]),
-    () => creatorHome && creatorId ? listCreatorDealReviews(portal.db, creatorId) : Promise.resolve([]),
+    () => freeHome && creatorId ? guardPortal("welcome checklist", null, () => welcomeChecklist(portal.db, creatorId)) : Promise.resolve(null),
+    () => creatorId ? guardPortal("invite code", null, () => ensureInviteCode(portal.db, creatorId)) : Promise.resolve(null),
+    () => guardPortal("deals", [], () => listDealsForViewer(portal.db, portal.viewer, portal.viewedId, names)),
+    () => portal.viewer.role === "admin" ? guardPortal("notices", [], () => listUnreadNotices(portal.db)) : Promise.resolve([]),
+    () => {
+      const managerId = portal.viewer.role === "manager" ? portal.viewer.managerId : null;
+      return managerId ? guardPortal("manager notices", [], () => listManagerNotices(portal.db, managerId)) : Promise.resolve([]);
+    },
+    () => portal.viewer.role === "manager" ? guardPortal("manager queue", [], () => needsYou(portal.db, portal.viewer)) : Promise.resolve([]),
+    () => creatorHome && creatorId ? guardPortal("payouts", 0, () => countOwnPayouts(portal.db, creatorId)) : Promise.resolve(0),
+    () => creatorHome ? guardPortal("analytics", null, () => analyticsBoard(portal.db, portal.viewer)) : Promise.resolve(null),
+    () => creatorHome && creatorId ? guardPortal("deal inbox", 0, () => countDealInbox(portal.db, portal.viewer, creatorId)) : Promise.resolve(0),
+    () => creatorId ? guardPortal("creator notices", [], () => listUnreadCreatorNotices(portal.db, creatorId)) : Promise.resolve([]),
+    () => creatorId ? guardPortal("questionnaire", null, () => questionnaireFor(portal.db, creatorId)) : Promise.resolve(null),
+    () => portal.viewer.role === "creator" ? guardPortal("brand offers", [], () => listCreatorOffers(portal.db, portal.viewer)) : Promise.resolve([]),
+    () => creatorHome ? guardPortal("platform invites", [], () => listPlatformInvites(portal.db, portal.viewer)) : Promise.resolve([]),
+    () => creatorHome && creatorId ? guardPortal("deal reviews", [], () => listCreatorDealReviews(portal.db, creatorId)) : Promise.resolve([]),
   ]);
   const fallback = deals.find((deal) => deal.id === "vev")?.id ?? deals[0]?.id;
   const [visuals, selected, openTasks] = await gather([
-    () => promoViewsForDeals(portal.db, deals),
-    () => fallback ? getDealForViewer(portal.db, portal.viewer, fallback) : Promise.resolve(null),
-    () => creatorHome && creatorId ? listCreatorOpenTasks(portal.db, creatorId) : Promise.resolve([]),
+    () => guardPortal("promo images", {}, () => promoViewsForDeals(portal.db, deals)),
+    () => fallback ? guardPortal("selected deal", null, () => getDealForViewer(portal.db, portal.viewer, fallback)) : Promise.resolve(null),
+    () => creatorHome && creatorId ? guardPortal("to-dos", [], () => listCreatorOpenTasks(portal.db, creatorId)) : Promise.resolve([]),
   ]);
   const staff = portal.viewer.role === "admin" || portal.viewer.role === "manager";
   const creatorQuery = staff ? `?creator=${portal.viewedId}` : "";

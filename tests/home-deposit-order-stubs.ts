@@ -109,4 +109,10 @@ export function ensureCreatorDeposits(...args){ return finishDeposit("ensureCrea
   "@/lib/gmail-bridge": asyncFn("countDealInbox", "0"),
   "@/lib/platform-invites": asyncFn("listPlatformInvites", "[]"),
   "@/lib/promo-visuals": asyncFn("promoViewsForDeals", "[]"),
+  "@/lib/portal-error": `export async function guardPortal(_label, fallback, task){
+  try { return await task(); } catch { return fallback; }
+}
+export function logPortalError(){ return "ref"; }
+export function portalErrorRef(){ return "ref"; }
+`,
 };
